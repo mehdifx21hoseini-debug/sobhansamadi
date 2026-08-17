@@ -4,6 +4,19 @@ body {
 	background: #f4f5f9;
 }
 
+/* fix: نوزها z-index:-1 روی آیکون box-card.mini می‌ذاره که باعث میشه آیکون پشت کارت پنهان بشه */
+.box-card {
+	position: relative;
+}
+
+.box-card.mini {
+	margin-top: 22px;
+}
+
+.box-card.mini>i {
+	z-index: 1;
+}
+
 .text-sm {
 	font-size: 0.8rem;
 }
