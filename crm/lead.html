@@ -1,5 +1,5 @@
 <!doctype html>
-<html class="no-js" lang="fa" dir="rtl">
+<html class="no-js rtl" lang="fa" dir="rtl">
 
 <head>
 	<meta charset="utf-8">
@@ -7,6 +7,7 @@
 	<title>جزئیات لید — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
 	<link rel="stylesheet" href="assets/app.css">
@@ -14,137 +15,180 @@
 
 <body>
 
-	<div class="app-shell">
-
-		<aside class="app-sidebar">
-			<div class="sidebar-brand">
-				<div class="sidebar-brand-icon"><i class="fas fa-graduation-cap"></i></div>
-				<div class="sidebar-brand-text">
-					<span class="sidebar-brand-title">CRM آکادمی</span>
-					<span class="sidebar-brand-sub">مدیریت لیدهای مشاوره</span>
-				</div>
+	<div class="bmd-layout-container bmd-drawer-f-l avam-container bmd-drawer-in">
+		<header class="bmd-layout-header">
+			<div class="navbar navbar-light bg-faded">
+				<button class="navbar-toggler" type="button" data-toggle="drawer" data-target="#dw-s1">
+					<span class="navbar-toggler-icon"></span>
+				</button>
+				<ul class="nav navbar-nav">
+					<li class="nav-item">
+						<div class="dropdown">
+							<button class="btn dropdown-toggle m-0" type="button" id="userMenu" data-toggle="dropdown"
+								aria-haspopup="true" aria-expanded="false">
+								<i class="far fa-user-circle fa-lg ml-1"></i> مشاور فروش
+							</button>
+							<div class="dropdown-menu dropdown-menu-right" aria-labelledby="userMenu">
+								<span class="dropdown-item dropdown-header">پشتیبان مجموعه</span>
+								<div class="dropdown-divider"></div>
+								<button class="dropdown-item" type="button"><i
+										class="fas fa-sign-out-alt fa-sm c-main mr-2"></i>خروج</button>
+							</div>
+						</div>
+					</li>
+				</ul>
 			</div>
+		</header>
 
-			<nav class="sidebar-nav">
-				<a href="index.html" class="sidebar-link">
-					<i class="fas fa-address-book"></i><span>لیدهای مشاوره</span>
-				</a>
-			</nav>
-
-			<div class="sidebar-user">
-				<div class="sidebar-user-avatar">م.ف</div>
-				<div class="sidebar-user-info">
-					<span class="sidebar-user-name">مشاور فروش</span>
-					<span class="sidebar-user-role">پشتیبان مجموعه</span>
-				</div>
-				<button class="sidebar-user-logout" title="خروج"><i class="fas fa-sign-out-alt"></i></button>
+		<div id="dw-s1" class="bmd-layout-drawer bg-faded">
+			<div class="container-fluid side-bar-container">
+				<header class="pb-0">
+					<a class="navbar-brand" href="index.html">
+						<div class="brand-logo">
+							<i class="fas fa-graduation-cap"></i>
+							<span>CRM آکادمی</span>
+						</div>
+					</a>
+				</header>
+				<p class="side-comment">منو</p>
+				<ul class="side a-collapse">
+					<div class="side-item-container">
+						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای مشاوره</a>
+						</li>
+					</div>
+				</ul>
 			</div>
-		</aside>
-
-		<div class="app-main">
-			<header class="app-topbar">
-				<div class="breadcrumb-nav">
-					<i class="fas fa-home"></i>
-					<span class="breadcrumb-sep">/</span>
-					<a href="index.html" class="breadcrumb-link">لیدهای مشاوره</a>
-					<span class="breadcrumb-sep">/</span>
-					<span class="breadcrumb-current" id="breadcrumbLeadName">جزئیات لید</span>
-				</div>
-			</header>
-
-			<main class="app-content">
-
-				<a href="index.html" class="back-link"><i class="fas fa-arrow-right ml-1"></i>بازگشت به لیست لیدها</a>
-
-				<div id="leadNotFound" class="d-none text-center text-muted py-5">
-					لید موردنظر پیدا نشد.
-				</div>
-
-				<div id="leadContent" class="lead-grid">
-					<div class="lead-main">
-
-						<div class="panel panel-pad">
-							<div class="lead-header-row">
-								<div>
-									<h2 id="leadName" class="lead-name"></h2>
-									<p id="leadPhone" class="lead-phone" dir="ltr"></p>
-								</div>
-								<span id="leadStatusBadge" class="status-badge"></span>
-							</div>
-
-							<div class="call-actions">
-								<button class="btn btn-call btn-called" id="btnCalled">
-									<i class="fas fa-phone ml-1"></i>تماس گرفته شد
-								</button>
-								<button class="btn btn-call btn-noanswer" id="btnNoAnswer">
-									<i class="fas fa-phone-slash ml-1"></i>پاسخ نداد
-								</button>
-							</div>
-						</div>
-
-						<div class="panel panel-pad">
-							<h3 class="panel-title"><i class="fas fa-book-open"></i>اطلاعات ثبت‌شده در ربات تلگرام</h3>
-							<div class="info-grid">
-								<div>
-									<div class="info-label">سطح علمی</div>
-									<div id="leadLevel" class="info-value"></div>
-								</div>
-								<div>
-									<div class="info-label">ساعت مناسب تماس</div>
-									<div id="leadPreferredTime" class="info-value"></div>
-								</div>
-								<div class="info-grid-full">
-									<div class="info-label">سوال / موضوع مشاوره</div>
-									<div id="leadTopic" class="info-value"></div>
-								</div>
-							</div>
-						</div>
-
-						<div class="panel panel-pad">
-							<div class="panel-title-row">
-								<h3 class="panel-title"><i class="fas fa-paper-plane"></i>ارسال شرایط ثبت‌نام</h3>
-								<button class="btn btn-accent btn-sm" id="btnOpenComposer">ارسال پیام</button>
-							</div>
-
-							<div id="composerBox" class="d-none">
-								<textarea id="messageDraft" class="composer-textarea" rows="8"></textarea>
-								<div class="composer-actions">
-									<button class="btn btn-accent btn-sm" id="btnSendMessage">ارسال به تلگرام</button>
-									<button class="btn btn-ghost btn-sm" id="btnCancelComposer">انصراف</button>
-								</div>
-								<p class="hint-text">در نسخه فعلی، ارسال پیام به‌صورت نمایشی ثبت می‌شود. اتصال واقعی
-									به تلگرام از طریق n8n در آینده اضافه خواهد شد.</p>
-							</div>
-
-							<div id="messageList"></div>
-							<p id="noMessages" class="text-muted mb-0">هنوز پیامی برای این لید ارسال نشده است.</p>
-						</div>
-
-					</div>
-
-					<div class="lead-side">
-						<div class="panel panel-pad">
-							<h3 class="panel-title"><i class="fas fa-clock"></i>وضعیت</h3>
-							<div class="info-row"><span>شناسه لید</span><span id="leadId" class="mono"></span></div>
-							<div class="info-row"><span>تاریخ ثبت</span><span id="leadCreatedAt"></span></div>
-							<div class="info-row"><span>ارسال شرایط ثبت‌نام</span><span id="leadRegSent"></span></div>
-						</div>
-
-						<div class="panel panel-pad">
-							<h3 class="panel-title"><i class="fas fa-sticky-note"></i>یادداشت داخلی</h3>
-							<textarea id="internalNote" class="composer-textarea" rows="5"
-								placeholder="مثلاً: با رضا تماس گرفتم، علاقه‌مند بود..."></textarea>
-							<p class="hint-text"><i class="fas fa-comment-alt ml-1"></i>این یادداشت فقط برای تیم
-								داخلی است و برای فرد ارسال نمی‌شود.</p>
-						</div>
-					</div>
-				</div>
-
-			</main>
 		</div>
+
+		<main class="bmd-layout-content">
+			<div class="container-fluid">
+
+				<div class="row m-1 pb-3 mb-1">
+					<div class="col-12 p-2">
+						<a href="index.html" class="back-link"><i class="fas fa-arrow-right ml-1"></i>بازگشت به لیست
+							لیدها</a>
+					</div>
+				</div>
+
+				<div id="leadNotFound" class="row m-1 d-none">
+					<div class="col-12 p-2 text-center text-muted py-5">
+						لید موردنظر پیدا نشد.
+					</div>
+				</div>
+
+				<div id="leadContent" class="row m-1">
+					<div class="col-md-8 p-2">
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<div class="d-flex justify-content-between align-items-start flex-wrap">
+									<div>
+										<h4 id="leadName" class="mb-1"></h4>
+										<p id="leadPhone" class="text-muted" dir="ltr"></p>
+									</div>
+									<span id="leadStatusBadge" class="status-badge"></span>
+								</div>
+
+								<div class="call-actions mt-3">
+									<button class="btn btn-call btn-called" id="btnCalled">
+										<i class="fas fa-phone mr-1"></i>تماس گرفته شد
+									</button>
+									<button class="btn btn-call btn-noanswer" id="btnNoAnswer">
+										<i class="fas fa-phone-slash mr-1"></i>پاسخ نداد
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-book-open c-main mr-2"></i>اطلاعات ثبت‌شده در
+									ربات تلگرام</h5>
+								<hr>
+								<div class="row">
+									<div class="col-sm-6 mb-2">
+										<div class="text-muted text-sm">سطح علمی</div>
+										<div id="leadLevel"></div>
+									</div>
+									<div class="col-sm-6 mb-2">
+										<div class="text-muted text-sm">ساعت مناسب تماس</div>
+										<div id="leadPreferredTime"></div>
+									</div>
+									<div class="col-12">
+										<div class="text-muted text-sm">سوال / موضوع مشاوره</div>
+										<div id="leadTopic"></div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<div class="d-flex justify-content-between align-items-center">
+									<h5 class="card-title mb-0"><i class="fas fa-paper-plane c-main mr-2"></i>ارسال
+										شرایط ثبت‌نام</h5>
+									<button class="btn btn-sm btn-brand" id="btnOpenComposer">ارسال پیام</button>
+								</div>
+								<hr>
+
+								<div id="composerBox" class="d-none">
+									<textarea id="messageDraft" class="form-control" rows="8"></textarea>
+									<div class="mt-2">
+										<button class="btn btn-brand btn-sm" id="btnSendMessage">ارسال به
+											تلگرام</button>
+										<button class="btn btn-outline-secondary btn-sm"
+											id="btnCancelComposer">انصراف</button>
+									</div>
+									<p class="text-muted text-sm mt-2">در نسخه فعلی، ارسال پیام به‌صورت نمایشی ثبت
+										می‌شود. اتصال واقعی به تلگرام از طریق n8n در آینده اضافه خواهد شد.</p>
+								</div>
+
+								<div id="messageList"></div>
+								<p id="noMessages" class="text-muted mb-0">هنوز پیامی برای این لید ارسال نشده است.</p>
+							</div>
+						</div>
+
+					</div>
+
+					<div class="col-md-4 p-2">
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-clock c-main mr-2"></i>وضعیت</h5>
+								<hr>
+								<div class="info-row"><span class="text-muted">شناسه لید</span><span
+										id="leadId" class="mono"></span></div>
+								<div class="info-row"><span class="text-muted">تاریخ ثبت</span><span
+										id="leadCreatedAt"></span></div>
+								<div class="info-row"><span class="text-muted">ارسال شرایط ثبت‌نام</span><span
+										id="leadRegSent"></span></div>
+							</div>
+						</div>
+
+						<div class="card shade">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-sticky-note c-main mr-2"></i>یادداشت داخلی
+								</h5>
+								<hr>
+								<textarea id="internalNote" class="form-control" rows="5"
+									placeholder="مثلاً: با رضا تماس گرفتم، علاقه‌مند بود..."></textarea>
+								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-comment-alt mr-1"></i>این
+									یادداشت فقط برای تیم داخلی است و برای فرد ارسال نمی‌شود.</p>
+							</div>
+						</div>
+					</div>
+
+				</div>
+
+			</div>
+		</main>
 	</div>
 
 	<script src="assets/vendor/jquery.min.js"></script>
+	<script src="assets/vendor/popper.min.js"></script>
+	<script src="assets/vendor/bootstrap-material-design.min.js"></script>
+	<script>
+		$(document).ready(function () { $('body').bootstrapMaterialDesign(); });
+	</script>
 	<script src="js/data.js"></script>
 	<script src="js/lead.js"></script>
 </body>
