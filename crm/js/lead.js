@@ -44,21 +44,22 @@
 
 	function renderLeadMessages() {
 		var leadMessages = messages.filter(function (m) { return m.leadId === lead.id; });
-		var $list = $("#messageList").empty();
+		var $list = $("#messageList").empty().removeClass("d-none");
 		if (leadMessages.length === 0) {
-			$("#noMessages").show();
+			$("#noMessages").removeClass("d-none");
 			return;
 		}
-		$("#noMessages").hide();
+		$("#noMessages").addClass("d-none");
 		leadMessages.forEach(function (m) {
 			var $item = $('<div class="message-item">');
-			$item.append($('<p class="mb-2">').text(m.text));
-			$item.append($('<p class="text-muted text-sm mb-0">').text("ارسال شد · " + formatRelativeTime(m.sentAt)));
+			$item.append($('<div>').text(m.text));
+			$item.append($('<span class="message-time">').text("ارسال شد · " + formatRelativeTime(m.sentAt)));
 			$list.append($item);
 		});
 	}
 
 	function renderLead() {
+		$("#breadcrumbLeadName").text(lead.fullName);
 		$("#leadName").text(lead.fullName);
 		$("#leadPhone").text(lead.phone);
 		$("#leadStatusBadge").html(statusBadgeHtml(lead.status));
@@ -104,7 +105,7 @@
 			var prefilled = CrmData.REGISTRATION_MESSAGE_TEMPLATE.replace("{نام}", lead.fullName.split(" ")[0]);
 			$("#messageDraft").val(prefilled);
 			$("#composerBox").removeClass("d-none");
-			$("#messageList, #noMessages").hide();
+			$("#messageList, #noMessages").addClass("d-none");
 		});
 
 		$("#btnCancelComposer").on("click", function () {
