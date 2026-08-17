@@ -1,0 +1,200 @@
+/* CRM آکادمی — استایل‌های اختصاصی روی پایه قالب Nozha */
+
+body {
+	background: #f4f5f9;
+}
+
+.text-sm {
+	font-size: 0.8rem;
+}
+
+.mono {
+	font-family: "Courier New", monospace;
+}
+
+/* sidebar brand */
+.brand-logo {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 4px 18px;
+	color: #fff;
+}
+
+.brand-logo i {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.12);
+	font-size: 16px;
+}
+
+.brand-logo span {
+	font-weight: bold;
+	font-size: 15px;
+}
+
+/* toolbar */
+.toolbar-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.filter-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	background: #f1f2f6;
+	padding: 4px;
+	border-radius: 10px;
+}
+
+.filter-tab {
+	border: none;
+	background: transparent;
+	padding: 6px 14px;
+	border-radius: 8px;
+	font-size: 0.8rem;
+	font-family: inherit;
+	color: #5b5b5b;
+	cursor: pointer;
+	transition: all .15s ease;
+}
+
+.filter-tab.active {
+	background: #5850ec;
+	color: #fff;
+}
+
+.toolbar-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.search-input {
+	width: 220px;
+	display: inline-block;
+}
+
+/* status badges */
+.status-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 12px;
+	border-radius: 20px;
+	font-size: 0.78rem;
+	font-weight: 600;
+}
+
+.badge-pending {
+	background: #fff3d6;
+	color: #a06a00;
+}
+
+.badge-called {
+	background: #dcf7ea;
+	color: #0d8a4f;
+}
+
+.badge-noanswer {
+	background: #fde1e7;
+	color: #c81e4b;
+}
+
+.lead-row:hover {
+	background: #f7f7fb;
+}
+
+.lead-name-link {
+	color: #2b2b40;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.lead-name-link:hover {
+	color: #5850ec;
+}
+
+/* lead detail */
+.back-link {
+	color: #6b6b7b;
+	text-decoration: none;
+	font-size: 0.9rem;
+}
+
+.back-link:hover {
+	color: #5850ec;
+}
+
+.call-actions {
+	display: flex;
+	gap: 10px;
+}
+
+.btn-call {
+	flex: 1;
+	border-radius: 10px;
+	padding: 10px 14px;
+	font-weight: 600;
+	border: none;
+}
+
+.btn-called {
+	background: #dcf7ea;
+	color: #0d8a4f;
+}
+
+.btn-called.active {
+	background: #0d8a4f;
+	color: #fff;
+}
+
+.btn-noanswer {
+	background: #fde1e7;
+	color: #c81e4b;
+}
+
+.btn-noanswer.active {
+	background: #c81e4b;
+	color: #fff;
+}
+
+.btn-brand {
+	background: #5850ec;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+}
+
+.btn-brand:hover {
+	background: #453fc4;
+	color: #fff;
+}
+
+.info-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 6px 0;
+	font-size: 0.88rem;
+	border-bottom: 1px dashed #eee;
+}
+
+.info-row:last-child {
+	border-bottom: none;
+}
+
+.message-item {
+	background: #f7f7fb;
+	border-radius: 10px;
+	padding: 12px 14px;
+	margin-bottom: 8px;
+	white-space: pre-line;
+}
