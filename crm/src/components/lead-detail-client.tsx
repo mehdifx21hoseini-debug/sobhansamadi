@@ -42,7 +42,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
       <div className="p-8 max-w-3xl mx-auto text-center text-slate-500">
         لید موردنظر پیدا نشد.
         <div className="mt-4">
-          <Link href="/" className="text-indigo-600 text-sm font-medium">
+          <Link href="/" className="text-brand-600 text-sm font-medium">
             بازگشت به لیست
           </Link>
         </div>
@@ -115,7 +115,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
           {/* Registration info from bot */}
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2 mb-4 text-slate-800">
-              <BookOpen className="h-4.5 w-4.5 text-indigo-600" />
+              <BookOpen className="h-4.5 w-4.5 text-brand-600" />
               <h2 className="text-sm font-semibold">اطلاعات ثبت‌شده در ربات تلگرام</h2>
             </div>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
@@ -132,13 +132,13 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-slate-800">
-                <Send className="h-4.5 w-4.5 text-indigo-600" />
+                <Send className="h-4.5 w-4.5 text-brand-600" />
                 <h2 className="text-sm font-semibold">ارسال شرایط ثبت‌نام</h2>
               </div>
               {!showComposer && (
                 <button
                   onClick={openComposer}
-                  className="rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+                  className="rounded-lg bg-brand-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
                 >
                   {lead.registrationSent ? "ارسال مجدد" : "ارسال پیام"}
                 </button>
@@ -151,12 +151,12 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
                   value={messageDraft}
                   onChange={(e) => setMessageDraft(e.target.value)}
                   rows={8}
-                  className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 leading-relaxed"
+                  className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 leading-relaxed"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={handleSend}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                    className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                   >
                     ارسال به تلگرام
                   </button>
@@ -192,7 +192,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         <div className="space-y-5">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2 mb-3 text-slate-800">
-              <Clock3 className="h-4.5 w-4.5 text-indigo-600" />
+              <Clock3 className="h-4.5 w-4.5 text-brand-600" />
               <h2 className="text-sm font-semibold">وضعیت</h2>
             </div>
             <div className="space-y-2.5 text-sm">
@@ -207,7 +207,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
 
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex items-center gap-2 mb-3 text-slate-800">
-              <StickyNote className="h-4.5 w-4.5 text-indigo-600" />
+              <StickyNote className="h-4.5 w-4.5 text-brand-600" />
               <h2 className="text-sm font-semibold">یادداشت داخلی</h2>
             </div>
             <textarea
@@ -216,7 +216,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
               onBlur={() => setNote(lead.id, note)}
               rows={5}
               placeholder="مثلاً: با رضا تماس گرفتم، علاقه‌مند بود..."
-              className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 leading-relaxed"
+              className="w-full rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 leading-relaxed"
             />
             <p className="mt-2 text-xs text-slate-400 flex items-center gap-1.5">
               <MessageSquareText className="h-3.5 w-3.5" />

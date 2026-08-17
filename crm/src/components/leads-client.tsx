@@ -67,7 +67,7 @@ export function LeadsClient() {
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                 statusFilter === tab.value
-                  ? "bg-indigo-600 text-white"
+                  ? "bg-brand-600 text-white"
                   : "text-slate-600 hover:bg-slate-100"
               )}
             >
@@ -83,7 +83,7 @@ export function LeadsClient() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="جستجوی نام یا شماره..."
-              className="w-56 rounded-lg border border-slate-200 bg-white py-2 pr-9 pl-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              className="w-56 rounded-lg border border-slate-200 bg-white py-2 pr-9 pl-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
             />
           </div>
           <button
@@ -115,7 +115,7 @@ export function LeadsClient() {
                 className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70 cursor-pointer"
               >
                 <td className="px-4 py-3">
-                  <Link href={`/leads/${lead.id}`} className="font-medium text-slate-800 hover:text-indigo-600">
+                  <Link href={`/leads/${lead.id}`} className="font-medium text-slate-800 hover:text-brand-600">
                     {lead.fullName}
                   </Link>
                 </td>

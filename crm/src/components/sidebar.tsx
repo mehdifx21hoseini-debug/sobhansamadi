@@ -14,13 +14,13 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex w-64 shrink-0 flex-col border-l border-slate-200 bg-white">
-      <div className="flex items-center gap-2 px-5 py-5 border-b border-slate-100">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">
+      <div className="flex items-center gap-2 px-5 py-5 bg-brand-600 text-white">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-white">
           <GraduationCap className="h-5 w-5" />
         </div>
         <div>
           <p className="text-sm font-semibold leading-tight">CRM آکادمی</p>
-          <p className="text-xs text-slate-400 leading-tight">مدیریت لیدهای مشاوره</p>
+          <p className="text-xs text-white/70 leading-tight">مدیریت لیدهای مشاوره</p>
         </div>
       </div>
 
@@ -35,7 +35,7 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active
-                  ? "bg-indigo-50 text-indigo-700"
+                  ? "bg-brand-50 text-brand-700"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               )}
             >
