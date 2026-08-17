@@ -68,7 +68,7 @@ body {
 }
 
 .filter-tab.active {
-	background: #5850ec;
+	background: #3f38b5;
 	color: #fff;
 }
 
@@ -120,7 +120,7 @@ body {
 }
 
 .lead-name-link:hover {
-	color: #5850ec;
+	color: #3f38b5;
 }
 
 /* lead detail */
@@ -131,7 +131,7 @@ body {
 }
 
 .back-link:hover {
-	color: #5850ec;
+	color: #3f38b5;
 }
 
 .call-actions {
@@ -168,14 +168,14 @@ body {
 }
 
 .btn-brand {
-	background: #5850ec;
+	background: #3f38b5;
 	color: #fff;
 	border: none;
 	border-radius: 8px;
 }
 
 .btn-brand:hover {
-	background: #453fc4;
+	background: #322c8f;
 	color: #fff;
 }
 

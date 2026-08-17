@@ -1115,7 +1115,7 @@ label.form-check-label {
 
 .f-main,
 .f-toggle-main.active {
-  background-color: #5850ec !important;
+  background-color: #3f38b5 !important;
   color: rgba(255, 255, 255, 0.836) !important;
 }
 
@@ -1235,7 +1235,7 @@ label.form-check-label {
 .pagination.main .page-item.active .page-link {
   color: #fff;
   border: 1px solid #a3a0e4;
-  background-color: #5850ec;
+  background-color: #3f38b5;
 }
 
 .pagination.primary .page-item.active .page-link {
@@ -1336,7 +1336,7 @@ label.form-check-label {
 
 
 .c-main {
-  color: #5850ec !important;
+  color: #3f38b5 !important;
 }
 
 .c-white {
@@ -1421,7 +1421,7 @@ label.form-check-label {
 }
 
 .o-main {
-  border-color: #5850ec !important;
+  border-color: #3f38b5 !important;
 }
 
 .o-primary {
@@ -1488,7 +1488,7 @@ label.form-check-label {
 }
 
 .btn.o-main:hover {
-  background-color: #5850ec20;
+  background-color: #3f38b520;
 }
 
 .btn.o-primary:hover {
