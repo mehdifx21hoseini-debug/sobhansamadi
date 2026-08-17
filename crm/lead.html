@@ -187,7 +187,12 @@
 	<script src="assets/vendor/popper.min.js"></script>
 	<script src="assets/vendor/bootstrap-material-design.min.js"></script>
 	<script>
-		$(document).ready(function () { $('body').bootstrapMaterialDesign(); });
+		$(document).ready(function () {
+			$('body').bootstrapMaterialDesign();
+			if (window.innerWidth < 992) {
+				$('.avam-container').removeClass('bmd-drawer-in');
+			}
+		});
 	</script>
 	<script src="js/data.js"></script>
 	<script src="js/lead.js"></script>
