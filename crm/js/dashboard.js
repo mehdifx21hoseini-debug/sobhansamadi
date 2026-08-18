@@ -15,8 +15,13 @@
 	var state = {
 		leads: [],
 		chart: null,
+		trendChart: null,
 		exportRange: "all"
 	};
+
+	function dateKey(date) {
+		return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+	}
 
 	function renderStats() {
 		var leads = state.leads;
@@ -39,6 +44,59 @@
 		$("#d-avg-attempts").text(avgAttempts);
 
 		renderChart(pending, called, noAnswer, total);
+		renderTrendChart();
+	}
+
+	function renderTrendChart() {
+		var days = [];
+		var counts = [];
+		var today = startOfDay(new Date());
+		for (var i = 13; i >= 0; i--) {
+			var d = new Date(today);
+			d.setDate(d.getDate() - i);
+			days.push(d);
+		}
+
+		var countsByKey = {};
+		state.leads.forEach(function (l) {
+			if (!l.created_at) return;
+			var key = dateKey(new Date(l.created_at));
+			countsByKey[key] = (countsByKey[key] || 0) + 1;
+		});
+
+		days.forEach(function (d) {
+			counts.push(countsByKey[dateKey(d)] || 0);
+		});
+
+		var labels = days.map(function (d) {
+			return d.toLocaleDateString("fa-IR", { day: "numeric", month: "numeric" });
+		});
+
+		var ctx = document.getElementById("trendChart").getContext("2d");
+		if (state.trendChart) {
+			state.trendChart.data.labels = labels;
+			state.trendChart.data.datasets[0].data = counts;
+			state.trendChart.update();
+		} else {
+			state.trendChart = new Chart(ctx, {
+				type: "bar",
+				data: {
+					labels: labels,
+					datasets: [{
+						data: counts,
+						backgroundColor: "#29386c",
+						borderRadius: 4,
+						maxBarThickness: 28
+					}]
+				},
+				options: {
+					plugins: { legend: { display: false } },
+					scales: {
+						y: { beginAtZero: true, ticks: { precision: 0 } }
+					}
+				}
+			});
+		}
 	}
 
 	function renderChart(pending, called, noAnswer, total) {
