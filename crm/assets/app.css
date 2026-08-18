@@ -211,3 +211,59 @@ body {
 	margin-bottom: 8px;
 	white-space: pre-line;
 }
+
+/* dashboard */
+.kpi-big {
+	font-size: 2.4rem;
+	font-weight: 700;
+	color: #2b2b40;
+	margin-bottom: 8px;
+}
+
+.kpi-big-sub {
+	font-size: 1rem;
+	font-weight: 400;
+	color: #8a8a8a;
+	margin-right: 8px;
+}
+
+.dist-row {
+	margin-bottom: 18px;
+}
+
+.dist-row:last-child {
+	margin-bottom: 0;
+}
+
+.dist-label {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.85rem;
+	color: #5b5b5b;
+	margin-bottom: 6px;
+}
+
+.dist-bar {
+	background: #f1f2f6;
+	border-radius: 10px;
+	height: 10px;
+	overflow: hidden;
+}
+
+.dist-bar-fill {
+	height: 100%;
+	border-radius: 10px;
+	transition: width .4s ease;
+}
+
+.fill-amber {
+	background: #f0b033;
+}
+
+.fill-emerald {
+	background: #0d8a4f;
+}
+
+.fill-rose {
+	background: #c81e4b;
+}

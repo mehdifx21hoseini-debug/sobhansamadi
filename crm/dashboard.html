@@ -4,7 +4,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
-	<title>CRM آکادمی — لیدهای مشاوره</title>
+	<title>داشبورد مدیر — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
@@ -26,10 +26,10 @@
 						<div class="dropdown">
 							<button class="btn dropdown-toggle m-0" type="button" id="userMenu" data-toggle="dropdown"
 								aria-haspopup="true" aria-expanded="false">
-								<i class="far fa-user-circle fa-lg ml-1"></i> مشاور فروش
+								<i class="far fa-user-circle fa-lg ml-1"></i> مدیر مجموعه
 							</button>
 							<div class="dropdown-menu dropdown-menu-right" aria-labelledby="userMenu">
-								<span class="dropdown-item dropdown-header">پشتیبان مجموعه</span>
+								<span class="dropdown-item dropdown-header">نظارت بر عملکرد</span>
 								<div class="dropdown-divider"></div>
 								<button class="dropdown-item" type="button"><i
 										class="fas fa-sign-out-alt fa-sm c-main mr-2"></i>خروج</button>
@@ -53,9 +53,9 @@
 				<p class="side-comment">منو</p>
 				<ul class="side a-collapse">
 					<div class="side-item-container">
-						<li class="side-item selected"><a href="index.html"><i
-									class="fas fa-users mr-2"></i>لیدهای مشاوره</a></li>
-						<li class="side-item"><a href="dashboard.html"><i
+						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای
+								مشاوره</a></li>
+						<li class="side-item selected"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
 					</div>
 				</ul>
@@ -71,9 +71,9 @@
 							<div class="row align-items-end">
 								<div class="col-lg-8">
 									<div class="page-header-title text-left-rtl">
-										<h3 class="lite-text">لیدهای مشاوره</h3>
-										<span class="lite-text text-gray">افرادی که از طریق ربات تلگرام درخواست
-											مشاوره ثبت کرده‌اند</span>
+										<h3 class="lite-text">داشبورد مدیر</h3>
+										<span class="lite-text text-gray">نمای کلی عملکرد تیم روی لیدهای
+											مشاوره</span>
 									</div>
 								</div>
 							</div>
@@ -86,28 +86,59 @@
 						<div class="box-card mini">
 							<i class="fas fa-users b-first" aria-hidden="true"></i>
 							<span class="c-first">کل لیدها</span>
-							<span id="stat-total">0</span>
+							<span id="d-total">0</span>
 						</div>
 					</div>
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini">
 							<i class="fas fa-clock b-second" aria-hidden="true"></i>
 							<span class="c-second">پاسخ‌داده‌نشده</span>
-							<span id="stat-pending">0</span>
+							<span id="d-pending">0</span>
 						</div>
 					</div>
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini">
 							<i class="fas fa-phone b-third" aria-hidden="true"></i>
 							<span class="c-third">تماس گرفته شد</span>
-							<span id="stat-called">0</span>
+							<span id="d-called">0</span>
 						</div>
 					</div>
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini">
 							<i class="fas fa-phone-slash b-forth" aria-hidden="true"></i>
 							<span class="c-forth">پاسخ نداد</span>
-							<span id="stat-noanswer">0</span>
+							<span id="d-noanswer">0</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-lg-6 p-2">
+						<div class="card shade h-100">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-percentage c-main mr-2"></i>نرخ پاسخگویی
+									تیم</h5>
+								<hr>
+								<div class="kpi-big">
+									<span id="d-response-rate">۰٪</span>
+								</div>
+								<p class="text-muted mb-0">درصد لیدهایی که یا تماس گرفته شده یا پاسخ نداده ثبت شده
+									(از کل لیدها)</p>
+							</div>
+						</div>
+					</div>
+					<div class="col-lg-6 p-2">
+						<div class="card shade h-100">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-paper-plane c-main mr-2"></i>ارسال شرایط
+									ثبت‌نام</h5>
+								<hr>
+								<div class="kpi-big">
+									<span id="d-sent-count">0</span>
+									<span class="kpi-big-sub">از <span id="d-sent-total">0</span> لید</span>
+								</div>
+								<p class="text-muted mb-0">تعداد لیدهایی که پیام شرایط ثبت‌نام براشون ارسال شده</p>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -116,39 +147,38 @@
 					<div class="col-12 p-2">
 						<div class="card shade">
 							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-chart-bar c-main mr-2"></i>توزیع وضعیت
+									لیدها</h5>
+								<hr>
 
-								<div class="toolbar-row">
-									<div class="filter-tabs" id="filterTabs">
-										<button class="filter-tab active" data-status="همه">همه</button>
-										<button class="filter-tab" data-status="پاسخ‌داده‌نشده">پاسخ‌داده‌نشده</button>
-										<button class="filter-tab" data-status="تماس گرفته شد">تماس گرفته شد</button>
-										<button class="filter-tab" data-status="پاسخ نداد">پاسخ نداد</button>
+								<div class="dist-row">
+									<div class="dist-label">
+										<span>پاسخ‌داده‌نشده</span>
+										<span id="d-bar-pending-label">0 (۰٪)</span>
 									</div>
-									<div class="toolbar-actions">
-										<input type="text" id="searchInput" class="form-control search-input"
-											placeholder="جستجوی نام یا شماره...">
-										<button class="btn btn-outline-secondary btn-sm" id="exportBtn">
-											<i class="fas fa-file-download mr-1"></i>خروجی Excel
-										</button>
+									<div class="dist-bar">
+										<div class="dist-bar-fill fill-amber" id="d-bar-pending" style="width:0%"></div>
 									</div>
 								</div>
 
-								<hr>
+								<div class="dist-row">
+									<div class="dist-label">
+										<span>تماس گرفته شد</span>
+										<span id="d-bar-called-label">0 (۰٪)</span>
+									</div>
+									<div class="dist-bar">
+										<div class="dist-bar-fill fill-emerald" id="d-bar-called" style="width:0%"></div>
+									</div>
+								</div>
 
-								<div class="table-responsive">
-									<table class="table table-striped table-hover">
-										<thead>
-											<tr>
-												<th>نام</th>
-												<th>شماره تماس</th>
-												<th>سطح علمی</th>
-												<th>ساعت مناسب تماس</th>
-												<th>وضعیت</th>
-												<th>ثبت‌شده</th>
-											</tr>
-										</thead>
-										<tbody id="leadsTableBody"></tbody>
-									</table>
+								<div class="dist-row">
+									<div class="dist-label">
+										<span>پاسخ نداد</span>
+										<span id="d-bar-noanswer-label">0 (۰٪)</span>
+									</div>
+									<div class="dist-bar">
+										<div class="dist-bar-fill fill-rose" id="d-bar-noanswer" style="width:0%"></div>
+									</div>
 								</div>
 
 							</div>
@@ -172,7 +202,7 @@
 		});
 	</script>
 	<script src="js/data.js"></script>
-	<script src="js/app.js"></script>
+	<script src="js/dashboard.js"></script>
 </body>
 
 </html>
