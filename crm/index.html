@@ -4,6 +4,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<script src="js/auth.js"></script>
 	<title>CRM آکادمی — لیدهای مشاوره</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
@@ -31,7 +32,7 @@
 							<div class="dropdown-menu dropdown-menu-right" aria-labelledby="userMenu">
 								<span class="dropdown-item dropdown-header">پشتیبان مجموعه</span>
 								<div class="dropdown-divider"></div>
-								<button class="dropdown-item" type="button"><i
+								<button class="dropdown-item" type="button" id="btnLogout"><i
 										class="fas fa-sign-out-alt fa-sm c-main mr-2"></i>خروج</button>
 							</div>
 						</div>
@@ -169,6 +170,10 @@
 			if (window.innerWidth < 992) {
 				$('.avam-container').removeClass('bmd-drawer-in');
 			}
+			$('#btnLogout').on('click', function () {
+				sessionStorage.removeItem('crmAuthed');
+				window.location.href = 'login.html';
+			});
 		});
 	</script>
 	<script src="js/data.js"></script>
