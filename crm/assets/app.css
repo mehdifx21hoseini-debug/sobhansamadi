@@ -212,6 +212,17 @@ body {
 	white-space: pre-line;
 }
 
+.notes-box {
+	background: #f7f7fb;
+	border-radius: 10px;
+	padding: 12px 14px;
+	white-space: pre-line;
+	max-height: 320px;
+	overflow-y: auto;
+	font-size: 0.88rem;
+	line-height: 1.9;
+}
+
 /* dashboard */
 .kpi-big {
 	font-size: 2.4rem;

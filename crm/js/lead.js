@@ -8,118 +8,131 @@
 	};
 
 	function statusBadgeHtml(status) {
-		var meta = STATUS_META[status];
+		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
 		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + status + '</span>';
 	}
 
-	function formatRelativeTime(iso) {
-		var date = new Date(iso);
-		var now = new Date();
-		var diffMins = Math.round((now - date) / 60000);
-		if (diffMins < 1) return "همین الان";
-		if (diffMins < 60) return diffMins + " دقیقه پیش";
-		var diffHours = Math.round(diffMins / 60);
-		if (diffHours < 24) return diffHours + " ساعت پیش";
-		var diffDays = Math.round(diffHours / 24);
-		if (diffDays === 1) return "دیروز";
-		return diffDays + " روز پیش";
+	function formatDate(iso) {
+		if (!iso) return "-";
+		return new Date(iso).toLocaleString("fa-IR");
 	}
 
-	function getParam(name) {
-		return new URLSearchParams(window.location.search).get(name);
+	function getLeadId() {
+		var params = new URLSearchParams(window.location.search);
+		return params.get("id");
 	}
 
-	var leads = CrmData.loadLeads();
-	var messages = CrmData.loadMessages();
-	var leadId = getParam("id");
-	var lead = leads.filter(function (l) { return l.id === leadId; })[0];
+	var leadId = getLeadId();
+	var currentLead = null;
 
-	function persistLeads() {
-		CrmData.saveLeads(leads);
-	}
-
-	function persistMessages() {
-		CrmData.saveMessages(messages);
-	}
-
-	function renderLeadMessages() {
-		var leadMessages = messages.filter(function (m) { return m.leadId === lead.id; });
-		var $list = $("#messageList").empty().removeClass("d-none");
-		if (leadMessages.length === 0) {
-			$("#noMessages").removeClass("d-none");
-			return;
-		}
-		$("#noMessages").addClass("d-none");
-		leadMessages.forEach(function (m) {
-			var $item = $('<div class="message-item">');
-			$item.append($('<div class="mb-2">').text(m.text));
-			$item.append($('<div class="text-muted text-sm mb-0">').text("ارسال شد · " + formatRelativeTime(m.sentAt)));
-			$list.append($item);
-		});
-	}
-
-	function renderLead() {
-		$("#leadName").text(lead.fullName);
-		$("#leadPhone").text(lead.phone);
+	function renderLead(lead) {
+		currentLead = lead;
+		$("#leadName").text(lead.full_name || "(بدون نام)");
+		$("#leadPhone").text(lead.phone || "-");
 		$("#leadStatusBadge").html(statusBadgeHtml(lead.status));
-		$("#leadLevel").text(lead.level);
-		$("#leadPreferredTime").text(lead.preferredTime);
-		$("#leadTopic").text(lead.topic);
-		$("#leadId").text(lead.id);
-		$("#leadCreatedAt").text(formatRelativeTime(lead.createdAt));
-		$("#leadRegSent").text(lead.registrationSent ? "ارسال شده" : "ارسال نشده");
-		$("#internalNote").val(lead.note || "");
-		$("#btnOpenComposer").text(lead.registrationSent ? "ارسال مجدد" : "ارسال پیام");
+		$("#leadCourse").text(lead.course || "-");
+		$("#leadRequestType").text(lead.request_type || "-");
+		$("#leadNotesBox").text(lead.notes || "یادداشتی ثبت نشده است.");
+		$("#leadId").text(lead.lead_id || "-");
+		$("#leadContactAttempts").text(lead.contact_attempts != null ? lead.contact_attempts : "-");
+		$("#leadCreatedAt").text(formatDate(lead.created_at));
+		$("#leadUpdatedAt").text(formatDate(lead.updated_at));
 
-		$("#btnCalled").toggleClass("active", lead.status === "تماس گرفته شد");
-		$("#btnNoAnswer").toggleClass("active", lead.status === "پاسخ نداد");
-
-		renderLeadMessages();
+		var template = CrmData.REGISTRATION_MESSAGE_TEMPLATE.replace("{نام}", lead.full_name || "");
+		$("#messageDraft").val(template);
 	}
 
-	function setStatus(status) {
-		lead.status = status;
-		persistLeads();
-		renderLead();
-	}
-
-	$(function () {
-		if (!lead) {
+	function loadLead() {
+		if (!leadId) {
 			$("#leadContent").addClass("d-none");
 			$("#leadNotFound").removeClass("d-none");
 			return;
 		}
+		CrmData.fetchLead(leadId)
+			.then(function (lead) {
+				if (!lead || lead.found === false) {
+					$("#leadContent").addClass("d-none");
+					$("#leadNotFound").removeClass("d-none");
+					return;
+				}
+				renderLead(lead);
+			})
+			.catch(function () {
+				$("#leadContent").addClass("d-none");
+				$("#leadNotFound").removeClass("d-none");
+			});
+	}
 
-		renderLead();
+	function updateStatus(status) {
+		if (!leadId) return;
+		CrmData.updateLeadStatus(leadId, status)
+			.then(function () {
+				loadLead();
+			})
+			.catch(function (err) {
+				alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
+			});
+	}
 
-		$("#btnCalled").on("click", function () { setStatus("تماس گرفته شد"); });
-		$("#btnNoAnswer").on("click", function () { setStatus("پاسخ نداد"); });
+	function saveNote() {
+		var note = $("#internalNote").val().trim();
+		if (!note || !leadId) return;
+		var $btn = $("#btnSaveNote").prop("disabled", true);
+		CrmData.addLeadNote(leadId, note)
+			.then(function () {
+				$("#internalNote").val("");
+				loadLead();
+			})
+			.catch(function (err) {
+				alert("خطا در ثبت یادداشت: " + (err.message || "خطای نامشخص"));
+			})
+			.finally(function () {
+				$btn.prop("disabled", false);
+			});
+	}
 
-		$("#internalNote").on("blur", function () {
-			lead.note = $(this).val();
-			persistLeads();
-		});
+	function sendMessage() {
+		var message = $("#messageDraft").val().trim();
+		if (!message || !leadId) return;
+		var $btn = $("#btnSendMessage").prop("disabled", true);
+		CrmData.sendRegistrationMessage(leadId, message)
+			.then(function (res) {
+				if (res && res.success === false) {
+					showSendResult(false, res.error || "ارسال پیام ناموفق بود.");
+					return;
+				}
+				showSendResult(true, "پیام با موفقیت برای این فرد ارسال شد.");
+			})
+			.catch(function (err) {
+				showSendResult(false, err.message || "خطای نامشخص");
+			})
+			.finally(function () {
+				$btn.prop("disabled", false);
+			});
+	}
+
+	function showSendResult(success, text) {
+		$("#sendResult")
+			.removeClass("d-none text-success text-danger")
+			.addClass(success ? "text-success" : "text-danger")
+			.text(text);
+	}
+
+	$(function () {
+		loadLead();
+
+		$("#btnCalled").on("click", function () { updateStatus("تماس گرفته شد"); });
+		$("#btnNoAnswer").on("click", function () { updateStatus("پاسخ نداد"); });
+
+		$("#btnSaveNote").on("click", saveNote);
 
 		$("#btnOpenComposer").on("click", function () {
-			var prefilled = CrmData.REGISTRATION_MESSAGE_TEMPLATE.replace("{نام}", lead.fullName.split(" ")[0]);
-			$("#messageDraft").val(prefilled);
 			$("#composerBox").removeClass("d-none");
-			$("#messageList, #noMessages").addClass("d-none");
+			$("#sendResult").addClass("d-none");
 		});
-
 		$("#btnCancelComposer").on("click", function () {
 			$("#composerBox").addClass("d-none");
-			renderLeadMessages();
 		});
-
-		$("#btnSendMessage").on("click", function () {
-			var text = $("#messageDraft").val();
-			messages.push({ id: "M-" + Date.now(), leadId: lead.id, text: text, sentAt: new Date().toISOString() });
-			persistMessages();
-			lead.registrationSent = true;
-			persistLeads();
-			$("#composerBox").addClass("d-none");
-			renderLead();
-		});
+		$("#btnSendMessage").on("click", sendMessage);
 	});
 })();

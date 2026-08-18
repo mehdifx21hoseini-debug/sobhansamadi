@@ -7,39 +7,43 @@
 	}
 
 	$(function () {
-		var leads = CrmData.loadLeads();
-		var messages = CrmData.loadMessages();
+		CrmData.fetchLeads()
+			.then(function (leads) {
+				var total = leads.length;
+				var pending = leads.filter(function (l) { return l.status === "پاسخ‌داده‌نشده"; }).length;
+				var called = leads.filter(function (l) { return l.status === "تماس گرفته شد"; }).length;
+				var noAnswer = leads.filter(function (l) { return l.status === "پاسخ نداد"; }).length;
 
-		var total = leads.length;
-		var pending = leads.filter(function (l) { return l.status === "پاسخ‌داده‌نشده"; }).length;
-		var called = leads.filter(function (l) { return l.status === "تماس گرفته شد"; }).length;
-		var noAnswer = leads.filter(function (l) { return l.status === "پاسخ نداد"; }).length;
-		var sentCount = leads.filter(function (l) { return l.registrationSent; }).length;
+				var responded = called + noAnswer;
+				var responseRate = total > 0 ? Math.round((responded / total) * 100) : 0;
 
-		var responded = called + noAnswer;
-		var responseRate = total > 0 ? Math.round((responded / total) * 100) : 0;
+				var pendingPct = total > 0 ? Math.round((pending / total) * 100) : 0;
+				var calledPct = total > 0 ? Math.round((called / total) * 100) : 0;
+				var noAnswerPct = total > 0 ? Math.round((noAnswer / total) * 100) : 0;
 
-		var pendingPct = total > 0 ? Math.round((pending / total) * 100) : 0;
-		var calledPct = total > 0 ? Math.round((called / total) * 100) : 0;
-		var noAnswerPct = total > 0 ? Math.round((noAnswer / total) * 100) : 0;
+				var attemptsSum = leads.reduce(function (sum, l) { return sum + (l.contact_attempts || 0); }, 0);
+				var avgAttempts = total > 0 ? (attemptsSum / total).toFixed(1) : "0";
 
-		$("#d-total").text(total);
-		$("#d-pending").text(pending);
-		$("#d-called").text(called);
-		$("#d-noanswer").text(noAnswer);
+				$("#d-total").text(total);
+				$("#d-pending").text(pending);
+				$("#d-called").text(called);
+				$("#d-noanswer").text(noAnswer);
 
-		$("#d-response-rate").text(toPersianPercent(responseRate));
+				$("#d-response-rate").text(toPersianPercent(responseRate));
 
-		$("#d-sent-count").text(sentCount);
-		$("#d-sent-total").text(total);
+				$("#d-avg-attempts").text(avgAttempts);
 
-		$("#d-bar-pending").css("width", pendingPct + "%");
-		$("#d-bar-pending-label").text(pending + " (" + toPersianPercent(pendingPct) + ")");
+				$("#d-bar-pending").css("width", pendingPct + "%");
+				$("#d-bar-pending-label").text(pending + " (" + toPersianPercent(pendingPct) + ")");
 
-		$("#d-bar-called").css("width", calledPct + "%");
-		$("#d-bar-called-label").text(called + " (" + toPersianPercent(calledPct) + ")");
+				$("#d-bar-called").css("width", calledPct + "%");
+				$("#d-bar-called-label").text(called + " (" + toPersianPercent(calledPct) + ")");
 
-		$("#d-bar-noanswer").css("width", noAnswerPct + "%");
-		$("#d-bar-noanswer-label").text(noAnswer + " (" + toPersianPercent(noAnswerPct) + ")");
+				$("#d-bar-noanswer").css("width", noAnswerPct + "%");
+				$("#d-bar-noanswer-label").text(noAnswer + " (" + toPersianPercent(noAnswerPct) + ")");
+			})
+			.catch(function (err) {
+				console.error("خطا در بارگذاری آمار داشبورد:", err);
+			});
 	});
 })();

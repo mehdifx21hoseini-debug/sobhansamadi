@@ -109,18 +109,23 @@
 								<hr>
 								<div class="row">
 									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">سطح علمی</div>
-										<div id="leadLevel"></div>
+										<div class="text-muted text-sm">دوره درخواستی</div>
+										<div id="leadCourse"></div>
 									</div>
 									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">ساعت مناسب تماس</div>
-										<div id="leadPreferredTime"></div>
-									</div>
-									<div class="col-12">
-										<div class="text-muted text-sm">سوال / موضوع مشاوره</div>
-										<div id="leadTopic"></div>
+										<div class="text-muted text-sm">نوع درخواست</div>
+										<div id="leadRequestType"></div>
 									</div>
 								</div>
+							</div>
+						</div>
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-comments c-main mr-2"></i>یادداشت‌ها و
+									مکالمات ثبت‌شده</h5>
+								<hr>
+								<div id="leadNotesBox" class="notes-box"></div>
 							</div>
 						</div>
 
@@ -141,12 +146,11 @@
 										<button class="btn btn-outline-secondary btn-sm"
 											id="btnCancelComposer">انصراف</button>
 									</div>
-									<p class="text-muted text-sm mt-2">در نسخه فعلی، ارسال پیام به‌صورت نمایشی ثبت
-										می‌شود. اتصال واقعی به تلگرام از طریق n8n در آینده اضافه خواهد شد.</p>
+									<p class="text-muted text-sm mt-2">پیام مستقیماً از طریق ربات تلگرام برای این
+										فرد ارسال می‌شود.</p>
 								</div>
 
-								<div id="messageList"></div>
-								<p id="noMessages" class="text-muted mb-0">هنوز پیامی برای این لید ارسال نشده است.</p>
+								<div id="sendResult" class="d-none"></div>
 							</div>
 						</div>
 
@@ -159,20 +163,25 @@
 								<hr>
 								<div class="info-row"><span class="text-muted">شناسه لید</span><span
 										id="leadId" class="mono"></span></div>
+								<div class="info-row"><span class="text-muted">دفعات تماس</span><span
+										id="leadContactAttempts"></span></div>
 								<div class="info-row"><span class="text-muted">تاریخ ثبت</span><span
 										id="leadCreatedAt"></span></div>
-								<div class="info-row"><span class="text-muted">ارسال شرایط ثبت‌نام</span><span
-										id="leadRegSent"></span></div>
+								<div class="info-row"><span class="text-muted">آخرین به‌روزرسانی</span><span
+										id="leadUpdatedAt"></span></div>
 							</div>
 						</div>
 
 						<div class="card shade">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-sticky-note c-main mr-2"></i>یادداشت داخلی
-								</h5>
+								<h5 class="card-title"><i class="fas fa-sticky-note c-main mr-2"></i>افزودن یادداشت
+									داخلی</h5>
 								<hr>
 								<textarea id="internalNote" class="form-control" rows="5"
 									placeholder="مثلاً: با رضا تماس گرفتم، علاقه‌مند بود..."></textarea>
+								<div class="mt-2">
+									<button class="btn btn-brand btn-sm" id="btnSaveNote">ثبت یادداشت</button>
+								</div>
 								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-comment-alt mr-1"></i>این
 									یادداشت فقط برای تیم داخلی است و برای فرد ارسال نمی‌شود.</p>
 							</div>

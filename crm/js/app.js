@@ -8,11 +8,12 @@
 	};
 
 	function statusBadgeHtml(status) {
-		var meta = STATUS_META[status];
+		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
 		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + status + '</span>';
 	}
 
 	function formatRelativeTime(iso) {
+		if (!iso) return "-";
 		var date = new Date(iso);
 		var now = new Date();
 		var diffMins = Math.round((now - date) / 60000);
@@ -26,9 +27,11 @@
 	}
 
 	var state = {
-		leads: CrmData.loadLeads(),
+		leads: [],
 		statusFilter: "همه",
-		query: ""
+		query: "",
+		loading: true,
+		error: null
 	};
 
 	function renderStats() {
@@ -43,13 +46,25 @@
 	}
 
 	function renderTable() {
+		var $body = $("#leadsTableBody").empty();
+
+		if (state.loading) {
+			$body.append('<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin mr-1"></i>در حال بارگذاری...</td></tr>');
+			return;
+		}
+		if (state.error) {
+			$body.append('<tr><td colspan="6" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
+			return;
+		}
+
 		var q = state.query.trim();
 		var rows = state.leads
 			.filter(function (l) { return state.statusFilter === "همه" ? true : l.status === state.statusFilter; })
-			.filter(function (l) { return !q || l.fullName.indexOf(q) !== -1 || l.phone.indexOf(q) !== -1; })
-			.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
-
-		var $body = $("#leadsTableBody").empty();
+			.filter(function (l) {
+				if (!q) return true;
+				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
+			})
+			.sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
 
 		if (rows.length === 0) {
 			$body.append('<tr><td colspan="6" class="text-center text-muted py-4">موردی یافت نشد.</td></tr>');
@@ -57,13 +72,13 @@
 		}
 
 		rows.forEach(function (lead) {
-			var $tr = $("<tr>").addClass("lead-row").attr("data-id", lead.id);
-			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.id)).addClass("lead-name-link").text(lead.fullName)));
-			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone));
-			$tr.append($("<td>").text(lead.level));
-			$tr.append($("<td>").text(lead.preferredTime));
+			var $tr = $("<tr>").addClass("lead-row").attr("data-id", lead.lead_id);
+			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id)).addClass("lead-name-link").text(lead.full_name || "(بدون نام)")));
+			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
+			$tr.append($("<td>").text(lead.course || "-"));
+			$tr.append($("<td>").text(lead.request_type || "-"));
 			$tr.append($("<td>").html(statusBadgeHtml(lead.status)));
-			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.createdAt)));
+			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
 		});
 	}
@@ -73,15 +88,35 @@
 		renderTable();
 	}
 
+	function loadLeads() {
+		state.loading = true;
+		state.error = null;
+		render();
+		CrmData.fetchLeads()
+			.then(function (leads) {
+				state.leads = leads;
+				state.loading = false;
+				render();
+			})
+			.catch(function (err) {
+				state.loading = false;
+				state.error = err.message || "خطای نامشخص";
+				render();
+			});
+	}
+
 	function exportCsv() {
 		var q = state.query.trim();
 		var rows = state.leads
 			.filter(function (l) { return state.statusFilter === "همه" ? true : l.status === state.statusFilter; })
-			.filter(function (l) { return !q || l.fullName.indexOf(q) !== -1 || l.phone.indexOf(q) !== -1; });
+			.filter(function (l) {
+				if (!q) return true;
+				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
+			});
 
-		var headers = ["نام", "شماره تماس", "سطح علمی", "وضعیت", "تاریخ ثبت"];
+		var headers = ["نام", "شماره تماس", "دوره", "وضعیت", "تاریخ ثبت"];
 		var lines = [headers].concat(rows.map(function (l) {
-			return [l.fullName, l.phone, l.level, l.status, new Date(l.createdAt).toLocaleDateString("fa-IR")];
+			return [l.full_name || "", l.phone || "", l.course || "", l.status, l.created_at ? new Date(l.created_at).toLocaleDateString("fa-IR") : ""];
 		}));
 
 		var csv = "﻿" + lines.map(function (row) {
@@ -100,7 +135,7 @@
 	}
 
 	$(function () {
-		render();
+		loadLeads();
 
 		$("#filterTabs").on("click", ".filter-tab", function () {
 			$(".filter-tab").removeClass("active");
