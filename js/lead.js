@@ -72,6 +72,11 @@
 		currentLead = lead;
 		$("#leadName").text(lead.full_name || "(بدون نام)");
 		$("#leadPhone").text(lead.phone || "-");
+		if (lead.phone) {
+			$("#btnCallLead").attr("href", "tel:" + lead.phone.replace(/[^\d+]/g, "")).removeClass("d-none");
+		} else {
+			$("#btnCallLead").addClass("d-none");
+		}
 		$("#leadStatusBadge").html(statusBadgeHtml(lead.status));
 		$("#leadCourse").text(lead.course || "-");
 		$("#leadRequestType").text(lead.request_type || "-");
