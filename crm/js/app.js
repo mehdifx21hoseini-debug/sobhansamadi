@@ -37,10 +37,23 @@
 		page: 1
 	};
 
+	function isDueForFollowUp(lead) {
+		if (!lead.reminder_date) return false;
+		var today = new Date();
+		today.setHours(0, 0, 0, 0);
+		var reminder = new Date(lead.reminder_date);
+		reminder.setHours(0, 0, 0, 0);
+		return reminder <= today;
+	}
+
 	function getFilteredRows() {
 		var q = state.query.trim();
 		return state.leads
-			.filter(function (l) { return state.statusFilter === "همه" ? true : l.status === state.statusFilter; })
+			.filter(function (l) {
+				if (state.statusFilter === "همه") return true;
+				if (state.statusFilter === "یادآوری") return isDueForFollowUp(l);
+				return l.status === state.statusFilter;
+			})
 			.filter(function (l) {
 				if (!q) return true;
 				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
@@ -57,6 +70,9 @@
 		$("#stat-pending").text(pending);
 		$("#stat-called").text(called);
 		$("#stat-noanswer").text(noAnswer);
+
+		var dueCount = state.leads.filter(isDueForFollowUp).length;
+		$("#reminderTabCount").text(dueCount > 0 ? "(" + dueCount + ")" : "");
 	}
 
 	function renderTable() {
