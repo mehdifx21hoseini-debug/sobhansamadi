@@ -621,6 +621,28 @@ body,
 	border-top-color: #333c5c;
 }
 
+/* higher specificity than the library's own pwt-btn and header-row-cell
+   color rules, which otherwise win over the blanket ".dark .datepicker-plot-area *"
+   above and leave these nearly invisible on the dark background */
+.dark .datepicker-plot-area .datepicker-navigator .pwt-btn-next,
+.dark .datepicker-plot-area .datepicker-navigator .pwt-btn-switch,
+.dark .datepicker-plot-area .datepicker-navigator .pwt-btn-prev,
+.dark .datepicker-plot-area .datepicker-day-view .month-grid-box .header .header-row-cell,
+.dark .datepicker-plot-area .toolbox .pwt-btn-submit,
+.dark .datepicker-plot-area .toolbox .pwt-btn-calendar,
+.dark .datepicker-plot-area .toolbox .pwt-btn-today {
+	color: #dcdff0;
+}
+
+.dark .datepicker-plot-area .datepicker-navigator .pwt-btn-next:hover,
+.dark .datepicker-plot-area .datepicker-navigator .pwt-btn-switch:hover,
+.dark .datepicker-plot-area .datepicker-navigator .pwt-btn-prev:hover,
+.dark .datepicker-plot-area .toolbox .pwt-btn-submit:hover,
+.dark .datepicker-plot-area .toolbox .pwt-btn-calendar:hover,
+.dark .datepicker-plot-area .toolbox .pwt-btn-today:hover {
+	background-color: rgba(255, 255, 255, .08);
+}
+
 /* activity log */
 .activity-log {
 	max-height: 280px;

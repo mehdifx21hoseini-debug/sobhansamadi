@@ -83,7 +83,7 @@
 
 		$("#reminderDate").val(lead.reminder_date || "");
 		if (lead.reminder_date && reminderPicker) {
-			reminderPicker.setDate(new Date(lead.reminder_date).getTime());
+			reminderPicker.setDate(CrmData.parseLocalDate(lead.reminder_date).getTime());
 		} else {
 			$("#reminderDatePersian").val("");
 		}
