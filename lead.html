@@ -12,6 +12,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
 	<link rel="stylesheet" href="assets/app.css">
+	<link rel="stylesheet" href="assets/vendor/persian-datepicker.min.css">
 </head>
 
 <body>
@@ -197,7 +198,8 @@
 							<div class="card-body">
 								<h5 class="card-title"><i class="fas fa-bell c-main mr-2"></i>یادآوری پیگیری</h5>
 								<hr>
-								<input type="date" id="reminderDate" class="form-control">
+								<input type="text" id="reminderDatePersian" class="form-control" placeholder="انتخاب تاریخ" readonly>
+								<input type="hidden" id="reminderDate">
 								<div class="mt-2">
 									<button class="btn btn-brand btn-sm" id="btnSaveReminder">ثبت یادآوری</button>
 									<button class="btn btn-outline-secondary btn-sm" id="btnClearReminder">حذف</button>
@@ -232,6 +234,8 @@
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script src="assets/vendor/popper.min.js"></script>
 	<script src="assets/vendor/bootstrap-material-design.min.js"></script>
+	<script src="assets/vendor/persian-date.min.js"></script>
+	<script src="assets/vendor/persian-datepicker.min.js"></script>
 	<script>
 		$(document).ready(function () {
 			$('body').bootstrapMaterialDesign();

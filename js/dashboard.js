@@ -12,6 +12,12 @@
 		"پاسخ نداد": "#c81e4b"
 	};
 
+	var STATUS_LABELS = {
+		"پاسخ‌داده‌نشده": "در انتظار تماس",
+		"تماس گرفته شد": "تماس گرفته شد",
+		"پاسخ نداد": "پاسخ نداد"
+	};
+
 	var state = {
 		leads: [],
 		chart: null,
@@ -104,6 +110,7 @@
 		var data = [pending, called, noAnswer];
 		var labels = ["پاسخ‌داده‌نشده", "تماس گرفته شد", "پاسخ نداد"];
 		var colors = labels.map(function (l) { return STATUS_COLORS[l]; });
+		var displayLabels = labels.map(function (l) { return STATUS_LABELS[l] || l; });
 
 		if (state.chart) {
 			state.chart.data.datasets[0].data = data;
@@ -112,7 +119,7 @@
 			state.chart = new Chart(ctx, {
 				type: "doughnut",
 				data: {
-					labels: labels,
+					labels: displayLabels,
 					datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }]
 				},
 				options: {
@@ -123,7 +130,7 @@
 		}
 
 		var $legend = $("#chartLegend").empty();
-		labels.forEach(function (label, i) {
+		displayLabels.forEach(function (label, i) {
 			var count = data[i];
 			var pct = total > 0 ? Math.round((count / total) * 100) : 0;
 			var $row = $('<div class="chart-legend-row">');
@@ -195,7 +202,7 @@
 		var rows = filterLeadsByRange();
 		var headers = ["نام", "شماره تماس", "دوره", "وضعیت", "تاریخ ثبت"];
 		var lines = [headers].concat(rows.map(function (l) {
-			return [l.full_name || "", l.phone || "", l.course || "", l.status, l.created_at ? new Date(l.created_at).toLocaleDateString("fa-IR") : ""];
+			return [l.full_name || "", l.phone || "", l.course || "", STATUS_LABELS[l.status] || l.status, l.created_at ? new Date(l.created_at).toLocaleDateString("fa-IR") : ""];
 		}));
 
 		var csv = "﻿" + lines.map(function (row) {
