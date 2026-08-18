@@ -2,14 +2,14 @@
 	"use strict";
 
 	var STATUS_META = {
-		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock" },
-		"تماس گرفته شد": { cls: "badge-called", icon: "fa-phone" },
-		"پاسخ نداد": { cls: "badge-noanswer", icon: "fa-phone-slash" }
+		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock", label: "در انتظار تماس" },
+		"تماس گرفته شد": { cls: "badge-called", icon: "fa-phone", label: "تماس گرفته شد" },
+		"پاسخ نداد": { cls: "badge-noanswer", icon: "fa-phone-slash", label: "پاسخ نداد" }
 	};
 
 	function statusBadgeHtml(status) {
 		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
-		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + status + '</span>';
+		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + meta.label + '</span>';
 	}
 
 	function formatDate(iso) {
@@ -58,6 +58,15 @@
 
 	var leadId = getLeadId();
 	var currentLead = null;
+	var reminderPicker = null;
+
+	function pad2(n) {
+		return (n < 10 ? "0" : "") + n;
+	}
+
+	function toIsoDate(date) {
+		return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+	}
 
 	function renderLead(lead) {
 		currentLead = lead;
@@ -71,7 +80,13 @@
 		$("#leadContactAttempts").text(lead.contact_attempts != null ? lead.contact_attempts : "-");
 		$("#leadCreatedAt").text(formatDate(lead.created_at));
 		$("#leadUpdatedAt").text(formatDate(lead.updated_at));
+
 		$("#reminderDate").val(lead.reminder_date || "");
+		if (lead.reminder_date && reminderPicker) {
+			reminderPicker.setDate(new Date(lead.reminder_date).getTime());
+		} else {
+			$("#reminderDatePersian").val("");
+		}
 
 		var template = CrmData.REGISTRATION_MESSAGE_TEMPLATE.replace("{نام}", lead.full_name || "");
 		$("#messageDraft").val(template);
@@ -165,6 +180,16 @@
 	}
 
 	$(function () {
+		reminderPicker = $("#reminderDatePersian").persianDatepicker({
+			format: "YYYY/MM/DD",
+			autoClose: true,
+			initialValue: false,
+			altField: "#reminderDate",
+			altFieldFormatter: function (unixDate) {
+				return toIsoDate(new Date(unixDate));
+			}
+		});
+
 		loadLead();
 
 		$("#btnCalled").on("click", function () { updateStatus("تماس گرفته شد"); });
@@ -188,6 +213,7 @@
 		});
 		$("#btnClearReminder").on("click", function () {
 			$("#reminderDate").val("");
+			$("#reminderDatePersian").val("");
 			saveReminder("");
 		});
 	});

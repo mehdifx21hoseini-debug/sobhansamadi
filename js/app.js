@@ -2,14 +2,14 @@
 	"use strict";
 
 	var STATUS_META = {
-		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock" },
-		"تماس گرفته شد": { cls: "badge-called", icon: "fa-phone" },
-		"پاسخ نداد": { cls: "badge-noanswer", icon: "fa-phone-slash" }
+		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock", label: "در انتظار تماس" },
+		"تماس گرفته شد": { cls: "badge-called", icon: "fa-phone", label: "تماس گرفته شد" },
+		"پاسخ نداد": { cls: "badge-noanswer", icon: "fa-phone-slash", label: "پاسخ نداد" }
 	};
 
 	function statusBadgeHtml(status) {
 		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
-		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + status + '</span>';
+		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + meta.label + '</span>';
 	}
 
 	function formatRelativeTime(iso) {

@@ -585,6 +585,42 @@ body,
 	box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
 }
 
+/* persian datepicker (reminder field) */
+.dark .datepicker-plot-area {
+	background-color: #1c2137;
+	border-color: #333c5c;
+}
+
+.dark .datepicker-plot-area * {
+	color: #dcdff0;
+}
+
+.dark .datepicker-plot-area .datepicker-day-view .table-days td span,
+.dark .datepicker-plot-area .datepicker-year-view .year-item,
+.dark .datepicker-plot-area .datepicker-month-view .month-item {
+	background-color: #232a45;
+	color: #dcdff0;
+}
+
+.dark .datepicker-plot-area .datepicker-day-view .table-days td span.other-month {
+	color: #5a6180;
+}
+
+.dark .datepicker-plot-area .datepicker-day-view .table-days td.today span {
+	background-color: var(--brand-gold);
+	color: #2b2200;
+}
+
+.dark .datepicker-plot-area .datepicker-day-view .table-days td.selected span {
+	background-color: var(--brand-navy);
+	color: #fff;
+}
+
+.dark .datepicker-plot-area .datepicker-time-view {
+	background: #161a2c;
+	border-top-color: #333c5c;
+}
+
 /* activity log */
 .activity-log {
 	max-height: 280px;
