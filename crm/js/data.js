@@ -46,12 +46,21 @@
 		});
 	}
 
+	function setLeadReminder(leadId, reminderDate) {
+		return request("/crm/lead/reminder", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, reminder_date: reminderDate || "" })
+		});
+	}
+
 	global.CrmData = {
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,
 		addLeadNote: addLeadNote,
 		sendRegistrationMessage: sendRegistrationMessage,
+		setLeadReminder: setLeadReminder,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};
 })(window);

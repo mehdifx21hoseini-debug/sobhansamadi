@@ -37,6 +37,7 @@
 		$("#leadContactAttempts").text(lead.contact_attempts != null ? lead.contact_attempts : "-");
 		$("#leadCreatedAt").text(formatDate(lead.created_at));
 		$("#leadUpdatedAt").text(formatDate(lead.updated_at));
+		$("#reminderDate").val(lead.reminder_date || "");
 
 		var template = CrmData.REGISTRATION_MESSAGE_TEMPLATE.replace("{نام}", lead.full_name || "");
 		$("#messageDraft").val(template);
@@ -118,6 +119,15 @@
 			.text(text);
 	}
 
+	function saveReminder(dateValue) {
+		if (!leadId) return;
+		CrmData.setLeadReminder(leadId, dateValue)
+			.then(function () { loadLead(); })
+			.catch(function (err) {
+				alert("خطا در ثبت یادآوری: " + (err.message || "خطای نامشخص"));
+			});
+	}
+
 	$(function () {
 		loadLead();
 
@@ -134,5 +144,15 @@
 			$("#composerBox").addClass("d-none");
 		});
 		$("#btnSendMessage").on("click", sendMessage);
+
+		$("#btnSaveReminder").on("click", function () {
+			var val = $("#reminderDate").val();
+			if (!val) { alert("لطفاً یک تاریخ انتخاب کنید."); return; }
+			saveReminder(val);
+		});
+		$("#btnClearReminder").on("click", function () {
+			$("#reminderDate").val("");
+			saveReminder("");
+		});
 	});
 })();
