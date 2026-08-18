@@ -14,8 +14,29 @@
 		});
 	}
 
+	var LEADS_CACHE_TTL = 5000;
+	var leadsCache = null;
+	var leadsCacheTime = 0;
+	var leadsInFlight = null;
+
 	function fetchLeads() {
-		return request("/crm/leads", { method: "GET" });
+		var now = Date.now();
+		if (leadsCache && (now - leadsCacheTime) < LEADS_CACHE_TTL) {
+			return Promise.resolve(leadsCache);
+		}
+		if (leadsInFlight) {
+			return leadsInFlight;
+		}
+		leadsInFlight = request("/crm/leads", { method: "GET" }).then(function (leads) {
+			leadsCache = leads;
+			leadsCacheTime = Date.now();
+			leadsInFlight = null;
+			return leads;
+		}).catch(function (err) {
+			leadsInFlight = null;
+			throw err;
+		});
+		return leadsInFlight;
 	}
 
 	function fetchLead(leadId) {

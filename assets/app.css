@@ -137,23 +137,23 @@ body,
 }
 
 .animate-in {
-	animation: crmFadeInUp .45s ease both;
+	animation: crmFadeInUp .25s ease both;
 }
 
 .animate-in.d-1 {
-	animation-delay: .05s;
+	animation-delay: .02s;
 }
 
 .animate-in.d-2 {
-	animation-delay: .1s;
+	animation-delay: .04s;
 }
 
 .animate-in.d-3 {
-	animation-delay: .15s;
+	animation-delay: .06s;
 }
 
 .animate-in.d-4 {
-	animation-delay: .2s;
+	animation-delay: .08s;
 }
 
 .card.shade {
