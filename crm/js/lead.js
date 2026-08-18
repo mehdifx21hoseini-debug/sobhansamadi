@@ -17,6 +17,40 @@
 		return new Date(iso).toLocaleString("fa-IR");
 	}
 
+	var ACTION_META = {
+		status_change: { icon: "fa-phone", label: "تغییر وضعیت به" },
+		note_added: { icon: "fa-sticky-note", label: "یادداشت داخلی" },
+		reminder_set: { icon: "fa-bell", label: "یادآوری پیگیری" },
+		message_sent: { icon: "fa-paper-plane", label: "پیام ارسالی" }
+	};
+
+	function renderActivity(entries) {
+		var $box = $("#activityLog").empty();
+		if (!entries || entries.length === 0) {
+			$box.append('<div class="activity-log-empty">هنوز فعالیتی ثبت نشده است.</div>');
+			return;
+		}
+		entries.forEach(function (entry) {
+			var meta = ACTION_META[entry.action] || { icon: "fa-circle", label: entry.action };
+			var $item = $('<div class="activity-log-item">');
+			$item.append($('<div class="activity-log-icon">').append($('<i class="fas ' + meta.icon + '">')));
+			var $body = $('<div class="activity-log-body">');
+			$body.append($('<div>').append($('<strong>').text(meta.label), $('<span class="activity-log-detail">').text(" " + (entry.detail || ""))));
+			$body.append($('<div class="activity-log-time">').text(formatDate(entry.created_at)));
+			$item.append($body);
+			$box.append($item);
+		});
+	}
+
+	function loadActivity() {
+		if (!leadId) return;
+		CrmData.fetchLeadActivity(leadId)
+			.then(renderActivity)
+			.catch(function () {
+				$("#activityLog").html('<div class="activity-log-empty">خطا در بارگذاری تاریخچه.</div>');
+			});
+	}
+
 	function getLeadId() {
 		var params = new URLSearchParams(window.location.search);
 		return params.get("id");
@@ -57,6 +91,7 @@
 					return;
 				}
 				renderLead(lead);
+				loadActivity();
 			})
 			.catch(function () {
 				$("#leadContent").addClass("d-none");
@@ -103,6 +138,7 @@
 					return;
 				}
 				showSendResult(true, "پیام با موفقیت برای این فرد ارسال شد.");
+				loadActivity();
 			})
 			.catch(function (err) {
 				showSendResult(false, err.message || "خطای نامشخص");

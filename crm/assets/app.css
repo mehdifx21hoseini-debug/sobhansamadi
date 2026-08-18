@@ -558,6 +558,71 @@ body,
 	line-height: 1.9;
 }
 
+/* activity log */
+.activity-log {
+	max-height: 280px;
+	overflow-y: auto;
+}
+
+.activity-log-item {
+	display: flex;
+	gap: 10px;
+	padding: 10px 0;
+	border-bottom: 1px dashed #eee;
+	font-size: .85rem;
+}
+
+.activity-log-item:last-child {
+	border-bottom: none;
+}
+
+.activity-log-icon {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #f1f2f6;
+	color: #6b6b7b;
+	font-size: .75rem;
+	flex-shrink: 0;
+}
+
+.activity-log-body {
+	flex: 1;
+}
+
+.activity-log-detail {
+	color: #6b6b7b;
+}
+
+.activity-log-time {
+	font-size: .75rem;
+	color: #a0a0a0;
+	margin-top: 2px;
+}
+
+.activity-log-empty {
+	color: #a0a0a0;
+	font-size: .85rem;
+	text-align: center;
+	padding: 12px 0;
+}
+
+.dark .activity-log-item {
+	border-bottom-color: #333c5c;
+}
+
+.dark .activity-log-icon {
+	background: #232a45;
+	color: #a7abc4;
+}
+
+.dark .activity-log-detail {
+	color: #a7abc4;
+}
+
 /* dashboard */
 .kpi-big {
 	font-size: 2.4rem;
