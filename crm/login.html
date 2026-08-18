@@ -14,18 +14,25 @@
 </head>
 
 <body>
+	<script>document.body.className = localStorage.getItem("crmTheme") === "dark" ? "dark" : "";</script>
+
 	<div class="login-page">
-		<div class="login-card card shade">
+		<div class="login-card card shade animate-in">
 			<div class="card-body">
-				<div class="brand-logo justify-content-center mb-3">
-					<i class="fas fa-graduation-cap"></i>
-					<span>CRM آکادمی</span>
-				</div>
-				<p class="text-center text-muted mb-4">برای ورود، رمز عبور مدیریت را وارد کنید.</p>
+				<img src="assets/img/logo.png" alt="آکادمی سبحان صمدی" class="login-logo">
+				<h5 class="login-title">ورود به سیستم</h5>
+				<p class="login-subtitle">CRM آکادمی سبحان صمدی</p>
 				<form id="loginForm">
-					<input type="password" id="passwordInput" class="form-control" placeholder="رمز عبور" autofocus>
-					<div id="loginError" class="text-danger text-sm mt-2 d-none">رمز عبور اشتباه است.</div>
-					<button type="submit" class="btn btn-brand btn-block mt-3">ورود</button>
+					<div class="login-field">
+						<input type="text" id="usernameInput" autocomplete="username" placeholder="نام کاربری" autofocus>
+						<i class="far fa-user"></i>
+					</div>
+					<div class="login-field">
+						<input type="password" id="passwordInput" autocomplete="current-password" placeholder="رمز عبور">
+						<i class="fas fa-lock"></i>
+					</div>
+					<div id="loginError" class="text-danger text-sm mb-2 d-none">نام کاربری یا رمز عبور اشتباه است.</div>
+					<button type="submit" class="btn btn-brand btn-block">ورود</button>
 				</form>
 			</div>
 		</div>
@@ -33,12 +40,14 @@
 
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script>
+		var ADMIN_USERNAME = "admin";
 		var ADMIN_PASSWORD = "Academy@2026";
 
 		document.getElementById("loginForm").addEventListener("submit", function (e) {
 			e.preventDefault();
-			var value = document.getElementById("passwordInput").value;
-			if (value === ADMIN_PASSWORD) {
+			var username = document.getElementById("usernameInput").value.trim();
+			var password = document.getElementById("passwordInput").value;
+			if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
 				sessionStorage.setItem("crmAuthed", "1");
 				window.location.href = "index.html";
 			} else {
