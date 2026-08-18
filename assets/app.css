@@ -499,6 +499,44 @@ body,
 	gap: 10px;
 }
 
+.call-quick-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	background: var(--brand-gold);
+	color: #2b2200;
+	font-size: .8rem;
+	margin-right: 8px;
+	flex-shrink: 0;
+	animation: crmPulse 2s ease infinite;
+}
+
+.call-quick-btn:hover,
+.call-quick-btn:focus {
+	background: var(--brand-gold-dark);
+	color: #2b2200;
+	text-decoration: none;
+}
+
+@keyframes crmPulse {
+
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(210, 174, 109, .5);
+	}
+
+	50% {
+		box-shadow: 0 0 0 6px rgba(210, 174, 109, 0);
+	}
+}
+
+.dark .call-quick-btn {
+	color: #2b2200;
+}
+
 .btn-call {
 	flex: 1;
 	border-radius: 10px;
