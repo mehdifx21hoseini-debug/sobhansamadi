@@ -105,35 +105,6 @@
 			});
 	}
 
-	function exportCsv() {
-		var q = state.query.trim();
-		var rows = state.leads
-			.filter(function (l) { return state.statusFilter === "همه" ? true : l.status === state.statusFilter; })
-			.filter(function (l) {
-				if (!q) return true;
-				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
-			});
-
-		var headers = ["نام", "شماره تماس", "دوره", "وضعیت", "تاریخ ثبت"];
-		var lines = [headers].concat(rows.map(function (l) {
-			return [l.full_name || "", l.phone || "", l.course || "", l.status, l.created_at ? new Date(l.created_at).toLocaleDateString("fa-IR") : ""];
-		}));
-
-		var csv = "﻿" + lines.map(function (row) {
-			return row.map(function (cell) { return '"' + String(cell).replace(/"/g, '""') + '"'; }).join(",");
-		}).join("\r\n");
-
-		var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-		var url = URL.createObjectURL(blob);
-		var link = document.createElement("a");
-		link.href = url;
-		link.download = "لیدها-" + new Date().toLocaleDateString("fa-IR") + ".csv";
-		document.body.appendChild(link);
-		link.click();
-		document.body.removeChild(link);
-		URL.revokeObjectURL(url);
-	}
-
 	$(function () {
 		loadLeads();
 
@@ -148,7 +119,5 @@
 			state.query = $(this).val();
 			renderTable();
 		});
-
-		$("#exportBtn").on("click", exportCsv);
 	});
 })();

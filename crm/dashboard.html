@@ -15,6 +15,7 @@
 </head>
 
 <body>
+	<script>document.body.className = localStorage.getItem("crmTheme") === "dark" ? "dark" : "";</script>
 
 	<div class="bmd-layout-container bmd-drawer-f-l avam-container bmd-drawer-in">
 		<header class="bmd-layout-header">
@@ -32,6 +33,12 @@
 							<div class="dropdown-menu dropdown-menu-right" aria-labelledby="userMenu">
 								<span class="dropdown-item dropdown-header">نظارت بر عملکرد</span>
 								<div class="dropdown-divider"></div>
+								<button class="dropdown-item" type="button" id="btnProfile"><i
+										class="far fa-user fa-sm c-main mr-2"></i>پروفایل</button>
+								<button class="dropdown-item" type="button" id="btnToggleTheme"><i id="themeToggleIcon"
+										class="fas fa-moon fa-sm c-main mr-2"></i><span
+										id="themeToggleLabel">حالت تاریک</span></button>
+								<div class="dropdown-divider"></div>
 								<button class="dropdown-item" type="button" id="btnLogout"><i
 										class="fas fa-sign-out-alt fa-sm c-main mr-2"></i>خروج</button>
 							</div>
@@ -46,7 +53,7 @@
 				<header class="pb-0">
 					<a class="navbar-brand" href="index.html">
 						<div class="brand-logo">
-							<i class="fas fa-graduation-cap"></i>
+							<span class="brand-logo-badge"><img src="assets/img/logo.png" alt="آکادمی سبحان صمدی"></span>
 							<span>CRM آکادمی</span>
 						</div>
 					</a>
@@ -84,28 +91,28 @@
 
 				<div class="row m-1 mb-2">
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini">
+						<div class="box-card mini animate-in d-1">
 							<i class="fas fa-users b-first" aria-hidden="true"></i>
 							<span class="c-first">کل لیدها</span>
 							<span id="d-total">0</span>
 						</div>
 					</div>
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini">
+						<div class="box-card mini animate-in d-2">
 							<i class="fas fa-clock b-second" aria-hidden="true"></i>
 							<span class="c-second">پاسخ‌داده‌نشده</span>
 							<span id="d-pending">0</span>
 						</div>
 					</div>
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini">
+						<div class="box-card mini animate-in d-3">
 							<i class="fas fa-phone b-third" aria-hidden="true"></i>
 							<span class="c-third">تماس گرفته شد</span>
 							<span id="d-called">0</span>
 						</div>
 					</div>
 					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini">
+						<div class="box-card mini animate-in d-4">
 							<i class="fas fa-phone-slash b-forth" aria-hidden="true"></i>
 							<span class="c-forth">پاسخ نداد</span>
 							<span id="d-noanswer">0</span>
@@ -115,7 +122,7 @@
 
 				<div class="row m-1">
 					<div class="col-lg-6 p-2">
-						<div class="card shade h-100">
+						<div class="card shade h-100 animate-in">
 							<div class="card-body">
 								<h5 class="card-title"><i class="fas fa-percentage c-main mr-2"></i>نرخ پاسخگویی
 									تیم</h5>
@@ -129,7 +136,7 @@
 						</div>
 					</div>
 					<div class="col-lg-6 p-2">
-						<div class="card shade h-100">
+						<div class="card shade h-100 animate-in">
 							<div class="card-body">
 								<h5 class="card-title"><i class="fas fa-phone-volume c-main mr-2"></i>میانگین دفعات
 									تماس</h5>
@@ -145,42 +152,54 @@
 
 				<div class="row m-1">
 					<div class="col-12 p-2">
-						<div class="card shade">
+						<div class="card shade animate-in">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-chart-bar c-main mr-2"></i>توزیع وضعیت
+								<h5 class="card-title"><i class="fas fa-chart-pie c-main mr-2"></i>توزیع وضعیت
+									لیدها</h5>
+								<hr>
+								<div class="row align-items-center">
+									<div class="col-md-5">
+										<div class="chart-wrap">
+											<canvas id="statusChart" width="240" height="240"></canvas>
+										</div>
+									</div>
+									<div class="col-md-7">
+										<div class="chart-legend" id="chartLegend"></div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade animate-in">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-file-export c-main mr-2"></i>خروجی گزارش
 									لیدها</h5>
 								<hr>
 
-								<div class="dist-row">
-									<div class="dist-label">
-										<span>پاسخ‌داده‌نشده</span>
-										<span id="d-bar-pending-label">0 (۰٪)</span>
-									</div>
-									<div class="dist-bar">
-										<div class="dist-bar-fill fill-amber" id="d-bar-pending" style="width:0%"></div>
-									</div>
+								<div class="export-range-buttons" id="exportRangeButtons">
+									<button class="filter-tab active" data-range="all">همه</button>
+									<button class="filter-tab" data-range="today">امروز</button>
+									<button class="filter-tab" data-range="week">۷ روز اخیر</button>
+									<button class="filter-tab" data-range="month">۳۰ روز اخیر</button>
+									<button class="filter-tab" data-range="custom">بازه دلخواه</button>
 								</div>
 
-								<div class="dist-row">
-									<div class="dist-label">
-										<span>تماس گرفته شد</span>
-										<span id="d-bar-called-label">0 (۰٪)</span>
-									</div>
-									<div class="dist-bar">
-										<div class="dist-bar-fill fill-emerald" id="d-bar-called" style="width:0%"></div>
-									</div>
+								<div class="export-date-inputs d-none" id="exportCustomDates">
+									<input type="date" id="exportFrom" class="form-control">
+									<span class="text-muted">تا</span>
+									<input type="date" id="exportTo" class="form-control">
 								</div>
 
-								<div class="dist-row">
-									<div class="dist-label">
-										<span>پاسخ نداد</span>
-										<span id="d-bar-noanswer-label">0 (۰٪)</span>
-									</div>
-									<div class="dist-bar">
-										<div class="dist-bar-fill fill-rose" id="d-bar-noanswer" style="width:0%"></div>
-									</div>
-								</div>
+								<button class="btn btn-brand" id="btnExportCsv">
+									<i class="fas fa-file-download ml-1"></i>خروجی Excel (CSV)
+								</button>
 
+								<p class="text-muted text-sm mt-2 mb-0">تعداد لید در بازه انتخابی: <span
+										id="exportCount">۰</span></p>
 							</div>
 						</div>
 					</div>
@@ -193,6 +212,7 @@
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script src="assets/vendor/popper.min.js"></script>
 	<script src="assets/vendor/bootstrap-material-design.min.js"></script>
+	<script src="assets/vendor/chart.umd.js"></script>
 	<script>
 		$(document).ready(function () {
 			$('body').bootstrapMaterialDesign();
@@ -203,8 +223,12 @@
 				sessionStorage.removeItem('crmAuthed');
 				window.location.href = 'login.html';
 			});
+			$('#btnProfile').on('click', function () {
+				alert('این بخش به‌زودی اضافه می‌شود.');
+			});
 		});
 	</script>
+	<script src="js/theme.js"></script>
 	<script src="js/data.js"></script>
 	<script src="js/dashboard.js"></script>
 </body>
