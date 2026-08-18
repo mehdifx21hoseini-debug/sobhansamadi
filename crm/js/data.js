@@ -54,6 +54,10 @@
 		});
 	}
 
+	function fetchLeadActivity(leadId) {
+		return request("/crm/lead/activity?id=" + encodeURIComponent(leadId), { method: "GET" });
+	}
+
 	global.CrmData = {
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
@@ -61,6 +65,7 @@
 		addLeadNote: addLeadNote,
 		sendRegistrationMessage: sendRegistrationMessage,
 		setLeadReminder: setLeadReminder,
+		fetchLeadActivity: fetchLeadActivity,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};
 })(window);

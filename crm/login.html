@@ -32,7 +32,7 @@
 						<i class="fas fa-lock"></i>
 					</div>
 					<div id="loginError" class="text-danger text-sm mb-2 d-none">نام کاربری یا رمز عبور اشتباه است.</div>
-					<button type="submit" class="btn btn-brand btn-block">ورود</button>
+					<button type="submit" class="btn btn-brand btn-block" id="btnLogin">ورود</button>
 				</form>
 			</div>
 		</div>
@@ -40,19 +40,40 @@
 
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script>
-		var ADMIN_USERNAME = "admin";
-		var ADMIN_PASSWORD = "Academy@2026";
+		var API_BASE = "https://96825.7host.cloud/webhook";
 
 		document.getElementById("loginForm").addEventListener("submit", function (e) {
 			e.preventDefault();
 			var username = document.getElementById("usernameInput").value.trim();
 			var password = document.getElementById("passwordInput").value;
-			if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-				sessionStorage.setItem("crmAuthed", "1");
-				window.location.href = "index.html";
-			} else {
-				document.getElementById("loginError").classList.remove("d-none");
-			}
+			var $btn = document.getElementById("btnLogin");
+			var $error = document.getElementById("loginError");
+			$error.classList.add("d-none");
+			$btn.disabled = true;
+			$btn.textContent = "در حال بررسی...";
+
+			fetch(API_BASE + "/crm/auth/login", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: username, password: password })
+			})
+				.then(function (res) { return res.json(); })
+				.then(function (data) {
+					if (data && data.success) {
+						sessionStorage.setItem("crmAuthed", "1");
+						window.location.href = "index.html";
+					} else {
+						$error.classList.remove("d-none");
+					}
+				})
+				.catch(function () {
+					$error.textContent = "خطا در برقراری ارتباط با سرور. دوباره تلاش کنید.";
+					$error.classList.remove("d-none");
+				})
+				.finally(function () {
+					$btn.disabled = false;
+					$btn.textContent = "ورود";
+				});
 		});
 	</script>
 </body>
