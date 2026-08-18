@@ -1,0 +1,293 @@
+/* CRM آکادمی — استایل‌های اختصاصی روی پایه قالب Nozha */
+
+body {
+	background: #f4f5f9;
+}
+
+.login-page {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+}
+
+.login-card {
+	width: 100%;
+	max-width: 360px;
+}
+
+/* fix: نوزها z-index:-1 روی آیکون box-card.mini می‌ذاره که باعث میشه آیکون پشت کارت پنهان بشه */
+.box-card {
+	position: relative;
+}
+
+.box-card.mini {
+	margin-top: 22px;
+}
+
+.box-card.mini>i {
+	z-index: 1;
+}
+
+.text-sm {
+	font-size: 0.8rem;
+}
+
+.mono {
+	font-family: "Courier New", monospace;
+}
+
+/* sidebar brand */
+.brand-logo {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 4px 18px;
+	color: #fff;
+}
+
+.brand-logo i {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.12);
+	font-size: 16px;
+}
+
+.brand-logo span {
+	font-weight: bold;
+	font-size: 15px;
+}
+
+/* toolbar */
+.toolbar-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.filter-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	background: #f1f2f6;
+	padding: 4px;
+	border-radius: 10px;
+}
+
+.filter-tab {
+	border: none;
+	background: transparent;
+	padding: 6px 14px;
+	border-radius: 8px;
+	font-size: 0.8rem;
+	font-family: inherit;
+	color: #5b5b5b;
+	cursor: pointer;
+	transition: all .15s ease;
+}
+
+.filter-tab.active {
+	background: #3f38b5;
+	color: #fff;
+}
+
+.toolbar-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.search-input {
+	width: 220px;
+	display: inline-block;
+}
+
+/* status badges */
+.status-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 12px;
+	border-radius: 20px;
+	font-size: 0.78rem;
+	font-weight: 600;
+}
+
+.badge-pending {
+	background: #fff3d6;
+	color: #a06a00;
+}
+
+.badge-called {
+	background: #dcf7ea;
+	color: #0d8a4f;
+}
+
+.badge-noanswer {
+	background: #fde1e7;
+	color: #c81e4b;
+}
+
+.lead-row:hover {
+	background: #f7f7fb;
+}
+
+.lead-name-link {
+	color: #2b2b40;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.lead-name-link:hover {
+	color: #3f38b5;
+}
+
+/* lead detail */
+.back-link {
+	color: #6b6b7b;
+	text-decoration: none;
+	font-size: 0.9rem;
+}
+
+.back-link:hover {
+	color: #3f38b5;
+}
+
+.call-actions {
+	display: flex;
+	gap: 10px;
+}
+
+.btn-call {
+	flex: 1;
+	border-radius: 10px;
+	padding: 10px 14px;
+	font-weight: 600;
+	border: none;
+}
+
+.btn-called {
+	background: #dcf7ea;
+	color: #0d8a4f;
+}
+
+.btn-called.active {
+	background: #0d8a4f;
+	color: #fff;
+}
+
+.btn-noanswer {
+	background: #fde1e7;
+	color: #c81e4b;
+}
+
+.btn-noanswer.active {
+	background: #c81e4b;
+	color: #fff;
+}
+
+.btn-brand {
+	background: #3f38b5;
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+}
+
+.btn-brand:hover {
+	background: #322c8f;
+	color: #fff;
+}
+
+.info-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 6px 0;
+	font-size: 0.88rem;
+	border-bottom: 1px dashed #eee;
+}
+
+.info-row:last-child {
+	border-bottom: none;
+}
+
+.message-item {
+	background: #f7f7fb;
+	border-radius: 10px;
+	padding: 12px 14px;
+	margin-bottom: 8px;
+	white-space: pre-line;
+}
+
+.notes-box {
+	background: #f7f7fb;
+	border-radius: 10px;
+	padding: 12px 14px;
+	white-space: pre-line;
+	max-height: 320px;
+	overflow-y: auto;
+	font-size: 0.88rem;
+	line-height: 1.9;
+}
+
+/* dashboard */
+.kpi-big {
+	font-size: 2.4rem;
+	font-weight: 700;
+	color: #2b2b40;
+	margin-bottom: 8px;
+}
+
+.kpi-big-sub {
+	font-size: 1rem;
+	font-weight: 400;
+	color: #8a8a8a;
+	margin-right: 8px;
+}
+
+.dist-row {
+	margin-bottom: 18px;
+}
+
+.dist-row:last-child {
+	margin-bottom: 0;
+}
+
+.dist-label {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.85rem;
+	color: #5b5b5b;
+	margin-bottom: 6px;
+}
+
+.dist-bar {
+	background: #f1f2f6;
+	border-radius: 10px;
+	height: 10px;
+	overflow: hidden;
+}
+
+.dist-bar-fill {
+	height: 100%;
+	border-radius: 10px;
+	transition: width .4s ease;
+}
+
+.fill-amber {
+	background: #f0b033;
+}
+
+.fill-emerald {
+	background: #0d8a4f;
+}
+
+.fill-rose {
+	background: #c81e4b;
+}

@@ -1,0 +1,51 @@
+<!doctype html>
+<html class="no-js rtl" lang="fa" dir="rtl">
+
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<title>ورود — CRM آکادمی</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
+	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
+	<link rel="stylesheet" href="assets/nozha-main.css">
+	<link rel="stylesheet" href="assets/app.css">
+</head>
+
+<body>
+	<div class="login-page">
+		<div class="login-card card shade">
+			<div class="card-body">
+				<div class="brand-logo justify-content-center mb-3">
+					<i class="fas fa-graduation-cap"></i>
+					<span>CRM آکادمی</span>
+				</div>
+				<p class="text-center text-muted mb-4">برای ورود، رمز عبور مدیریت را وارد کنید.</p>
+				<form id="loginForm">
+					<input type="password" id="passwordInput" class="form-control" placeholder="رمز عبور" autofocus>
+					<div id="loginError" class="text-danger text-sm mt-2 d-none">رمز عبور اشتباه است.</div>
+					<button type="submit" class="btn btn-brand btn-block mt-3">ورود</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<script src="assets/vendor/jquery.min.js"></script>
+	<script>
+		var ADMIN_PASSWORD = "Academy@2026";
+
+		document.getElementById("loginForm").addEventListener("submit", function (e) {
+			e.preventDefault();
+			var value = document.getElementById("passwordInput").value;
+			if (value === ADMIN_PASSWORD) {
+				sessionStorage.setItem("crmAuthed", "1");
+				window.location.href = "index.html";
+			} else {
+				document.getElementById("loginError").classList.remove("d-none");
+			}
+		});
+	</script>
+</body>
+
+</html>
