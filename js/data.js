@@ -79,6 +79,14 @@
 		return request("/crm/lead/activity?id=" + encodeURIComponent(leadId), { method: "GET" });
 	}
 
+	// "YYYY-MM-DD" is parsed as UTC midnight by `new Date(str)`, which shifts
+	// to the previous local day for any timezone behind UTC. Parse the parts
+	// and build a local-midnight Date instead.
+	function parseLocalDate(dateOnlyStr) {
+		var parts = String(dateOnlyStr).split("-");
+		return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+	}
+
 	global.CrmData = {
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
@@ -87,6 +95,7 @@
 		sendRegistrationMessage: sendRegistrationMessage,
 		setLeadReminder: setLeadReminder,
 		fetchLeadActivity: fetchLeadActivity,
+		parseLocalDate: parseLocalDate,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};
 })(window);

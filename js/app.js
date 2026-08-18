@@ -41,8 +41,7 @@
 		if (!lead.reminder_date) return false;
 		var today = new Date();
 		today.setHours(0, 0, 0, 0);
-		var reminder = new Date(lead.reminder_date);
-		reminder.setHours(0, 0, 0, 0);
+		var reminder = CrmData.parseLocalDate(lead.reminder_date);
 		return reminder <= today;
 	}
 
