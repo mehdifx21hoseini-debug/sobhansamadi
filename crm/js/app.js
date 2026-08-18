@@ -26,13 +26,27 @@
 		return diffDays + " روز پیش";
 	}
 
+	var PAGE_SIZE = 15;
+
 	var state = {
 		leads: [],
 		statusFilter: "همه",
 		query: "",
 		loading: true,
-		error: null
+		error: null,
+		page: 1
 	};
+
+	function getFilteredRows() {
+		var q = state.query.trim();
+		return state.leads
+			.filter(function (l) { return state.statusFilter === "همه" ? true : l.status === state.statusFilter; })
+			.filter(function (l) {
+				if (!q) return true;
+				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
+			})
+			.sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
+	}
 
 	function renderStats() {
 		var total = state.leads.length;
@@ -47,6 +61,7 @@
 
 	function renderTable() {
 		var $body = $("#leadsTableBody").empty();
+		$("#pagination").addClass("d-none");
 
 		if (state.loading) {
 			$body.append('<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin mr-1"></i>در حال بارگذاری...</td></tr>');
@@ -57,21 +72,19 @@
 			return;
 		}
 
-		var q = state.query.trim();
-		var rows = state.leads
-			.filter(function (l) { return state.statusFilter === "همه" ? true : l.status === state.statusFilter; })
-			.filter(function (l) {
-				if (!q) return true;
-				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
-			})
-			.sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
+		var rows = getFilteredRows();
 
 		if (rows.length === 0) {
 			$body.append('<tr><td colspan="6" class="text-center text-muted py-4">موردی یافت نشد.</td></tr>');
 			return;
 		}
 
-		rows.forEach(function (lead) {
+		var totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+		if (state.page > totalPages) state.page = totalPages;
+		var start = (state.page - 1) * PAGE_SIZE;
+		var pageRows = rows.slice(start, start + PAGE_SIZE);
+
+		pageRows.forEach(function (lead) {
 			var $tr = $("<tr>").addClass("lead-row").attr("data-id", lead.lead_id);
 			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id)).addClass("lead-name-link").text(lead.full_name || "(بدون نام)")));
 			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
@@ -81,6 +94,13 @@
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
 		});
+
+		if (rows.length > PAGE_SIZE) {
+			$("#pagination").removeClass("d-none");
+			$("#paginationInfo").text("صفحه " + state.page + " از " + totalPages + " (" + rows.length + " لید)");
+			$("#btnPrevPage").prop("disabled", state.page <= 1);
+			$("#btnNextPage").prop("disabled", state.page >= totalPages);
+		}
 	}
 
 	function render() {
@@ -112,11 +132,25 @@
 			$(".filter-tab").removeClass("active");
 			$(this).addClass("active");
 			state.statusFilter = $(this).data("status");
+			state.page = 1;
 			renderTable();
 		});
 
 		$("#searchInput").on("input", function () {
 			state.query = $(this).val();
+			state.page = 1;
+			renderTable();
+		});
+
+		$("#btnPrevPage").on("click", function () {
+			if (state.page > 1) {
+				state.page -= 1;
+				renderTable();
+			}
+		});
+
+		$("#btnNextPage").on("click", function () {
+			state.page += 1;
 			renderTable();
 		});
 	});
