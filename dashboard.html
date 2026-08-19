@@ -241,6 +241,8 @@
 			}
 			$('#btnLogout').on('click', function () {
 				sessionStorage.removeItem('crmAuthed');
+				sessionStorage.removeItem('crmToken');
+				sessionStorage.removeItem('crmTokenExpiresAt');
 				window.location.href = 'login.html';
 			});
 			$('#btnProfile').on('click', function () {
