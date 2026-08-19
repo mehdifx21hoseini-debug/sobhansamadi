@@ -104,47 +104,67 @@
 					</div>
 				</div>
 
+				<div class="row m-1">
+					<div class="col-12 p-2 pb-0">
+						<p class="text-muted text-sm mb-1"><i class="fas fa-users mr-1"></i>لیدهای مشاوره</p>
+					</div>
+				</div>
 				<div class="row m-1 mb-2">
-					<div class="col-xl-2 col-md-4 col-sm-6 p-2">
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-1">
 							<i class="fas fa-users b-first" aria-hidden="true"></i>
 							<span class="c-first">کل لیدها</span>
 							<span id="d-total">0</span>
 						</div>
 					</div>
-					<div class="col-xl-2 col-md-4 col-sm-6 p-2">
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-2">
 							<i class="fas fa-calendar-day b-second" aria-hidden="true"></i>
 							<span class="c-second">لید امروز</span>
 							<span id="d-today">0</span>
 						</div>
 					</div>
-					<div class="col-xl-2 col-md-4 col-sm-6 p-2">
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-3">
 							<i class="fas fa-percentage b-third" aria-hidden="true"></i>
 							<span class="c-third">نرخ پاسخگویی</span>
 							<span id="d-response-rate">۰٪</span>
 						</div>
 					</div>
-					<div class="col-xl-2 col-md-4 col-sm-6 p-2">
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-4">
 							<i class="fas fa-phone-volume b-forth" aria-hidden="true"></i>
 							<span class="c-forth">میانگین تماس</span>
 							<span id="d-avg-attempts">0</span>
 						</div>
 					</div>
-					<div class="col-xl-2 col-md-4 col-sm-6 p-2">
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2 pb-0">
+						<p class="text-muted text-sm mb-1"><i class="fas fa-robot mr-1"></i>ربات تلگرام</p>
+					</div>
+				</div>
+				<div class="row m-1 mb-2">
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-1">
 							<i class="fas fa-user-friends b-first" aria-hidden="true"></i>
 							<span class="c-first">کل اعضای ربات</span>
 							<span id="bot-total-users">0</span>
 						</div>
 					</div>
-					<div class="col-xl-2 col-md-4 col-sm-6 p-2">
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-2">
 							<i class="fas fa-bolt b-second" aria-hidden="true"></i>
-							<span class="c-second">ربات فعال امروز</span>
+							<span class="c-second">فعال امروز</span>
 							<span id="bot-dau">0</span>
+						</div>
+					</div>
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-3">
+							<i class="fas fa-calendar-week b-third" aria-hidden="true"></i>
+							<span class="c-third">فعال این هفته</span>
+							<span id="bot-wau">0</span>
 						</div>
 					</div>
 				</div>
@@ -153,25 +173,32 @@
 					<div class="col-12 p-2">
 						<div class="card shade animate-in">
 							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-chart-line c-main mr-2"></i>روند ثبت لید در
+									۱۴ روز اخیر</h5>
+								<hr>
+								<div class="trend-chart-wrap">
+									<canvas id="trendChart" height="90"></canvas>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade animate-in">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-chart-pie c-main mr-2"></i>توزیع وضعیت
+									لیدها</h5>
+								<hr>
 								<div class="row align-items-center">
-									<div class="col-lg-7">
-										<h5 class="card-title"><i class="fas fa-chart-line c-main mr-2"></i>روند ثبت لید در ۱۴ روز اخیر</h5>
-										<div class="trend-chart-wrap">
-											<canvas id="trendChart" height="90"></canvas>
+									<div class="col-md-5">
+										<div class="chart-wrap">
+											<canvas id="statusChart" width="240" height="240"></canvas>
 										</div>
 									</div>
-									<div class="col-lg-5">
-										<h5 class="card-title"><i class="fas fa-chart-pie c-main mr-2"></i>توزیع وضعیت لیدها (کلی)</h5>
-										<div class="row align-items-center">
-											<div class="col-6">
-												<div class="chart-wrap">
-													<canvas id="statusChart" width="180" height="180"></canvas>
-												</div>
-											</div>
-											<div class="col-6">
-												<div class="chart-legend" id="chartLegend"></div>
-											</div>
-										</div>
+									<div class="col-md-7">
+										<div class="chart-legend" id="chartLegend"></div>
 									</div>
 								</div>
 							</div>
