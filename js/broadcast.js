@@ -39,14 +39,16 @@
 			return;
 		}
 		broadcasts.forEach(function (b) {
-			var $tr = $("<tr>");
+			var $tr = $("<tr>").toggleClass("broadcast-row-deleted", !!b.deleted);
 			$tr.append($("<td>").text(truncate(b.message, 60)));
 			$tr.append($("<td>").text(AUDIENCE_LABELS[b.audience] || b.audience));
 			$tr.append($("<td>").text(b.sent_count));
 			$tr.append($("<td>").text(formatDate(b.created_at)));
 
 			var $actionCell = $("<td>");
-			if (hoursSince(b.created_at) < DELETE_WINDOW_HOURS) {
+			if (b.deleted) {
+				$actionCell.append('<span class="status-badge badge-ticket-closed"><i class="fas fa-trash"></i>حذف شده</span>');
+			} else if (hoursSince(b.created_at) < DELETE_WINDOW_HOURS) {
 				var $btn = $('<button class="btn btn-sm btn-outline-secondary"><i class="fas fa-trash mr-1"></i>حذف برای همه</button>');
 				$btn.on("click", function () {
 					if (!confirm("این پیام برای همه‌ی " + b.sent_count + " گیرنده حذف بشه؟ این کار قابل بازگشت نیست.")) return;
