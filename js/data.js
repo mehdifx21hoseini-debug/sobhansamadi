@@ -222,6 +222,30 @@
 		});
 	}
 
+	function fetchAiOverview() {
+		return request("/crm/ai-overview", { method: "GET" });
+	}
+
+	function fetchAiKnowledge() {
+		return request("/crm/ai-knowledge", { method: "GET" });
+	}
+
+	function saveAiKnowledge(payload) {
+		return request("/crm/ai-knowledge/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload)
+		});
+	}
+
+	function deleteAiKnowledge(id) {
+		return request("/crm/ai-knowledge/delete", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ id: id })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -280,6 +304,10 @@
 		unsubscribeEconSubscriber: unsubscribeEconSubscriber,
 		fetchAdmins: fetchAdmins,
 		saveAdmin: saveAdmin,
+		fetchAiOverview: fetchAiOverview,
+		fetchAiKnowledge: fetchAiKnowledge,
+		saveAiKnowledge: saveAiKnowledge,
+		deleteAiKnowledge: deleteAiKnowledge,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,

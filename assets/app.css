@@ -1450,3 +1450,40 @@ body::before {
 	font-weight: 700;
 	margin-right: 6px;
 }
+
+/* ===== AI knowledge base (مدیریت هوش مصنوعی) ===== */
+.ai-kb-toolbar {
+	gap: 10px;
+}
+
+.ai-kb-filters {
+	gap: 10px;
+	flex: 1;
+	min-width: 0;
+}
+
+.ai-kb-filters .mono-search {
+	width: 240px;
+	max-width: 100%;
+}
+
+.ai-kb-filters select {
+	width: 160px;
+	max-width: 100%;
+}
+
+.ai-kb-filter-check {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0;
+	white-space: nowrap;
+}
+
+.kb-answer-preview {
+	max-width: 360px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	display: block;
+}
