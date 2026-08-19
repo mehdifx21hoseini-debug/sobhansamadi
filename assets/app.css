@@ -1496,3 +1496,11 @@ body::before {
 	direction: rtl;
 	white-space: pre-wrap;
 }
+
+.broadcast-row-deleted td {
+	opacity: .55;
+}
+
+.broadcast-row-deleted td:first-child {
+	text-decoration: line-through;
+}
