@@ -59,8 +59,10 @@
 			})
 				.then(function (res) { return res.json(); })
 				.then(function (data) {
-					if (data && data.success) {
+					if (data && data.success && data.token) {
 						sessionStorage.setItem("crmAuthed", "1");
+						sessionStorage.setItem("crmToken", data.token);
+						sessionStorage.setItem("crmTokenExpiresAt", data.expires_at || "");
 						window.location.href = "index.html";
 					} else {
 						$error.classList.remove("d-none");

@@ -6,7 +6,17 @@
 	var REGISTRATION_MESSAGE_TEMPLATE = "سلام {نام} عزیز، وقت بخیر 🌷\nممنون از تماسی که داشتیم.\nشرایط ثبت‌نام مجموعه آموزشی به شرح زیره:\n\n📌 مدت دوره: ۳ ماه\n📌 نحوه برگزاری: آنلاین + پشتیبانی گروهی\n📌 امکان پرداخت اقساطی\n\nبرای ثبت‌نام نهایی از لینک زیر استفاده کنید:\nacademy.example.com/register\n\nهر سوالی داشتید در خدمتتون هستیم 🙏";
 
 	function request(path, options) {
+		options = options || {};
+		var token = sessionStorage.getItem("crmToken");
+		options.headers = Object.assign({}, options.headers, token ? { "Authorization": "Bearer " + token } : {});
 		return fetch(API_BASE + path, options).then(function (res) {
+			if (res.status === 401) {
+				sessionStorage.removeItem("crmAuthed");
+				sessionStorage.removeItem("crmToken");
+				sessionStorage.removeItem("crmTokenExpiresAt");
+				window.location.href = "login.html";
+				throw new Error("نشست منقضی شده است، لطفاً دوباره وارد شوید.");
+			}
 			if (!res.ok) {
 				throw new Error("درخواست ناموفق بود (" + res.status + ")");
 			}
