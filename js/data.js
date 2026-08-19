@@ -15,6 +15,7 @@
 				sessionStorage.removeItem("crmToken");
 				sessionStorage.removeItem("crmTokenExpiresAt");
 				sessionStorage.removeItem("crmDisplayName");
+				sessionStorage.removeItem("crmUsername");
 				window.location.href = "login.html";
 				throw new Error("نشست منقضی شده است، لطفاً دوباره وارد شوید.");
 			}
@@ -108,6 +109,14 @@
 		});
 	}
 
+	function updateUsername(newUsername, currentPassword) {
+		return request("/crm/auth/update-username", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ new_username: newUsername, current_password: currentPassword })
+		});
+	}
+
 	// "YYYY-MM-DD" is parsed as UTC midnight by `new Date(str)`, which shifts
 	// to the previous local day for any timezone behind UTC. Parse the parts
 	// and build a local-midnight Date instead.
@@ -126,6 +135,7 @@
 		fetchLeadActivity: fetchLeadActivity,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
+		updateUsername: updateUsername,
 		parseLocalDate: parseLocalDate,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};

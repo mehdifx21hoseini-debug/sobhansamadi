@@ -5,9 +5,14 @@
 		return sessionStorage.getItem("crmDisplayName") || "مشاور فروش";
 	}
 
+	function username() {
+		return sessionStorage.getItem("crmUsername") || "admin";
+	}
+
 	function renderName() {
 		var name = displayName();
 		$("#userDisplayName, #profileDisplayName").text(name);
+		$("#profileUsername").text(username());
 	}
 
 	function resetPasswordForm() {
@@ -27,12 +32,20 @@
 		$("#updateNameResult").addClass("d-none");
 	}
 
+	function exitUsernameEditMode() {
+		$("#usernameEdit").addClass("d-none");
+		$("#usernameView").removeClass("d-none");
+		$("#updateUsernameResult").addClass("d-none");
+		$("#usernameCurrentPasswordInput").val("");
+	}
+
 	$(function () {
 		renderName();
 
 		$("#btnProfile").on("click", function () {
 			resetPasswordForm();
 			exitNameEditMode();
+			exitUsernameEditMode();
 			$("#profileModal").modal("show");
 		});
 
@@ -61,6 +74,45 @@
 				})
 				.catch(function (err) {
 					showResult($("#updateNameResult"), false, err.message || "خطای نامشخص");
+				})
+				.finally(function () {
+					$btn.prop("disabled", false);
+				});
+		});
+
+		$("#btnEditUsername").on("click", function () {
+			$("#editUsernameInput").val(username());
+			$("#usernameView").addClass("d-none");
+			$("#usernameEdit").removeClass("d-none");
+			$("#editUsernameInput").trigger("focus");
+		});
+
+		$("#btnCancelUsername").on("click", exitUsernameEditMode);
+
+		$("#btnSaveUsername").on("click", function () {
+			var newUsername = $("#editUsernameInput").val().trim();
+			var currentPassword = $("#usernameCurrentPasswordInput").val();
+			var $result = $("#updateUsernameResult");
+
+			if (!newUsername) {
+				showResult($result, false, "نام کاربری نمی‌تواند خالی باشد.");
+				return;
+			}
+			if (!currentPassword) {
+				showResult($result, false, "برای تایید، رمز عبور فعلی را وارد کنید.");
+				return;
+			}
+
+			var $btn = $(this).prop("disabled", true);
+			CrmData.updateUsername(newUsername, currentPassword)
+				.then(function (res) {
+					var finalUsername = (res && res.username) || newUsername;
+					sessionStorage.setItem("crmUsername", finalUsername);
+					renderName();
+					exitUsernameEditMode();
+				})
+				.catch(function (err) {
+					showResult($result, false, err.message || "خطای نامشخص");
 				})
 				.finally(function () {
 					$btn.prop("disabled", false);
