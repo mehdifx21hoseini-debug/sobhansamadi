@@ -209,8 +209,19 @@
 			.text(text);
 	}
 
+	function getOpenParam() {
+		var params = new URLSearchParams(window.location.search);
+		return params.get("open");
+	}
+
 	$(function () {
-		loadTickets(false, true);
+		var openTicketId = getOpenParam();
+		if (openTicketId) {
+			selectTicket(openTicketId);
+			loadTickets(true, true);
+		} else {
+			loadTickets(false, true);
+		}
 
 		$("#ticketFilterTabs .filter-tab").on("click", function () {
 			$("#ticketFilterTabs .filter-tab").removeClass("active");
