@@ -5,7 +5,7 @@
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<script src="js/auth.js"></script>
-	<title>ارجاعات پشتیبانی — CRM آکادمی</title>
+	<title>پیام همگانی — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
@@ -68,13 +68,13 @@
 					<div class="side-item-container">
 						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای
 								مشاوره</a></li>
-						<li class="side-item selected"><a href="support.html"><i
+						<li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>ارجاعات پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
 						<li class="side-item"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
 						<li class="side-item"><a href="content.html"><i
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
-						<li class="side-item"><a href="broadcast.html"><i
+						<li class="side-item selected"><a href="broadcast.html"><i
 									class="fas fa-bullhorn mr-2"></i>پیام همگانی</a></li>
 					</div>
 				</ul>
@@ -90,9 +90,9 @@
 							<div class="row align-items-end">
 								<div class="col-lg-8">
 									<div class="page-header-title text-left-rtl">
-										<h3 class="lite-text">ارجاعات پشتیبانی</h3>
-										<span class="lite-text text-gray">سوالاتی که هوش مصنوعی نتوانست با اطمینان
-											پاسخ بدهد و به تیم پشتیبانی ارجاع شده‌اند</span>
+										<h3 class="lite-text">پیام همگانی</h3>
+										<span class="lite-text text-gray">ارسال یک پیام از طریق تلگرام به همه اعضای
+											ربات یا فقط مشترکین هشدار تقویم اقتصادی</span>
 									</div>
 								</div>
 							</div>
@@ -101,68 +101,43 @@
 				</div>
 
 				<div class="row m-1">
-					<div class="col-lg-4 p-2">
+					<div class="col-lg-8 p-2">
 						<div class="card shade animate-in">
 							<div class="card-body">
-								<div class="filter-tabs" id="ticketFilterTabs">
-									<button class="filter-tab active" data-status="همه">همه</button>
-									<button class="filter-tab" data-status="باز">باز</button>
-									<button class="filter-tab" data-status="پاسخ داده شده">پاسخ داده‌شده</button>
-									<button class="filter-tab" data-status="بسته">بسته</button>
-								</div>
+								<h5 class="card-title"><i class="fas fa-pen c-main mr-2"></i>متن پیام</h5>
 								<hr>
-								<div class="ticket-list" id="ticketList"></div>
+								<textarea id="broadcastMessage" class="form-control" rows="8" placeholder="متن پیام را اینجا بنویسید..."></textarea>
+								<p class="text-muted text-sm mt-2 mb-0"><span id="charCount">۰</span> کاراکتر</p>
+
+								<hr>
+								<h6 class="mb-2">مخاطبان</h6>
+								<div class="form-group">
+									<div class="form-check">
+										<input class="form-check-input" type="radio" name="audience" id="audienceAll" value="all" checked>
+										<label class="form-check-label" for="audienceAll">👥 همه کاربران ربات (به‌جز ادمین‌ها)</label>
+									</div>
+									<div class="form-check">
+										<input class="form-check-input" type="radio" name="audience" id="audienceEcon" value="econ_subscribers">
+										<label class="form-check-label" for="audienceEcon">📅 فقط مشترکین هشدار تقویم اقتصادی</label>
+									</div>
+								</div>
+
+								<button class="btn btn-brand" id="btnSendBroadcast"><i class="fas fa-paper-plane ml-1"></i>ارسال پیام همگانی</button>
+								<div id="broadcastResult" class="mt-3 d-none"></div>
 							</div>
 						</div>
 					</div>
 
-					<div class="col-lg-8 p-2">
-						<div id="ticketEmptyState" class="card shade animate-in">
-							<div class="card-body text-center text-muted py-5">
-								<i class="fas fa-inbox fa-2x mb-3 d-block"></i>
-								یک ارجاع را از لیست انتخاب کنید.
-							</div>
-						</div>
-
-						<div id="ticketDetail" class="d-none">
-							<div class="card shade mb-3 animate-in">
-								<div class="card-body">
-									<div class="ticket-profile-row">
-										<div class="d-flex align-items-center">
-											<div id="ticketAvatar" class="mr-3"></div>
-											<div>
-												<h4 id="ticketUserName" class="mb-1"></h4>
-												<p id="ticketUsername" class="text-muted mb-1" dir="ltr"></p>
-												<p class="text-muted text-sm mb-0">شناسه تلگرام: <span id="ticketTelegramId" class="mono"></span></p>
-											</div>
-										</div>
-										<div class="text-left">
-											<span id="ticketStatusBadge" class="status-badge mb-2 d-inline-block"></span>
-											<div>
-												<button class="btn btn-sm btn-outline-secondary" id="btnToggleTicketStatus"></button>
-											</div>
-										</div>
-									</div>
-									<div id="ticketReasonBox" class="ticket-reason-box d-none">
-										<i class="fas fa-robot mr-1"></i><span id="ticketReasonText"></span>
-									</div>
-								</div>
-							</div>
-
-							<div class="card shade mb-3 animate-in">
-								<div class="card-body">
-									<h5 class="card-title mb-0"><i class="fas fa-comments c-main mr-2"></i>گفتگو</h5>
-									<hr>
-									<div id="ticketThread" class="ticket-thread"></div>
-
-									<div class="mt-3">
-										<textarea id="replyDraft" class="form-control" rows="3" placeholder="پاسخ خود را بنویسید..."></textarea>
-										<div class="d-flex justify-content-between align-items-center mt-2">
-											<button class="btn btn-brand btn-sm" id="btnSendReply"><i class="fas fa-paper-plane mr-1"></i>ارسال پاسخ به تلگرام</button>
-											<span id="replyResult" class="text-sm d-none"></span>
-										</div>
-									</div>
-								</div>
+					<div class="col-lg-4 p-2">
+						<div class="card shade animate-in">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-triangle-exclamation c-main mr-2"></i>نکات مهم</h5>
+								<hr>
+								<ul class="text-sm text-muted pr-3 mb-0">
+									<li class="mb-2">این پیام مستقیماً و بلافاصله برای همه‌ی مخاطبان انتخاب‌شده ارسال می‌شود — قابل لغو نیست.</li>
+									<li class="mb-2">قبل از ارسال، متن رو یک‌بار کامل بخون.</li>
+									<li>کاربرانی که ربات رو بلاک کرده باشن، پیام رو دریافت نمی‌کنن (خطا نادیده گرفته می‌شه).</li>
+								</ul>
 							</div>
 						</div>
 					</div>
@@ -257,7 +232,7 @@
 	<script src="js/global-search.js"></script>
 	<script src="js/notify.js"></script>
 	<script src="js/profile.js"></script>
-	<script src="js/support.js"></script>
+	<script src="js/broadcast.js"></script>
 </body>
 
 </html>

@@ -178,6 +178,14 @@
 		});
 	}
 
+	function sendBroadcast(message, audience) {
+		return request("/crm/broadcast", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ message: message, audience: audience })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -229,6 +237,7 @@
 		saveContentText: saveContentText,
 		fetchContentFiles: fetchContentFiles,
 		saveContentFile: saveContentFile,
+		sendBroadcast: sendBroadcast,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,
