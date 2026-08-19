@@ -246,6 +246,14 @@
 		});
 	}
 
+	function bulkSaveAiKnowledge(entries) {
+		return request("/crm/ai-knowledge/bulk-save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ entries: entries })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -308,6 +316,7 @@
 		fetchAiKnowledge: fetchAiKnowledge,
 		saveAiKnowledge: saveAiKnowledge,
 		deleteAiKnowledge: deleteAiKnowledge,
+		bulkSaveAiKnowledge: bulkSaveAiKnowledge,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,

@@ -1487,3 +1487,12 @@ body::before {
 	white-space: nowrap;
 	display: block;
 }
+
+.ai-kb-fulltext {
+	width: 100%;
+	min-height: 60vh;
+	resize: vertical;
+	line-height: 1.9;
+	direction: rtl;
+	white-space: pre-wrap;
+}
