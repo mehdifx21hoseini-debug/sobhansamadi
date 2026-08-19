@@ -100,6 +100,14 @@
 		});
 	}
 
+	function updateDisplayName(displayName) {
+		return request("/crm/auth/update-name", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ display_name: displayName })
+		});
+	}
+
 	// "YYYY-MM-DD" is parsed as UTC midnight by `new Date(str)`, which shifts
 	// to the previous local day for any timezone behind UTC. Parse the parts
 	// and build a local-midnight Date instead.
@@ -117,6 +125,7 @@
 		setLeadReminder: setLeadReminder,
 		fetchLeadActivity: fetchLeadActivity,
 		changePassword: changePassword,
+		updateDisplayName: updateDisplayName,
 		parseLocalDate: parseLocalDate,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};
