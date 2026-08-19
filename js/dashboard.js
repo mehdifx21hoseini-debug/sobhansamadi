@@ -36,15 +36,7 @@
 		var called = leads.filter(function (l) { return l.status === "تماس گرفته شد"; }).length;
 		var noAnswer = leads.filter(function (l) { return l.status === "پاسخ نداد"; }).length;
 
-		var responded = called + noAnswer;
-		var responseRate = total > 0 ? Math.round((responded / total) * 100) : 0;
-
-		var attemptsSum = leads.reduce(function (sum, l) { return sum + (l.contact_attempts || 0); }, 0);
-		var avgAttempts = total > 0 ? (attemptsSum / total).toFixed(1) : "0";
-
 		$("#d-total").text(total);
-		$("#d-response-rate").text(toPersianPercent(responseRate));
-		$("#d-avg-attempts").text(avgAttempts);
 
 		renderChart(pending, called, noAnswer, total);
 		renderTrendChart();
