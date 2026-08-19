@@ -98,6 +98,7 @@
 						sessionStorage.setItem("crmTokenExpiresAt", data.expires_at || "");
 						sessionStorage.setItem("crmDisplayName", data.display_name || "مشاور فروش");
 						sessionStorage.setItem("crmUsername", data.username || username);
+						sessionStorage.setItem("crmRole", data.role || "admin");
 						window.location.href = "index.html";
 					} else {
 						$error.classList.remove("d-none");
