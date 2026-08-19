@@ -21,6 +21,7 @@
 	}
 
 	function getTickets() {
+		if (sessionStorage.getItem("crmRole") === "consultant") return Promise.resolve([]);
 		if (typeof CrmData.fetchSupportTickets !== "function") return Promise.resolve([]);
 		var now = Date.now();
 		if (ticketsCache && (now - ticketsCacheTime) < CACHE_TTL) {
