@@ -5,7 +5,7 @@
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<script src="js/auth.js"></script>
-	<title>پیام‌های پشتیبانی — CRM آکادمی</title>
+	<title>مدیریت هوش مصنوعی — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
@@ -70,11 +70,11 @@
 								مشاوره</a></li>
 						<li class="side-item"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
-						<li class="side-item selected"><a href="support.html"><i
+						<li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>پیام‌های پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
 						<li class="side-item"><a href="content.html"><i
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
-						<li class="side-item"><a href="ai.html"><i
+						<li class="side-item selected"><a href="ai.html"><i
 									class="fas fa-robot mr-2"></i>مدیریت هوش مصنوعی</a></li>
 						<li class="side-item"><a href="broadcast.html"><i
 									class="fas fa-bullhorn mr-2"></i>پیام همگانی</a></li>
@@ -96,9 +96,8 @@
 							<div class="row align-items-end">
 								<div class="col-lg-8">
 									<div class="page-header-title text-left-rtl">
-										<h3 class="lite-text">پیام‌های پشتیبانی</h3>
-										<span class="lite-text text-gray">سوالاتی که هوش مصنوعی نتوانست با اطمینان
-											پاسخ بدهد و به تیم پشتیبانی ارجاع شده‌اند</span>
+										<h3 class="lite-text">مدیریت هوش مصنوعی</h3>
+										<span class="lite-text text-gray">پایگاه دانشی که دستیار هوش مصنوعی ربات برای پاسخ به سوالات کاربران ازش استفاده می‌کنه — بدون نیاز به دست‌زدن به n8n</span>
 									</div>
 								</div>
 							</div>
@@ -106,68 +105,65 @@
 					</div>
 				</div>
 
-				<div class="row m-1">
-					<div class="col-lg-4 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<div class="filter-tabs" id="ticketFilterTabs">
-									<button class="filter-tab active" data-status="همه">همه</button>
-									<button class="filter-tab" data-status="باز">باز</button>
-									<button class="filter-tab" data-status="پاسخ داده شده">پاسخ داده‌شده</button>
-									<button class="filter-tab" data-status="بسته">بسته</button>
-								</div>
-								<hr>
-								<div class="ticket-list" id="ticketList"></div>
-							</div>
+				<div class="row m-1 mb-2">
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-1">
+							<i class="fas fa-database b-first" aria-hidden="true"></i>
+							<span class="c-first">کل پایگاه دانش</span>
+							<span id="ai-kb-total">0</span>
 						</div>
 					</div>
-
-					<div class="col-lg-8 p-2">
-						<div id="ticketEmptyState" class="card shade animate-in">
-							<div class="card-body text-center text-muted py-5">
-								<i class="fas fa-inbox fa-2x mb-3 d-block"></i>
-								یک ارجاع را از لیست انتخاب کنید.
-							</div>
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-2">
+							<i class="fas fa-circle-check b-second" aria-hidden="true"></i>
+							<span class="c-second">فعال</span>
+							<span id="ai-kb-active">0</span>
 						</div>
+					</div>
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-3">
+							<i class="fas fa-triangle-exclamation b-third" aria-hidden="true"></i>
+							<span class="c-third">نیاز به تکمیل</span>
+							<span id="ai-kb-needs">0</span>
+						</div>
+					</div>
+				</div>
 
-						<div id="ticketDetail" class="d-none">
-							<div class="card shade mb-3 animate-in">
-								<div class="card-body">
-									<div class="ticket-profile-row">
-										<div class="d-flex align-items-center">
-											<div id="ticketAvatar" class="mr-3"></div>
-											<div>
-												<h4 id="ticketUserName" class="mb-1"></h4>
-												<p id="ticketUsername" class="text-muted mb-1" dir="ltr"></p>
-												<p class="text-muted text-sm mb-0">شناسه تلگرام: <span id="ticketTelegramId" class="mono"></span></p>
-											</div>
-										</div>
-										<div class="text-left">
-											<span id="ticketStatusBadge" class="status-badge mb-2 d-inline-block"></span>
-											<div>
-												<button class="btn btn-sm btn-outline-secondary" id="btnToggleTicketStatus"></button>
-											</div>
-										</div>
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade animate-in">
+							<div class="card-body">
+								<div class="d-flex justify-content-between align-items-center flex-wrap ai-kb-toolbar">
+									<div class="d-flex align-items-center flex-wrap ai-kb-filters">
+										<input type="text" id="kbSearchInput" class="form-control form-control-sm mono-search" placeholder="جستجو در سوال یا پاسخ...">
+										<select id="kbCategoryFilter" class="form-control form-control-sm">
+											<option value="">همه دسته‌ها</option>
+										</select>
+										<label class="form-check-label ai-kb-filter-check">
+											<input type="checkbox" id="kbNeedsCompletionOnly"> فقط نیاز به تکمیل
+										</label>
 									</div>
-									<div id="ticketReasonBox" class="ticket-reason-box d-none">
-										<i class="fas fa-robot mr-1"></i><span id="ticketReasonText"></span>
-									</div>
+									<button class="btn btn-sm btn-brand" id="btnAddKb"><i class="fas fa-plus mr-1"></i>افزودن به پایگاه دانش</button>
 								</div>
-							</div>
-
-							<div class="card shade mb-3 animate-in">
-								<div class="card-body">
-									<h5 class="card-title mb-0"><i class="fas fa-comments c-main mr-2"></i>گفتگو</h5>
-									<hr>
-									<div id="ticketThread" class="ticket-thread"></div>
-
-									<div class="mt-3">
-										<textarea id="replyDraft" class="form-control" rows="3" placeholder="پاسخ خود را بنویسید..."></textarea>
-										<div class="d-flex justify-content-between align-items-center mt-2">
-											<button class="btn btn-brand btn-sm" id="btnSendReply"><i class="fas fa-paper-plane mr-1"></i>ارسال پاسخ به تلگرام</button>
-											<span id="replyResult" class="text-sm d-none"></span>
-										</div>
-									</div>
+								<div class="text-sm text-muted mt-2">
+									<i class="fas fa-user-check c-main mr-1"></i>
+									<span id="ai-escalations-week">۰</span> سوال در ۷ روز اخیر به پشتیبانی ارجاع شده —
+									<a href="support.html">مشاهده در پیام‌های پشتیبانی</a>
+								</div>
+								<hr>
+								<div class="table-responsive">
+									<table class="table table-striped table-hover">
+										<thead>
+											<tr>
+												<th>دسته</th>
+												<th>سوال</th>
+												<th>پاسخ</th>
+												<th>وضعیت</th>
+												<th></th>
+											</tr>
+										</thead>
+										<tbody id="kbTableBody"></tbody>
+									</table>
 								</div>
 							</div>
 						</div>
@@ -176,6 +172,41 @@
 
 			</div>
 		</main>
+	</div>
+
+	<div class="modal fade" id="editKbModal" tabindex="-1" role="dialog" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title"><i class="fas fa-brain c-main mr-2"></i>مدخل پایگاه دانش</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+				</div>
+				<div class="modal-body">
+					<div class="form-group">
+						<label class="text-sm text-muted">دسته</label>
+						<input type="text" id="kbCategory" class="form-control" list="kbCategoryList" placeholder="مثلاً ثبت‌نام، لایسنس، پرداخت...">
+						<datalist id="kbCategoryList"></datalist>
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">سوال</label>
+						<textarea id="kbQuestion" class="form-control" rows="2" placeholder="سوالی که کاربر معمولاً می‌پرسد"></textarea>
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">پاسخ</label>
+						<textarea id="kbAnswer" class="form-control" rows="6" placeholder="پاسخ دقیق و کامل — این متن عیناً در اختیار هوش مصنوعی قرار می‌گیرد"></textarea>
+					</div>
+					<div class="form-group form-check">
+						<input type="checkbox" class="form-check-input" id="kbActive" checked>
+						<label class="form-check-label" for="kbActive">فعال (در پاسخ‌های هوش مصنوعی استفاده شود)</label>
+					</div>
+					<div id="kbSaveResult" class="text-sm d-none"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-brand btn-sm" id="btnSaveKb">ذخیره</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">انصراف</button>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<script src="assets/vendor/jquery.min.js"></script>
@@ -263,7 +294,7 @@
 	<script src="js/global-search.js"></script>
 	<script src="js/notify.js"></script>
 	<script src="js/profile.js"></script>
-	<script src="js/support.js"></script>
+	<script src="js/ai.js"></script>
 </body>
 
 </html>
