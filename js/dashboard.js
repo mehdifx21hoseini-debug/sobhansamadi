@@ -43,9 +43,6 @@
 		var avgAttempts = total > 0 ? (attemptsSum / total).toFixed(1) : "0";
 
 		$("#d-total").text(total);
-		$("#d-pending").text(pending);
-		$("#d-called").text(called);
-		$("#d-noanswer").text(noAnswer);
 		$("#d-response-rate").text(toPersianPercent(responseRate));
 		$("#d-avg-attempts").text(avgAttempts);
 
@@ -255,7 +252,7 @@
 			.then(function (res) {
 				$("#bot-total-users").text(res.bot_users_total || 0);
 				$("#bot-dau").text(res.bot_users_dau || 0);
-				$("#bot-wau").text(res.bot_users_wau || 0);
+				$("#d-today").text(res.leads_today || 0);
 				$("#report-lead-count").text(res.leads_in_range || 0);
 				renderBreakdownList($("#reportStatusList"), res.status_counts);
 				renderBreakdownList($("#reportTypeList"), res.type_counts);
