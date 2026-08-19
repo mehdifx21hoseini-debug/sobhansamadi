@@ -14,11 +14,14 @@
 				sessionStorage.removeItem("crmAuthed");
 				sessionStorage.removeItem("crmToken");
 				sessionStorage.removeItem("crmTokenExpiresAt");
+				sessionStorage.removeItem("crmDisplayName");
 				window.location.href = "login.html";
 				throw new Error("نشست منقضی شده است، لطفاً دوباره وارد شوید.");
 			}
 			if (!res.ok) {
-				throw new Error("درخواست ناموفق بود (" + res.status + ")");
+				return res.json().catch(function () { return null; }).then(function (body) {
+					throw new Error((body && body.error) || ("درخواست ناموفق بود (" + res.status + ")"));
+				});
 			}
 			return res.json();
 		});
@@ -89,6 +92,14 @@
 		return request("/crm/lead/activity?id=" + encodeURIComponent(leadId), { method: "GET" });
 	}
 
+	function changePassword(currentPassword, newPassword) {
+		return request("/crm/auth/change-password", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+		});
+	}
+
 	// "YYYY-MM-DD" is parsed as UTC midnight by `new Date(str)`, which shifts
 	// to the previous local day for any timezone behind UTC. Parse the parts
 	// and build a local-midnight Date instead.
@@ -105,6 +116,7 @@
 		sendRegistrationMessage: sendRegistrationMessage,
 		setLeadReminder: setLeadReminder,
 		fetchLeadActivity: fetchLeadActivity,
+		changePassword: changePassword,
 		parseLocalDate: parseLocalDate,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};
