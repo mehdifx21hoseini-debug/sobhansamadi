@@ -21,14 +21,38 @@
 		return new Date(iso).toLocaleString("fa-IR");
 	}
 
+	function formatRelative(iso) {
+		if (!iso) return "-";
+		var diffMs = Date.now() - new Date(iso).getTime();
+		var diffMin = Math.floor(diffMs / 60000);
+		if (diffMin < 1) return "همین الان";
+		if (diffMin < 60) return diffMin + " دقیقه پیش";
+		var diffHour = Math.floor(diffMin / 60);
+		if (diffHour < 24) return diffHour + " ساعت پیش";
+		var diffDay = Math.floor(diffHour / 24);
+		if (diffDay < 7) return diffDay + " روز پیش";
+		return new Date(iso).toLocaleDateString("fa-IR");
+	}
+
 	function fullName(t) {
 		var name = ((t.first_name || "") + " " + (t.last_name || "")).trim();
 		return name || (t.telegram_username ? "@" + t.telegram_username : "کاربر ناشناس");
 	}
 
+	function avatarHtml(t, size) {
+		var name = fullName(t);
+		var letter = (name.replace("@", "").trim().charAt(0) || "?").toUpperCase();
+		var hash = 0;
+		for (var i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+		var palette = hash % 5;
+		var sizeCls = size ? " " + size : "";
+		return '<div class="avatar-circle avatar-palette-' + palette + sizeCls + '">' + letter + '</div>';
+	}
+
 	var tickets = [];
 	var activeFilter = "همه";
 	var currentTicketId = null;
+	var REFRESH_INTERVAL = 20000;
 
 	function filteredTickets() {
 		if (activeFilter === "همه") return tickets;
@@ -46,19 +70,27 @@
 			var meta = statusMeta(t.status);
 			var $item = $('<div class="ticket-item">').attr("data-ticket-id", t.ticket_id);
 			if (t.ticket_id === currentTicketId) $item.addClass("active");
+
+			var $row = $('<div class="ticket-item-row">');
+			$row.append(avatarHtml(t, "sm"));
+
+			var $body = $('<div class="ticket-item-body">');
 			var $top = $('<div class="ticket-item-top">');
 			$top.append($('<span class="ticket-item-name">').text(fullName(t)));
 			$top.append($('<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i></span>'));
-			$item.append($top);
-			$item.append($('<div class="ticket-item-preview">').text(t.message || "-"));
-			$item.append($('<div class="ticket-item-time">').text(formatDate(t.updated_at)));
+			$body.append($top);
+			$body.append($('<div class="ticket-item-preview">').text(t.message || "-"));
+			$body.append($('<div class="ticket-item-time">').attr("title", formatDate(t.updated_at)).text(formatRelative(t.updated_at)));
+			$row.append($body);
+
+			$item.append($row);
 			$item.on("click", function () { selectTicket(t.ticket_id); });
 			$list.append($item);
 		});
 	}
 
-	function loadTickets(preserveSelection) {
-		CrmData.fetchSupportTickets()
+	function loadTickets(preserveSelection, force) {
+		return CrmData.fetchSupportTickets(force)
 			.then(function (res) {
 				tickets = Array.isArray(res) ? res : [];
 				renderTicketList();
@@ -81,8 +113,8 @@
 			var dir = m.direction === "out" ? "msg-out" : "msg-in";
 			var $row = $('<div class="msg-row ' + dir + '">');
 			var $bubble = $('<div class="msg-bubble">').text(m.message || "");
-			var metaText = formatDate(m.created_at) + (m.admin_name ? " · " + m.admin_name : "");
-			var $wrap = $('<div>').append($bubble).append($('<div class="msg-meta">').text(metaText));
+			var metaText = formatRelative(m.created_at) + (m.admin_name ? " · " + m.admin_name : "");
+			var $wrap = $('<div>').append($bubble).append($('<div class="msg-meta">').attr("title", formatDate(m.created_at)).text(metaText));
 			$row.append($wrap);
 			$thread.append($row);
 		});
@@ -91,6 +123,7 @@
 
 	function renderTicketDetail(data) {
 		var t = data.ticket;
+		$("#ticketAvatar").html(avatarHtml(t, "lg"));
 		$("#ticketUserName").text(fullName(t));
 		$("#ticketUsername").text(t.telegram_username ? "@" + t.telegram_username : "بدون نام کاربری");
 		$("#ticketTelegramId").text(t.telegram_user_id || "-");
@@ -138,7 +171,7 @@
 	function changeStatus(ticketId, status) {
 		CrmData.setSupportTicketStatus(ticketId, status)
 			.then(function () {
-				loadTickets(true);
+				loadTickets(true, true);
 				selectTicket(ticketId);
 			})
 			.catch(function (err) {
@@ -158,7 +191,7 @@
 				}
 				$("#replyDraft").val("");
 				showReplyResult(true, "پاسخ برای کاربر در تلگرام ارسال شد.");
-				loadTickets(true);
+				loadTickets(true, true);
 				selectTicket(currentTicketId);
 			})
 			.catch(function (err) {
@@ -177,7 +210,7 @@
 	}
 
 	$(function () {
-		loadTickets(false);
+		loadTickets(false, true);
 
 		$("#ticketFilterTabs .filter-tab").on("click", function () {
 			$("#ticketFilterTabs .filter-tab").removeClass("active");
@@ -187,5 +220,7 @@
 		});
 
 		$("#btnSendReply").on("click", sendReply);
+
+		setInterval(function () { loadTickets(true, true); }, REFRESH_INTERVAL);
 	});
 })();
