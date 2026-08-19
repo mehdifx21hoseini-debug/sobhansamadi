@@ -1017,12 +1017,15 @@ body::before {
 	flex-direction: column;
 	gap: 10px;
 	justify-content: center;
+	max-width: 220px;
+	margin: 0 auto;
 }
 
 .chart-legend-row {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	gap: 16px;
 	font-size: .88rem;
 }
 
