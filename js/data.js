@@ -93,6 +93,30 @@
 		return request("/crm/lead/activity?id=" + encodeURIComponent(leadId), { method: "GET" });
 	}
 
+	function fetchSupportTickets() {
+		return request("/crm/support-tickets", { method: "GET" });
+	}
+
+	function fetchSupportTicket(ticketId) {
+		return request("/crm/support-ticket?id=" + encodeURIComponent(ticketId), { method: "GET" });
+	}
+
+	function replySupportTicket(ticketId, message) {
+		return request("/crm/support-ticket/reply", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ ticket_id: ticketId, message: message })
+		});
+	}
+
+	function setSupportTicketStatus(ticketId, status) {
+		return request("/crm/support-ticket/status", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ ticket_id: ticketId, status: status })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -133,6 +157,10 @@
 		sendRegistrationMessage: sendRegistrationMessage,
 		setLeadReminder: setLeadReminder,
 		fetchLeadActivity: fetchLeadActivity,
+		fetchSupportTickets: fetchSupportTickets,
+		fetchSupportTicket: fetchSupportTicket,
+		replySupportTicket: replySupportTicket,
+		setSupportTicketStatus: setSupportTicketStatus,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,

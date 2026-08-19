@@ -1139,3 +1139,209 @@ body::before {
 	background: #3d1520;
 	color: #ff8fa3;
 }
+
+/* ===== support inbox (ارجاعات پشتیبانی) ===== */
+.badge-ticket-open {
+	background: #fde1e7;
+	color: #c81e4b;
+}
+
+.badge-ticket-answered {
+	background: #dcf7ea;
+	color: #0d8a4f;
+}
+
+.badge-ticket-closed {
+	background: #eef0f5;
+	color: #6b6b7b;
+}
+
+.dark .badge-ticket-open {
+	background: #3d1520;
+	color: #ff8fa3;
+}
+
+.dark .badge-ticket-answered {
+	background: #123626;
+	color: #4fd699;
+}
+
+.dark .badge-ticket-closed {
+	background: #232a45;
+	color: #a7abc4;
+}
+
+.ticket-list {
+	max-height: 680px;
+	overflow-y: auto;
+	padding-left: 2px;
+}
+
+.ticket-item {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 14px 16px;
+	border-radius: 12px;
+	margin-bottom: 8px;
+	cursor: pointer;
+	border: 1px solid transparent;
+	background: #f7f7fb;
+	transition: transform .15s ease, box-shadow .15s ease, background-color .2s ease, border-color .2s ease;
+}
+
+.ticket-item:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 14px rgba(16, 24, 60, .08);
+}
+
+.ticket-item.active {
+	border-color: var(--brand-navy);
+	background: var(--brand-navy-soft);
+}
+
+.ticket-item-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+}
+
+.ticket-item-name {
+	font-weight: 600;
+	color: #2b2b40;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ticket-item-preview {
+	font-size: .85rem;
+	color: #6b6b7b;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ticket-item-time {
+	font-size: .72rem;
+	color: #a0a0a0;
+}
+
+.ticket-list-empty {
+	text-align: center;
+	color: #a0a0a0;
+	padding: 48px 0;
+}
+
+.dark .ticket-item {
+	background: #232a45;
+}
+
+.dark .ticket-item.active {
+	border-color: var(--brand-gold);
+	background: #1c2137;
+}
+
+.dark .ticket-item-name {
+	color: #eceefb;
+}
+
+.dark .ticket-item-preview {
+	color: #a7abc4;
+}
+
+/* profile + reason */
+.ticket-profile-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.ticket-reason-box {
+	background: #fff3d6;
+	color: #8a5a00;
+	border-radius: 10px;
+	padding: 10px 14px;
+	font-size: .85rem;
+	margin-top: 12px;
+	line-height: 1.8;
+}
+
+.dark .ticket-reason-box {
+	background: #4a3a10;
+	color: #f2c463;
+}
+
+/* chat thread */
+.ticket-thread {
+	max-height: 420px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 6px 2px;
+}
+
+.msg-row {
+	display: flex;
+	width: 100%;
+}
+
+.msg-row.msg-in {
+	justify-content: flex-end;
+}
+
+.msg-row.msg-out {
+	justify-content: flex-start;
+}
+
+.msg-bubble {
+	max-width: 75%;
+	padding: 10px 14px;
+	border-radius: 14px;
+	font-size: .9rem;
+	line-height: 1.75;
+	white-space: pre-line;
+}
+
+.msg-in .msg-bubble {
+	background: #f1f2f6;
+	color: #2b2b40;
+	border-bottom-right-radius: 4px;
+}
+
+.msg-out .msg-bubble {
+	background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-dark));
+	color: #fff;
+	border-bottom-left-radius: 4px;
+}
+
+.msg-meta {
+	font-size: .7rem;
+	margin-top: 4px;
+	opacity: .75;
+}
+
+.msg-row.msg-in .msg-meta {
+	text-align: right;
+	color: #8a8a8a;
+}
+
+.msg-row.msg-out .msg-meta {
+	text-align: left;
+	color: #b9c0de;
+}
+
+.dark .msg-in .msg-bubble {
+	background: #232a45;
+	color: #eceefb;
+}
+
+.ticket-thread-empty {
+	text-align: center;
+	color: #a0a0a0;
+	padding: 24px 0;
+}
