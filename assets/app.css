@@ -1345,3 +1345,77 @@ body::before {
 	color: #a0a0a0;
 	padding: 24px 0;
 }
+
+/* letter avatars */
+.avatar-circle {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: 1rem;
+	color: #fff;
+	flex-shrink: 0;
+}
+
+.avatar-circle.sm {
+	width: 32px;
+	height: 32px;
+	font-size: .85rem;
+}
+
+.avatar-circle.lg {
+	width: 56px;
+	height: 56px;
+	font-size: 1.3rem;
+}
+
+.avatar-palette-0 {
+	background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-dark));
+}
+
+.avatar-palette-1 {
+	background: linear-gradient(135deg, var(--brand-gold), var(--brand-gold-dark));
+	color: #2b2200;
+}
+
+.avatar-palette-2 {
+	background: linear-gradient(135deg, #2e9e6d, #1f7a52);
+}
+
+.avatar-palette-3 {
+	background: linear-gradient(135deg, #d0574a, #a83e33);
+}
+
+.avatar-palette-4 {
+	background: linear-gradient(135deg, #6c5ce7, #4c3fb3);
+}
+
+.ticket-item-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.ticket-item-body {
+	flex: 1;
+	min-width: 0;
+}
+
+/* sidebar nav badge */
+.nav-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 10px;
+	background: var(--brand-gold);
+	color: #2b2200;
+	font-size: .68rem;
+	font-weight: 700;
+	margin-right: 6px;
+}

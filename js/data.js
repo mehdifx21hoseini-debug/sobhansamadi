@@ -93,8 +93,29 @@
 		return request("/crm/lead/activity?id=" + encodeURIComponent(leadId), { method: "GET" });
 	}
 
-	function fetchSupportTickets() {
-		return request("/crm/support-tickets", { method: "GET" });
+	var TICKETS_CACHE_TTL = 5000;
+	var ticketsCache = null;
+	var ticketsCacheTime = 0;
+	var ticketsInFlight = null;
+
+	function fetchSupportTickets(force) {
+		var now = Date.now();
+		if (!force && ticketsCache && (now - ticketsCacheTime) < TICKETS_CACHE_TTL) {
+			return Promise.resolve(ticketsCache);
+		}
+		if (!force && ticketsInFlight) {
+			return ticketsInFlight;
+		}
+		ticketsInFlight = request("/crm/support-tickets", { method: "GET" }).then(function (tickets) {
+			ticketsCache = tickets;
+			ticketsCacheTime = Date.now();
+			ticketsInFlight = null;
+			return tickets;
+		}).catch(function (err) {
+			ticketsInFlight = null;
+			throw err;
+		});
+		return ticketsInFlight;
 	}
 
 	function fetchSupportTicket(ticketId) {
