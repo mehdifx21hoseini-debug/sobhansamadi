@@ -198,6 +198,18 @@
 		});
 	}
 
+	function fetchAdmins() {
+		return request("/crm/admins", { method: "GET" });
+	}
+
+	function saveAdmin(payload) {
+		return request("/crm/admin/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload)
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -252,6 +264,8 @@
 		sendBroadcast: sendBroadcast,
 		fetchEconSubscribers: fetchEconSubscribers,
 		unsubscribeEconSubscriber: unsubscribeEconSubscriber,
+		fetchAdmins: fetchAdmins,
+		saveAdmin: saveAdmin,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,
