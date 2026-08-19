@@ -75,6 +75,91 @@
 		});
 	}
 
+	function serializeKbText(rows) {
+		return rows.map(function (r) {
+			var head = "## دسته: " + (r.category || "بدون‌دسته") + (r.active === false ? " (غیرفعال)" : "");
+			return head + "\nسوال: " + (r.question || "") + "\nپاسخ: " + (r.answer || "");
+		}).join("\n\n");
+	}
+
+	function parseKbText(text) {
+		var lines = text.split("\n");
+		var entries = [];
+		var current = null;
+		var mode = null;
+		lines.forEach(function (line) {
+			var headMatch = line.match(/^##\s*دسته:\s*(.*)$/);
+			if (headMatch) {
+				if (current) entries.push(current);
+				var catRaw = headMatch[1].trim();
+				var active = true;
+				var cat = catRaw;
+				var inactiveMatch = catRaw.match(/^(.*)\(غیرفعال\)\s*$/);
+				if (inactiveMatch) {
+					cat = inactiveMatch[1].trim();
+					active = false;
+				}
+				current = { category: cat, question: "", answer: "", active: active };
+				mode = null;
+				return;
+			}
+			if (!current) return;
+			var qMatch = line.match(/^سوال:\s*(.*)$/);
+			if (qMatch) {
+				current.question = qMatch[1].trim();
+				mode = null;
+				return;
+			}
+			var aMatch = line.match(/^پاسخ:\s*(.*)$/);
+			if (aMatch) {
+				current.answer = aMatch[1];
+				mode = "answer";
+				return;
+			}
+			if (mode === "answer") {
+				current.answer += "\n" + line;
+			}
+		});
+		if (current) entries.push(current);
+		return entries
+			.filter(function (e) { return e.question; })
+			.map(function (e) {
+				e.answer = e.answer.trim();
+				return e;
+			});
+	}
+
+	function fillKbTextFromRows() {
+		$("#kbFullText").val(serializeKbText(kbRows));
+		updateKbTextEntryCount();
+	}
+
+	function updateKbTextEntryCount() {
+		var parsed = parseKbText($("#kbFullText").val());
+		$("#kbTextEntryCount").text(parsed.length + " مدخل شناسایی شد");
+	}
+
+	function saveKbText() {
+		var text = $("#kbFullText").val();
+		var entries = parseKbText(text);
+		if (entries.length === 0) {
+			$("#kbBulkSaveResult").removeClass("d-none text-success").addClass("text-danger").text("متن خالیه یا هیچ مدخل معتبری توش پیدا نشد؛ چیزی ذخیره نشد.");
+			return;
+		}
+		if (!confirm("کل پایگاه دانش (" + kbRows.length + " مدخل فعلی) با این متن (" + entries.length + " مدخل) جایگزین می‌شه. مطمئنی؟")) return;
+		var $btn = $("#btnSaveKbText").prop("disabled", true);
+		CrmData.bulkSaveAiKnowledge(entries)
+			.then(function () {
+				$("#kbBulkSaveResult").removeClass("d-none text-danger").addClass("text-success").text("ذخیره شد (" + entries.length + " مدخل).");
+				loadKb().then(function () { fillKbTextFromRows(); });
+				loadOverview();
+			})
+			.catch(function (err) {
+				$("#kbBulkSaveResult").removeClass("d-none text-success").addClass("text-danger").text(err.message || "خطای نامشخص");
+			})
+			.finally(function () { $btn.prop("disabled", false); });
+	}
+
 	function loadKb() {
 		return CrmData.fetchAiKnowledge()
 			.then(function (res) {
@@ -158,6 +243,27 @@
 		$("#kbNeedsCompletionOnly").on("change", function () {
 			needsCompletionOnly = $(this).is(":checked");
 			renderKb();
+		});
+
+		$("#kbViewTabs").on("click", ".filter-tab", function () {
+			$(".filter-tab", "#kbViewTabs").removeClass("active");
+			$(this).addClass("active");
+			var view = $(this).data("view");
+			if (view === "text") {
+				fillKbTextFromRows();
+				$("#kbListSection").addClass("d-none");
+				$("#kbTextSection").removeClass("d-none");
+			} else {
+				$("#kbTextSection").addClass("d-none");
+				$("#kbListSection").removeClass("d-none");
+			}
+		});
+
+		$("#kbFullText").on("input", updateKbTextEntryCount);
+		$("#btnSaveKbText").on("click", saveKbText);
+		$("#btnReloadKbText").on("click", function () {
+			if (!confirm("تغییرات ذخیره‌نشده توی این متن از بین می‌ره و دوباره از سرور خونده می‌شه. ادامه بدم؟")) return;
+			loadKb().then(fillKbTextFromRows);
 		});
 	});
 })();

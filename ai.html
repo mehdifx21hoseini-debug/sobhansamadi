@@ -133,17 +133,11 @@
 					<div class="col-12 p-2">
 						<div class="card shade animate-in">
 							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-center flex-wrap ai-kb-toolbar">
-									<div class="d-flex align-items-center flex-wrap ai-kb-filters">
-										<input type="text" id="kbSearchInput" class="form-control form-control-sm mono-search" placeholder="جستجو در سوال یا پاسخ...">
-										<select id="kbCategoryFilter" class="form-control form-control-sm">
-											<option value="">همه دسته‌ها</option>
-										</select>
-										<label class="form-check-label ai-kb-filter-check">
-											<input type="checkbox" id="kbNeedsCompletionOnly"> فقط نیاز به تکمیل
-										</label>
+								<div class="d-flex justify-content-between align-items-center flex-wrap">
+									<div class="filter-tabs" id="kbViewTabs">
+										<button class="filter-tab active" data-view="list">📋 نمای جدولی</button>
+										<button class="filter-tab" data-view="text">📝 متن کامل</button>
 									</div>
-									<button class="btn btn-sm btn-brand" id="btnAddKb"><i class="fas fa-plus mr-1"></i>افزودن به پایگاه دانش</button>
 								</div>
 								<div class="text-sm text-muted mt-2">
 									<i class="fas fa-user-check c-main mr-1"></i>
@@ -151,19 +145,48 @@
 									<a href="support.html">مشاهده در پیام‌های پشتیبانی</a>
 								</div>
 								<hr>
-								<div class="table-responsive">
-									<table class="table table-striped table-hover">
-										<thead>
-											<tr>
-												<th>دسته</th>
-												<th>سوال</th>
-												<th>پاسخ</th>
-												<th>وضعیت</th>
-												<th></th>
-											</tr>
-										</thead>
-										<tbody id="kbTableBody"></tbody>
-									</table>
+
+								<div id="kbListSection">
+									<div class="d-flex justify-content-between align-items-center flex-wrap ai-kb-toolbar">
+										<div class="d-flex align-items-center flex-wrap ai-kb-filters">
+											<input type="text" id="kbSearchInput" class="form-control form-control-sm mono-search" placeholder="جستجو در سوال یا پاسخ...">
+											<select id="kbCategoryFilter" class="form-control form-control-sm">
+												<option value="">همه دسته‌ها</option>
+											</select>
+											<label class="form-check-label ai-kb-filter-check">
+												<input type="checkbox" id="kbNeedsCompletionOnly"> فقط نیاز به تکمیل
+											</label>
+										</div>
+										<button class="btn btn-sm btn-brand" id="btnAddKb"><i class="fas fa-plus mr-1"></i>افزودن به پایگاه دانش</button>
+									</div>
+									<div class="table-responsive mt-2">
+										<table class="table table-striped table-hover">
+											<thead>
+												<tr>
+													<th>دسته</th>
+													<th>سوال</th>
+													<th>پاسخ</th>
+													<th>وضعیت</th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody id="kbTableBody"></tbody>
+										</table>
+									</div>
+								</div>
+
+								<div id="kbTextSection" class="d-none">
+									<p class="text-muted text-sm">
+										کل پایگاه دانش رو اینجا به‌صورت متن آزاد ببین و ویرایش کن — هر مدخل با یک خط <span class="mono">## دسته: ...</span> شروع می‌شه، بعدش <span class="mono">سوال:</span> و <span class="mono">پاسخ:</span>. پاسخ می‌تونه چندخطی باشه.
+										برای غیرفعال کردن یه مدخل، جلوی نام دسته بنویس <span class="mono">(غیرفعال)</span>. می‌تونی مدخل جدید هم همین‌جا اضافه کنی یا کل یه بخش رو پاک کنی.
+									</p>
+									<textarea id="kbFullText" class="form-control mono ai-kb-fulltext" spellcheck="false"></textarea>
+									<div id="kbBulkSaveResult" class="text-sm mt-2 d-none"></div>
+									<div class="mt-2">
+										<button class="btn btn-sm btn-brand" id="btnSaveKbText"><i class="fas fa-save mr-1"></i>ذخیره کل متن</button>
+										<button class="btn btn-sm btn-outline-secondary" id="btnReloadKbText"><i class="fas fa-rotate mr-1"></i>بازخوانی از سرور</button>
+										<span class="text-muted text-sm mr-2" id="kbTextEntryCount"></span>
+									</div>
 								</div>
 							</div>
 						</div>
