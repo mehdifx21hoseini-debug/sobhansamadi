@@ -186,6 +186,18 @@
 		});
 	}
 
+	function fetchEconSubscribers() {
+		return request("/crm/econ-subscribers", { method: "GET" });
+	}
+
+	function unsubscribeEconSubscriber(telegramUserId) {
+		return request("/crm/econ-subscriber/unsubscribe", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ telegram_user_id: telegramUserId })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -238,6 +250,8 @@
 		fetchContentFiles: fetchContentFiles,
 		saveContentFile: saveContentFile,
 		sendBroadcast: sendBroadcast,
+		fetchEconSubscribers: fetchEconSubscribers,
+		unsubscribeEconSubscriber: unsubscribeEconSubscriber,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,
