@@ -5,14 +5,13 @@
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<script src="js/auth.js"></script>
-	<title>جزئیات لید — CRM آکادمی</title>
+	<title>مدیریت محتوا — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
 	<link rel="stylesheet" href="assets/app.css">
-	<link rel="stylesheet" href="assets/vendor/persian-datepicker.min.css">
 </head>
 
 <body>
@@ -67,13 +66,13 @@
 				<p class="side-comment">منو</p>
 				<ul class="side a-collapse">
 					<div class="side-item-container">
-						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای مشاوره</a>
-						</li>
+						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای
+								مشاوره</a></li>
 						<li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>ارجاعات پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
 						<li class="side-item"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
-						<li class="side-item"><a href="content.html"><i
+						<li class="side-item selected"><a href="content.html"><i
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
 					</div>
 				</ul>
@@ -83,167 +82,159 @@
 		<main class="bmd-layout-content">
 			<div class="container-fluid">
 
-				<div class="row m-1 pb-3 mb-1">
+				<div class="row m-1 pb-4 mb-2">
 					<div class="col-12 p-2">
-						<a href="index.html" class="back-link"><i class="fas fa-arrow-right ml-1"></i>بازگشت به لیست
-							لیدها</a>
+						<div class="page-header breadcrumb-header">
+							<div class="row align-items-end">
+								<div class="col-lg-8">
+									<div class="page-header-title text-left-rtl">
+										<h3 class="lite-text">مدیریت محتوا</h3>
+										<span class="lite-text text-gray">متن‌های معرفی و فایل‌های ارسالی ربات
+											(کتابخانه، دوره‌ها، اکسپرت و...) — بدون نیاز به دست‌زدن به n8n</span>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 
-				<div id="leadNotFound" class="row m-1 d-none">
-					<div class="col-12 p-2 text-center text-muted py-5">
-						لید موردنظر پیدا نشد.
-					</div>
-				</div>
-
-				<div id="leadContent" class="row m-1 animate-in">
-					<div class="col-md-8 p-2">
-
-						<div class="card shade mb-3">
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade animate-in">
 							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-start flex-wrap">
-									<div>
-										<h4 id="leadName" class="mb-1"></h4>
-										<div class="d-flex align-items-center">
-											<p id="leadPhone" class="text-muted mb-0" dir="ltr"></p>
-											<a href="#" id="btnCallLead" class="call-quick-btn d-md-none"
-												title="تماس با این شماره"><i class="fas fa-phone-alt"></i></a>
-										</div>
+								<div class="d-flex justify-content-between align-items-center flex-wrap">
+									<div class="filter-tabs" id="contentTabs">
+										<button class="filter-tab active" data-tab="texts">📝 متن‌ها</button>
+										<button class="filter-tab" data-tab="files">📎 فایل‌ها</button>
 									</div>
-									<span id="leadStatusBadge" class="status-badge"></span>
+									<button class="btn btn-sm btn-brand" id="btnAddContent"><i class="fas fa-plus mr-1"></i>افزودن</button>
 								</div>
-
-								<div class="call-actions mt-3">
-									<button class="btn btn-call btn-called" id="btnCalled">
-										<i class="fas fa-phone mr-1"></i>تماس گرفته شد
-									</button>
-									<button class="btn btn-call btn-noanswer" id="btnNoAnswer">
-										<i class="fas fa-phone-slash mr-1"></i>پاسخ نداد
-									</button>
-								</div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-book-open c-main mr-2"></i>اطلاعات ثبت‌شده در
-									ربات تلگرام</h5>
 								<hr>
-								<div class="row">
-									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">دوره درخواستی</div>
-										<div id="leadCourse"></div>
-									</div>
-									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">نوع درخواست</div>
-										<div id="leadRequestType"></div>
+
+								<div id="textsSection">
+									<div class="table-responsive">
+										<table class="table table-striped table-hover">
+											<thead>
+												<tr>
+													<th>content_id</th>
+													<th>متن</th>
+													<th>وضعیت</th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody id="textsTableBody"></tbody>
+										</table>
 									</div>
 								</div>
-							</div>
-						</div>
 
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-comments c-main mr-2"></i>یادداشت‌ها و
-									مکالمات ثبت‌شده</h5>
-								<hr>
-								<div id="leadNotesBox" class="notes-box"></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-center">
-									<h5 class="card-title mb-0"><i class="fas fa-paper-plane c-main mr-2"></i>ارسال
-										شرایط ثبت‌نام</h5>
-									<button class="btn btn-sm btn-brand" id="btnOpenComposer">ارسال پیام</button>
-								</div>
-								<hr>
-
-								<div id="composerBox" class="d-none">
-									<textarea id="messageDraft" class="form-control" rows="8"></textarea>
-									<div class="mt-2">
-										<button class="btn btn-brand btn-sm" id="btnSendMessage">ارسال به
-											تلگرام</button>
-										<button class="btn btn-outline-secondary btn-sm"
-											id="btnCancelComposer">انصراف</button>
+								<div id="filesSection" class="d-none">
+									<div class="table-responsive">
+										<table class="table table-striped table-hover">
+											<thead>
+												<tr>
+													<th>content_id</th>
+													<th>عنوان</th>
+													<th>نوع فایل</th>
+													<th>وضعیت</th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody id="filesTableBody"></tbody>
+										</table>
 									</div>
-									<p class="text-muted text-sm mt-2">پیام مستقیماً از طریق ربات تلگرام برای این
-										فرد ارسال می‌شود.</p>
 								</div>
 
-								<div id="sendResult" class="d-none"></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-history c-main mr-2"></i>تاریخچه فعالیت</h5>
-								<hr>
-								<div id="activityLog" class="activity-log"></div>
-							</div>
-						</div>
-
-					</div>
-
-					<div class="col-md-4 p-2">
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-clock c-main mr-2"></i>وضعیت</h5>
-								<hr>
-								<div class="info-row"><span class="text-muted">شناسه لید</span><span
-										id="leadId" class="mono"></span></div>
-								<div class="info-row"><span class="text-muted">دفعات تماس</span><span
-										id="leadContactAttempts"></span></div>
-								<div class="info-row"><span class="text-muted">تاریخ ثبت</span><span
-										id="leadCreatedAt"></span></div>
-								<div class="info-row"><span class="text-muted">آخرین به‌روزرسانی</span><span
-										id="leadUpdatedAt"></span></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-bell c-main mr-2"></i>یادآوری پیگیری</h5>
-								<hr>
-								<input type="text" id="reminderDatePersian" class="form-control" placeholder="انتخاب تاریخ" readonly>
-								<input type="hidden" id="reminderDate">
-								<div class="mt-2">
-									<button class="btn btn-brand btn-sm" id="btnSaveReminder">ثبت یادآوری</button>
-									<button class="btn btn-outline-secondary btn-sm" id="btnClearReminder">حذف</button>
-								</div>
-								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-info-circle mr-1"></i>در این
-									تاریخ، این لید در لیست «نیاز به پیگیری» نمایش داده می‌شود.</p>
-							</div>
-						</div>
-
-						<div class="card shade">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-sticky-note c-main mr-2"></i>افزودن یادداشت
-									داخلی</h5>
-								<hr>
-								<textarea id="internalNote" class="form-control" rows="5"
-									placeholder="مثلاً: با رضا تماس گرفتم، علاقه‌مند بود..."></textarea>
-								<div class="mt-2">
-									<button class="btn btn-brand btn-sm" id="btnSaveNote">ثبت یادداشت</button>
-								</div>
-								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-comment-alt mr-1"></i>این
-									یادداشت فقط برای تیم داخلی است و برای فرد ارسال نمی‌شود.</p>
 							</div>
 						</div>
 					</div>
-
 				</div>
 
 			</div>
 		</main>
 	</div>
 
+	<div class="modal fade" id="editTextModal" tabindex="-1" role="dialog" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title"><i class="fas fa-file-lines c-main mr-2"></i>ویرایش متن</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+				</div>
+				<div class="modal-body">
+					<div class="form-group">
+						<label class="text-sm text-muted">content_id</label>
+						<input type="text" id="textContentId" class="form-control mono" dir="ltr" placeholder="مثلاً BOOK_01_INTRO_TEXT">
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">متن</label>
+						<textarea id="textBody" class="form-control" rows="8"></textarea>
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">photo_file_id (اختیاری)</label>
+						<input type="text" id="textPhotoFileId" class="form-control mono" dir="ltr">
+					</div>
+					<div class="form-group form-check">
+						<input type="checkbox" class="form-check-input" id="textActive" checked>
+						<label class="form-check-label" for="textActive">فعال</label>
+					</div>
+					<div id="textSaveResult" class="text-sm d-none"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-brand btn-sm" id="btnSaveText">ذخیره</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">انصراف</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="editFileModal" tabindex="-1" role="dialog" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title"><i class="fas fa-paperclip c-main mr-2"></i>ویرایش فایل</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+				</div>
+				<div class="modal-body">
+					<div class="form-group">
+						<label class="text-sm text-muted">content_id</label>
+						<input type="text" id="fileContentId" class="form-control mono" dir="ltr" placeholder="مثلاً BOOK_01_PDF">
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">عنوان</label>
+						<textarea id="fileTitle" class="form-control" rows="3"></textarea>
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">file_id تلگرام</label>
+						<input type="text" id="fileFileId" class="form-control mono" dir="ltr">
+						<p class="text-muted text-sm mt-1 mb-0">فایل رو یک‌بار به ربات تلگرام بفرست، آی‌دی فایل رو از لاگ آپدیت‌های ربات کپی کن و اینجا بذار.</p>
+					</div>
+					<div class="form-group">
+						<label class="text-sm text-muted">نوع فایل</label>
+						<select id="fileType" class="form-control">
+							<option value="document">document (PDF و...)</option>
+							<option value="audio">audio</option>
+							<option value="voice">voice</option>
+							<option value="video">video</option>
+							<option value="link">link (لینک متنی)</option>
+						</select>
+					</div>
+					<div class="form-group form-check">
+						<input type="checkbox" class="form-check-input" id="fileActive" checked>
+						<label class="form-check-label" for="fileActive">فعال</label>
+					</div>
+					<div id="fileSaveResult" class="text-sm d-none"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-brand btn-sm" id="btnSaveFile">ذخیره</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">انصراف</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script src="assets/vendor/popper.min.js"></script>
 	<script src="assets/vendor/bootstrap-material-design.min.js"></script>
-	<script src="assets/vendor/persian-date.min.js"></script>
-	<script src="assets/vendor/persian-datepicker.min.js"></script>
 	<script>
 		$(document).ready(function () {
 			$('body').bootstrapMaterialDesign();
@@ -326,7 +317,7 @@
 	<script src="js/global-search.js"></script>
 	<script src="js/notify.js"></script>
 	<script src="js/profile.js"></script>
-	<script src="js/lead.js"></script>
+	<script src="js/content.js"></script>
 </body>
 
 </html>

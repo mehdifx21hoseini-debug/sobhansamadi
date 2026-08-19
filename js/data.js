@@ -154,6 +154,30 @@
 		});
 	}
 
+	function fetchContentTexts() {
+		return request("/crm/content-texts", { method: "GET" });
+	}
+
+	function saveContentText(payload) {
+		return request("/crm/content-text/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload)
+		});
+	}
+
+	function fetchContentFiles() {
+		return request("/crm/content-files", { method: "GET" });
+	}
+
+	function saveContentFile(payload) {
+		return request("/crm/content-file/save", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload)
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -201,6 +225,10 @@
 		fetchAdminDashboard: fetchAdminDashboard,
 		fetchErrors: fetchErrors,
 		resolveError: resolveError,
+		fetchContentTexts: fetchContentTexts,
+		saveContentText: saveContentText,
+		fetchContentFiles: fetchContentFiles,
+		saveContentFile: saveContentFile,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,
