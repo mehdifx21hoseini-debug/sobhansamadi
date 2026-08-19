@@ -138,6 +138,22 @@
 		});
 	}
 
+	function fetchAdminDashboard(range) {
+		return request("/crm/admin-dashboard?range=" + encodeURIComponent(range || "ALL"), { method: "GET" });
+	}
+
+	function fetchErrors() {
+		return request("/crm/errors", { method: "GET" });
+	}
+
+	function resolveError(logId) {
+		return request("/crm/error/resolve", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ log_id: logId })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -182,6 +198,9 @@
 		fetchSupportTicket: fetchSupportTicket,
 		replySupportTicket: replySupportTicket,
 		setSupportTicketStatus: setSupportTicketStatus,
+		fetchAdminDashboard: fetchAdminDashboard,
+		fetchErrors: fetchErrors,
+		resolveError: resolveError,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,

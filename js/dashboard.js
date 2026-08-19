@@ -232,8 +232,85 @@
 			});
 	}
 
+	var reportRange = "ALL";
+
+	function renderBreakdownList($el, counts) {
+		$el.empty();
+		var keys = Object.keys(counts || {});
+		if (keys.length === 0) {
+			$el.text("داده‌ای در این بازه نیست.");
+			return;
+		}
+		keys.forEach(function (k) {
+			var $row = $('<div class="info-row">');
+			$row.append($('<span>').text(k));
+			$row.append($('<span class="font-weight-bold">').text(counts[k]));
+			$el.append($row);
+		});
+	}
+
+	function loadAdminDashboard(range) {
+		if (typeof CrmData.fetchAdminDashboard !== "function") return;
+		CrmData.fetchAdminDashboard(range)
+			.then(function (res) {
+				$("#bot-total-users").text(res.bot_users_total || 0);
+				$("#bot-dau").text(res.bot_users_dau || 0);
+				$("#bot-wau").text(res.bot_users_wau || 0);
+				$("#report-lead-count").text(res.leads_in_range || 0);
+				renderBreakdownList($("#reportStatusList"), res.status_counts);
+				renderBreakdownList($("#reportTypeList"), res.type_counts);
+			})
+			.catch(function (err) {
+				console.error("خطا در بارگذاری آمار ربات:", err);
+			});
+	}
+
+	var ERROR_SEVERITY_META = {
+		critical: { icon: "fa-circle-exclamation", label: "بحرانی" },
+		error: { icon: "fa-triangle-exclamation", label: "خطا" }
+	};
+
+	function renderErrors(errors) {
+		var $list = $("#errorsList").empty();
+		$("#errorsCount").text(errors.length);
+		if (errors.length === 0) {
+			$list.append('<div class="activity-log-empty">هیچ خطای بررسی‌نشده‌ای وجود ندارد. ✅</div>');
+			return;
+		}
+		errors.forEach(function (e) {
+			var meta = ERROR_SEVERITY_META[e.severity] || { icon: "fa-circle-question", label: e.severity || "-" };
+			var $item = $('<div class="activity-log-item">');
+			$item.append($('<div class="activity-log-icon">').append($('<i class="fas ' + meta.icon + '">')));
+			var $body = $('<div class="activity-log-body">');
+			$body.append($('<div>').append(
+				$('<strong>').text((e.workflow_name || "-") + " — " + (e.node_name || "-")),
+				$('<span class="activity-log-detail">').text(" " + (e.error_message || ""))
+			));
+			var $actions = $('<div class="mt-1">');
+			$actions.append($('<button class="btn btn-sm btn-outline-secondary">').text("علامت به‌عنوان بررسی‌شده").on("click", function () {
+				CrmData.resolveError(e.log_id).then(function () { loadErrors(); }).catch(function (err) {
+					alert("خطا در ثبت: " + (err.message || "خطای نامشخص"));
+				});
+			}));
+			$body.append($actions);
+			$item.append($body);
+			$list.append($item);
+		});
+	}
+
+	function loadErrors() {
+		if (typeof CrmData.fetchErrors !== "function") return;
+		CrmData.fetchErrors()
+			.then(renderErrors)
+			.catch(function (err) {
+				console.error("خطا در بارگذاری فهرست خطاها:", err);
+			});
+	}
+
 	$(function () {
 		loadLeads();
+		loadAdminDashboard(reportRange);
+		loadErrors();
 
 		$("#exportRangeButtons").on("click", ".filter-tab", function () {
 			$(".filter-tab", "#exportRangeButtons").removeClass("active");
@@ -241,6 +318,13 @@
 			state.exportRange = $(this).data("range");
 			$("#exportCustomDates").toggleClass("d-none", state.exportRange !== "custom");
 			updateExportCount();
+		});
+
+		$("#reportRangeTabs").on("click", ".filter-tab", function () {
+			$(".filter-tab", "#reportRangeTabs").removeClass("active");
+			$(this).addClass("active");
+			reportRange = $(this).data("range");
+			loadAdminDashboard(reportRange);
 		});
 
 		$("#exportFrom, #exportTo").on("change", updateExportCount);
