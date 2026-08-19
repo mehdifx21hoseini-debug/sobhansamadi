@@ -210,6 +210,18 @@
 		});
 	}
 
+	function fetchBroadcasts() {
+		return request("/crm/broadcasts", { method: "GET" });
+	}
+
+	function deleteBroadcast(batchId) {
+		return request("/crm/broadcast/delete", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ batch_id: batchId })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -262,6 +274,8 @@
 		fetchContentFiles: fetchContentFiles,
 		saveContentFile: saveContentFile,
 		sendBroadcast: sendBroadcast,
+		fetchBroadcasts: fetchBroadcasts,
+		deleteBroadcast: deleteBroadcast,
 		fetchEconSubscribers: fetchEconSubscribers,
 		unsubscribeEconSubscriber: unsubscribeEconSubscriber,
 		fetchAdmins: fetchAdmins,
