@@ -8,6 +8,7 @@
 		sessionStorage.removeItem("crmToken");
 		sessionStorage.removeItem("crmTokenExpiresAt");
 		sessionStorage.removeItem("crmDisplayName");
+		sessionStorage.removeItem("crmUsername");
 		window.location.replace("login.html");
 	}
 })();

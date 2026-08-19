@@ -251,6 +251,7 @@
 				sessionStorage.removeItem('crmToken');
 				sessionStorage.removeItem('crmTokenExpiresAt');
 				sessionStorage.removeItem('crmDisplayName');
+				sessionStorage.removeItem('crmUsername');
 				window.location.href = 'login.html';
 			});
 		});
@@ -279,6 +280,21 @@
 								</div>
 							</div>
 							<div id="updateNameResult" class="text-sm mt-1 d-none"></div>
+						</div>
+					</div>
+
+					<div class="mb-2">
+						<div class="text-muted text-sm mb-1">نام کاربری (برای ورود)</div>
+						<div id="usernameView" class="d-flex align-items-center justify-content-between">
+							<span id="profileUsername" class="font-weight-bold" dir="ltr">admin</span>
+							<button type="button" class="btn btn-link btn-sm p-0" id="btnEditUsername"><i class="fas fa-pen mr-1"></i>ویرایش</button>
+						</div>
+						<div id="usernameEdit" class="d-none">
+							<input type="text" id="editUsernameInput" class="form-control form-control-sm mb-1" dir="ltr" placeholder="نام کاربری جدید">
+							<input type="password" id="usernameCurrentPasswordInput" class="form-control form-control-sm mb-1" placeholder="رمز عبور فعلی برای تایید">
+							<button type="button" class="btn btn-brand btn-sm" id="btnSaveUsername">ذخیره</button>
+							<button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelUsername">انصراف</button>
+							<div id="updateUsernameResult" class="text-sm mt-1 d-none"></div>
 						</div>
 					</div>
 					<hr>
