@@ -33,7 +33,38 @@
 					</div>
 					<div id="loginError" class="text-danger text-sm mb-2 d-none">نام کاربری یا رمز عبور اشتباه است.</div>
 					<button type="submit" class="btn btn-brand btn-block" id="btnLogin">ورود</button>
+					<div class="text-center mt-2">
+						<a href="#" id="linkForgotPassword" class="text-sm">رمز عبور را فراموش کرده‌اید؟</a>
+					</div>
 				</form>
+
+				<div id="forgotPasswordBox" class="d-none mt-3">
+					<hr>
+					<div id="forgotStep1">
+						<p class="text-sm text-muted mb-2">نام کاربری خود را وارد کنید تا کد بازیابی از طریق تلگرام برایتان ارسال شود.</p>
+						<div class="login-field">
+							<input type="text" id="forgotUsernameInput" placeholder="نام کاربری">
+							<i class="far fa-user"></i>
+						</div>
+						<button type="button" class="btn btn-brand btn-block" id="btnSendResetCode">ارسال کد بازیابی</button>
+					</div>
+					<div id="forgotStep2" class="d-none">
+						<p class="text-sm text-muted mb-2">کد ارسال‌شده به تلگرام و رمز عبور جدید را وارد کنید.</p>
+						<div class="login-field">
+							<input type="text" id="resetCodeInput" placeholder="کد ۶ رقمی" dir="ltr">
+							<i class="fas fa-key"></i>
+						</div>
+						<div class="login-field">
+							<input type="password" id="resetNewPasswordInput" placeholder="رمز عبور جدید (حداقل ۶ کاراکتر)">
+							<i class="fas fa-lock"></i>
+						</div>
+						<button type="button" class="btn btn-brand btn-block" id="btnSubmitReset">تنظیم رمز جدید</button>
+					</div>
+					<div id="forgotResult" class="text-sm mt-2 d-none"></div>
+					<div class="text-center mt-2">
+						<a href="#" id="linkBackToLogin" class="text-sm">بازگشت به ورود</a>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -77,6 +108,102 @@
 				.finally(function () {
 					$btn.disabled = false;
 					$btn.textContent = "ورود";
+				});
+		});
+
+		function showResult(text, isError) {
+			var $r = document.getElementById("forgotResult");
+			$r.textContent = text;
+			$r.classList.remove("d-none", "text-success", "text-danger");
+			$r.classList.add(isError ? "text-danger" : "text-success");
+		}
+
+		document.getElementById("linkForgotPassword").addEventListener("click", function (e) {
+			e.preventDefault();
+			document.getElementById("loginForm").classList.add("d-none");
+			document.getElementById("forgotPasswordBox").classList.remove("d-none");
+			document.getElementById("forgotUsernameInput").value = document.getElementById("usernameInput").value.trim();
+		});
+
+		document.getElementById("linkBackToLogin").addEventListener("click", function (e) {
+			e.preventDefault();
+			document.getElementById("forgotPasswordBox").classList.add("d-none");
+			document.getElementById("forgotStep1").classList.remove("d-none");
+			document.getElementById("forgotStep2").classList.add("d-none");
+			document.getElementById("forgotResult").classList.add("d-none");
+			document.getElementById("loginForm").classList.remove("d-none");
+		});
+
+		document.getElementById("btnSendResetCode").addEventListener("click", function () {
+			var username = document.getElementById("forgotUsernameInput").value.trim();
+			if (!username) {
+				showResult("لطفاً نام کاربری را وارد کنید.", true);
+				return;
+			}
+			var $btn = this;
+			$btn.disabled = true;
+			fetch(API_BASE + "/crm/auth/forgot-password", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: username })
+			})
+				.then(function (res) { return res.json(); })
+				.then(function (data) {
+					showResult((data && data.message) || "اگر این نام کاربری معتبر باشد، کد بازیابی ارسال شد.", false);
+					document.getElementById("forgotStep1").classList.add("d-none");
+					document.getElementById("forgotStep2").classList.remove("d-none");
+				})
+				.catch(function () {
+					showResult("خطا در برقراری ارتباط با سرور. دوباره تلاش کنید.", true);
+				})
+				.finally(function () {
+					$btn.disabled = false;
+				});
+		});
+
+		document.getElementById("btnSubmitReset").addEventListener("click", function () {
+			var username = document.getElementById("forgotUsernameInput").value.trim();
+			var code = document.getElementById("resetCodeInput").value.trim();
+			var newPassword = document.getElementById("resetNewPasswordInput").value;
+
+			if (!code || !newPassword) {
+				showResult("لطفاً کد و رمز عبور جدید را وارد کنید.", true);
+				return;
+			}
+			if (newPassword.length < 6) {
+				showResult("رمز جدید باید حداقل ۶ کاراکتر باشد.", true);
+				return;
+			}
+
+			var $btn = this;
+			$btn.disabled = true;
+			fetch(API_BASE + "/crm/auth/reset-password", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ username: username, code: code, new_password: newPassword })
+			})
+				.then(function (res) {
+					return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+				})
+				.then(function (result) {
+					if (!result.ok || !result.data || result.data.success === false) {
+						showResult((result.data && result.data.error) || "بازیابی رمز عبور ناموفق بود.", true);
+						return;
+					}
+					showResult("رمز عبور با موفقیت تغییر کرد. اکنون می‌توانید وارد شوید.", false);
+					document.getElementById("resetCodeInput").value = "";
+					document.getElementById("resetNewPasswordInput").value = "";
+					document.getElementById("usernameInput").value = username;
+					setTimeout(function () {
+						document.getElementById("linkBackToLogin").click();
+						document.getElementById("passwordInput").focus();
+					}, 1500);
+				})
+				.catch(function () {
+					showResult("خطا در برقراری ارتباط با سرور. دوباره تلاش کنید.", true);
+				})
+				.finally(function () {
+					$btn.disabled = false;
 				});
 		});
 	</script>
