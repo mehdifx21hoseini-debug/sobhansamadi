@@ -43,33 +43,50 @@ body,
 }
 
 .btn-brand {
-	background: var(--brand-navy);
+	background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-dark));
 	color: #fff;
 	border: none;
 	border-radius: 8px;
+	box-shadow: 0 6px 16px rgba(41, 56, 108, .22);
+	transition: transform .15s ease, box-shadow .15s ease, background .2s ease;
 }
 
 .btn-brand:hover {
-	background: var(--brand-navy-dark);
+	background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-dark));
 	color: #fff;
+	transform: translateY(-1px);
+	box-shadow: 0 10px 22px rgba(41, 56, 108, .3);
+}
+
+.btn-brand:active {
+	transform: translateY(0);
 }
 
 .btn-gold {
-	background: var(--brand-gold);
+	background: linear-gradient(135deg, var(--brand-gold), var(--brand-gold-dark));
 	color: #2b2200;
 	border: none;
 	border-radius: 8px;
 	font-weight: 600;
+	box-shadow: 0 6px 16px rgba(210, 174, 109, .3);
+	transition: transform .15s ease, box-shadow .15s ease;
 }
 
 .btn-gold:hover {
-	background: var(--brand-gold-dark);
+	background: linear-gradient(135deg, var(--brand-gold), var(--brand-gold-dark));
 	color: #2b2200;
+	transform: translateY(-1px);
+	box-shadow: 0 10px 22px rgba(210, 174, 109, .4);
+}
+
+.btn-gold:active {
+	transform: translateY(0);
 }
 
 .filter-tab.active {
-	background: var(--brand-navy);
+	background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-dark));
 	color: #fff;
+	box-shadow: 0 4px 12px rgba(41, 56, 108, .3);
 }
 
 .lead-name-link:hover,
@@ -191,6 +208,78 @@ body,
 
 .mono {
 	font-family: "Courier New", monospace;
+}
+
+/* ===== site-wide chrome polish (harmonized with the login page) ===== */
+
+/* slim brand accent strip pinned to the very top of every page */
+body::before {
+	content: "";
+	position: fixed;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold) 45%, var(--brand-navy) 100%);
+	z-index: 1200;
+	pointer-events: none;
+}
+
+.bmd-layout-header .navbar {
+	box-shadow: 0 2px 14px rgba(16, 24, 60, .07);
+}
+
+.dark .bmd-layout-header .navbar {
+	box-shadow: 0 2px 14px rgba(0, 0, 0, .35);
+}
+
+/* sidebar brand badge — same glow treatment as the login logo ring */
+.brand-logo-badge {
+	box-shadow: 0 4px 14px rgba(0, 0, 0, .3), 0 0 0 4px rgba(210, 174, 109, .18);
+}
+
+.side-item a {
+	border-radius: 8px;
+	transition: background-color .15s ease, color .15s ease;
+}
+
+/* cards: deeper, softer shadow to match the login card's elevation */
+.card.shade {
+	box-shadow: 0 4px 18px rgba(16, 24, 60, .07);
+}
+
+.card.shade:hover {
+	box-shadow: 0 10px 28px rgba(16, 24, 60, .12);
+}
+
+.dark .card.shade {
+	box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
+}
+
+.dark .card.shade:hover {
+	box-shadow: 0 10px 28px rgba(0, 0, 0, .5);
+}
+
+/* status badges: subtle depth */
+.status-badge {
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+
+/* dropdown menus (user menu, etc.) */
+.dropdown-menu {
+	border: none;
+	border-radius: 12px;
+	box-shadow: 0 12px 32px rgba(16, 24, 60, .16);
+	padding: 8px;
+}
+
+.dropdown-item {
+	border-radius: 8px;
+	padding: 8px 12px;
+}
+
+.dropdown-item:hover {
+	background: var(--brand-navy-soft);
 }
 
 /* ===== login page ===== */
