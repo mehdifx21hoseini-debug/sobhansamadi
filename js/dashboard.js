@@ -68,6 +68,10 @@
 		});
 
 		var ctx = document.getElementById("trendChart").getContext("2d");
+		var gradient = ctx.createLinearGradient(0, 0, 0, 260);
+		gradient.addColorStop(0, "#29386c");
+		gradient.addColorStop(1, "#3d54a0");
+
 		if (state.trendChart) {
 			state.trendChart.data.labels = labels;
 			state.trendChart.data.datasets[0].data = counts;
@@ -79,15 +83,26 @@
 					labels: labels,
 					datasets: [{
 						data: counts,
-						backgroundColor: "#29386c",
-						borderRadius: 4,
-						maxBarThickness: 28
+						backgroundColor: gradient,
+						hoverBackgroundColor: "#d2ae6d",
+						borderRadius: 5,
+						maxBarThickness: 26
 					}]
 				},
 				options: {
-					plugins: { legend: { display: false } },
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: {
+						legend: { display: false },
+						tooltip: {
+							callbacks: {
+								label: function (item) { return item.parsed.y + " لید"; }
+							}
+						}
+					},
 					scales: {
-						y: { beginAtZero: true, ticks: { precision: 0 } }
+						y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: "rgba(0,0,0,.05)" } },
+						x: { grid: { display: false } }
 					}
 				}
 			});
@@ -109,14 +124,28 @@
 				type: "doughnut",
 				data: {
 					labels: displayLabels,
-					datasets: [{ data: data, backgroundColor: colors, borderWidth: 0 }]
+					datasets: [{ data: data, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
 				},
 				options: {
+					responsive: true,
+					maintainAspectRatio: false,
 					cutout: "68%",
-					plugins: { legend: { display: false } }
+					plugins: {
+						legend: { display: false },
+						tooltip: {
+							callbacks: {
+								label: function (item) {
+									var pct = total > 0 ? Math.round((item.parsed / total) * 100) : 0;
+									return item.parsed + " (" + pct + "٪)";
+								}
+							}
+						}
+					}
 				}
 			});
 		}
+
+		$("#chartCenterTotal").html('<span class="num">' + total + '</span><span class="label">کل لید</span>');
 
 		var $legend = $("#chartLegend").empty();
 		displayLabels.forEach(function (label, i) {
