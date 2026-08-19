@@ -92,6 +92,7 @@
 	}
 
 	function pollTickets() {
+		if (sessionStorage.getItem("crmRole") === "consultant") return;
 		if (typeof CrmData === "undefined" || typeof CrmData.fetchSupportTickets !== "function") return;
 		CrmData.fetchSupportTickets(true).then(function (tickets) {
 			updateSupportBadge(tickets);
