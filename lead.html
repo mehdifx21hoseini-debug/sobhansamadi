@@ -264,7 +264,23 @@
 					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
 				</div>
 				<div class="modal-body">
-					<div class="info-row"><span class="text-muted">نام نمایشی</span><span id="profileDisplayName">مشاور فروش</span></div>
+					<div class="mb-2">
+						<div class="text-muted text-sm mb-1">نام نمایشی</div>
+						<div id="profileNameView" class="d-flex align-items-center justify-content-between">
+							<span id="profileDisplayName" class="font-weight-bold">مشاور فروش</span>
+							<button type="button" class="btn btn-link btn-sm p-0" id="btnEditName"><i class="fas fa-pen mr-1"></i>ویرایش</button>
+						</div>
+						<div id="profileNameEdit" class="d-none">
+							<div class="input-group input-group-sm">
+								<input type="text" id="editNameInput" class="form-control">
+								<div class="input-group-append">
+									<button type="button" class="btn btn-brand" id="btnSaveName">ذخیره</button>
+									<button type="button" class="btn btn-outline-secondary" id="btnCancelName">انصراف</button>
+								</div>
+							</div>
+							<div id="updateNameResult" class="text-sm mt-1 d-none"></div>
+						</div>
+					</div>
 					<hr>
 					<h6 class="mb-2"><i class="fas fa-key c-main mr-2"></i>تغییر رمز عبور</h6>
 					<form id="changePasswordForm">
