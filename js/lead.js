@@ -21,7 +21,9 @@
 		status_change: { icon: "fa-phone", label: "تغییر وضعیت به" },
 		note_added: { icon: "fa-sticky-note", label: "یادداشت داخلی" },
 		reminder_set: { icon: "fa-bell", label: "یادآوری پیگیری" },
-		message_sent: { icon: "fa-paper-plane", label: "پیام ارسالی" }
+		message_sent: { icon: "fa-paper-plane", label: "پیام ارسالی" },
+		call_logged: { icon: "fa-phone-volume", label: "نتیجه تماس" },
+		purchase: { icon: "fa-sack-dollar", label: "خرید" }
 	};
 
 	function renderActivity(entries) {
