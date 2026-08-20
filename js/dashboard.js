@@ -346,11 +346,38 @@
 			});
 	}
 
+	function renderConsultantPerformance(rows) {
+		var $body = $("#consultantPerfTableBody").empty();
+		if (!rows || rows.length === 0) {
+			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-user-tie"></i><p>کارشناسی ثبت نشده.</p></div></td></tr>');
+			return;
+		}
+		rows.forEach(function (r) {
+			var $tr = $("<tr>");
+			$tr.append($("<td>").text(r.display_name || r.username));
+			$tr.append($("<td>").text(r.leads_assigned || 0));
+			$tr.append($("<td>").text(r.calls_made || 0));
+			$tr.append($("<td>").text(r.purchases || 0));
+			$tr.append($("<td>").text((r.revenue || 0).toLocaleString("fa-IR")));
+			$body.append($tr);
+		});
+	}
+
+	function loadConsultantPerformance() {
+		if (typeof CrmData.fetchConsultantPerformance !== "function") return;
+		CrmData.fetchConsultantPerformance()
+			.then(renderConsultantPerformance)
+			.catch(function (err) {
+				$("#consultantPerfTableBody").html('<tr><td colspan="5" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + (err.message || "خطای نامشخص") + '</td></tr>');
+			});
+	}
+
 	$(function () {
 		loadLeads();
 		loadAdminDashboard(reportRange);
 		loadErrors();
 		loadSalesKpi();
+		loadConsultantPerformance();
 
 		$("#exportRangeButtons").on("click", ".filter-tab", function () {
 			$(".filter-tab", "#exportRangeButtons").removeClass("active");
