@@ -273,7 +273,7 @@
 		var items = [
 			{ key: "atRisk", count: actionCenterState.atRisk, label: "لید در ریسک", icon: "fa-triangle-exclamation", color: "#c81e4b", href: "index.html" },
 			{ key: "overdueFollowups", count: actionCenterState.overdueFollowups, label: "پیگیری عقب‌افتاده", icon: "fa-bell", color: "#f0b033", href: "followups.html" },
-			{ key: "errors", count: actionCenterState.errors, label: "خطای بررسی‌نشده", icon: "fa-circle-exclamation", color: "#c81e4b", href: "#errorsCollapse" },
+			{ key: "errors", count: actionCenterState.errors, label: "خطای بررسی‌نشده", icon: "fa-circle-exclamation", color: "#c81e4b", href: "javascript:void(0)", action: "openErrors" },
 			{ key: "openTickets", count: actionCenterState.openTickets, label: "تیکت پشتیبانی باز", icon: "fa-headset", color: "#3b5bdb", href: "support.html" }
 		].filter(function (i) { return i.count > 0; });
 
@@ -290,6 +290,16 @@
 			$tile.append($('<i class="fas ' + i.icon + '" aria-hidden="true">').css("color", i.color));
 			$tile.append($('<span>').css("color", i.color).text(i.label));
 			$tile.append($("<span>").text(i.count));
+			if (i.action === "openErrors") {
+				$link.on("click", function (e) {
+					e.preventDefault();
+					switchDashboardTab("reports");
+					$("#errorsCollapse").collapse("show");
+					setTimeout(function () {
+						$("html, body").animate({ scrollTop: $("#errorsCollapse").offset().top - 80 }, 300);
+					}, 150);
+				});
+			}
 			$link.append($tile);
 			$col.append($link);
 			$items.append($col);
@@ -503,6 +513,17 @@
 			});
 	}
 
+	function switchDashboardTab(tab) {
+		$(".dashboard-tab-btn", "#dashboardTabs").removeClass("active");
+		$(".dashboard-tab-btn[data-tab='" + tab + "']", "#dashboardTabs").addClass("active");
+		$(".dashboard-tab-pane").addClass("d-none");
+		$(".dashboard-tab-pane[data-tab-pane='" + tab + "']").removeClass("d-none");
+		if (tab === "leads") {
+			if (state.chart) state.chart.resize();
+			if (state.trendChart) state.trendChart.resize();
+		}
+	}
+
 	$(function () {
 		loadLeads();
 		loadAdminDashboard(reportRange);
@@ -511,6 +532,10 @@
 		loadConsultantPerformance();
 		loadSalesFunnel();
 		loadSourcePerformance();
+
+		$("#dashboardTabs").on("click", ".dashboard-tab-btn", function () {
+			switchDashboardTab($(this).data("tab"));
+		});
 
 		$("#exportRangeButtons").on("click", ".filter-tab", function () {
 			$(".filter-tab", "#exportRangeButtons").removeClass("active");
