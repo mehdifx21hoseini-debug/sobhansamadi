@@ -33,7 +33,7 @@
 						<div class="dropdown">
 							<button class="btn dropdown-toggle m-0" type="button" id="userMenu" data-toggle="dropdown"
 								aria-haspopup="true" aria-expanded="false">
-								<i class="far fa-user-circle fa-lg ml-1"></i> <span id="userDisplayName">مشاور فروش</span>
+								<span class="user-avatar-wrap"><img id="userAvatarImg" class="user-avatar-img d-none" alt=""><i id="userAvatarIcon" class="far fa-user-circle fa-lg ml-1"></i></span> <span id="userDisplayName">مشاور فروش</span>
 							</button>
 							<div class="dropdown-menu dropdown-menu-right" aria-labelledby="userMenu">
 								<span class="dropdown-item dropdown-header">پشتیبان مجموعه</span>
@@ -246,6 +246,7 @@
 				sessionStorage.removeItem('crmDisplayName');
 				sessionStorage.removeItem('crmUsername');
 				sessionStorage.removeItem('crmRole');
+				sessionStorage.removeItem('crmAvatar');
 				window.location.href = 'login.html';
 			});
 		});
@@ -259,6 +260,20 @@
 					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
 				</div>
 				<div class="modal-body">
+					<div class="mb-3 text-center">
+						<div class="profile-avatar-wrap">
+							<img id="profileAvatarImg" class="profile-avatar-img d-none" alt="">
+							<i id="profileAvatarIcon" class="far fa-user-circle profile-avatar-icon"></i>
+						</div>
+						<div class="mt-2">
+							<label class="btn btn-outline-secondary btn-sm mb-0" for="avatarFileInput" style="cursor:pointer;">
+								<i class="fas fa-camera mr-1"></i>تغییر عکس پروفایل
+							</label>
+							<input type="file" id="avatarFileInput" accept="image/*" class="d-none">
+						</div>
+						<div id="avatarUpdateResult" class="text-sm mt-1 d-none"></div>
+					</div>
+					<hr>
 					<div class="mb-2">
 						<div class="text-muted text-sm mb-1">نام نمایشی</div>
 						<div id="profileNameView" class="d-flex align-items-center justify-content-between">

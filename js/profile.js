@@ -15,6 +15,47 @@
 		$("#profileUsername").text(username());
 	}
 
+	function avatarDataUri() {
+		return sessionStorage.getItem("crmAvatar") || "";
+	}
+
+	function renderAvatar() {
+		var avatar = avatarDataUri();
+		if (avatar) {
+			$("#userAvatarImg, #profileAvatarImg").attr("src", avatar).removeClass("d-none");
+			$("#userAvatarIcon, #profileAvatarIcon").addClass("d-none");
+		} else {
+			$("#userAvatarImg, #profileAvatarImg").addClass("d-none").attr("src", "");
+			$("#userAvatarIcon, #profileAvatarIcon").removeClass("d-none");
+		}
+	}
+
+	var AVATAR_SIZE = 200;
+
+	function fileToResizedDataUri(file) {
+		return new Promise(function (resolve, reject) {
+			var img = new Image();
+			var reader = new FileReader();
+			reader.onload = function () {
+				img.onload = function () {
+					var side = Math.min(img.width, img.height);
+					var sx = (img.width - side) / 2;
+					var sy = (img.height - side) / 2;
+					var canvas = document.createElement("canvas");
+					canvas.width = AVATAR_SIZE;
+					canvas.height = AVATAR_SIZE;
+					var ctx = canvas.getContext("2d");
+					ctx.drawImage(img, sx, sy, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+					resolve(canvas.toDataURL("image/jpeg", 0.82));
+				};
+				img.onerror = function () { reject(new Error("فایل تصویر معتبر نیست.")); };
+				img.src = reader.result;
+			};
+			reader.onerror = function () { reject(new Error("خواندن فایل ناموفق بود.")); };
+			reader.readAsDataURL(file);
+		});
+	}
+
 	function resetPasswordForm() {
 		$("#currentPasswordInput, #newPasswordInput, #confirmPasswordInput").val("");
 		$("#changePasswordResult").addClass("d-none");
@@ -41,11 +82,33 @@
 
 	$(function () {
 		renderName();
+		renderAvatar();
+
+		$("#avatarFileInput").on("change", function () {
+			var file = this.files && this.files[0];
+			this.value = "";
+			if (!file) return;
+			var $result = $("#avatarUpdateResult");
+			$result.addClass("d-none");
+			fileToResizedDataUri(file)
+				.then(function (dataUri) {
+					return CrmData.updateAvatar(dataUri);
+				})
+				.then(function (res) {
+					sessionStorage.setItem("crmAvatar", (res && res.avatar) || "");
+					renderAvatar();
+					showResult($result, true, "عکس پروفایل به‌روزرسانی شد.");
+				})
+				.catch(function (err) {
+					showResult($result, false, err.message || "خطای نامشخص");
+				});
+		});
 
 		$("#btnProfile").on("click", function () {
 			resetPasswordForm();
 			exitNameEditMode();
 			exitUsernameEditMode();
+			$("#avatarUpdateResult").addClass("d-none");
 			$("#profileModal").modal("show");
 		});
 

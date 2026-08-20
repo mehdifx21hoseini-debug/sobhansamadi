@@ -278,6 +278,14 @@
 		});
 	}
 
+	function updateAvatar(dataUri) {
+		return request("/crm/auth/update-avatar", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ avatar: dataUri })
+		});
+	}
+
 	// "YYYY-MM-DD" is parsed as UTC midnight by `new Date(str)`, which shifts
 	// to the previous local day for any timezone behind UTC. Parse the parts
 	// and build a local-midnight Date instead.
@@ -320,6 +328,7 @@
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,
+		updateAvatar: updateAvatar,
 		parseLocalDate: parseLocalDate,
 		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
 	};
