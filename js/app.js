@@ -45,12 +45,29 @@
 		return reminder <= today;
 	}
 
+	var AT_RISK_UNCONTACTED_HOURS = 48;
+	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
+
+	function isAtRisk(lead) {
+		var now = Date.now();
+		if (lead.status === "پاسخ‌داده‌نشده" && lead.created_at) {
+			var hoursSinceCreated = (now - new Date(lead.created_at).getTime()) / 3600000;
+			if (hoursSinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
+		}
+		if (lead.next_followup_at) {
+			var hoursOverdue = (now - new Date(lead.next_followup_at).getTime()) / 3600000;
+			if (hoursOverdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
+		}
+		return false;
+	}
+
 	function getFilteredRows() {
 		var q = state.query.trim();
 		return state.leads
 			.filter(function (l) {
 				if (state.statusFilter === "همه") return true;
 				if (state.statusFilter === "یادآوری") return isDueForFollowUp(l);
+				if (state.statusFilter === "در_ریسک") return isAtRisk(l);
 				return l.status === state.statusFilter;
 			})
 			.filter(function (l) {
@@ -72,6 +89,9 @@
 
 		var dueCount = state.leads.filter(isDueForFollowUp).length;
 		$("#reminderTabCount").text(dueCount > 0 ? "(" + dueCount + ")" : "");
+
+		var atRiskCount = state.leads.filter(isAtRisk).length;
+		$("#atRiskTabCount").text(atRiskCount > 0 ? "(" + atRiskCount + ")" : "");
 	}
 
 	function renderTable() {
@@ -105,7 +125,11 @@
 			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
 			$tr.append($("<td>").text(lead.course || "-"));
 			$tr.append($("<td>").text(lead.request_type || "-"));
-			$tr.append($("<td>").html(statusBadgeHtml(lead.status)));
+			var $statusCell = $("<td>").html(statusBadgeHtml(lead.status));
+			if (isAtRisk(lead)) {
+				$statusCell.append($('<span class="status-badge badge-noanswer ml-1" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>'));
+			}
+			$tr.append($statusCell);
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
 		});
