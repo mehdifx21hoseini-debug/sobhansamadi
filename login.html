@@ -14,7 +14,7 @@
 </head>
 
 <body>
-	<script>document.body.className = localStorage.getItem("crmTheme") === "dark" ? "dark" : "";</script>
+	<script>var __crmDark = localStorage.getItem("crmTheme") === "dark"; document.body.className = __crmDark ? "dark" : ""; document.documentElement.classList.toggle("dark", __crmDark);</script>
 
 	<div class="login-page">
 		<div class="login-card card shade animate-in">
