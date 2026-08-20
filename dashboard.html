@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=6">
+	<link rel="stylesheet" href="assets/app.css?v=7">
 </head>
 
 <body>
@@ -108,24 +108,13 @@
 					</div>
 				</div>
 
-				<div class="row m-1" id="actionCenterRow">
-					<div class="col-12 p-2">
-						<div class="card shade animate-in" id="actionCenterCard" style="display:none;">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-bell-concierge c-main mr-2"></i>مرکز هشدارها</h5>
-								<hr>
-								<div class="row" id="actionCenterItems"></div>
-							</div>
-						</div>
-					</div>
-				</div>
-
 				<div class="row m-1 mb-1">
 					<div class="col-12 p-2">
 						<div class="dashboard-tabs" id="dashboardTabs">
 							<button class="dashboard-tab-btn active" data-tab="overview"><i class="fas fa-gauge-high"></i>نمای کلی</button>
 							<button class="dashboard-tab-btn" data-tab="sales"><i class="fas fa-chart-line"></i>فروش</button>
 							<button class="dashboard-tab-btn" data-tab="leads"><i class="fas fa-users"></i>لیدها و ربات</button>
+							<button class="dashboard-tab-btn" data-tab="alerts"><i class="fas fa-bell-concierge"></i>هشدارها<span class="tab-badge d-none" id="alertsTabBadge">0</span></button>
 							<button class="dashboard-tab-btn" data-tab="reports"><i class="fas fa-file-lines"></i>گزارش‌ها</button>
 						</div>
 					</div>
@@ -384,6 +373,23 @@
 					</div>
 				</div>
 
+				<div class="dashboard-tab-pane d-none" data-tab-pane="alerts">
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div id="alertCenterEmpty" class="card shade chart-card animate-in d-none">
+								<div class="card-body">
+									<div class="empty-state">
+										<i class="fas fa-circle-check" style="color:#2e9e6d;opacity:.75"></i>
+										<p style="font-size:1rem;font-weight:600;margin-bottom:4px;">همه‌چیز مرتبه!</p>
+										<p>در حال حاضر هیچ هشدار فعالی وجود ندارد.</p>
+									</div>
+								</div>
+							</div>
+							<div class="alert-card-grid" id="alertCenterGrid"></div>
+						</div>
+					</div>
+				</div>
+
 				<div class="dashboard-tab-pane d-none" data-tab-pane="reports">
 					<div class="row m-1">
 						<div class="col-12 p-2">
@@ -572,7 +578,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/dashboard.js?v=5"></script>
+	<script src="js/dashboard.js?v=6"></script>
 </body>
 
 </html>

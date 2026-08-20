@@ -271,27 +271,39 @@
 
 	function renderActionCenter() {
 		var items = [
-			{ key: "atRisk", count: actionCenterState.atRisk, label: "لید در ریسک", icon: "fa-triangle-exclamation", color: "#c81e4b", href: "index.html" },
-			{ key: "overdueFollowups", count: actionCenterState.overdueFollowups, label: "پیگیری عقب‌افتاده", icon: "fa-bell", color: "#f0b033", href: "followups.html" },
-			{ key: "errors", count: actionCenterState.errors, label: "خطای بررسی‌نشده", icon: "fa-circle-exclamation", color: "#c81e4b", href: "javascript:void(0)", action: "openErrors" },
-			{ key: "openTickets", count: actionCenterState.openTickets, label: "تیکت پشتیبانی باز", icon: "fa-headset", color: "#3b5bdb", href: "support.html" }
+			{ key: "atRisk", count: actionCenterState.atRisk, label: "لید در ریسک", icon: "fa-triangle-exclamation", tone: "tone-red", href: "index.html" },
+			{ key: "overdueFollowups", count: actionCenterState.overdueFollowups, label: "پیگیری عقب‌افتاده", icon: "fa-bell", tone: "tone-gold", href: "followups.html" },
+			{ key: "errors", count: actionCenterState.errors, label: "خطای بررسی‌نشده", icon: "fa-circle-exclamation", tone: "tone-red", href: "javascript:void(0)", action: "openErrors" },
+			{ key: "openTickets", count: actionCenterState.openTickets, label: "تیکت پشتیبانی باز", icon: "fa-headset", tone: "tone-navy", href: "support.html" }
 		].filter(function (i) { return i.count > 0; });
 
-		var $items = $("#actionCenterItems").empty();
+		var totalCount = items.reduce(function (sum, i) { return sum + i.count; }, 0);
+		var $badge = $("#alertsTabBadge");
+		if (totalCount > 0) {
+			$badge.text(totalCount).removeClass("d-none");
+		} else {
+			$badge.addClass("d-none");
+		}
+
+		var $grid = $("#alertCenterGrid").empty();
 		if (items.length === 0) {
-			$("#actionCenterCard").hide();
+			$grid.addClass("d-none");
+			$("#alertCenterEmpty").removeClass("d-none");
 			return;
 		}
-		$("#actionCenterCard").show();
+		$("#alertCenterEmpty").addClass("d-none");
+		$grid.removeClass("d-none");
 		items.forEach(function (i) {
-			var $col = $('<div class="col-xl-3 col-md-6 col-sm-6 p-2">');
-			var $link = $("<a>").attr("href", i.href).css("text-decoration", "none");
-			var $tile = $('<div class="box-card mini animate-in">').css("cursor", "pointer");
-			$tile.append($('<i class="fas ' + i.icon + '" aria-hidden="true">').css("color", i.color));
-			$tile.append($('<span>').css("color", i.color).text(i.label));
-			$tile.append($("<span>").text(i.count));
+			var $card = $("<a>").addClass("alert-card animate-in " + i.tone).attr("href", i.href);
+			$card.append($('<div class="alert-card-icon">').append($('<i class="fas ' + i.icon + '" aria-hidden="true">')));
+			$card.append(
+				$('<div class="alert-card-body">')
+					.append($('<div class="alert-card-value">').text(i.count))
+					.append($('<div class="alert-card-label">').text(i.label))
+			);
+			$card.append('<i class="fas fa-chevron-left alert-card-arrow" aria-hidden="true"></i>');
 			if (i.action === "openErrors") {
-				$link.on("click", function (e) {
+				$card.on("click", function (e) {
 					e.preventDefault();
 					switchDashboardTab("reports");
 					$("#errorsCollapse").collapse("show");
@@ -300,9 +312,7 @@
 					}, 150);
 				});
 			}
-			$link.append($tile);
-			$col.append($link);
-			$items.append($col);
+			$grid.append($card);
 		});
 	}
 
