@@ -306,6 +306,18 @@
 		return request("/crm/consultants", { method: "GET" });
 	}
 
+	function fetchProducts() {
+		return request("/crm/products", { method: "GET" });
+	}
+
+	function updateProductPrice(productId, price) {
+		return request("/crm/product/price", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ product_id: productId, price: price })
+		});
+	}
+
 	function updateAvatar(dataUri) {
 		return request("/crm/auth/update-avatar", {
 			method: "POST",
@@ -353,6 +365,8 @@
 		fetchFollowupsToday: fetchFollowupsToday,
 		fetchSalesKpi: fetchSalesKpi,
 		fetchConsultants: fetchConsultants,
+		fetchProducts: fetchProducts,
+		updateProductPrice: updateProductPrice,
 		fetchAiOverview: fetchAiOverview,
 		fetchAiKnowledge: fetchAiKnowledge,
 		saveAiKnowledge: saveAiKnowledge,
