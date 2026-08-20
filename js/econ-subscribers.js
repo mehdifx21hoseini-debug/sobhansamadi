@@ -14,7 +14,7 @@
 		$("#econ-total-count").text(subs.length);
 
 		if (subs.length === 0) {
-			$body.append('<tr><td colspan="6" class="text-center text-muted py-4">هنوز مشترکی ثبت نشده.</td></tr>');
+			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-calendar-days"></i><p>هنوز مشترکی ثبت نشده.</p></div></td></tr>');
 			return;
 		}
 

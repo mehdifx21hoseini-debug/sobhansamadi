@@ -35,7 +35,7 @@
 	function renderHistory(broadcasts) {
 		var $body = $("#broadcastHistoryBody").empty();
 		if (broadcasts.length === 0) {
-			$body.append('<tr><td colspan="5" class="text-center text-muted py-4">هنوز پیامی ارسال نشده.</td></tr>');
+			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-bullhorn"></i><p>هنوز پیامی ارسال نشده.</p></div></td></tr>');
 			return;
 		}
 		broadcasts.forEach(function (b) {

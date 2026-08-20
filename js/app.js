@@ -79,7 +79,7 @@
 		$("#pagination").addClass("d-none");
 
 		if (state.loading) {
-			$body.append('<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin mr-1"></i>در حال بارگذاری...</td></tr>');
+			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
 			return;
 		}
 		if (state.error) {
@@ -90,7 +90,7 @@
 		var rows = getFilteredRows();
 
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="6" class="text-center text-muted py-4">موردی یافت نشد.</td></tr>');
+			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
 		}
 

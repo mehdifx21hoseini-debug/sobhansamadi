@@ -19,7 +19,7 @@
 	function renderTexts() {
 		var $body = $("#textsTableBody").empty();
 		if (texts.length === 0) {
-			$body.append('<tr><td colspan="4" class="text-center text-muted py-4">هنوز متنی ثبت نشده.</td></tr>');
+			$body.append('<tr><td colspan="4"><div class="empty-state"><i class="fas fa-file-lines"></i><p>هنوز متنی ثبت نشده.</p></div></td></tr>');
 			return;
 		}
 		texts.forEach(function (t) {
@@ -37,7 +37,7 @@
 	function renderFiles() {
 		var $body = $("#filesTableBody").empty();
 		if (files.length === 0) {
-			$body.append('<tr><td colspan="5" class="text-center text-muted py-4">هنوز فایلی ثبت نشده.</td></tr>');
+			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-paperclip"></i><p>هنوز فایلی ثبت نشده.</p></div></td></tr>');
 			return;
 		}
 		files.forEach(function (f) {

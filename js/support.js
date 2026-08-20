@@ -63,7 +63,7 @@
 		var $list = $("#ticketList").empty();
 		var visible = filteredTickets();
 		if (visible.length === 0) {
-			$list.append('<div class="ticket-list-empty">ارجاعی در این دسته وجود ندارد.</div>');
+			$list.append('<div class="empty-state"><i class="fas fa-headset"></i><p>ارجاعی در این دسته وجود ندارد.</p></div>');
 			return;
 		}
 		visible.forEach(function (t) {
@@ -106,7 +106,7 @@
 	function renderThread(messages) {
 		var $thread = $("#ticketThread").empty();
 		if (!messages || messages.length === 0) {
-			$thread.append('<div class="ticket-thread-empty">پیامی ثبت نشده است.</div>');
+			$thread.append('<div class="empty-state"><i class="fas fa-comment-dots"></i><p>پیامی ثبت نشده است.</p></div>');
 			return;
 		}
 		messages.forEach(function (m) {
