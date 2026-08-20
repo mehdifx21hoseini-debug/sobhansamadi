@@ -854,6 +854,35 @@ body::before {
 	box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
 }
 
+.dark .modal-content {
+	background: #1c2137;
+	color: #eceefb;
+}
+
+.dark .modal-header,
+.dark .modal-footer {
+	border-color: #333c5c;
+}
+
+.dark .modal-title {
+	color: #eceefb;
+}
+
+.dark .modal .close {
+	color: #eceefb;
+	opacity: .7;
+	text-shadow: none;
+}
+
+.dark .modal .close:hover {
+	color: #eceefb;
+	opacity: 1;
+}
+
+.dark .modal .text-muted {
+	color: #8b93b5 !important;
+}
+
 /* persian datepicker (reminder field) */
 .dark .datepicker-plot-area {
 	background-color: #1c2137;
@@ -1569,4 +1598,45 @@ body::before {
 
 td .empty-state {
 	padding: 28px 16px;
+}
+
+/* ===== profile avatar ===== */
+.user-avatar-wrap {
+	display: inline-flex;
+	vertical-align: middle;
+	margin-left: 6px;
+}
+
+.user-avatar-img {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	object-fit: cover;
+	display: inline-block;
+	vertical-align: middle;
+}
+
+.profile-avatar-wrap {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.profile-avatar-img {
+	width: 84px;
+	height: 84px;
+	border-radius: 50%;
+	object-fit: cover;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, .15);
+}
+
+.profile-avatar-icon {
+	font-size: 84px;
+	line-height: 1;
+	color: var(--brand-navy);
+	opacity: .35;
+}
+
+.dark .profile-avatar-icon {
+	color: #8fa4e8;
 }
