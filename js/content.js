@@ -2,29 +2,43 @@
 	"use strict";
 
 	var SECTIONS = [
-		{ key: "welcome", label: "پیام خوش‌آمد و منوی اصلی", icon: "fa-house", match: function (id) {
-			return ["WELCOME_TEXT", "ABOUT_TEXT", "COURSES_MENU_TEXT", "FREE_MENU_TEXT", "WELCOME_PHOTO"].indexOf(id) !== -1;
+		{ key: "free_menu", label: "🎓 دوره‌های رایگان", icon: "fa-graduation-cap", match: function (id) {
+			return id === "FREE_MENU_TEXT";
 		} },
-		{ key: "intro", label: "دوره مقدماتی رایگان", icon: "fa-graduation-cap", match: function (id) {
+		{ key: "intro", label: "📚 دوره مقدماتی رایگان", icon: "fa-book-open", match: function (id) {
 			return id === "INTRO_COURSE_TEXT" || id.indexOf("INTRO_P") === 0;
 		} },
-		{ key: "eq", label: "دوره هوش هیجانی", icon: "fa-brain", match: function (id) {
+		{ key: "eq", label: "🧠 آموزش رایگان هوش هیجانی", icon: "fa-brain", match: function (id) {
 			return id === "EQ_INTRO_TEXT" || id.indexOf("EMOTIONAL_P") === 0;
 		} },
-		{ key: "library", label: "کتابخانه تخصصی", icon: "fa-book", match: function (id) {
+		{ key: "library", label: "🧠 کتاب‌های روانشناسی", icon: "fa-book", match: function (id) {
 			return id === "LIBRARY_INTRO_TEXT" || id.indexOf("BOOK_0") === 0;
 		} },
-		{ key: "expert", label: "اکسپرت SSProX", icon: "fa-robot", match: function (id) {
-			return id === "EXPERT_INTRO_TEXT" || id.indexOf("EXPERT_") === 0 || id.indexOf("MONEY_MANAGEMENT_EXPERT") === 0;
-		} },
-		{ key: "broker", label: "بروکر معتمد", icon: "fa-building-columns", match: function (id) {
-			return id === "TRUSTED_BROKER_TEXT" || id === "TRUSTED_BROKER";
-		} },
-		{ key: "psychology", label: "پادکست‌های روانشناسی", icon: "fa-microphone", match: function (id) {
+		{ key: "psychology", label: "🎧 ویس‌های روانشناسی", icon: "fa-headphones", match: function (id) {
 			return id.indexOf("PSY_VOICE") === 0;
 		} },
-		{ key: "live_trade", label: "ویدیوهای لایو ترید", icon: "fa-chart-line", match: function (id) {
+		{ key: "expert", label: "🤖 اکسپرت مدیریت سرمایه", icon: "fa-robot", match: function (id) {
+			return id === "EXPERT_INTRO_TEXT" || id.indexOf("EXPERT_") === 0 || id.indexOf("MONEY_MANAGEMENT_EXPERT") === 0;
+		} },
+		{ key: "econ_calendar", label: "📅 تقویم اقتصادی", icon: "fa-calendar-days", type: "info",
+			infoText: "این بخش داده‌اش رو زنده و خودکار از منابع رسمی (BLS، Fed، BEA) می‌گیره؛ متن ثابتی که از اینجا قابل ویرایش باشه نداره." },
+		{ key: "live_trade", label: "📈 ویدیوهای لایو ترید", icon: "fa-chart-line", match: function (id) {
 			return id.indexOf("LIVE_TRADE") === 0;
+		} },
+		{ key: "advanced_program", label: "🚀 شرکت در مجموعه آموزشی پیشرفته", icon: "fa-rocket", match: function (id) {
+			return id.indexOf("REGISTER_") === 0 || id.indexOf("CONSULT_") === 0;
+		} },
+		{ key: "broker", label: "🏦 بروکر معتمد", icon: "fa-building-columns", match: function (id) {
+			return id === "TRUSTED_BROKER_TEXT" || id === "TRUSTED_BROKER";
+		} },
+		{ key: "support", label: "💬 پشتیبانی", icon: "fa-headset", type: "link",
+			infoText: "پیام‌های ارجاع‌شده به پشتیبانی انسانی از صفحه اختصاصی «پیام‌های پشتیبانی» مدیریت می‌شن.",
+			linkHref: "support.html", linkLabel: "رفتن به پیام‌های پشتیبانی" },
+		{ key: "about", label: "🏛 درباره آکادمی", icon: "fa-landmark", match: function (id) {
+			return id === "ABOUT_TEXT";
+		} },
+		{ key: "welcome", label: "پیام خوش‌آمد و منوی ثبت‌نام", icon: "fa-house", match: function (id) {
+			return ["WELCOME_TEXT", "WELCOME_PHOTO", "COURSES_MENU_TEXT"].indexOf(id) !== -1;
 		} }
 	];
 	var OTHER_SECTION = { key: "other", label: "سایر", icon: "fa-ellipsis" };
@@ -33,7 +47,7 @@
 	function sectionOf(id) {
 		id = id || "";
 		for (var i = 0; i < SECTIONS.length; i++) {
-			if (SECTIONS[i].match(id)) return SECTIONS[i];
+			if (SECTIONS[i].match && SECTIONS[i].match(id)) return SECTIONS[i];
 		}
 		return OTHER_SECTION;
 	}
@@ -127,11 +141,14 @@
 		files.forEach(function (f) { counts[sectionOf(f.content_id).key]++; });
 
 		var cards = SECTIONS.map(function (s) {
+			var countLine = s.type
+				? '<div class="content-section-card-count">' + (s.type === "link" ? "خارج از این بخش" : "پویا / خارجی") + '</div>'
+				: '<div class="content-section-card-count">' + counts[s.key] + ' مورد</div>';
 			return '<div class="col-md-4 col-sm-6 mb-3">' +
 				'<button type="button" class="content-section-card" data-section="' + s.key + '">' +
 				'<i class="fas ' + s.icon + '"></i>' +
 				'<div class="content-section-card-label">' + escapeHtml(s.label) + '</div>' +
-				'<div class="content-section-card-count">' + counts[s.key] + ' مورد</div>' +
+				countLine +
 				'</button></div>';
 		});
 		if (counts.other > 0) {
@@ -151,9 +168,24 @@
 			$("#sectionsOverview").addClass("d-none");
 			$("#sectionDetail").removeClass("d-none");
 			$("#sectionDetailTitle").text(section ? section.label : "بخش");
-			$("#pageSubtitle").text((section ? section.label : "بخش") + " — متن‌ها و فایل‌های همین بخش از ربات");
-			renderTexts();
-			renderFiles();
+
+			if (section && section.type) {
+				$("#pageSubtitle").text(section.label + " — این بخش خارج از مدیریت محتوا اداره می‌شه");
+				$("#sectionContentPanel").addClass("d-none");
+				$("#sectionInfoPanel").removeClass("d-none");
+				$("#sectionInfoText").text(section.infoText || "");
+				if (section.type === "link" && section.linkHref) {
+					$("#sectionInfoLink").removeClass("d-none").attr("href", section.linkHref).text(section.linkLabel || "");
+				} else {
+					$("#sectionInfoLink").addClass("d-none");
+				}
+			} else {
+				$("#pageSubtitle").text((section ? section.label : "بخش") + " — متن‌ها و فایل‌های همین بخش از ربات");
+				$("#sectionInfoPanel").addClass("d-none");
+				$("#sectionContentPanel").removeClass("d-none");
+				renderTexts();
+				renderFiles();
+			}
 		} else {
 			$("#sectionDetail").addClass("d-none");
 			$("#sectionsOverview").removeClass("d-none");
