@@ -1135,6 +1135,19 @@ body::before {
 	border-color: #333c5c;
 }
 
+/* without this, native form controls (the open <select> dropdown list,
+   scrollbars, date inputs) default to light-scheme rendering even
+   though we paint everything else dark -- causing the pale text color
+   set above to land on a pale native background inside the open list */
+.dark {
+	color-scheme: dark;
+}
+
+.dark select.form-control option {
+	background: #232a45;
+	color: #eceefb;
+}
+
 .dark .notes-box,
 .dark .message-item {
 	background: #232a45;
