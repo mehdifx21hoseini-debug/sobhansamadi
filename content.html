@@ -120,16 +120,26 @@
 							<div class="card-body">
 								<a href="#" class="back-link" id="btnBackToSections"><i class="fas fa-arrow-right ml-1"></i>بازگشت به بخش‌ها</a>
 								<h5 class="mt-2 mb-3" id="sectionDetailTitle"></h5>
-								<div class="d-flex justify-content-between align-items-center flex-wrap">
-									<div class="filter-tabs" id="contentTabs">
-										<button class="filter-tab active" data-tab="texts">📝 متن‌ها</button>
-										<button class="filter-tab" data-tab="files">📎 فایل‌ها</button>
-									</div>
-									<button class="btn btn-sm btn-brand" id="btnAddContent"><i class="fas fa-plus mr-1"></i>افزودن</button>
-								</div>
-								<hr>
 
-								<div id="textsSection">
+								<div id="sectionInfoPanel" class="d-none">
+									<div class="empty-state">
+										<i class="fas fa-info-circle"></i>
+										<p id="sectionInfoText"></p>
+										<a href="#" id="sectionInfoLink" class="btn btn-sm btn-brand d-none"></a>
+									</div>
+								</div>
+
+								<div id="sectionContentPanel">
+									<div class="d-flex justify-content-between align-items-center flex-wrap">
+										<div class="filter-tabs" id="contentTabs">
+											<button class="filter-tab active" data-tab="texts">📝 متن‌ها</button>
+											<button class="filter-tab" data-tab="files">📎 فایل‌ها</button>
+										</div>
+										<button class="btn btn-sm btn-brand" id="btnAddContent"><i class="fas fa-plus mr-1"></i>افزودن</button>
+									</div>
+									<hr>
+
+									<div id="textsSection">
 									<div class="table-responsive">
 										<table class="table table-striped table-hover">
 											<thead>
@@ -160,6 +170,7 @@
 											<tbody id="filesTableBody"></tbody>
 										</table>
 									</div>
+								</div>
 								</div>
 
 							</div>
