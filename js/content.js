@@ -22,6 +22,9 @@
 		} },
 		{ key: "psychology", label: "پادکست‌های روانشناسی", icon: "fa-microphone", match: function (id) {
 			return id.indexOf("PSY_VOICE") === 0;
+		} },
+		{ key: "live_trade", label: "ویدیوهای لایو ترید", icon: "fa-chart-line", match: function (id) {
+			return id.indexOf("LIVE_TRADE") === 0;
 		} }
 	];
 	var OTHER_SECTION = { key: "other", label: "سایر", icon: "fa-ellipsis" };
@@ -157,11 +160,6 @@
 			$("#pageSubtitle").text("یکی از بخش‌های ربات رو انتخاب کن تا فقط محتوای همون بخش رو ببینی و ویرایش کنی — بدون نیاز به دست‌زدن به n8n");
 			renderOverview();
 		}
-		$(".side-submenu a").each(function () {
-			var url = new URL($(this).attr("href"), window.location.href);
-			var sec = url.searchParams.get("section");
-			$(this).toggleClass("active", (sec || null) === currentSection);
-		});
 	}
 
 	function selectSection(key, pushState) {
@@ -296,18 +294,6 @@
 		$(document).on("click", "#btnBackToSections", function (e) {
 			e.preventDefault();
 			selectSection(null);
-		});
-
-		$(document).on("click", ".side-submenu a", function (e) {
-			var href = $(this).attr("href");
-			if (!/^content\.html/.test(href)) return;
-			if (window.location.pathname.indexOf("content.html") === -1) return;
-			e.preventDefault();
-			var url = new URL(href, window.location.href);
-			selectSection(url.searchParams.get("section"));
-			$("#dw-s1 .collapse.show").each(function () {
-				if (this.id !== "contentSubmenu") $(this).collapse("hide");
-			});
 		});
 
 		$(document).on("click", ".btn-edit-text", function () {
