@@ -326,10 +326,31 @@
 			});
 	}
 
+	function renderSalesKpi(kpi) {
+		kpi = kpi || {};
+		$("#kpi-leads-today").text(kpi.leads_today || 0);
+		$("#kpi-calls-today").text(kpi.calls_today || 0);
+		$("#kpi-purchases-today").text(kpi.purchases_today || 0);
+		$("#kpi-overdue-followups").text(kpi.overdue_followups || 0);
+		$("#kpi-revenue-today").text((kpi.revenue_today || 0).toLocaleString("fa-IR"));
+		$("#kpi-conversion-rate").text(toPersianPercent(kpi.conversion_rate || 0));
+		$("#kpi-total-purchases").text(kpi.total_purchases || 0);
+	}
+
+	function loadSalesKpi() {
+		if (typeof CrmData.fetchSalesKpi !== "function") return;
+		CrmData.fetchSalesKpi()
+			.then(renderSalesKpi)
+			.catch(function (err) {
+				console.error("خطا در بارگذاری KPI فروش:", err);
+			});
+	}
+
 	$(function () {
 		loadLeads();
 		loadAdminDashboard(reportRange);
 		loadErrors();
+		loadSalesKpi();
 
 		$("#exportRangeButtons").on("click", ".filter-tab", function () {
 			$(".filter-tab", "#exportRangeButtons").removeClass("active");

@@ -71,7 +71,9 @@
 						</li>
 						<li class="side-item"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
-						<li class="side-item"><a href="support.html"><i
+												<li class="side-item"><a href="followups.html"><i
+									class="fas fa-bell mr-2"></i>پیگیری‌های امروز <span id="followupsTodayCount" class="nav-badge d-none"></span></a></li>
+<li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>پیام‌های پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
 						<li class="side-item"><a href="content.html"><i
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
@@ -127,6 +129,30 @@
 										<i class="fas fa-phone-slash mr-1"></i>پاسخ نداد
 									</button>
 								</div>
+							</div>
+						</div>
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-phone-volume c-main mr-2"></i>ثبت نتیجه تماس فروش</h5>
+								<hr>
+								<div class="filter-tabs" id="callResultButtons">
+									<button class="filter-tab call-result-btn" data-result="جواب نداد">جواب نداد</button>
+									<button class="filter-tab call-result-btn" data-result="علاقه‌مند">علاقه‌مند</button>
+									<button class="filter-tab call-result-btn" data-result="نیاز به پیگیری">نیاز به پیگیری</button>
+									<button class="filter-tab call-result-btn" data-result="مخالفت">مخالفت</button>
+									<button class="filter-tab call-result-btn" data-result="درخواست اطلاعات بیشتر">درخواست اطلاعات بیشتر</button>
+									<button class="filter-tab call-result-btn" data-result="خرید کرد">خرید کرد</button>
+									<button class="filter-tab call-result-btn" data-result="نامرتبط">نامرتبط</button>
+								</div>
+								<div id="callResultForm" class="mt-3 d-none">
+									<div class="mb-2"><span class="text-muted text-sm">نتیجه انتخاب‌شده: </span><strong id="callResultSelected"></strong></div>
+									<textarea id="callNote" class="form-control mb-2" rows="3" placeholder="یادداشت تماس (اختیاری)"></textarea>
+									<input type="text" id="callNextStep" class="form-control mb-2" placeholder="قدم بعدی (اختیاری)">
+									<button class="btn btn-brand btn-sm" id="btnSubmitCallResult">ثبت تماس</button>
+									<button class="btn btn-outline-secondary btn-sm" id="btnCancelCallResult">انصراف</button>
+								</div>
+								<div id="callResultMsg" class="text-sm mt-2 d-none"></div>
 							</div>
 						</div>
 
@@ -205,6 +231,18 @@
 										id="leadCreatedAt"></span></div>
 								<div class="info-row"><span class="text-muted">آخرین به‌روزرسانی</span><span
 										id="leadUpdatedAt"></span></div>
+							</div>
+						</div>
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-user-tag c-main mr-2"></i>ارجاع لید</h5>
+								<hr>
+								<select id="assignSelect" class="form-control mb-2">
+									<option value="">— بدون ارجاع —</option>
+								</select>
+								<button class="btn btn-brand btn-sm" id="btnSaveAssign">ثبت ارجاع</button>
+								<div id="assignMsg" class="text-sm mt-2 d-none"></div>
 							</div>
 						</div>
 

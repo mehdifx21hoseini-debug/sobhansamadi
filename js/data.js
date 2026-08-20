@@ -278,6 +278,34 @@
 		});
 	}
 
+	function recordCall(leadId, result, note, nextStep) {
+		return request("/crm/calls", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, result: result, note: note || "", next_step: nextStep || "" })
+		});
+	}
+
+	function assignLead(leadId, assignedTo) {
+		return request("/crm/lead/assign", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, assigned_to: assignedTo })
+		});
+	}
+
+	function fetchFollowupsToday() {
+		return request("/crm/followups/today", { method: "GET" });
+	}
+
+	function fetchSalesKpi() {
+		return request("/crm/dashboard/sales-kpi", { method: "GET" });
+	}
+
+	function fetchConsultants() {
+		return request("/crm/consultants", { method: "GET" });
+	}
+
 	function updateAvatar(dataUri) {
 		return request("/crm/auth/update-avatar", {
 			method: "POST",
@@ -320,6 +348,11 @@
 		unsubscribeEconSubscriber: unsubscribeEconSubscriber,
 		fetchAdmins: fetchAdmins,
 		saveAdmin: saveAdmin,
+		recordCall: recordCall,
+		assignLead: assignLead,
+		fetchFollowupsToday: fetchFollowupsToday,
+		fetchSalesKpi: fetchSalesKpi,
+		fetchConsultants: fetchConsultants,
 		fetchAiOverview: fetchAiOverview,
 		fetchAiKnowledge: fetchAiKnowledge,
 		saveAiKnowledge: saveAiKnowledge,
