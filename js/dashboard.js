@@ -244,10 +244,88 @@
 				state.leads = leads;
 				renderStats();
 				updateExportCount();
+				refreshActionCenter();
 			})
 			.catch(function (err) {
 				console.error("خطا در بارگذاری آمار داشبورد:", err);
 			});
+	}
+
+	var AT_RISK_UNCONTACTED_HOURS = 48;
+	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
+
+	function isAtRisk(lead) {
+		var now = Date.now();
+		if (lead.status === "پاسخ‌داده‌نشده" && lead.created_at) {
+			var hoursSinceCreated = (now - new Date(lead.created_at).getTime()) / 3600000;
+			if (hoursSinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
+		}
+		if (lead.next_followup_at) {
+			var hoursOverdue = (now - new Date(lead.next_followup_at).getTime()) / 3600000;
+			if (hoursOverdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
+		}
+		return false;
+	}
+
+	var actionCenterState = { atRisk: 0, overdueFollowups: 0, errors: 0, openTickets: 0 };
+
+	function renderActionCenter() {
+		var items = [
+			{ key: "atRisk", count: actionCenterState.atRisk, label: "لید در ریسک", icon: "fa-triangle-exclamation", color: "#c81e4b", href: "index.html" },
+			{ key: "overdueFollowups", count: actionCenterState.overdueFollowups, label: "پیگیری عقب‌افتاده", icon: "fa-bell", color: "#f0b033", href: "followups.html" },
+			{ key: "errors", count: actionCenterState.errors, label: "خطای بررسی‌نشده", icon: "fa-circle-exclamation", color: "#c81e4b", href: "#errorsCollapse" },
+			{ key: "openTickets", count: actionCenterState.openTickets, label: "تیکت پشتیبانی باز", icon: "fa-headset", color: "#3b5bdb", href: "support.html" }
+		].filter(function (i) { return i.count > 0; });
+
+		var $items = $("#actionCenterItems").empty();
+		if (items.length === 0) {
+			$("#actionCenterCard").hide();
+			return;
+		}
+		$("#actionCenterCard").show();
+		items.forEach(function (i) {
+			var $col = $('<div class="col-xl-3 col-md-6 col-sm-6 p-2">');
+			var $link = $("<a>").attr("href", i.href).css("text-decoration", "none");
+			var $tile = $('<div class="box-card mini animate-in">').css("cursor", "pointer");
+			$tile.append($('<i class="fas ' + i.icon + '" aria-hidden="true">').css("color", i.color));
+			$tile.append($('<span>').css("color", i.color).text(i.label));
+			$tile.append($("<span>").text(i.count));
+			$link.append($tile);
+			$col.append($link);
+			$items.append($col);
+		});
+	}
+
+	function refreshActionCenter() {
+		actionCenterState.atRisk = state.leads.filter(isAtRisk).length;
+		renderActionCenter();
+
+		if (typeof CrmData.fetchFollowupsToday === "function") {
+			CrmData.fetchFollowupsToday()
+				.then(function (res) {
+					actionCenterState.overdueFollowups = (res && res.overdue_count) || 0;
+					renderActionCenter();
+				})
+				.catch(function (err) { console.error("خطا در بارگذاری پیگیری‌های عقب‌افتاده:", err); });
+		}
+
+		if (typeof CrmData.fetchErrors === "function") {
+			CrmData.fetchErrors()
+				.then(function (errors) {
+					actionCenterState.errors = (errors || []).length;
+					renderActionCenter();
+				})
+				.catch(function (err) { console.error("خطا در بارگذاری خطاهای سیستم:", err); });
+		}
+
+		if (typeof CrmData.fetchSupportTickets === "function") {
+			CrmData.fetchSupportTickets()
+				.then(function (tickets) {
+					actionCenterState.openTickets = (tickets || []).filter(function (t) { return t.status === "باز"; }).length;
+					renderActionCenter();
+				})
+				.catch(function (err) { console.error("خطا در بارگذاری تیکت‌های پشتیبانی:", err); });
+		}
 	}
 
 	var reportRange = "ALL";
