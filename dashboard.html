@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=2">
+	<link rel="stylesheet" href="assets/app.css?v=3">
 </head>
 
 <body>
@@ -92,7 +92,7 @@
 		<main class="bmd-layout-content">
 			<div class="container-fluid">
 
-				<div class="row m-1 pb-4 mb-2">
+				<div class="row m-1 pb-2 mb-1">
 					<div class="col-12 p-2">
 						<div class="page-header breadcrumb-header">
 							<div class="row align-items-end">
@@ -120,140 +120,74 @@
 					</div>
 				</div>
 
-				<div class="row m-1">
-					<div class="col-12 p-2 pb-0">
-						<p class="text-muted text-sm mb-1"><i class="fas fa-chart-line mr-1"></i>فروش امروز</p>
-					</div>
-				</div>
-				<div class="row m-1 mb-2">
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-user-plus b-first" aria-hidden="true"></i>
-							<span class="c-first">لید امروز</span>
-							<span id="kpi-leads-today">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-phone b-second" aria-hidden="true"></i>
-							<span class="c-second">تماس امروز</span>
-							<span id="kpi-calls-today">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-sack-dollar b-third" aria-hidden="true"></i>
-							<span class="c-third">خرید امروز</span>
-							<span id="kpi-purchases-today">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-4">
-							<i class="fas fa-bell b-forth" aria-hidden="true"></i>
-							<span class="c-forth">پیگیری عقب‌افتاده</span>
-							<span id="kpi-overdue-followups">0</span>
-						</div>
-					</div>
-				</div>
-				<div class="row m-1 mb-2">
-					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-coins b-first" aria-hidden="true"></i>
-							<span class="c-first">درآمد امروز (تومان)</span>
-							<span id="kpi-revenue-today">0</span>
-						</div>
-					</div>
-					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-percent b-second" aria-hidden="true"></i>
-							<span class="c-second">نرخ تبدیل (کل)</span>
-							<span id="kpi-conversion-rate">0٪</span>
-						</div>
-					</div>
-					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-cart-shopping b-third" aria-hidden="true"></i>
-							<span class="c-third">کل خریدها</span>
-							<span id="kpi-total-purchases">0</span>
-						</div>
-					</div>
-				</div>
-
-				<div class="row m-1">
-					<div class="col-12 p-2 pb-0">
-						<p class="text-muted text-sm mb-1"><i class="fas fa-users mr-1"></i>لیدهای مشاوره</p>
-					</div>
-				</div>
-				<div class="row m-1 mb-2">
-					<div class="col-xl-6 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-users b-first" aria-hidden="true"></i>
-							<span class="c-first">کل لیدها</span>
-							<span id="d-total">0</span>
-						</div>
-					</div>
-					<div class="col-xl-6 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-calendar-day b-second" aria-hidden="true"></i>
-							<span class="c-second">لید امروز</span>
-							<span id="d-today">0</span>
-						</div>
-					</div>
-				</div>
-
-				<div class="row m-1">
-					<div class="col-12 p-2 pb-0">
-						<p class="text-muted text-sm mb-1"><i class="fas fa-robot mr-1"></i>ربات تلگرام</p>
-					</div>
-				</div>
-				<div class="row m-1 mb-2">
-					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-user-friends b-first" aria-hidden="true"></i>
-							<span class="c-first">کل اعضای ربات</span>
-							<span id="bot-total-users">0</span>
-						</div>
-					</div>
-					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-bolt b-second" aria-hidden="true"></i>
-							<span class="c-second">فعال امروز</span>
-							<span id="bot-dau">0</span>
-						</div>
-					</div>
-					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-calendar-week b-third" aria-hidden="true"></i>
-							<span class="c-third">فعال این هفته</span>
-							<span id="bot-wau">0</span>
-						</div>
-					</div>
-				</div>
-
-				<div class="row m-1">
+				<div class="row m-1 mb-1">
 					<div class="col-12 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-ranking-star c-main mr-2"></i>عملکرد کارشناسان</h5>
-								<hr>
-								<div class="table-responsive">
-									<table class="table table-striped table-hover">
-										<thead>
-											<tr>
-												<th>کارشناس</th>
-												<th>لید تخصیص‌یافته</th>
-												<th>تماس ثبت‌شده</th>
-												<th>خرید</th>
-												<th>درآمد (تومان)</th>
-											</tr>
-										</thead>
-										<tbody id="consultantPerfTableBody"></tbody>
-									</table>
-								</div>
+						<div class="dashboard-tabs" id="dashboardTabs">
+							<button class="dashboard-tab-btn active" data-tab="overview"><i class="fas fa-gauge-high"></i>نمای کلی</button>
+							<button class="dashboard-tab-btn" data-tab="sales"><i class="fas fa-chart-line"></i>فروش</button>
+							<button class="dashboard-tab-btn" data-tab="leads"><i class="fas fa-users"></i>لیدها و ربات</button>
+							<button class="dashboard-tab-btn" data-tab="reports"><i class="fas fa-file-lines"></i>گزارش‌ها</button>
+						</div>
+					</div>
+				</div>
+
+				<div class="dashboard-tab-pane" data-tab-pane="overview">
+					<div class="row m-1 mb-2">
+						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-1">
+								<i class="fas fa-user-plus b-first" aria-hidden="true"></i>
+								<span class="c-first">لید امروز</span>
+								<span id="kpi-leads-today">0</span>
+							</div>
+						</div>
+						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-2">
+								<i class="fas fa-phone b-second" aria-hidden="true"></i>
+								<span class="c-second">تماس امروز</span>
+								<span id="kpi-calls-today">0</span>
+							</div>
+						</div>
+						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-3">
+								<i class="fas fa-sack-dollar b-third" aria-hidden="true"></i>
+								<span class="c-third">خرید امروز</span>
+								<span id="kpi-purchases-today">0</span>
+							</div>
+						</div>
+						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-4">
+								<i class="fas fa-coins b-forth" aria-hidden="true"></i>
+								<span class="c-forth">درآمد امروز (تومان)</span>
+								<span id="kpi-revenue-today">0</span>
 							</div>
 						</div>
 					</div>
 
+					<div class="row m-1 mb-2">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body p-0">
+									<div class="kpi-strip">
+										<div class="kpi-strip-item">
+											<span class="kpi-strip-value" id="kpi-overdue-followups">0</span>
+											<span class="kpi-strip-label">پیگیری عقب‌افتاده</span>
+										</div>
+										<div class="kpi-strip-item">
+											<span class="kpi-strip-value" id="kpi-conversion-rate">0٪</span>
+											<span class="kpi-strip-label">نرخ تبدیل کل</span>
+										</div>
+										<div class="kpi-strip-item">
+											<span class="kpi-strip-value" id="kpi-total-purchases">0</span>
+											<span class="kpi-strip-label">کل خریدها</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="dashboard-tab-pane d-none" data-tab-pane="sales">
 					<div class="row m-1">
 						<div class="col-12 p-2">
 							<div class="card shade animate-in">
@@ -309,6 +243,31 @@
 						<div class="col-12 p-2">
 							<div class="card shade animate-in">
 								<div class="card-body">
+									<h5 class="card-title"><i class="fas fa-ranking-star c-main mr-2"></i>عملکرد کارشناسان</h5>
+									<hr>
+									<div class="table-responsive">
+										<table class="table table-striped table-hover">
+											<thead>
+												<tr>
+													<th>کارشناس</th>
+													<th>لید تخصیص‌یافته</th>
+													<th>تماس ثبت‌شده</th>
+													<th>خرید</th>
+													<th>درآمد (تومان)</th>
+												</tr>
+											</thead>
+											<tbody id="consultantPerfTableBody"></tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body">
 									<h5 class="card-title"><i class="fas fa-map-location-dot c-main mr-2"></i>عملکرد بر اساس منبع لید</h5>
 									<hr>
 									<div class="table-responsive">
@@ -330,120 +289,170 @@
 					</div>
 				</div>
 
-				<div class="row m-1">
-					<div class="col-12 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-chart-line c-main mr-2"></i>روند ثبت لید در
-									۱۴ روز اخیر</h5>
-								<hr>
-								<div class="trend-chart-wrap">
-									<canvas id="trendChart"></canvas>
+				<div class="dashboard-tab-pane d-none" data-tab-pane="leads">
+					<div class="row m-1 mb-2">
+						<div class="col-xl-6 col-md-6 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-1">
+								<i class="fas fa-users b-first" aria-hidden="true"></i>
+								<span class="c-first">کل لیدها</span>
+								<span id="d-total">0</span>
+							</div>
+						</div>
+						<div class="col-xl-6 col-md-6 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-2">
+								<i class="fas fa-calendar-day b-second" aria-hidden="true"></i>
+								<span class="c-second">لید امروز</span>
+								<span id="d-today">0</span>
+							</div>
+						</div>
+					</div>
+
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body">
+									<h5 class="card-title"><i class="fas fa-chart-line c-main mr-2"></i>روند ثبت لید در
+										۱۴ روز اخیر</h5>
+									<hr>
+									<div class="trend-chart-wrap">
+										<canvas id="trendChart"></canvas>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="row m-1">
-					<div class="col-12 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-chart-pie c-main mr-2"></i>توزیع وضعیت
-									لیدها</h5>
-								<hr>
-								<div class="row align-items-center">
-									<div class="col-md-5">
-										<div class="chart-wrap">
-											<canvas id="statusChart"></canvas>
-											<div class="chart-center-total" id="chartCenterTotal"></div>
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body">
+									<h5 class="card-title"><i class="fas fa-chart-pie c-main mr-2"></i>توزیع وضعیت
+										لیدها</h5>
+									<hr>
+									<div class="row align-items-center">
+										<div class="col-md-5">
+											<div class="chart-wrap">
+												<canvas id="statusChart"></canvas>
+												<div class="chart-center-total" id="chartCenterTotal"></div>
+											</div>
+										</div>
+										<div class="col-md-7">
+											<div class="chart-legend" id="chartLegend"></div>
 										</div>
 									</div>
-									<div class="col-md-7">
-										<div class="chart-legend" id="chartLegend"></div>
-									</div>
 								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="row m-1">
+						<div class="col-12 p-2 pb-0">
+							<p class="text-muted text-sm mb-1"><i class="fas fa-robot mr-1"></i>ربات تلگرام</p>
+						</div>
+					</div>
+					<div class="row m-1 mb-2">
+						<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-1">
+								<i class="fas fa-user-friends b-first" aria-hidden="true"></i>
+								<span class="c-first">کل اعضای ربات</span>
+								<span id="bot-total-users">0</span>
+							</div>
+						</div>
+						<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-2">
+								<i class="fas fa-bolt b-second" aria-hidden="true"></i>
+								<span class="c-second">فعال امروز</span>
+								<span id="bot-dau">0</span>
+							</div>
+						</div>
+						<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+							<div class="box-card mini animate-in d-3">
+								<i class="fas fa-calendar-week b-third" aria-hidden="true"></i>
+								<span class="c-third">فعال این هفته</span>
+								<span id="bot-wau">0</span>
 							</div>
 						</div>
 					</div>
 				</div>
 
-				<div class="row m-1">
-					<div class="col-12 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-center flex-wrap">
-									<h5 class="card-title mb-0"><i class="fas fa-chart-bar c-main mr-2"></i>گزارش دوره‌ای لیدها
-										<span class="text-muted text-sm font-weight-normal">(<span id="report-lead-count">۰</span> لید در این بازه)</span>
-									</h5>
-									<div class="filter-tabs" id="reportRangeTabs">
-										<button class="filter-tab" data-range="DAILY">امروز</button>
-										<button class="filter-tab" data-range="WEEKLY">هفتگی</button>
-										<button class="filter-tab" data-range="MONTHLY">ماهانه</button>
-										<button class="filter-tab active" data-range="ALL">همه</button>
+				<div class="dashboard-tab-pane d-none" data-tab-pane="reports">
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body">
+									<div class="d-flex justify-content-between align-items-center flex-wrap">
+										<h5 class="card-title mb-0"><i class="fas fa-chart-bar c-main mr-2"></i>گزارش دوره‌ای لیدها
+											<span class="text-muted text-sm font-weight-normal">(<span id="report-lead-count">۰</span> لید در این بازه)</span>
+										</h5>
+										<div class="filter-tabs" id="reportRangeTabs">
+											<button class="filter-tab" data-range="DAILY">امروز</button>
+											<button class="filter-tab" data-range="WEEKLY">هفتگی</button>
+											<button class="filter-tab" data-range="MONTHLY">ماهانه</button>
+											<button class="filter-tab active" data-range="ALL">همه</button>
+										</div>
 									</div>
-								</div>
-								<hr>
-								<div class="row">
-									<div class="col-sm-6">
-										<p class="text-muted text-sm mb-1">وضعیت لیدها در این بازه</p>
-										<div id="reportStatusList" class="notes-box"></div>
-									</div>
-									<div class="col-sm-6">
-										<p class="text-muted text-sm mb-1">نوع درخواست در این بازه</p>
-										<div id="reportTypeList" class="notes-box"></div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<div class="row m-1">
-					<div class="col-12 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-center" data-toggle="collapse" data-target="#errorsCollapse" style="cursor: pointer;">
-									<h5 class="card-title mb-0"><i class="fas fa-triangle-exclamation c-main mr-2"></i>خطاهای بررسی‌نشده سیستم <i class="fas fa-chevron-down text-muted text-sm ml-1"></i></h5>
-									<span id="errorsCount" class="status-badge badge-ticket-open"></span>
-								</div>
-								<div id="errorsCollapse" class="collapse">
 									<hr>
-									<div id="errorsList" class="activity-log"></div>
+									<div class="row">
+										<div class="col-sm-6">
+											<p class="text-muted text-sm mb-1">وضعیت لیدها در این بازه</p>
+											<div id="reportStatusList" class="notes-box"></div>
+										</div>
+										<div class="col-sm-6">
+											<p class="text-muted text-sm mb-1">نوع درخواست در این بازه</p>
+											<div id="reportTypeList" class="notes-box"></div>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="row m-1">
-					<div class="col-12 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-file-export c-main mr-2"></i>خروجی گزارش
-									لیدها</h5>
-								<hr>
-
-								<div class="export-range-buttons" id="exportRangeButtons">
-									<button class="filter-tab active" data-range="all">همه</button>
-									<button class="filter-tab" data-range="today">امروز</button>
-									<button class="filter-tab" data-range="week">۷ روز اخیر</button>
-									<button class="filter-tab" data-range="month">۳۰ روز اخیر</button>
-									<button class="filter-tab" data-range="custom">بازه دلخواه</button>
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body">
+									<div class="d-flex justify-content-between align-items-center" data-toggle="collapse" data-target="#errorsCollapse" style="cursor: pointer;">
+										<h5 class="card-title mb-0"><i class="fas fa-triangle-exclamation c-main mr-2"></i>خطاهای بررسی‌نشده سیستم <i class="fas fa-chevron-down text-muted text-sm ml-1"></i></h5>
+										<span id="errorsCount" class="status-badge badge-ticket-open"></span>
+									</div>
+									<div id="errorsCollapse" class="collapse">
+										<hr>
+										<div id="errorsList" class="activity-log"></div>
+									</div>
 								</div>
+							</div>
+						</div>
+					</div>
 
-								<div class="export-date-inputs d-none" id="exportCustomDates">
-									<input type="date" id="exportFrom" class="form-control">
-									<span class="text-muted">تا</span>
-									<input type="date" id="exportTo" class="form-control">
+					<div class="row m-1">
+						<div class="col-12 p-2">
+							<div class="card shade animate-in">
+								<div class="card-body">
+									<h5 class="card-title"><i class="fas fa-file-export c-main mr-2"></i>خروجی گزارش
+										لیدها</h5>
+									<hr>
+
+									<div class="export-range-buttons" id="exportRangeButtons">
+										<button class="filter-tab active" data-range="all">همه</button>
+										<button class="filter-tab" data-range="today">امروز</button>
+										<button class="filter-tab" data-range="week">۷ روز اخیر</button>
+										<button class="filter-tab" data-range="month">۳۰ روز اخیر</button>
+										<button class="filter-tab" data-range="custom">بازه دلخواه</button>
+									</div>
+
+									<div class="export-date-inputs d-none" id="exportCustomDates">
+										<input type="date" id="exportFrom" class="form-control">
+										<span class="text-muted">تا</span>
+										<input type="date" id="exportTo" class="form-control">
+									</div>
+
+									<button class="btn btn-brand" id="btnExportCsv">
+										<i class="fas fa-file-download ml-1"></i>خروجی Excel (CSV)
+									</button>
+
+									<p class="text-muted text-sm mt-2 mb-0">تعداد لید در بازه انتخابی: <span
+											id="exportCount">۰</span></p>
 								</div>
-
-								<button class="btn btn-brand" id="btnExportCsv">
-									<i class="fas fa-file-download ml-1"></i>خروجی Excel (CSV)
-								</button>
-
-								<p class="text-muted text-sm mt-2 mb-0">تعداد لید در بازه انتخابی: <span
-										id="exportCount">۰</span></p>
 							</div>
 						</div>
 					</div>
