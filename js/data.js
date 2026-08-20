@@ -323,6 +323,10 @@
 		return request("/crm/dashboard/consultant-performance", { method: "GET" });
 	}
 
+	function fetchSalesFunnel() {
+		return request("/crm/dashboard/funnel", { method: "GET" });
+	}
+
 	function updateProductPrice(productId, price) {
 		return request("/crm/product/price", {
 			method: "POST",
@@ -381,6 +385,7 @@
 		fetchProducts: fetchProducts,
 		updateProductPrice: updateProductPrice,
 		fetchConsultantPerformance: fetchConsultantPerformance,
+		fetchSalesFunnel: fetchSalesFunnel,
 		fetchAiOverview: fetchAiOverview,
 		fetchAiKnowledge: fetchAiKnowledge,
 		saveAiKnowledge: saveAiKnowledge,
