@@ -372,12 +372,41 @@
 			});
 	}
 
+	function toPersianDigits(n) {
+		var digits = { 0: "۰", 1: "۱", 2: "۲", 3: "۳", 4: "۴", 5: "۵", 6: "۶", 7: "۷", 8: "۸", 9: "۹" };
+		return String(n).replace(/[0-9]/g, function (d) { return digits[d]; });
+	}
+
+	function renderFunnel(funnel) {
+		funnel = funnel || {};
+		$("#funnel-new-leads").text(funnel.new_leads || 0);
+		$("#funnel-contacted").text(funnel.contacted || 0);
+		$("#funnel-contacted-pct").text(toPersianDigits(funnel.contacted_pct || 0));
+		$("#funnel-contacted-bar").css("width", (funnel.contacted_pct || 0) + "%");
+		$("#funnel-interested").text(funnel.interested || 0);
+		$("#funnel-interested-pct").text(toPersianDigits(funnel.interested_pct || 0));
+		$("#funnel-interested-bar").css("width", (funnel.interested_pct || 0) + "%");
+		$("#funnel-purchased").text(funnel.purchased || 0);
+		$("#funnel-purchased-pct").text(toPersianDigits(funnel.purchased_pct || 0));
+		$("#funnel-purchased-bar").css("width", (funnel.purchased_pct || 0) + "%");
+	}
+
+	function loadSalesFunnel() {
+		if (typeof CrmData.fetchSalesFunnel !== "function") return;
+		CrmData.fetchSalesFunnel()
+			.then(renderFunnel)
+			.catch(function (err) {
+				console.error("خطا در بارگذاری Funnel فروش:", err);
+			});
+	}
+
 	$(function () {
 		loadLeads();
 		loadAdminDashboard(reportRange);
 		loadErrors();
 		loadSalesKpi();
 		loadConsultantPerformance();
+		loadSalesFunnel();
 
 		$("#exportRangeButtons").on("click", ".filter-tab", function () {
 			$(".filter-tab", "#exportRangeButtons").removeClass("active");
