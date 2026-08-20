@@ -5,6 +5,15 @@
 
 	var REGISTRATION_MESSAGE_TEMPLATE = "سلام {نام} عزیز، وقت بخیر 🌷\nممنون از تماسی که داشتیم.\nشرایط ثبت‌نام مجموعه آموزشی به شرح زیره:\n\n📌 مدت دوره: ۳ ماه\n📌 نحوه برگزاری: آنلاین + پشتیبانی گروهی\n📌 امکان پرداخت اقساطی\n\nبرای ثبت‌نام نهایی از لینک زیر استفاده کنید:\nacademy.example.com/register\n\nهر سوالی داشتید در خدمتتون هستیم 🙏";
 
+	var MESSAGE_TEMPLATES = [
+		{ id: "registration", label: "شرایط ثبت‌نام", text: REGISTRATION_MESSAGE_TEMPLATE },
+		{ id: "followup", label: "یادآوری پیگیری", text: "سلام {نام} عزیز، وقت بخیر 🌷\nخواستم پیگیری کنم که به نتیجه‌ای رسیدید یا نه.\nهر سوالی داشتید در خدمتتون هستم 🙏" },
+		{ id: "thanks_call", label: "تشکر بعد از تماس", text: "سلام {نام} عزیز 🌷\nاز وقتی که برای تماس گذاشتید ممنونم.\nاگه سوال دیگه‌ای داشتید در خدمتتون هستم 🙏" },
+		{ id: "no_answer", label: "عدم پاسخ‌گویی", text: "سلام {نام} عزیز 🌷\nچند بار تماس گرفتم ولی متاسفانه پاسخ ندادید.\nهر زمان که وقت داشتید یه پیام بدید تا باهم هماهنگ کنیم 🙏" },
+		{ id: "more_info", label: "اطلاعات بیشتر دوره", text: "سلام {نام} عزیز، وقت بخیر 🌷\nاطلاعات کامل‌تر دوره رو براتون می‌فرستم:\n\n📌 سرفصل‌ها و نحوه‌ی برگزاری\n📌 امکان مشاوره‌ی رایگان قبل از ثبت‌نام\n\nهر سوالی داشتید در خدمتتون هستم 🙏" },
+		{ id: "special_offer", label: "پیشنهاد ویژه", text: "سلام {نام} عزیز 🌷\nیه پیشنهاد ویژه براتون در نظر گرفتیم که محدود به زمانه.\nاگه مایل بودید بیشتر توضیح بدم 🙏" }
+	];
+
 	function request(path, options) {
 		options = options || {};
 		var token = sessionStorage.getItem("crmToken");
@@ -377,6 +386,7 @@
 		updateUsername: updateUsername,
 		updateAvatar: updateAvatar,
 		parseLocalDate: parseLocalDate,
-		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE
+		REGISTRATION_MESSAGE_TEMPLATE: REGISTRATION_MESSAGE_TEMPLATE,
+		MESSAGE_TEMPLATES: MESSAGE_TEMPLATES
 	};
 })(window);

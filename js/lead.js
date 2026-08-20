@@ -97,6 +97,20 @@
 		$("#messageDraft").val(template);
 	}
 
+	function renderMessageTemplateButtons() {
+		var $box = $("#messageTemplateButtons").empty();
+		(CrmData.MESSAGE_TEMPLATES || []).forEach(function (tpl) {
+			var $btn = $('<button class="filter-tab">').text(tpl.label).attr("data-template-id", tpl.id);
+			$btn.on("click", function () {
+				var name = (currentLead && currentLead.full_name) || "";
+				$("#messageDraft").val(tpl.text.replace("{نام}", name));
+				$("#composerBox").removeClass("d-none");
+				$("#sendResult").addClass("d-none");
+			});
+			$box.append($btn);
+		});
+	}
+
 	function loadLead() {
 		if (!leadId) {
 			$("#leadContent").addClass("d-none");
@@ -269,6 +283,7 @@
 			}
 		});
 
+		renderMessageTemplateButtons();
 		loadLead();
 		loadConsultants();
 
