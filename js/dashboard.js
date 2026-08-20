@@ -340,17 +340,26 @@
 
 	var reportRange = "ALL";
 
-	function renderBreakdownList($el, counts) {
+	var BREAKDOWN_PALETTE = ["#3b5bdb", "#0d8a4f", "#d2ae6d", "#c81e4b", "#7c5cbf", "#0f9aa6"];
+
+	function renderBreakdownList($el, counts, colorMap) {
 		$el.empty();
 		var keys = Object.keys(counts || {});
 		if (keys.length === 0) {
-			$el.text("داده‌ای در این بازه نیست.");
+			$el.html('<div class="empty-state"><i class="fas fa-inbox"></i><p>داده‌ای در این بازه نیست.</p></div>');
 			return;
 		}
-		keys.forEach(function (k) {
-			var $row = $('<div class="info-row">');
-			$row.append($('<span>').text(k));
-			$row.append($('<span class="font-weight-bold">').text(counts[k]));
+		var total = keys.reduce(function (sum, k) { return sum + (counts[k] || 0); }, 0) || 1;
+		keys.forEach(function (k, idx) {
+			var color = (colorMap && colorMap[k]) || BREAKDOWN_PALETTE[idx % BREAKDOWN_PALETTE.length];
+			var value = counts[k] || 0;
+			var pct = Math.round((value / total) * 100);
+			var $row = $('<div class="breakdown-row">');
+			$row.append($('<div class="breakdown-row-head">')
+				.append($('<span class="breakdown-dot">').css("background", color))
+				.append($('<span class="breakdown-label">').text(k))
+				.append($('<span class="breakdown-value">').text(value)));
+			$row.append($('<div class="breakdown-track">').append($('<div class="breakdown-fill">').css({ width: pct + "%", background: color })));
 			$el.append($row);
 		});
 	}
@@ -364,7 +373,7 @@
 				$("#bot-wau").text(res.bot_users_wau || 0);
 				$("#d-today").text(res.leads_today || 0);
 				$("#report-lead-count").text(res.leads_in_range || 0);
-				renderBreakdownList($("#reportStatusList"), res.status_counts);
+				renderBreakdownList($("#reportStatusList"), res.status_counts, STATUS_COLORS);
 				renderBreakdownList($("#reportTypeList"), res.type_counts);
 			})
 			.catch(function (err) {
@@ -386,8 +395,9 @@
 		}
 		errors.forEach(function (e) {
 			var meta = ERROR_SEVERITY_META[e.severity] || { icon: "fa-circle-question", label: e.severity || "-" };
+			var toneClass = e.severity === "critical" ? "tone-critical" : "tone-error";
 			var $item = $('<div class="activity-log-item">');
-			$item.append($('<div class="activity-log-icon">').append($('<i class="fas ' + meta.icon + '">')));
+			$item.append($('<div class="activity-log-icon">').addClass(toneClass).append($('<i class="fas ' + meta.icon + '">')));
 			var $body = $('<div class="activity-log-body">');
 			$body.append($('<div>').append(
 				$('<strong>').text((e.workflow_name || "-") + " — " + (e.node_name || "-")),

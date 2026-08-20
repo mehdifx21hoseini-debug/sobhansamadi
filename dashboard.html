@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=5">
+	<link rel="stylesheet" href="assets/app.css?v=6">
 </head>
 
 <body>
@@ -387,11 +387,11 @@
 				<div class="dashboard-tab-pane d-none" data-tab-pane="reports">
 					<div class="row m-1">
 						<div class="col-12 p-2">
-							<div class="card shade animate-in">
+							<div class="card shade chart-card animate-in">
 								<div class="card-body">
 									<div class="d-flex justify-content-between align-items-center flex-wrap">
-										<h5 class="card-title mb-0"><i class="fas fa-chart-bar c-main mr-2"></i>گزارش دوره‌ای لیدها
-											<span class="text-muted text-sm font-weight-normal">(<span id="report-lead-count">۰</span> لید در این بازه)</span>
+										<h5 class="card-title mb-0"><span class="card-icon-badge mr-2"><i class="fas fa-chart-bar"></i></span>گزارش دوره‌ای لیدها
+											<span class="stat-pill"><span id="report-lead-count">۰</span> لید</span>
 										</h5>
 										<div class="filter-tabs" id="reportRangeTabs">
 											<button class="filter-tab" data-range="DAILY">امروز</button>
@@ -404,11 +404,11 @@
 									<div class="row">
 										<div class="col-sm-6">
 											<p class="text-muted text-sm mb-1">وضعیت لیدها در این بازه</p>
-											<div id="reportStatusList" class="notes-box"></div>
+											<div id="reportStatusList" class="breakdown-list"></div>
 										</div>
 										<div class="col-sm-6">
 											<p class="text-muted text-sm mb-1">نوع درخواست در این بازه</p>
-											<div id="reportTypeList" class="notes-box"></div>
+											<div id="reportTypeList" class="breakdown-list"></div>
 										</div>
 									</div>
 								</div>
@@ -418,10 +418,10 @@
 
 					<div class="row m-1">
 						<div class="col-12 p-2">
-							<div class="card shade animate-in">
+							<div class="card shade chart-card animate-in">
 								<div class="card-body">
 									<div class="d-flex justify-content-between align-items-center" data-toggle="collapse" data-target="#errorsCollapse" style="cursor: pointer;">
-										<h5 class="card-title mb-0"><i class="fas fa-triangle-exclamation c-main mr-2"></i>خطاهای بررسی‌نشده سیستم <i class="fas fa-chevron-down text-muted text-sm ml-1"></i></h5>
+										<h5 class="card-title mb-0"><span class="card-icon-badge mr-2"><i class="fas fa-triangle-exclamation"></i></span>خطاهای بررسی‌نشده سیستم <i class="fas fa-chevron-down text-muted text-sm ml-1"></i></h5>
 										<span id="errorsCount" class="status-badge badge-ticket-open"></span>
 									</div>
 									<div id="errorsCollapse" class="collapse">
@@ -435,9 +435,9 @@
 
 					<div class="row m-1">
 						<div class="col-12 p-2">
-							<div class="card shade animate-in">
+							<div class="card shade chart-card animate-in">
 								<div class="card-body">
-									<h5 class="card-title"><i class="fas fa-file-export c-main mr-2"></i>خروجی گزارش
+									<h5 class="card-title"><span class="card-icon-badge mr-2"><i class="fas fa-file-export"></i></span>خروجی گزارش
 										لیدها</h5>
 									<hr>
 
@@ -459,8 +459,7 @@
 										<i class="fas fa-file-download ml-1"></i>خروجی Excel (CSV)
 									</button>
 
-									<p class="text-muted text-sm mt-2 mb-0">تعداد لید در بازه انتخابی: <span
-											id="exportCount">۰</span></p>
+									<p class="text-sm mt-2 mb-0 text-muted">تعداد لید در بازه انتخابی: <span class="stat-pill" id="exportCount">۰</span></p>
 								</div>
 							</div>
 						</div>
@@ -573,7 +572,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/dashboard.js?v=4"></script>
+	<script src="js/dashboard.js?v=5"></script>
 </body>
 
 </html>
