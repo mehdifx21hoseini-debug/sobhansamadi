@@ -2320,3 +2320,102 @@ textarea:focus-visible,
 .dark .mini-bar-track {
 	background: #262c47;
 }
+
+/* ===== reports tab: breakdown bars + stat pills + toned activity icons ===== */
+
+.breakdown-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.breakdown-row-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+	font-size: .85rem;
+}
+
+.breakdown-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.breakdown-label {
+	flex: 1;
+	color: #555;
+}
+
+.breakdown-value {
+	font-family: "JetBrains Mono", monospace;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	color: #1f2937;
+}
+
+.breakdown-track {
+	height: 8px;
+	border-radius: 5px;
+	background: #eef0f6;
+	overflow: hidden;
+}
+
+.breakdown-fill {
+	height: 100%;
+	border-radius: 5px;
+	transition: width .5s ease;
+}
+
+.dark .breakdown-label {
+	color: #9aa3c0;
+}
+
+.dark .breakdown-value {
+	color: #e7e9f4;
+}
+
+.dark .breakdown-track {
+	background: #262c47;
+}
+
+.stat-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: var(--brand-navy-soft);
+	color: var(--brand-navy);
+	border-radius: 20px;
+	padding: 2px 12px;
+	font-size: .78rem;
+	font-weight: 600;
+	font-family: "JetBrains Mono", monospace;
+	font-variant-numeric: tabular-nums;
+}
+
+.dark .stat-pill {
+	background: #1c2850;
+	color: #8fa4e8;
+}
+
+.activity-log-icon.tone-critical {
+	background: #fbeceb;
+	color: #d0574a;
+}
+
+.activity-log-icon.tone-error {
+	background: #fbf3e6;
+	color: #b8934f;
+}
+
+.dark .activity-log-icon.tone-critical {
+	background: #3a2220;
+	color: #e08277;
+}
+
+.dark .activity-log-icon.tone-error {
+	background: #3a3320;
+	color: #e6c98a;
+}
