@@ -319,6 +319,10 @@
 		return request("/crm/products", { method: "GET" });
 	}
 
+	function fetchConsultantPerformance() {
+		return request("/crm/dashboard/consultant-performance", { method: "GET" });
+	}
+
 	function updateProductPrice(productId, price) {
 		return request("/crm/product/price", {
 			method: "POST",
@@ -376,6 +380,7 @@
 		fetchConsultants: fetchConsultants,
 		fetchProducts: fetchProducts,
 		updateProductPrice: updateProductPrice,
+		fetchConsultantPerformance: fetchConsultantPerformance,
 		fetchAiOverview: fetchAiOverview,
 		fetchAiKnowledge: fetchAiKnowledge,
 		saveAiKnowledge: saveAiKnowledge,
