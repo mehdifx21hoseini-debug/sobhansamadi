@@ -118,6 +118,12 @@ body,
 	color: var(--brand-navy) !important;
 }
 
+/* the navy brand color is too close to the dark theme's card background
+   to read as text -- lighten it for dark mode only */
+.dark .c-first {
+	color: #8fa4e8 !important;
+}
+
 .b-second {
 	background: var(--brand-gold) !important;
 }
@@ -778,6 +784,16 @@ body::before {
 .btn-noanswer.active {
 	background: #c81e4b;
 	color: #fff;
+}
+
+.dark .btn-called {
+	background: #123626;
+	color: #4fd699;
+}
+
+.dark .btn-noanswer {
+	background: #3d1520;
+	color: #ff8fa3;
 }
 
 .info-row {
