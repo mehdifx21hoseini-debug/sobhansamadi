@@ -1640,3 +1640,82 @@ td .empty-state {
 .dark .profile-avatar-icon {
 	color: #8fa4e8;
 }
+
+/* ===== scrollbar ===== */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(41, 56, 108, .25);
+	border-radius: 20px;
+	border: 2px solid transparent;
+	background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(41, 56, 108, .4);
+	background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb,
+html.dark::-webkit-scrollbar-thumb {
+	background: rgba(143, 164, 232, .25);
+	background-clip: padding-box;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover,
+html.dark::-webkit-scrollbar-thumb:hover {
+	background: rgba(143, 164, 232, .4);
+	background-clip: padding-box;
+}
+
+html {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(41, 56, 108, .25) transparent;
+}
+
+html.dark {
+	scrollbar-color: rgba(143, 164, 232, .25) transparent;
+}
+
+/* ===== keyboard focus ===== */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.filter-tab:focus-visible,
+.dropdown-item:focus-visible {
+	outline: 2px solid var(--brand-gold);
+	outline-offset: 2px;
+}
+
+/* ===== table row hover ===== */
+.table-hover tbody tr {
+	transition: background-color .15s ease;
+}
+
+.table-hover tbody tr:hover {
+	background-color: rgba(41, 56, 108, .05);
+}
+
+.dark .table-hover tbody tr:hover {
+	background-color: rgba(143, 164, 232, .08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: .001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: .001ms !important;
+	}
+}

@@ -16,7 +16,7 @@
 </head>
 
 <body>
-	<script>document.body.className = localStorage.getItem("crmTheme") === "dark" ? "dark" : "";</script>
+	<script>var __crmDark = localStorage.getItem("crmTheme") === "dark"; document.body.className = __crmDark ? "dark" : ""; document.documentElement.classList.toggle("dark", __crmDark);</script>
 
 	<div class="bmd-layout-container bmd-drawer-f-l avam-container bmd-drawer-in">
 		<header class="bmd-layout-header">

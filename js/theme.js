@@ -13,6 +13,7 @@
 
 	function setTheme(dark) {
 		document.body.classList.toggle("dark", dark);
+		document.documentElement.classList.toggle("dark", dark);
 		localStorage.setItem("crmTheme", dark ? "dark" : "light");
 		updateToggleUi();
 		$(document).trigger("crm:theme-changed", [dark]);
