@@ -513,6 +513,13 @@
 			});
 	}
 
+	function renderHeroDate() {
+		var $el = $("#heroTodayDate");
+		if ($el.length === 0) return;
+		var text = new Date().toLocaleDateString("fa-IR", { weekday: "long", day: "numeric", month: "long" });
+		$el.text(text);
+	}
+
 	function switchDashboardTab(tab) {
 		$(".dashboard-tab-btn", "#dashboardTabs").removeClass("active");
 		$(".dashboard-tab-btn[data-tab='" + tab + "']", "#dashboardTabs").addClass("active");
@@ -525,6 +532,7 @@
 	}
 
 	$(function () {
+		renderHeroDate();
 		loadLeads();
 		loadAdminDashboard(reportRange);
 		loadErrors();

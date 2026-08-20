@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=3">
+	<link rel="stylesheet" href="assets/app.css?v=4">
 </head>
 
 <body>
@@ -133,54 +133,59 @@
 
 				<div class="dashboard-tab-pane" data-tab-pane="overview">
 					<div class="row m-1 mb-2">
-						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-							<div class="box-card mini animate-in d-1">
-								<i class="fas fa-user-plus b-first" aria-hidden="true"></i>
-								<span class="c-first">لید امروز</span>
-								<span id="kpi-leads-today">0</span>
-							</div>
-						</div>
-						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-							<div class="box-card mini animate-in d-2">
-								<i class="fas fa-phone b-second" aria-hidden="true"></i>
-								<span class="c-second">تماس امروز</span>
-								<span id="kpi-calls-today">0</span>
-							</div>
-						</div>
-						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-							<div class="box-card mini animate-in d-3">
-								<i class="fas fa-sack-dollar b-third" aria-hidden="true"></i>
-								<span class="c-third">خرید امروز</span>
-								<span id="kpi-purchases-today">0</span>
-							</div>
-						</div>
-						<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-							<div class="box-card mini animate-in d-4">
-								<i class="fas fa-coins b-forth" aria-hidden="true"></i>
-								<span class="c-forth">درآمد امروز (تومان)</span>
-								<span id="kpi-revenue-today">0</span>
+						<div class="col-12 p-2">
+							<div class="dashboard-hero animate-in">
+								<div class="dashboard-hero-top">
+									<div>
+										<div class="dashboard-hero-label"><i class="fas fa-coins ml-1"></i>درآمد امروز</div>
+										<div class="dashboard-hero-value"><span id="kpi-revenue-today">0</span><small>تومان</small></div>
+									</div>
+									<div class="dashboard-hero-date" id="heroTodayDate"></div>
+								</div>
+								<div class="dashboard-hero-chips">
+									<div class="dashboard-hero-chip">
+										<i class="fas fa-user-plus" aria-hidden="true"></i>
+										<div>
+											<span class="chip-value" id="kpi-leads-today">0</span>
+											<span class="chip-label">لید امروز</span>
+										</div>
+									</div>
+									<div class="dashboard-hero-chip">
+										<i class="fas fa-phone" aria-hidden="true"></i>
+										<div>
+											<span class="chip-value" id="kpi-calls-today">0</span>
+											<span class="chip-label">تماس امروز</span>
+										</div>
+									</div>
+									<div class="dashboard-hero-chip">
+										<i class="fas fa-sack-dollar" aria-hidden="true"></i>
+										<div>
+											<span class="chip-value" id="kpi-purchases-today">0</span>
+											<span class="chip-label">خرید امروز</span>
+										</div>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
 
 					<div class="row m-1 mb-2">
 						<div class="col-12 p-2">
-							<div class="card shade animate-in">
-								<div class="card-body p-0">
-									<div class="kpi-strip">
-										<div class="kpi-strip-item">
-											<span class="kpi-strip-value" id="kpi-overdue-followups">0</span>
-											<span class="kpi-strip-label">پیگیری عقب‌افتاده</span>
-										</div>
-										<div class="kpi-strip-item">
-											<span class="kpi-strip-value" id="kpi-conversion-rate">0٪</span>
-											<span class="kpi-strip-label">نرخ تبدیل کل</span>
-										</div>
-										<div class="kpi-strip-item">
-											<span class="kpi-strip-value" id="kpi-total-purchases">0</span>
-											<span class="kpi-strip-label">کل خریدها</span>
-										</div>
-									</div>
+							<div class="stat-card-grid">
+								<div class="stat-card tone-red animate-in d-1">
+									<div class="stat-card-icon"><i class="fas fa-bell" aria-hidden="true"></i></div>
+									<div class="stat-card-value" id="kpi-overdue-followups">0</div>
+									<div class="stat-card-label">پیگیری عقب‌افتاده</div>
+								</div>
+								<div class="stat-card tone-gold animate-in d-2">
+									<div class="stat-card-icon"><i class="fas fa-percent" aria-hidden="true"></i></div>
+									<div class="stat-card-value" id="kpi-conversion-rate">0٪</div>
+									<div class="stat-card-label">نرخ تبدیل کل</div>
+								</div>
+								<div class="stat-card tone-green animate-in d-3">
+									<div class="stat-card-icon"><i class="fas fa-cart-shopping" aria-hidden="true"></i></div>
+									<div class="stat-card-value" id="kpi-total-purchases">0</div>
+									<div class="stat-card-label">کل خریدها</div>
 								</div>
 							</div>
 						</div>
@@ -564,7 +569,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/dashboard.js?v=2"></script>
+	<script src="js/dashboard.js?v=3"></script>
 </body>
 
 </html>
