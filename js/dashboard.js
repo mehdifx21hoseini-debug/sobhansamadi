@@ -440,13 +440,27 @@
 			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-user-tie"></i><p>کارشناسی ثبت نشده.</p></div></td></tr>');
 			return;
 		}
-		rows.forEach(function (r) {
+		var maxRevenue = Math.max.apply(null, rows.map(function (r) { return r.revenue || 0; }).concat([1]));
+		rows.forEach(function (r, idx) {
+			var name = r.display_name || r.username || "";
+			var initials = name.trim().charAt(0) || "؟";
+			var $rank = idx < 3
+				? $('<span class="rank-badge">').addClass("rank-" + (idx + 1)).append('<i class="fas fa-trophy"></i>')
+				: $('<span class="rank-num">').text(idx + 1);
+			var pct = Math.round(((r.revenue || 0) / maxRevenue) * 100);
 			var $tr = $("<tr>");
-			$tr.append($("<td>").text(r.display_name || r.username));
+			var $nameCell = $('<div class="consultant-cell">')
+				.append($rank)
+				.append($('<span class="avatar-badge">').text(initials))
+				.append($("<span>").text(name));
+			$tr.append($("<td>").append($nameCell));
 			$tr.append($("<td>").text(r.leads_assigned || 0));
 			$tr.append($("<td>").text(r.calls_made || 0));
 			$tr.append($("<td>").text(r.purchases || 0));
-			$tr.append($("<td>").text((r.revenue || 0).toLocaleString("fa-IR")));
+			var $revCell = $('<div class="revenue-cell">')
+				.append($('<span class="rev-amount">').text((r.revenue || 0).toLocaleString("fa-IR")))
+				.append($('<div class="mini-bar-track">').append($('<div class="mini-bar-fill">').css("width", pct + "%")));
+			$tr.append($("<td>").append($revCell));
 			$body.append($tr);
 		});
 	}
@@ -494,12 +508,20 @@
 			$body.append('<tr><td colspan="4"><div class="empty-state"><i class="fas fa-map-location-dot"></i><p>داده‌ای وجود ندارد.</p></div></td></tr>');
 			return;
 		}
+		var maxRevenue = Math.max.apply(null, rows.map(function (r) { return r.revenue || 0; }).concat([1]));
 		rows.forEach(function (r) {
 			var $tr = $("<tr>");
-			$tr.append($("<td>").text(r.source || "نامشخص"));
+			var $srcCell = $('<div class="source-cell">')
+				.append('<span class="row-icon-badge"><i class="fas fa-signal"></i></span>')
+				.append($("<span>").text(r.source || "نامشخص"));
+			$tr.append($("<td>").append($srcCell));
 			$tr.append($("<td>").text(r.leads || 0));
 			$tr.append($("<td>").text(r.purchases || 0));
-			$tr.append($("<td>").text((r.revenue || 0).toLocaleString("fa-IR")));
+			var pct = Math.round(((r.revenue || 0) / maxRevenue) * 100);
+			var $revCell = $('<div class="revenue-cell">')
+				.append($('<span class="rev-amount">').text((r.revenue || 0).toLocaleString("fa-IR")))
+				.append($('<div class="mini-bar-track">').append($('<div class="mini-bar-fill">').css("width", pct + "%")));
+			$tr.append($("<td>").append($revCell));
 			$body.append($tr);
 		});
 	}

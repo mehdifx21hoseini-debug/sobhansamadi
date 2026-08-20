@@ -2095,3 +2095,228 @@ textarea:focus-visible,
 	background: #3a2220;
 	color: #e08277;
 }
+
+.stat-card.tone-navy {
+	border-color: var(--brand-navy);
+}
+
+.stat-card.tone-navy .stat-card-icon {
+	background: var(--brand-navy-soft);
+	color: var(--brand-navy);
+}
+
+.dark .stat-card.tone-navy .stat-card-icon {
+	background: #1c2850;
+	color: #8fa4e8;
+}
+
+/* ===== premium card accent (top gradient line + icon badge title) ===== */
+
+.chart-card {
+	position: relative;
+	overflow: hidden;
+}
+
+.chart-card::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--brand-navy), var(--brand-gold));
+}
+
+.card-icon-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 8px;
+	background: var(--brand-navy-soft);
+	color: var(--brand-navy);
+	font-size: .82rem;
+}
+
+.dark .card-icon-badge {
+	background: #1c2850;
+	color: #8fa4e8;
+}
+
+/* ===== sales funnel visualization ===== */
+
+.funnel-viz {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+}
+
+.funnel-row-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 8px;
+}
+
+.funnel-row-icon {
+	width: 30px;
+	height: 30px;
+	border-radius: 9px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: .85rem;
+	flex-shrink: 0;
+}
+
+.funnel-row-label {
+	font-size: .85rem;
+	color: #666;
+	flex: 1;
+}
+
+.funnel-row-value {
+	font-family: "JetBrains Mono", monospace;
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	font-size: 1rem;
+	color: #1f2937;
+}
+
+.funnel-row-value small {
+	font-weight: 500;
+	font-size: .78rem;
+	color: #8a8fa3;
+	margin-right: 4px;
+}
+
+.funnel-track {
+	height: 14px;
+	border-radius: 8px;
+	background: #eef0f6;
+	overflow: hidden;
+}
+
+.funnel-fill {
+	height: 100%;
+	border-radius: 8px;
+	transition: width .6s ease;
+}
+
+.dark .funnel-row-label {
+	color: #9aa3c0;
+}
+
+.dark .funnel-row-value {
+	color: #e7e9f4;
+}
+
+.dark .funnel-track {
+	background: #262c47;
+}
+
+/* ===== leaderboard-style performance tables ===== */
+
+.consultant-cell,
+.source-cell {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.avatar-badge {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, var(--brand-navy), var(--brand-navy-dark));
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: .82rem;
+	flex-shrink: 0;
+}
+
+.row-icon-badge {
+	width: 32px;
+	height: 32px;
+	border-radius: 9px;
+	background: var(--brand-navy-soft);
+	color: var(--brand-navy);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: .85rem;
+	flex-shrink: 0;
+}
+
+.dark .row-icon-badge {
+	background: #1c2850;
+	color: #8fa4e8;
+}
+
+.rank-badge {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: .68rem;
+	color: #fff;
+	flex-shrink: 0;
+}
+
+.rank-badge.rank-1 {
+	background: linear-gradient(135deg, #f0c14b, #c99a2e);
+}
+
+.rank-badge.rank-2 {
+	background: linear-gradient(135deg, #ccd1de, #9aa1b3);
+}
+
+.rank-badge.rank-3 {
+	background: linear-gradient(135deg, #d79a67, #a9683a);
+}
+
+.rank-num {
+	width: 22px;
+	height: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: .75rem;
+	color: #9aa1b3;
+	flex-shrink: 0;
+}
+
+.revenue-cell {
+	min-width: 130px;
+}
+
+.revenue-cell .rev-amount {
+	font-family: "JetBrains Mono", monospace;
+	font-variant-numeric: tabular-nums;
+	font-weight: 600;
+	display: block;
+	margin-bottom: 4px;
+}
+
+.mini-bar-track {
+	height: 5px;
+	border-radius: 4px;
+	background: #eef0f6;
+	overflow: hidden;
+}
+
+.mini-bar-fill {
+	height: 100%;
+	border-radius: 4px;
+	background: linear-gradient(90deg, var(--brand-gold-dark), var(--brand-gold));
+}
+
+.dark .mini-bar-track {
+	background: #262c47;
+}
