@@ -70,7 +70,11 @@
 								مشاوره</a></li>
 						<li class="side-item selected"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
-						<li class="side-item"><a href="support.html"><i
+												<li class="side-item"><a href="followups.html"><i
+									class="fas fa-bell mr-2"></i>پیگیری‌های امروز <span id="followupsTodayCount" class="nav-badge d-none"></span></a></li>
+						<li class="side-item"><a href="products.html"><i
+									class="fas fa-box mr-2"></i>مدیریت محصولات</a></li>
+<li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>پیام‌های پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
 						<li class="side-item"><a href="content.html"><i
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
@@ -100,6 +104,65 @@
 									</div>
 								</div>
 							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2 pb-0">
+						<p class="text-muted text-sm mb-1"><i class="fas fa-chart-line mr-1"></i>فروش امروز</p>
+					</div>
+				</div>
+				<div class="row m-1 mb-2">
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-1">
+							<i class="fas fa-user-plus b-first" aria-hidden="true"></i>
+							<span class="c-first">لید امروز</span>
+							<span id="kpi-leads-today">0</span>
+						</div>
+					</div>
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-2">
+							<i class="fas fa-phone b-second" aria-hidden="true"></i>
+							<span class="c-second">تماس امروز</span>
+							<span id="kpi-calls-today">0</span>
+						</div>
+					</div>
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-3">
+							<i class="fas fa-sack-dollar b-third" aria-hidden="true"></i>
+							<span class="c-third">خرید امروز</span>
+							<span id="kpi-purchases-today">0</span>
+						</div>
+					</div>
+					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-4">
+							<i class="fas fa-bell b-forth" aria-hidden="true"></i>
+							<span class="c-forth">پیگیری عقب‌افتاده</span>
+							<span id="kpi-overdue-followups">0</span>
+						</div>
+					</div>
+				</div>
+				<div class="row m-1 mb-2">
+					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-1">
+							<i class="fas fa-coins b-first" aria-hidden="true"></i>
+							<span class="c-first">درآمد امروز (تومان)</span>
+							<span id="kpi-revenue-today">0</span>
+						</div>
+					</div>
+					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-2">
+							<i class="fas fa-percent b-second" aria-hidden="true"></i>
+							<span class="c-second">نرخ تبدیل (کل)</span>
+							<span id="kpi-conversion-rate">0٪</span>
+						</div>
+					</div>
+					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-3">
+							<i class="fas fa-cart-shopping b-third" aria-hidden="true"></i>
+							<span class="c-third">کل خریدها</span>
+							<span id="kpi-total-purchases">0</span>
 						</div>
 					</div>
 				</div>

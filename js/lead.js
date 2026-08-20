@@ -184,6 +184,80 @@
 			});
 	}
 
+	var selectedCallResult = null;
+
+	function showCallResultMsg(success, text) {
+		$("#callResultMsg")
+			.removeClass("d-none text-success text-danger")
+			.addClass(success ? "text-success" : "text-danger")
+			.text(text);
+	}
+
+	function submitCallResult() {
+		if (!leadId || !selectedCallResult) return;
+		var note = $("#callNote").val().trim();
+		var nextStep = $("#callNextStep").val().trim();
+		var $btn = $("#btnSubmitCallResult").prop("disabled", true);
+		CrmData.recordCall(leadId, selectedCallResult, note, nextStep)
+			.then(function () {
+				showCallResultMsg(true, "نتیجه تماس با موفقیت ثبت شد.");
+				$("#callResultForm").addClass("d-none");
+				$("#callNote").val("");
+				$("#callNextStep").val("");
+				selectedCallResult = null;
+				$(".call-result-btn").removeClass("active");
+				loadLead();
+			})
+			.catch(function (err) {
+				showCallResultMsg(false, "خطا در ثبت تماس: " + (err.message || "خطای نامشخص"));
+			})
+			.finally(function () {
+				$btn.prop("disabled", false);
+			});
+	}
+
+	function loadConsultants() {
+		if (typeof CrmData.fetchConsultants !== "function") return;
+		CrmData.fetchConsultants()
+			.then(function (consultants) {
+				var $sel = $("#assignSelect");
+				(consultants || []).forEach(function (c) {
+					var $opt = $("<option>").val(c.username).text(c.display_name || c.username);
+					$sel.append($opt);
+				});
+				if (currentLead && currentLead.assigned_to) {
+					$sel.val(currentLead.assigned_to);
+				}
+			})
+			.catch(function (err) {
+				console.error("خطا در بارگذاری فهرست مشاوران:", err);
+			});
+	}
+
+	function showAssignMsg(success, text) {
+		$("#assignMsg")
+			.removeClass("d-none text-success text-danger")
+			.addClass(success ? "text-success" : "text-danger")
+			.text(text);
+	}
+
+	function saveAssign() {
+		if (!leadId) return;
+		var assignedTo = $("#assignSelect").val();
+		var $btn = $("#btnSaveAssign").prop("disabled", true);
+		CrmData.assignLead(leadId, assignedTo)
+			.then(function () {
+				showAssignMsg(true, "لید با موفقیت ارجاع داده شد.");
+				loadLead();
+			})
+			.catch(function (err) {
+				showAssignMsg(false, "خطا در ثبت ارجاع: " + (err.message || "خطای نامشخص"));
+			})
+			.finally(function () {
+				$btn.prop("disabled", false);
+			});
+	}
+
 	$(function () {
 		reminderPicker = $("#reminderDatePersian").persianDatepicker({
 			format: "YYYY/MM/DD",
@@ -196,9 +270,27 @@
 		});
 
 		loadLead();
+		loadConsultants();
 
 		$("#btnCalled").on("click", function () { updateStatus("تماس گرفته شد"); });
 		$("#btnNoAnswer").on("click", function () { updateStatus("پاسخ نداد"); });
+
+		$("#callResultButtons").on("click", ".call-result-btn", function () {
+			$(".call-result-btn").removeClass("active");
+			$(this).addClass("active");
+			selectedCallResult = $(this).data("result");
+			$("#callResultSelected").text(selectedCallResult);
+			$("#callResultForm").removeClass("d-none");
+			$("#callResultMsg").addClass("d-none");
+		});
+		$("#btnCancelCallResult").on("click", function () {
+			$("#callResultForm").addClass("d-none");
+			$(".call-result-btn").removeClass("active");
+			selectedCallResult = null;
+		});
+		$("#btnSubmitCallResult").on("click", submitCallResult);
+
+		$("#btnSaveAssign").on("click", saveAssign);
 
 		$("#btnSaveNote").on("click", saveNote);
 

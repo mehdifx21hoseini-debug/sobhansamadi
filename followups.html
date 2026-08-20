@@ -5,7 +5,7 @@
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<script src="js/auth.js"></script>
-	<title>پیام همگانی — CRM آکادمی</title>
+	<title>پیگیری‌های امروز — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
@@ -66,13 +66,13 @@
 				<p class="side-comment">منو</p>
 				<ul class="side a-collapse">
 					<div class="side-item-container">
-						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای
-								مشاوره</a></li>
+						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای مشاوره</a>
+						</li>
 						<li class="side-item"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
-												<li class="side-item"><a href="followups.html"><i
+						<li class="side-item selected"><a href="followups.html"><i
 									class="fas fa-bell mr-2"></i>پیگیری‌های امروز <span id="followupsTodayCount" class="nav-badge d-none"></span></a></li>
-						<li class="side-item"><a href="products.html"><i
+												<li class="side-item"><a href="products.html"><i
 									class="fas fa-box mr-2"></i>مدیریت محصولات</a></li>
 <li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>پیام‌های پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
@@ -80,7 +80,7 @@
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
 						<li class="side-item"><a href="ai.html"><i
 									class="fas fa-robot mr-2"></i>هوش مصنوعی</a></li>
-						<li class="side-item selected"><a href="broadcast.html"><i
+						<li class="side-item"><a href="broadcast.html"><i
 									class="fas fa-bullhorn mr-2"></i>پیام همگانی</a></li>
 						<li class="side-item"><a href="admins.html"><i
 									class="fas fa-user-shield mr-2"></i>مدیریت ادمین‌ها</a></li>
@@ -98,9 +98,8 @@
 							<div class="row align-items-end">
 								<div class="col-lg-8">
 									<div class="page-header-title text-left-rtl">
-										<h3 class="lite-text">پیام همگانی</h3>
-										<span class="lite-text text-gray">ارسال یک پیام از طریق تلگرام به همه اعضای
-											ربات یا فقط مشترکین هشدار تقویم اقتصادی</span>
+										<h3 class="lite-text">پیگیری‌های امروز</h3>
+										<span class="lite-text text-gray">لیدهایی که موعد پیگیری آن‌ها امروز است یا از موعد گذشته</span>
 									</div>
 								</div>
 							</div>
@@ -108,74 +107,101 @@
 					</div>
 				</div>
 
+				<div class="row m-1 mb-2">
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-1">
+							<i class="fas fa-triangle-exclamation b-forth" aria-hidden="true"></i>
+							<span class="c-forth">عقب‌افتاده</span>
+							<span id="fu-overdue-count">0</span>
+						</div>
+					</div>
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-2">
+							<i class="fas fa-hourglass-half b-second" aria-hidden="true"></i>
+							<span class="c-second">فوری (تا ۲ ساعت دیگر)</span>
+							<span id="fu-urgent-count">0</span>
+						</div>
+					</div>
+					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
+						<div class="box-card mini animate-in d-3">
+							<i class="fas fa-calendar-check b-first" aria-hidden="true"></i>
+							<span class="c-first">امروز</span>
+							<span id="fu-normal-count">0</span>
+						</div>
+					</div>
+				</div>
+
 				<div class="row m-1">
-					<div class="col-lg-8 p-2">
+					<div class="col-12 p-2">
 						<div class="card shade animate-in">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-pen c-main mr-2"></i>متن پیام</h5>
+								<h5 class="card-title"><i class="fas fa-triangle-exclamation c-main mr-2" style="color:#c81e4b"></i>عقب‌افتاده</h5>
 								<hr>
-								<textarea id="broadcastMessage" class="form-control" rows="8" placeholder="متن پیام را اینجا بنویسید..."></textarea>
-								<p class="text-muted text-sm mt-2 mb-0"><span id="charCount">۰</span> کاراکتر</p>
-
-								<hr>
-								<h6 class="mb-2">مخاطبان</h6>
-								<div class="form-group">
-									<div class="form-check">
-										<input class="form-check-input" type="radio" name="audience" id="audienceAll" value="all" checked>
-										<label class="form-check-label" for="audienceAll">👥 همه کاربران ربات (به‌جز ادمین‌ها)</label>
-									</div>
-									<div class="form-check">
-										<input class="form-check-input" type="radio" name="audience" id="audienceEcon" value="econ_subscribers">
-										<label class="form-check-label" for="audienceEcon">📅 فقط مشترکین هشدار تقویم اقتصادی</label>
-									</div>
-								</div>
-
-								<button class="btn btn-brand" id="btnSendBroadcast"><i class="fas fa-paper-plane ml-1"></i>ارسال پیام همگانی</button>
-								<div id="broadcastResult" class="mt-3 d-none"></div>
-							</div>
-						</div>
-					</div>
-
-					<div class="col-lg-4 p-2">
-						<div class="card shade animate-in">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-triangle-exclamation c-main mr-2"></i>نکات مهم</h5>
-								<hr>
-								<ul class="text-sm text-muted pr-3 mb-0">
-									<li class="mb-2">این پیام مستقیماً و بلافاصله برای همه‌ی مخاطبان انتخاب‌شده ارسال می‌شود.</li>
-									<li class="mb-2">قبل از ارسال، متن رو یک‌بار کامل بخون.</li>
-									<li class="mb-2">کاربرانی که ربات رو بلاک کرده باشن، پیام رو دریافت نمی‌کنن (خطا نادیده گرفته می‌شه).</li>
-									<li>تا ۴۸ ساعت بعد از ارسال می‌تونی از پایین همین صفحه پیام رو برای همه حذف کنی.</li>
-								</ul>
-							</div>
-						</div>
-					</div>
-
-					<div class="row m-1 mt-3">
-						<div class="col-12 p-2">
-							<div class="card shade animate-in">
-								<div class="card-body">
-									<h5 class="card-title"><i class="fas fa-clock-rotate-left c-main mr-2"></i>تاریخچه پیام‌های همگانی</h5>
-									<hr>
-									<div class="table-responsive">
-										<table class="table table-striped table-hover">
-											<thead>
-												<tr>
-													<th>متن</th>
-													<th>مخاطب</th>
-													<th>تعداد ارسال</th>
-													<th>زمان</th>
-													<th></th>
-												</tr>
-											</thead>
-											<tbody id="broadcastHistoryBody"></tbody>
-										</table>
-									</div>
+								<div class="table-responsive">
+									<table class="table table-striped table-hover">
+										<thead>
+											<tr>
+												<th>نام</th>
+												<th>شماره تماس</th>
+												<th>موعد پیگیری</th>
+												<th>وضعیت</th>
+											</tr>
+										</thead>
+										<tbody id="fuOverdueBody"></tbody>
+									</table>
 								</div>
 							</div>
 						</div>
 					</div>
-	</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade animate-in">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-hourglass-half c-main mr-2" style="color:#f0b033"></i>فوری</h5>
+								<hr>
+								<div class="table-responsive">
+									<table class="table table-striped table-hover">
+										<thead>
+											<tr>
+												<th>نام</th>
+												<th>شماره تماس</th>
+												<th>موعد پیگیری</th>
+												<th>وضعیت</th>
+											</tr>
+										</thead>
+										<tbody id="fuUrgentBody"></tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade animate-in">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-calendar-check c-main mr-2"></i>باقی امروز</h5>
+								<hr>
+								<div class="table-responsive">
+									<table class="table table-striped table-hover">
+										<thead>
+											<tr>
+												<th>نام</th>
+												<th>شماره تماس</th>
+												<th>موعد پیگیری</th>
+												<th>وضعیت</th>
+											</tr>
+										</thead>
+										<tbody id="fuNormalBody"></tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 
 			</div>
 		</main>
@@ -282,7 +308,7 @@
 	<script src="js/global-search.js"></script>
 	<script src="js/notify.js"></script>
 	<script src="js/profile.js"></script>
-	<script src="js/broadcast.js"></script>
+	<script src="js/followups.js"></script>
 </body>
 
 </html>

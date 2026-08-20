@@ -278,6 +278,46 @@
 		});
 	}
 
+	function recordCall(leadId, result, note, nextStep) {
+		return request("/crm/calls", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, result: result, note: note || "", next_step: nextStep || "" })
+		});
+	}
+
+	function assignLead(leadId, assignedTo) {
+		return request("/crm/lead/assign", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, assigned_to: assignedTo })
+		});
+	}
+
+	function fetchFollowupsToday() {
+		return request("/crm/followups/today", { method: "GET" });
+	}
+
+	function fetchSalesKpi() {
+		return request("/crm/dashboard/sales-kpi", { method: "GET" });
+	}
+
+	function fetchConsultants() {
+		return request("/crm/consultants", { method: "GET" });
+	}
+
+	function fetchProducts() {
+		return request("/crm/products", { method: "GET" });
+	}
+
+	function updateProductPrice(productId, price) {
+		return request("/crm/product/price", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ product_id: productId, price: price })
+		});
+	}
+
 	function updateAvatar(dataUri) {
 		return request("/crm/auth/update-avatar", {
 			method: "POST",
@@ -320,6 +360,13 @@
 		unsubscribeEconSubscriber: unsubscribeEconSubscriber,
 		fetchAdmins: fetchAdmins,
 		saveAdmin: saveAdmin,
+		recordCall: recordCall,
+		assignLead: assignLead,
+		fetchFollowupsToday: fetchFollowupsToday,
+		fetchSalesKpi: fetchSalesKpi,
+		fetchConsultants: fetchConsultants,
+		fetchProducts: fetchProducts,
+		updateProductPrice: updateProductPrice,
 		fetchAiOverview: fetchAiOverview,
 		fetchAiKnowledge: fetchAiKnowledge,
 		saveAiKnowledge: saveAiKnowledge,
