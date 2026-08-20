@@ -12,7 +12,7 @@
 	function renderAdmins() {
 		var $body = $("#adminsTableBody").empty();
 		if (admins.length === 0) {
-			$body.append('<tr><td colspan="5" class="text-center text-muted py-4">هنوز ادمینی ثبت نشده.</td></tr>');
+			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-user-shield"></i><p>هنوز ادمینی ثبت نشده.</p></div></td></tr>');
 			return;
 		}
 		admins.forEach(function (a) {

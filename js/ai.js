@@ -48,7 +48,7 @@
 		var $body = $("#kbTableBody").empty();
 		var rows = getFilteredRows();
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="5" class="text-center text-muted py-4">موردی یافت نشد.</td></tr>');
+			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-brain"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
 		}
 		rows.forEach(function (r) {

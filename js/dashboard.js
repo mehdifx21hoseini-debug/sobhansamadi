@@ -293,7 +293,7 @@
 		var $list = $("#errorsList").empty();
 		$("#errorsCount").text(errors.length);
 		if (errors.length === 0) {
-			$list.append('<div class="activity-log-empty">هیچ خطای بررسی‌نشده‌ای وجود ندارد. ✅</div>');
+			$list.append('<div class="empty-state"><i class="fas fa-circle-check" style="color:#2e9e6d;opacity:.7"></i><p>هیچ خطای بررسی‌نشده‌ای وجود ندارد.</p></div>');
 			return;
 		}
 		errors.forEach(function (e) {

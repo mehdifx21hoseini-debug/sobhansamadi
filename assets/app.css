@@ -1,5 +1,7 @@
 /* CRM آکادمی — استایل‌های اختصاصی روی پایه قالب Nozha */
 
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 :root {
 	--brand-navy: #29386c;
 	--brand-navy-dark: #1c2850;
@@ -207,7 +209,8 @@ body,
 }
 
 .mono {
-	font-family: "Courier New", monospace;
+	font-family: "JetBrains Mono", "Courier New", monospace;
+	font-variant-numeric: tabular-nums;
 }
 
 /* ===== site-wide chrome polish (harmonized with the login page) ===== */
@@ -1000,6 +1003,13 @@ body::before {
 	font-size: 1.6rem;
 	font-weight: 700;
 	color: #2b2b40;
+	font-family: "JetBrains Mono", "Courier New", monospace;
+	font-variant-numeric: tabular-nums;
+}
+
+.box-card.mini span:last-of-type {
+	font-family: "JetBrains Mono", "Courier New", monospace;
+	font-variant-numeric: tabular-nums;
 }
 
 .chart-center-total .label {
@@ -1503,4 +1513,31 @@ body::before {
 
 .broadcast-row-deleted td:first-child {
 	text-decoration: line-through;
+}
+
+/* ===== shared empty state ===== */
+.empty-state {
+	text-align: center;
+	color: #9a9a9a;
+	padding: 40px 16px;
+}
+
+.empty-state i {
+	display: block;
+	font-size: 1.7rem;
+	margin-bottom: 10px;
+	opacity: .45;
+}
+
+.empty-state p {
+	margin: 0;
+	font-size: .88rem;
+}
+
+.dark .empty-state {
+	color: #7d84a0;
+}
+
+td .empty-state {
+	padding: 28px 16px;
 }

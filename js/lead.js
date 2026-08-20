@@ -27,7 +27,7 @@
 	function renderActivity(entries) {
 		var $box = $("#activityLog").empty();
 		if (!entries || entries.length === 0) {
-			$box.append('<div class="activity-log-empty">هنوز فعالیتی ثبت نشده است.</div>');
+			$box.append('<div class="empty-state"><i class="fas fa-clock-rotate-left"></i><p>هنوز فعالیتی ثبت نشده است.</p></div>');
 			return;
 		}
 		entries.forEach(function (entry) {
