@@ -400,6 +400,31 @@
 			});
 	}
 
+	function renderSourcePerformance(rows) {
+		var $body = $("#sourcePerfTableBody").empty();
+		if (!rows || rows.length === 0) {
+			$body.append('<tr><td colspan="4"><div class="empty-state"><i class="fas fa-map-location-dot"></i><p>داده‌ای وجود ندارد.</p></div></td></tr>');
+			return;
+		}
+		rows.forEach(function (r) {
+			var $tr = $("<tr>");
+			$tr.append($("<td>").text(r.source || "نامشخص"));
+			$tr.append($("<td>").text(r.leads || 0));
+			$tr.append($("<td>").text(r.purchases || 0));
+			$tr.append($("<td>").text((r.revenue || 0).toLocaleString("fa-IR")));
+			$body.append($tr);
+		});
+	}
+
+	function loadSourcePerformance() {
+		if (typeof CrmData.fetchSourcePerformance !== "function") return;
+		CrmData.fetchSourcePerformance()
+			.then(renderSourcePerformance)
+			.catch(function (err) {
+				$("#sourcePerfTableBody").html('<tr><td colspan="4" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + (err.message || "خطای نامشخص") + '</td></tr>');
+			});
+	}
+
 	$(function () {
 		loadLeads();
 		loadAdminDashboard(reportRange);
@@ -407,6 +432,7 @@
 		loadSalesKpi();
 		loadConsultantPerformance();
 		loadSalesFunnel();
+		loadSourcePerformance();
 
 		$("#exportRangeButtons").on("click", ".filter-tab", function () {
 			$(".filter-tab", "#exportRangeButtons").removeClass("active");
