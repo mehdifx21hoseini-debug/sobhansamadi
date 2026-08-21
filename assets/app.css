@@ -2711,3 +2711,89 @@ textarea:focus-visible,
 	background: #3d1520;
 	color: #ff8fa3;
 }
+
+/* ===== KB table pagination ===== */
+
+.kb-pagination {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 12px;
+}
+
+.kb-pagination-info {
+	font-size: .82rem;
+	color: #8a8fa3;
+	font-family: "JetBrains Mono", monospace;
+	font-variant-numeric: tabular-nums;
+}
+
+.kb-pagination-btns {
+	display: flex;
+	gap: 6px;
+}
+
+/* ===== KB duplicate audit ===== */
+
+.kb-dup-pair {
+	border-radius: 12px;
+	background: #f7f7fb;
+	padding: 14px 16px;
+	margin-bottom: 12px;
+}
+
+.kb-dup-pair:last-child {
+	margin-bottom: 0;
+}
+
+.kb-dup-score {
+	display: inline-block;
+	font-size: .74rem;
+	font-weight: 600;
+	color: #c81e4b;
+	background: #fde1e7;
+	border-radius: 20px;
+	padding: 1px 10px;
+	margin-bottom: 8px;
+	font-family: "JetBrains Mono", monospace;
+	font-variant-numeric: tabular-nums;
+}
+
+.kb-dup-entry {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 6px 0;
+	border-top: 1px dashed #e2e2ea;
+}
+
+.kb-dup-entry:first-of-type {
+	border-top: none;
+}
+
+.kb-dup-entry-text {
+	font-size: .86rem;
+	flex: 1;
+	min-width: 0;
+}
+
+.kb-dup-entry-text .kb-dup-category {
+	display: block;
+	font-size: .72rem;
+	color: #8a8fa3;
+	margin-top: 2px;
+}
+
+.dark .kb-dup-pair {
+	background: #1c2137;
+}
+
+.dark .kb-dup-entry {
+	border-top-color: #333c5c;
+}
+
+.dark .kb-dup-score {
+	background: #3d1520;
+	color: #ff8fa3;
+}

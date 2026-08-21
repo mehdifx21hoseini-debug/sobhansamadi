@@ -5,6 +5,31 @@
 	var searchTerm = "";
 	var categoryFilter = "";
 	var needsCompletionOnly = false;
+	var kbPageIndex = 0;
+	var KB_PAGE_SIZE = 25;
+
+	function normalizeForCompare(text) {
+		return (text || "")
+			.toString()
+			.trim()
+			.toLowerCase()
+			.replace(/[‌\s]+/g, " ")
+			.replace(/[؟?.!،,؛;«»"'()]/g, "");
+	}
+
+	function wordOverlapDetail(a, b) {
+		var wordsA = normalizeForCompare(a).split(" ").filter(Boolean);
+		var wordsB = normalizeForCompare(b).split(" ").filter(Boolean);
+		if (wordsA.length === 0 || wordsB.length === 0) return { ratio: 0, common: 0 };
+		var setB = {};
+		wordsB.forEach(function (w) { setB[w] = true; });
+		var common = wordsA.filter(function (w) { return setB[w]; }).length;
+		return { ratio: common / Math.min(wordsA.length, wordsB.length), common: common };
+	}
+
+	function wordOverlapRatio(a, b) {
+		return wordOverlapDetail(a, b).ratio;
+	}
 
 	function statusBadge(row) {
 		if (row.needs_completion) {
@@ -17,12 +42,17 @@
 	}
 
 	function populateCategoryOptions() {
-		var categories = Array.from(new Set(kbRows.map(function (r) { return r.category; }).filter(Boolean))).sort();
+		var counts = {};
+		kbRows.forEach(function (r) {
+			if (!r.category) return;
+			counts[r.category] = (counts[r.category] || 0) + 1;
+		});
+		var categories = Object.keys(counts).sort();
 		var $filter = $("#kbCategoryFilter");
 		var current = $filter.val();
 		$filter.find("option:not(:first)").remove();
 		categories.forEach(function (c) {
-			$filter.append($("<option>").val(c).text(c));
+			$filter.append($("<option>").val(c).text(c + " (" + counts[c] + ")"));
 		});
 		$filter.val(current || "");
 
@@ -44,9 +74,29 @@
 		});
 	}
 
+	function renderKbPagination(totalRows, pageCount) {
+		var $info = $("#kbPaginationInfo");
+		var $pagination = $("#kbPagination");
+		if (totalRows === 0) {
+			$pagination.addClass("d-none");
+			return;
+		}
+		$pagination.removeClass("d-none");
+		var startIdx = totalRows === 0 ? 0 : (kbPageIndex * KB_PAGE_SIZE) + 1;
+		var endIdx = Math.min(totalRows, (kbPageIndex + 1) * KB_PAGE_SIZE);
+		$info.text(startIdx + "–" + endIdx + " از " + totalRows + " مدخل — صفحه " + (kbPageIndex + 1) + " از " + pageCount);
+		$("#btnKbPrevPage").prop("disabled", kbPageIndex <= 0);
+		$("#btnKbNextPage").prop("disabled", kbPageIndex >= pageCount - 1);
+	}
+
 	function renderKb() {
 		var $body = $("#kbTableBody").empty();
-		var rows = getFilteredRows();
+		var allRows = getFilteredRows();
+		var pageCount = Math.max(1, Math.ceil(allRows.length / KB_PAGE_SIZE));
+		if (kbPageIndex >= pageCount) kbPageIndex = pageCount - 1;
+		if (kbPageIndex < 0) kbPageIndex = 0;
+		var rows = allRows.slice(kbPageIndex * KB_PAGE_SIZE, (kbPageIndex + 1) * KB_PAGE_SIZE);
+		renderKbPagination(allRows.length, pageCount);
 		if (rows.length === 0) {
 			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-brain"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
@@ -164,6 +214,7 @@
 		return CrmData.fetchAiKnowledge()
 			.then(function (res) {
 				kbRows = Array.isArray(res) ? res : [];
+				kbPageIndex = 0;
 				populateCategoryOptions();
 				renderKb();
 			})
@@ -226,23 +277,85 @@
 			.finally(function () { $btn.prop("disabled", false); });
 	}
 
+	var AUDIT_DUPLICATE_THRESHOLD = 0.6;
+	var AUDIT_MIN_COMMON_WORDS = 3;
+
+	function findDuplicatePairs() {
+		var pairs = [];
+		for (var i = 0; i < kbRows.length; i++) {
+			for (var j = i + 1; j < kbRows.length; j++) {
+				var detail = wordOverlapDetail(kbRows[i].question, kbRows[j].question);
+				if (detail.ratio >= AUDIT_DUPLICATE_THRESHOLD && detail.common >= AUDIT_MIN_COMMON_WORDS) {
+					pairs.push({ a: kbRows[i], b: kbRows[j], score: detail.ratio });
+				}
+			}
+		}
+		pairs.sort(function (x, y) { return y.score - x.score; });
+		return pairs;
+	}
+
+	function renderDuplicatePair(pair) {
+		var $card = $('<div class="kb-dup-pair">');
+		$card.append($('<span class="kb-dup-score">').text("شباهت " + Math.round(pair.score * 100) + "٪"));
+		[pair.a, pair.b].forEach(function (row) {
+			var $entry = $('<div class="kb-dup-entry">');
+			var $text = $('<div class="kb-dup-entry-text">')
+				.append($("<span>").text(row.question || "—"))
+				.append($('<span class="kb-dup-category">').text("دسته: " + (row.category || "بدون‌دسته")));
+			var $editBtn = $('<button type="button" class="btn btn-sm btn-outline-secondary">')
+				.text("ویرایش")
+				.on("click", function () {
+					$("#kbDuplicateAuditModal").modal("hide");
+					openKbModal(row);
+				});
+			$entry.append($text).append($editBtn);
+			$card.append($entry);
+		});
+		return $card;
+	}
+
+	function runDuplicateAudit() {
+		var $result = $("#kbDuplicateAuditResult").empty();
+		var pairs = findDuplicatePairs();
+		if (pairs.length === 0) {
+			$result.append('<div class="empty-state"><i class="fas fa-circle-check" style="color:#2e9e6d;opacity:.75"></i><p>هیچ مدخل تکراری یا خیلی شبیه پیدا نشد.</p></div>');
+		} else {
+			$result.append($('<p class="text-muted text-sm mb-3">').text(pairs.length + " جفت مدخل مشابه پیدا شد (شباهت ۷۰٪ یا بیشتر). هرکدوم رو بررسی کن و در صورت نیاز یکی رو ویرایش/حذف کن."));
+			pairs.forEach(function (pair) {
+				$result.append(renderDuplicatePair(pair));
+			});
+		}
+		$("#kbDuplicateAuditModal").modal("show");
+	}
+
 	$(function () {
 		loadKb();
 		loadOverview();
 
 		$("#btnAddKb").on("click", function () { openKbModal(null); });
 		$("#btnSaveKb").on("click", saveKb);
+		$("#btnAuditDuplicates").on("click", runDuplicateAudit);
 
 		$("#kbSearchInput").on("input", function () {
 			searchTerm = $(this).val().trim().toLowerCase();
+			kbPageIndex = 0;
 			renderKb();
 		});
 		$("#kbCategoryFilter").on("change", function () {
 			categoryFilter = $(this).val();
+			kbPageIndex = 0;
 			renderKb();
 		});
 		$("#kbNeedsCompletionOnly").on("change", function () {
 			needsCompletionOnly = $(this).is(":checked");
+			kbPageIndex = 0;
+			renderKb();
+		});
+		$("#btnKbPrevPage").on("click", function () {
+			if (kbPageIndex > 0) { kbPageIndex--; renderKb(); }
+		});
+		$("#btnKbNextPage").on("click", function () {
+			kbPageIndex++;
 			renderKb();
 		});
 
@@ -276,25 +389,6 @@
 			if (confidence >= 0.7) return "tone-green";
 			if (confidence >= 0.4) return "tone-gold";
 			return "tone-red";
-		}
-
-		function normalizeForCompare(text) {
-			return (text || "")
-				.toString()
-				.trim()
-				.toLowerCase()
-				.replace(/[‌\s]+/g, " ")
-				.replace(/[؟?.!،,؛;«»"'()]/g, "");
-		}
-
-		function wordOverlapRatio(a, b) {
-			var wordsA = normalizeForCompare(a).split(" ").filter(Boolean);
-			var wordsB = normalizeForCompare(b).split(" ").filter(Boolean);
-			if (wordsA.length === 0 || wordsB.length === 0) return 0;
-			var setB = {};
-			wordsB.forEach(function (w) { setB[w] = true; });
-			var common = wordsA.filter(function (w) { return setB[w]; }).length;
-			return common / Math.min(wordsA.length, wordsB.length);
 		}
 
 		function findPossibleDuplicate(question) {
