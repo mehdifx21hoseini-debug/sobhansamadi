@@ -5,6 +5,7 @@
 	var searchTerm = "";
 	var categoryFilter = "";
 	var needsCompletionOnly = false;
+	var unusedOnly = false;
 	var kbPageIndex = 0;
 	var KB_PAGE_SIZE = 25;
 
@@ -65,6 +66,7 @@
 	function getFilteredRows() {
 		return kbRows.filter(function (r) {
 			if (needsCompletionOnly && !r.needs_completion) return false;
+			if (unusedOnly && r.usage_count) return false;
 			if (categoryFilter && r.category !== categoryFilter) return false;
 			if (searchTerm) {
 				var haystack = ((r.question || "") + " " + (r.answer || "") + " " + (r.category || "")).toLowerCase();
@@ -72,6 +74,22 @@
 			}
 			return true;
 		});
+	}
+
+	function usageCell(row) {
+		var count = row.usage_count || 0;
+		if (count === 0) {
+			return $('<span class="text-muted text-sm">').text("هرگز");
+		}
+		var $wrap = $('<div>');
+		$wrap.append($('<span class="mono">').text(count.toLocaleString("fa-IR")));
+		if (row.last_used_at) {
+			var d = new Date(row.last_used_at);
+			if (!isNaN(d.getTime())) {
+				$wrap.append($('<div class="text-muted" style="font-size:.72rem">').text(d.toLocaleDateString("fa-IR")));
+			}
+		}
+		return $wrap;
 	}
 
 	function renderKbPagination(totalRows, pageCount) {
@@ -98,7 +116,7 @@
 		var rows = allRows.slice(kbPageIndex * KB_PAGE_SIZE, (kbPageIndex + 1) * KB_PAGE_SIZE);
 		renderKbPagination(allRows.length, pageCount);
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-brain"></i><p>موردی یافت نشد.</p></div></td></tr>');
+			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-brain"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
 		}
 		rows.forEach(function (r) {
@@ -107,6 +125,7 @@
 			$tr.append($("<td>").text(r.question || "-"));
 			$tr.append($("<td>").append($('<span class="kb-answer-preview">').text(r.answer || "—")));
 			$tr.append($("<td>").html(statusBadge(r)));
+			$tr.append($("<td>").append(usageCell(r)));
 
 			var $editBtn = $('<button class="btn btn-sm btn-outline-secondary mr-1" title="ویرایش"><i class="fas fa-pen"></i></button>');
 			$editBtn.on("click", function () { openKbModal(r); });
@@ -219,7 +238,7 @@
 				renderKb();
 			})
 			.catch(function () {
-				$("#kbTableBody").html('<tr><td colspan="5" class="text-center text-danger py-4">خطا در بارگذاری.</td></tr>');
+				$("#kbTableBody").html('<tr><td colspan="6" class="text-center text-danger py-4">خطا در بارگذاری.</td></tr>');
 			});
 	}
 
@@ -348,6 +367,11 @@
 		});
 		$("#kbNeedsCompletionOnly").on("change", function () {
 			needsCompletionOnly = $(this).is(":checked");
+			kbPageIndex = 0;
+			renderKb();
+		});
+		$("#kbUnusedOnly").on("change", function () {
+			unusedOnly = $(this).is(":checked");
 			kbPageIndex = 0;
 			renderKb();
 		});
