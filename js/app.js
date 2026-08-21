@@ -12,6 +12,15 @@
 		return '<span class="status-badge ' + meta.cls + '"><i class="fas ' + meta.icon + '"></i>' + meta.label + '</span>';
 	}
 
+	function statusSelectHtml(leadId, status) {
+		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
+		var options = Object.keys(STATUS_META).map(function (key) {
+			var selected = key === status ? " selected" : "";
+			return '<option value="' + key + '"' + selected + '>' + STATUS_META[key].label + '</option>';
+		}).join("");
+		return '<select class="status-select ' + meta.cls + '" data-lead-id="' + leadId + '">' + options + '</select>';
+	}
+
 	function formatRelativeTime(iso) {
 		if (!iso) return "-";
 		var date = new Date(iso);
@@ -125,7 +134,7 @@
 			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
 			$tr.append($("<td>").text(lead.course || "-"));
 			$tr.append($("<td>").text(lead.request_type || "-"));
-			var $statusCell = $("<td>").html(statusBadgeHtml(lead.status));
+			var $statusCell = $("<td>").html(statusSelectHtml(lead.lead_id, lead.status));
 			if (isAtRisk(lead)) {
 				$statusCell.append($('<span class="status-badge badge-noanswer ml-1" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>'));
 			}
@@ -191,6 +200,29 @@
 		$("#btnNextPage").on("click", function () {
 			state.page += 1;
 			renderTable();
+		});
+
+		$("#leadsTableBody").on("change", ".status-select", function () {
+			var $select = $(this);
+			var leadId = $select.data("lead-id");
+			var newStatus = $select.val();
+			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
+			if (!lead) return;
+			var previousStatus = lead.status;
+			$select.addClass("is-saving");
+			CrmData.updateLeadStatus(leadId, newStatus)
+				.then(function () {
+					lead.status = newStatus;
+					lead.updated_at = new Date().toISOString();
+					render();
+				})
+				.catch(function (err) {
+					alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
+					$select.val(previousStatus);
+				})
+				.finally(function () {
+					$select.removeClass("is-saving");
+				});
 		});
 	});
 })();
