@@ -698,6 +698,36 @@ body::before {
 	color: #c81e4b;
 }
 
+.status-select {
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	border: none;
+	border-radius: 20px;
+	padding: 5px 28px 5px 12px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	cursor: pointer;
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: left 10px center;
+	background-size: 10px 7px;
+	transition: filter 0.15s ease;
+}
+
+.status-select:hover {
+	filter: brightness(0.96);
+}
+
+.status-select:focus {
+	outline: 2px solid rgba(43, 43, 64, 0.15);
+}
+
+.status-select.is-saving {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
 .lead-row:hover {
 	background: #f7f7fb;
 }
