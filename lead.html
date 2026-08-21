@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=11">
+	<link rel="stylesheet" href="assets/app.css?v=12">
 	<link rel="stylesheet" href="assets/vendor/persian-datepicker.min.css">
 </head>
 
@@ -118,8 +118,13 @@
 												title="تماس با این شماره"><i class="fas fa-phone-alt"></i></a>
 										</div>
 									</div>
-									<span id="leadStatusBadge" class="status-badge"></span>
+									<div class="text-left">
+										<span id="leadStatusBadge" class="status-badge"></span>
+										<span id="leadRiskBadge" class="status-badge badge-noanswer ml-1 d-none" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>
+									</div>
 								</div>
+
+								<div id="leadQuickInfo" class="lead-quick-info mt-3"></div>
 
 								<div class="call-actions mt-3">
 									<button class="btn btn-call btn-called" id="btnCalled">
@@ -176,10 +181,17 @@
 
 						<div class="card shade mb-3">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-comments c-main mr-2"></i>یادداشت‌ها و
-									مکالمات ثبت‌شده</h5>
+								<h5 class="card-title"><i class="fas fa-comments c-main mr-2"></i>سوالات مشاوره و پیام‌های تلگرام</h5>
 								<hr>
-								<div id="leadNotesBox" class="notes-box"></div>
+								<div id="leadNotesTimeline" class="notes-timeline"></div>
+							</div>
+						</div>
+
+						<div class="card shade mb-3 d-none" id="aiHistoryCard">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-robot c-main mr-2"></i>مکالمه با ربات هوشمند (FAQ)</h5>
+								<hr>
+								<div id="aiHistoryBox" class="ai-history-box"></div>
 							</div>
 						</div>
 
@@ -233,6 +245,10 @@
 										id="leadCreatedAt"></span></div>
 								<div class="info-row"><span class="text-muted">آخرین به‌روزرسانی</span><span
 										id="leadUpdatedAt"></span></div>
+								<div class="info-row"><span class="text-muted">امتیاز لید</span><span id="leadScore"></span></div>
+								<div class="info-row"><span class="text-muted">کیفیت</span><span id="leadQuality"></span></div>
+								<div class="info-row"><span class="text-muted">منبع</span><span id="leadSource"></span></div>
+								<div class="info-row"><span class="text-muted">نتیجه آخرین تماس</span><span id="leadLastCallResult"></span></div>
 							</div>
 						</div>
 
@@ -252,6 +268,11 @@
 							<div class="card-body">
 								<h5 class="card-title"><i class="fas fa-bell c-main mr-2"></i>یادآوری پیگیری</h5>
 								<hr>
+								<div class="filter-tabs mb-2" id="reminderQuickPicks">
+									<button type="button" class="filter-tab" data-days="1">فردا</button>
+									<button type="button" class="filter-tab" data-days="3">۳ روز دیگه</button>
+									<button type="button" class="filter-tab" data-days="7">هفته دیگه</button>
+								</div>
 								<input type="text" id="reminderDatePersian" class="form-control" placeholder="انتخاب تاریخ" readonly>
 								<input type="hidden" id="reminderDate">
 								<div class="mt-2">
@@ -388,7 +409,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/lead.js?v=2"></script>
+	<script src="js/lead.js?v=3"></script>
 </body>
 
 </html>

@@ -17,6 +17,112 @@
 		return new Date(iso).toLocaleString("fa-IR");
 	}
 
+	var AT_RISK_UNCONTACTED_HOURS = 48;
+	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
+
+	function isAtRisk(lead) {
+		var now = Date.now();
+		if (lead.status === "پاسخ‌داده‌نشده" && lead.created_at) {
+			var hoursSinceCreated = (now - new Date(lead.created_at).getTime()) / 3600000;
+			if (hoursSinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
+		}
+		if (lead.next_followup_at) {
+			var hoursOverdue = (now - new Date(lead.next_followup_at).getTime()) / 3600000;
+			if (hoursOverdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
+		}
+		return false;
+	}
+
+	var NOTE_ENTRY_META = {
+		consultation: { icon: "fa-user-tie", label: "درخواست مشاوره از تلگرام", cls: "note-entry-consult" },
+		escalation: { icon: "fa-robot", label: "سوال ارجاع‌شده از هوش مصنوعی", cls: "note-entry-escalation" },
+		manual_note: { icon: "fa-sticky-note", label: "یادداشت مشاور", cls: "note-entry-manual" },
+		plain: { icon: "fa-comment", label: "پیام", cls: "note-entry-plain" }
+	};
+
+	function parseNotesEntries(notesText) {
+		if (!notesText) return [];
+		var blocks = notesText.split(/\n?---\n?/).map(function (b) { return b.trim(); }).filter(Boolean);
+		return blocks.map(function (block) {
+			var tsMatch = block.match(/^\[([^\]]+)\]\s*/);
+			var timestamp = tsMatch ? tsMatch[1] : null;
+			var rest = tsMatch ? block.slice(tsMatch[0].length) : block;
+
+			if (timestamp && /یادداشت مشاور/.test(timestamp)) {
+				return { type: "manual_note", timestamp: timestamp.replace(/\s*-\s*یادداشت مشاور\s*$/, ""), text: rest };
+			}
+
+			var consultMatch = rest.match(/^سطح:\s*(.*?)\s*\|\s*موضوع:\s*(.*?)\s*\|\s*زمان مناسب تماس:\s*(.*)$/);
+			if (consultMatch) {
+				return { type: "consultation", timestamp: timestamp, level: consultMatch[1], topic: consultMatch[2], preferredTime: consultMatch[3] };
+			}
+
+			var escMatch = rest.match(/^([\s\S]*?)\n\n🔎 دلیل ارجاع:\s*([\s\S]*)$/);
+			if (escMatch) {
+				return { type: "escalation", timestamp: timestamp, question: escMatch[1].trim(), reason: escMatch[2].trim() };
+			}
+
+			return { type: "plain", timestamp: timestamp, text: rest };
+		});
+	}
+
+	function renderNotesTimeline(notesText) {
+		var $box = $("#leadNotesTimeline").empty();
+		var entries = parseNotesEntries(notesText);
+		if (entries.length === 0) {
+			$box.append('<div class="empty-state"><i class="fas fa-comment-slash"></i><p>یادداشتی ثبت نشده است.</p></div>');
+			return;
+		}
+		entries.slice().reverse().forEach(function (entry) {
+			var meta = NOTE_ENTRY_META[entry.type];
+			var $item = $('<div class="note-entry ' + meta.cls + '">');
+			var $head = $('<div class="note-entry-head">');
+			$head.append($('<span class="note-entry-label">').append($('<i class="fas ' + meta.icon + ' mr-1">'), document.createTextNode(meta.label)));
+			if (entry.timestamp) $head.append($('<span class="note-entry-time">').text(entry.timestamp));
+			$item.append($head);
+
+			if (entry.type === "consultation") {
+				var $grid = $('<div class="note-entry-grid">');
+				$grid.append($('<div>').append($('<span class="text-muted text-sm">').text("سطح: "), $('<strong>').text(entry.level || "-")));
+				$grid.append($('<div>').append($('<span class="text-muted text-sm">').text("موضوع: "), $('<strong>').text(entry.topic || "-")));
+				$grid.append($('<div>').append($('<span class="text-muted text-sm">').text("زمان مناسب تماس: "), $('<strong>').text(entry.preferredTime || "-")));
+				$item.append($grid);
+			} else if (entry.type === "escalation") {
+				$item.append($('<div class="note-entry-body">').text(entry.question));
+				if (entry.reason) $item.append($('<div class="note-entry-reason text-muted text-sm">').text(entry.reason));
+			} else {
+				$item.append($('<div class="note-entry-body">').text(entry.text));
+			}
+
+			$box.append($item);
+		});
+	}
+
+	function renderQuickInfo(lead) {
+		var $box = $("#leadQuickInfo").empty();
+		var pills = [];
+		if (lead.priority) pills.push({ cls: "", icon: "fa-flag", text: lead.priority });
+		if (lead.score != null && lead.score !== "") pills.push({ cls: "pill-score", icon: "fa-star", text: "امتیاز " + lead.score });
+		if (lead.quality) pills.push({ cls: "pill-quality", icon: "fa-gem", text: lead.quality });
+		if (lead.source) pills.push({ cls: "pill-source", icon: "fa-signpost", text: lead.source });
+		pills.forEach(function (p) {
+			$box.append($('<span class="info-pill ' + p.cls + '">').append($('<i class="fas ' + p.icon + '">'), document.createTextNode(p.text)));
+		});
+	}
+
+	function renderAiHistory(history) {
+		var $box = $("#aiHistoryBox").empty();
+		if (!history || history.length === 0) {
+			$("#aiHistoryCard").addClass("d-none");
+			return;
+		}
+		$("#aiHistoryCard").removeClass("d-none");
+		history.forEach(function (turn) {
+			$box.append($('<div class="ai-chat-bubble ai-chat-user">').append($('<i class="fas fa-user">'), document.createTextNode(turn.q || "")));
+			$box.append($('<div class="ai-chat-bubble ai-chat-bot">').append($('<i class="fas fa-robot">'), document.createTextNode(turn.a || "")));
+		});
+	}
+
 	var ACTION_META = {
 		status_change: { icon: "fa-phone", label: "تغییر وضعیت به" },
 		note_added: { icon: "fa-sticky-note", label: "یادداشت داخلی" },
@@ -80,13 +186,20 @@
 			$("#btnCallLead").addClass("d-none");
 		}
 		$("#leadStatusBadge").html(statusBadgeHtml(lead.status));
+		$("#leadRiskBadge").toggleClass("d-none", !isAtRisk(lead));
+		renderQuickInfo(lead);
 		$("#leadCourse").text(lead.course || "-");
 		$("#leadRequestType").text(lead.request_type || "-");
-		$("#leadNotesBox").text(lead.notes || "یادداشتی ثبت نشده است.");
+		renderNotesTimeline(lead.notes);
+		renderAiHistory(lead.ai_history);
 		$("#leadId").text(lead.lead_id || "-");
 		$("#leadContactAttempts").text(lead.contact_attempts != null ? lead.contact_attempts : "-");
 		$("#leadCreatedAt").text(formatDate(lead.created_at));
 		$("#leadUpdatedAt").text(formatDate(lead.updated_at));
+		$("#leadScore").text(lead.score != null && lead.score !== "" ? lead.score : "-");
+		$("#leadQuality").text(lead.quality || "-");
+		$("#leadSource").text(lead.source || "-");
+		$("#leadLastCallResult").text(lead.last_call_result || "-");
 
 		$("#reminderDate").val(lead.reminder_date || "");
 		if (lead.reminder_date && reminderPicker) {
@@ -329,6 +442,16 @@
 			$("#reminderDate").val("");
 			$("#reminderDatePersian").val("");
 			saveReminder("");
+		});
+
+		$("#reminderQuickPicks").on("click", "button", function () {
+			var days = parseInt($(this).data("days"), 10);
+			var d = new Date();
+			d.setDate(d.getDate() + days);
+			var iso = toIsoDate(d);
+			$("#reminderDate").val(iso);
+			if (reminderPicker) reminderPicker.setDate(d.getTime());
+			saveReminder(iso);
 		});
 	});
 })();
