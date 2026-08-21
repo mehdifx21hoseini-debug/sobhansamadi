@@ -217,6 +217,7 @@
 				$("#kbSaveResult").removeClass("d-none text-danger").addClass("text-success").text("ذخیره شد.");
 				loadKb();
 				loadOverview();
+				if (typeof window.__kbCuratorClear === "function") window.__kbCuratorClear();
 				setTimeout(function () { $("#editKbModal").modal("hide"); }, 500);
 			})
 			.catch(function (err) {
@@ -265,5 +266,69 @@
 			if (!confirm("تغییرات ذخیره‌نشده توی این متن از بین می‌ره و دوباره از سرور خونده می‌شه. ادامه بدم؟")) return;
 			loadKb().then(fillKbTextFromRows);
 		});
+
+		var curatorSuggestion = null;
+
+		function confidenceTone(confidence) {
+			if (confidence >= 0.7) return "tone-green";
+			if (confidence >= 0.4) return "tone-gold";
+			return "tone-red";
+		}
+
+		function renderCuratorSuggestion(suggestion) {
+			curatorSuggestion = suggestion;
+			var confidence = typeof suggestion.confidence === "number" ? suggestion.confidence : 0;
+			var confidencePct = Math.round(confidence * 100);
+			$("#kbCuratorConfidence").removeClass("tone-green tone-gold tone-red").addClass(confidenceTone(confidence)).text("اطمینان " + confidencePct + "٪");
+			$("#kbCuratorCategory").text(suggestion.category || "بدون‌دسته");
+			$("#kbCuratorQuestion").text(suggestion.question || "—");
+			$("#kbCuratorAnswer").text(suggestion.answer || "—");
+			$("#kbCuratorResult").removeClass("d-none");
+		}
+
+		$("#btnKbCuratorSuggest").on("click", function () {
+			var rawText = $("#kbCuratorInput").val().trim();
+			$("#kbCuratorError").addClass("d-none");
+			if (!rawText) {
+				$("#kbCuratorError").removeClass("d-none").text("یه متن بنویس تا هوش مصنوعی ازش پیشنهاد بسازه.");
+				return;
+			}
+			var $btn = $(this).prop("disabled", true);
+			var originalHtml = $btn.html();
+			$btn.html('<i class="fas fa-spinner fa-spin mr-1"></i>در حال تحلیل...');
+			$("#kbCuratorResult").addClass("d-none");
+			CrmData.suggestAiKnowledge(rawText)
+				.then(function (suggestion) {
+					renderCuratorSuggestion(suggestion || {});
+				})
+				.catch(function (err) {
+					$("#kbCuratorError").removeClass("d-none").text(err.message || "خطا در دریافت پیشنهاد از هوش مصنوعی.");
+				})
+				.finally(function () {
+					$btn.prop("disabled", false).html(originalHtml);
+				});
+		});
+
+		$("#btnKbCuratorAccept").on("click", function () {
+			if (!curatorSuggestion) return;
+			openKbModal({
+				category: curatorSuggestion.category || "",
+				question: curatorSuggestion.question || "",
+				answer: curatorSuggestion.answer || "",
+				active: true
+			});
+		});
+
+		$("#btnKbCuratorDismiss").on("click", function () {
+			curatorSuggestion = null;
+			$("#kbCuratorResult").addClass("d-none");
+			$("#kbCuratorInput").val("");
+		});
+
+		window.__kbCuratorClear = function () {
+			curatorSuggestion = null;
+			$("#kbCuratorResult").addClass("d-none");
+			$("#kbCuratorInput").val("");
+		};
 	});
 })();
