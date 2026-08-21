@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=9">
+	<link rel="stylesheet" href="assets/app.css?v=10">
 </head>
 
 <body>
@@ -106,25 +106,23 @@
 				</div>
 
 				<div class="row m-1 mb-2">
-					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-database b-first" aria-hidden="true"></i>
-							<span class="c-first">کل پایگاه دانش</span>
-							<span id="ai-kb-total">0</span>
-						</div>
-					</div>
-					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-circle-check b-second" aria-hidden="true"></i>
-							<span class="c-second">فعال</span>
-							<span id="ai-kb-active">0</span>
-						</div>
-					</div>
-					<div class="col-xl-4 col-md-4 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-triangle-exclamation b-third" aria-hidden="true"></i>
-							<span class="c-third">نیاز به تکمیل</span>
-							<span id="ai-kb-needs">0</span>
+					<div class="col-12 p-2">
+						<div class="stat-card-grid">
+							<div class="stat-card tone-navy animate-in d-1">
+								<div class="stat-card-icon"><i class="fas fa-database" aria-hidden="true"></i></div>
+								<div class="stat-card-value" id="ai-kb-total">0</div>
+								<div class="stat-card-label">کل پایگاه دانش</div>
+							</div>
+							<div class="stat-card tone-green animate-in d-2">
+								<div class="stat-card-icon"><i class="fas fa-circle-check" aria-hidden="true"></i></div>
+								<div class="stat-card-value" id="ai-kb-active">0</div>
+								<div class="stat-card-label">فعال</div>
+							</div>
+							<div class="stat-card tone-gold animate-in d-3">
+								<div class="stat-card-icon"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></div>
+								<div class="stat-card-value" id="ai-kb-needs">0</div>
+								<div class="stat-card-label">نیاز به تکمیل</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -168,13 +166,15 @@
 
 				<div class="row m-1">
 					<div class="col-12 p-2">
-						<div class="card shade animate-in">
+						<div class="card shade chart-card animate-in">
 							<div class="card-body">
+								<h5 class="card-title"><span class="card-icon-badge mr-2"><i class="fas fa-brain"></i></span>پایگاه دانش</h5>
 								<div class="d-flex justify-content-between align-items-center flex-wrap">
 									<div class="filter-tabs" id="kbViewTabs">
 										<button class="filter-tab active" data-view="list">📋 نمای جدولی</button>
 										<button class="filter-tab" data-view="text">📝 متن کامل</button>
 									</div>
+									<button class="btn btn-sm btn-outline-secondary" id="btnAuditDuplicates"><i class="fas fa-clone mr-1"></i>بررسی تکراری‌های موجود</button>
 								</div>
 								<div class="text-sm text-muted mt-2">
 									<i class="fas fa-user-check c-main mr-1"></i>
@@ -209,6 +209,13 @@
 											</thead>
 											<tbody id="kbTableBody"></tbody>
 										</table>
+									</div>
+									<div class="kb-pagination" id="kbPagination">
+										<span class="kb-pagination-info" id="kbPaginationInfo"></span>
+										<div class="kb-pagination-btns">
+											<button type="button" class="btn btn-sm btn-outline-secondary" id="btnKbPrevPage"><i class="fas fa-chevron-right"></i></button>
+											<button type="button" class="btn btn-sm btn-outline-secondary" id="btnKbNextPage"><i class="fas fa-chevron-left"></i></button>
+										</div>
 									</div>
 								</div>
 
@@ -264,6 +271,23 @@
 				<div class="modal-footer">
 					<button type="button" class="btn btn-brand btn-sm" id="btnSaveKb">ذخیره</button>
 					<button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">انصراف</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="kbDuplicateAuditModal" tabindex="-1" role="dialog" aria-hidden="true">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title"><i class="fas fa-clone c-main mr-2"></i>بررسی مدخل‌های تکراری</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+				</div>
+				<div class="modal-body">
+					<div id="kbDuplicateAuditResult"></div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">بستن</button>
 				</div>
 			</div>
 		</div>
@@ -370,7 +394,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/ai.js?v=4"></script>
+	<script src="js/ai.js?v=5"></script>
 </body>
 
 </html>
