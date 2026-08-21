@@ -268,6 +268,9 @@
 		});
 
 		var curatorSuggestion = null;
+		var curatorDuplicateRow = null;
+		var LOW_CONFIDENCE_THRESHOLD = 0.5;
+		var DUPLICATE_OVERLAP_THRESHOLD = 0.6;
 
 		function confidenceTone(confidence) {
 			if (confidence >= 0.7) return "tone-green";
@@ -275,14 +278,80 @@
 			return "tone-red";
 		}
 
+		function normalizeForCompare(text) {
+			return (text || "")
+				.toString()
+				.trim()
+				.toLowerCase()
+				.replace(/[‌\s]+/g, " ")
+				.replace(/[؟?.!،,؛;«»"'()]/g, "");
+		}
+
+		function wordOverlapRatio(a, b) {
+			var wordsA = normalizeForCompare(a).split(" ").filter(Boolean);
+			var wordsB = normalizeForCompare(b).split(" ").filter(Boolean);
+			if (wordsA.length === 0 || wordsB.length === 0) return 0;
+			var setB = {};
+			wordsB.forEach(function (w) { setB[w] = true; });
+			var common = wordsA.filter(function (w) { return setB[w]; }).length;
+			return common / Math.min(wordsA.length, wordsB.length);
+		}
+
+		function findPossibleDuplicate(question) {
+			var best = null;
+			var bestScore = 0;
+			kbRows.forEach(function (r) {
+				var score = wordOverlapRatio(question, r.question || "");
+				if (score > bestScore) {
+					bestScore = score;
+					best = r;
+				}
+			});
+			return bestScore >= DUPLICATE_OVERLAP_THRESHOLD ? best : null;
+		}
+
 		function renderCuratorSuggestion(suggestion) {
 			curatorSuggestion = suggestion;
+			curatorDuplicateRow = null;
 			var confidence = typeof suggestion.confidence === "number" ? suggestion.confidence : 0;
 			var confidencePct = Math.round(confidence * 100);
 			$("#kbCuratorConfidence").removeClass("tone-green tone-gold tone-red").addClass(confidenceTone(confidence)).text("اطمینان " + confidencePct + "٪");
 			$("#kbCuratorCategory").text(suggestion.category || "بدون‌دسته");
 			$("#kbCuratorQuestion").text(suggestion.question || "—");
 			$("#kbCuratorAnswer").text(suggestion.answer || "—");
+
+			var $warnings = $("#kbCuratorWarnings").empty();
+			var hasWarning = false;
+
+			if (confidence < LOW_CONFIDENCE_THRESHOLD) {
+				hasWarning = true;
+				$warnings.append(
+					$('<div class="kb-curator-warning tone-gold">')
+						.append('<i class="fas fa-triangle-exclamation" aria-hidden="true"></i>')
+						.append($("<span>").text("اطمینان هوش مصنوعی پایینه — قبل از ذخیره، پاسخ رو با دقت بررسی و در صورت نیاز تکمیل کن."))
+				);
+			}
+
+			var duplicate = findPossibleDuplicate(suggestion.question);
+			if (duplicate) {
+				curatorDuplicateRow = duplicate;
+				hasWarning = true;
+				var $dupBody = $("<div>").append(
+					$("<span>").text("یه مدخل مشابه از قبل تو پایگاه دانش هست: «" + (duplicate.question || "") + "» (دسته: " + (duplicate.category || "بدون‌دسته") + ")")
+				);
+				$dupBody.append(
+					$('<button type="button" class="btn btn-sm btn-outline-secondary mt-1">')
+						.text("ویرایش مدخل مشابه به‌جای ساخت مدخل جدید")
+						.on("click", function () { openKbModal(curatorDuplicateRow); })
+				);
+				$warnings.append(
+					$('<div class="kb-curator-warning tone-red">')
+						.append('<i class="fas fa-clone" aria-hidden="true"></i>')
+						.append($dupBody)
+				);
+			}
+
+			$warnings.toggleClass("d-none", !hasWarning);
 			$("#kbCuratorResult").removeClass("d-none");
 		}
 
