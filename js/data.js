@@ -263,6 +263,14 @@
 		});
 	}
 
+	function suggestAiKnowledge(rawText) {
+		return request("/crm/ai/kb-suggest", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ raw_text: rawText })
+		});
+	}
+
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
 			method: "POST",
@@ -396,6 +404,7 @@
 		saveAiKnowledge: saveAiKnowledge,
 		deleteAiKnowledge: deleteAiKnowledge,
 		bulkSaveAiKnowledge: bulkSaveAiKnowledge,
+		suggestAiKnowledge: suggestAiKnowledge,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,
