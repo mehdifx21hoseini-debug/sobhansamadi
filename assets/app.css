@@ -728,6 +728,48 @@ body::before {
 	pointer-events: none;
 }
 
+/* Consultant picker in the leads table. Quieter than the status pill so the
+   status stays the row's primary signal. */
+.assign-select {
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	border: 1px solid #e3e3ee;
+	border-radius: 20px;
+	background-color: #fbfbfd;
+	color: #2b2b40;
+	padding: 5px 26px 5px 12px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	max-width: 150px;
+	cursor: pointer;
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: left 10px center;
+	background-size: 10px 7px;
+	transition: filter 0.15s ease, border-color 0.15s ease;
+}
+
+.assign-select.is-unassigned {
+	color: #9a9aab;
+	font-weight: 500;
+	border-style: dashed;
+}
+
+.assign-select:hover {
+	filter: brightness(0.97);
+	border-color: #cdcde0;
+}
+
+.assign-select:focus {
+	outline: 2px solid rgba(43, 43, 64, 0.15);
+}
+
+.assign-select.is-saving {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
 .lead-row:hover {
 	background: #f7f7fb;
 }
