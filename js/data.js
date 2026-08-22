@@ -363,7 +363,50 @@
 		return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
 	}
 
+	// Single source of truth for the at-risk rule. Every page that shows the
+	// badge or counts at-risk leads calls this, so the thresholds can never
+	// drift apart between the list, the dashboard and the lead detail page.
+	var AT_RISK_UNCONTACTED_HOURS = 48;
+	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
+	var AT_RISK_NO_FOLLOWUP_HOURS = 24 * 7;
+
+	function hoursSince(value) {
+		if (!value) return null;
+		var t = new Date(value).getTime();
+		if (isNaN(t)) return null;
+		return (Date.now() - t) / 3600000;
+	}
+
+	function isAtRisk(lead) {
+		if (!lead) return false;
+
+		// Never contacted and sitting there for too long.
+		if (lead.status === "پاسخ‌داده‌نشده") {
+			var sinceCreated = hoursSince(lead.created_at);
+			if (sinceCreated !== null && sinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
+		}
+
+		// A follow-up was promised and the date has passed. The list endpoint
+		// used to expose only reminder_date, so accept either field name.
+		var followUp = lead.next_followup_at || lead.reminder_date;
+		if (followUp) {
+			var overdue = hoursSince(followUp);
+			if (overdue !== null && overdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
+			return false;
+		}
+
+		// No follow-up ever scheduled: an open lead can otherwise go stale
+		// forever without ever being flagged.
+		if (lead.status !== "تماس گرفته شد") {
+			var untouched = hoursSince(lead.updated_at || lead.created_at);
+			if (untouched !== null && untouched >= AT_RISK_NO_FOLLOWUP_HOURS) return true;
+		}
+
+		return false;
+	}
+
 	global.CrmData = {
+		isAtRisk: isAtRisk,
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,

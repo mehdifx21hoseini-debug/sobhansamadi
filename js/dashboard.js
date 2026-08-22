@@ -251,20 +251,9 @@
 			});
 	}
 
-	var AT_RISK_UNCONTACTED_HOURS = 48;
-	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
-
+	// Shared rule, defined once in js/data.js.
 	function isAtRisk(lead) {
-		var now = Date.now();
-		if (lead.status === "پاسخ‌داده‌نشده" && lead.created_at) {
-			var hoursSinceCreated = (now - new Date(lead.created_at).getTime()) / 3600000;
-			if (hoursSinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
-		}
-		if (lead.next_followup_at) {
-			var hoursOverdue = (now - new Date(lead.next_followup_at).getTime()) / 3600000;
-			if (hoursOverdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
-		}
-		return false;
+		return CrmData.isAtRisk(lead);
 	}
 
 	var actionCenterState = { atRisk: 0, overdueFollowups: 0, errors: 0, openTickets: 0 };

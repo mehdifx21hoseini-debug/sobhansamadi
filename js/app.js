@@ -21,6 +21,27 @@
 		return '<select class="status-select ' + meta.cls + '" data-lead-id="' + leadId + '">' + options + '</select>';
 	}
 
+	// Consultants are fetched once and reused for every row's dropdown, so the
+	// table does not fire one request per lead.
+	var consultants = [];
+
+	function consultantSelectHtml(leadId, assignedTo) {
+		var current = assignedTo || "";
+		var options = ['<option value=""' + (current ? "" : " selected") + ">بدون مشاور</option>"];
+		var known = false;
+		consultants.forEach(function (c) {
+			var selected = c.username === current ? " selected" : "";
+			if (selected) known = true;
+			options.push('<option value="' + c.username + '"' + selected + ">" + (c.display_name || c.username) + "</option>");
+		});
+		// A lead can be assigned to someone who is no longer in the list; keep
+		// the value visible instead of silently showing "بدون مشاور".
+		if (current && !known) {
+			options.push('<option value="' + current + '" selected>' + current + "</option>");
+		}
+		return '<select class="assign-select' + (current ? "" : " is-unassigned") + '" data-lead-id="' + leadId + '">' + options.join("") + "</select>";
+	}
+
 	function formatRelativeTime(iso) {
 		if (!iso) return "-";
 		var date = new Date(iso);
@@ -54,20 +75,10 @@
 		return reminder <= today;
 	}
 
-	var AT_RISK_UNCONTACTED_HOURS = 48;
-	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
-
+	// Shared rule, defined once in js/data.js. Called through a wrapper because
+	// this file is included before data.js, so CrmData does not exist yet here.
 	function isAtRisk(lead) {
-		var now = Date.now();
-		if (lead.status === "پاسخ‌داده‌نشده" && lead.created_at) {
-			var hoursSinceCreated = (now - new Date(lead.created_at).getTime()) / 3600000;
-			if (hoursSinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
-		}
-		if (lead.next_followup_at) {
-			var hoursOverdue = (now - new Date(lead.next_followup_at).getTime()) / 3600000;
-			if (hoursOverdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
-		}
-		return false;
+		return CrmData.isAtRisk(lead);
 	}
 
 	function getFilteredRows() {
@@ -108,18 +119,18 @@
 		$("#pagination").addClass("d-none");
 
 		if (state.loading) {
-			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
+			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
 			return;
 		}
 		if (state.error) {
-			$body.append('<tr><td colspan="6" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
+			$body.append('<tr><td colspan="7" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
 			return;
 		}
 
 		var rows = getFilteredRows();
 
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
+			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
 		}
 
@@ -139,6 +150,7 @@
 				$statusCell.append($('<span class="status-badge badge-noanswer ml-1" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>'));
 			}
 			$tr.append($statusCell);
+			$tr.append($("<td>").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
 		});
@@ -173,8 +185,23 @@
 			});
 	}
 
+	function loadConsultants() {
+		if (typeof CrmData.fetchConsultants !== "function") return;
+		CrmData.fetchConsultants()
+			.then(function (list) {
+				consultants = list || [];
+				// The table may already be on screen; redraw so the dropdowns
+				// get their options.
+				if (!state.loading) renderTable();
+			})
+			.catch(function (err) {
+				console.error("خطا در بارگذاری فهرست مشاوران:", err);
+			});
+	}
+
 	$(function () {
 		loadLeads();
+		loadConsultants();
 
 		$("#filterTabs").on("click", ".filter-tab", function () {
 			$(".filter-tab").removeClass("active");
@@ -219,6 +246,29 @@
 				.catch(function (err) {
 					alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
 					$select.val(previousStatus);
+				})
+				.finally(function () {
+					$select.removeClass("is-saving");
+				});
+		});
+
+		$("#leadsTableBody").on("change", ".assign-select", function () {
+			var $select = $(this);
+			var leadId = $select.data("lead-id");
+			var newAssignee = $select.val();
+			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
+			if (!lead) return;
+			var previous = lead.assigned_to || "";
+			$select.addClass("is-saving");
+			CrmData.assignLead(leadId, newAssignee)
+				.then(function () {
+					lead.assigned_to = newAssignee;
+					lead.updated_at = new Date().toISOString();
+					render();
+				})
+				.catch(function (err) {
+					alert("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
+					$select.val(previous);
 				})
 				.finally(function () {
 					$select.removeClass("is-saving");
