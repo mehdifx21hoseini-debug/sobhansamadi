@@ -90,6 +90,9 @@
 		});
 	}
 
+	// Superseded by setLeadFollowup, which writes the unified next_followup_at.
+	// Kept only because the /crm/lead/reminder endpoint still exists; nothing
+	// in the CRM calls this any more.
 	function setLeadReminder(leadId, reminderDate) {
 		return request("/crm/lead/reminder", {
 			method: "POST",
@@ -310,17 +313,43 @@
 	var LEAD_SOURCES = [
 		{ key: "telegram_direct", label: "ربات تلگرام", icon: "fa-paper-plane" },
 		{ key: "instagram", label: "اینستاگرام", icon: "fa-instagram" },
-		{ key: "website", label: "وب‌سایت", icon: "fa-globe" },
-		{ key: "referral", label: "معرفی دوستان", icon: "fa-user-group" },
-		{ key: "manual", label: "ثبت دستی", icon: "fa-pen" }
+		{ key: "website", label: "سایت", icon: "fa-globe" }
 	];
 
+	var DEFAULT_LEAD_SOURCE = "telegram_direct";
+
+	// Rows written before source was persisted have no value, but every one of
+	// them did come from the bot — so an empty source reads as the bot rather
+	// than as "unknown". Nothing is rewritten in the table; this is display
+	// only, and the moment someone picks a different channel it is stored.
+	function normalizeSource(key) {
+		return key || DEFAULT_LEAD_SOURCE;
+	}
+
 	function sourceLabel(key) {
+		var k = normalizeSource(key);
 		for (var i = 0; i < LEAD_SOURCES.length; i++) {
-			if (LEAD_SOURCES[i].key === key) return LEAD_SOURCES[i].label;
+			if (LEAD_SOURCES[i].key === k) return LEAD_SOURCES[i].label;
 		}
-		// Rows created before the source was persisted have no value at all.
-		return key ? key : "نامشخص";
+		return k;
+	}
+
+	// The one writer for a lead's follow-up. Pass an empty value to clear it
+	// ("done"). The endpoint also clears the legacy reminder_date, so the old
+	// field can never resurrect a follow-up that was just closed.
+	function setLeadFollowup(leadId, nextFollowupAt) {
+		return request("/crm/lead/followup", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, next_followup_at: nextFollowupAt || "" })
+		});
+	}
+
+	// Legacy rows only have reminder_date; new writes only set
+	// next_followup_at. Every reader goes through this.
+	function leadFollowupAt(lead) {
+		if (!lead) return "";
+		return lead.next_followup_at || lead.reminder_date || "";
 	}
 
 	function setLeadSource(leadId, source) {
@@ -445,9 +474,8 @@
 			if (sinceCreated !== null && sinceCreated >= AT_RISK_UNCONTACTED_HOURS) return true;
 		}
 
-		// A follow-up was promised and the date has passed. The list endpoint
-		// used to expose only reminder_date, so accept either field name.
-		var followUp = lead.next_followup_at || lead.reminder_date;
+		// A follow-up was promised and the date has passed.
+		var followUp = leadFollowupAt(lead);
 		if (followUp) {
 			var overdue = hoursSince(followUp);
 			if (overdue !== null && overdue >= AT_RISK_FOLLOWUP_OVERDUE_HOURS) return true;
@@ -468,7 +496,10 @@
 		isAtRisk: isAtRisk,
 		LEAD_SOURCES: LEAD_SOURCES,
 		sourceLabel: sourceLabel,
+		normalizeSource: normalizeSource,
 		setLeadSource: setLeadSource,
+		setLeadFollowup: setLeadFollowup,
+		leadFollowupAt: leadFollowupAt,
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,
