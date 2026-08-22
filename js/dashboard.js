@@ -522,7 +522,7 @@
 			var $tr = $("<tr>");
 			var $srcCell = $('<div class="source-cell">')
 				.append('<span class="row-icon-badge"><i class="fas fa-signal"></i></span>')
-				.append($("<span>").text(r.source || "نامشخص"));
+				.append($("<span>").text(CrmData.sourceLabel(r.source)));
 			$tr.append($("<td>").append($srcCell));
 			$tr.append($("<td>").text(r.leads || 0));
 			$tr.append($("<td>").text(r.purchases || 0));

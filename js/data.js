@@ -303,6 +303,34 @@
 		});
 	}
 
+	// Lead channels. The bot has always sent "telegram_direct"; the other keys
+	// exist so a lead that actually came from Instagram or the site can be
+	// marked as such. Stored as stable keys, displayed through this map, so
+	// renaming a label never rewrites stored rows.
+	var LEAD_SOURCES = [
+		{ key: "telegram_direct", label: "ربات تلگرام", icon: "fa-paper-plane" },
+		{ key: "instagram", label: "اینستاگرام", icon: "fa-instagram" },
+		{ key: "website", label: "وب‌سایت", icon: "fa-globe" },
+		{ key: "referral", label: "معرفی دوستان", icon: "fa-user-group" },
+		{ key: "manual", label: "ثبت دستی", icon: "fa-pen" }
+	];
+
+	function sourceLabel(key) {
+		for (var i = 0; i < LEAD_SOURCES.length; i++) {
+			if (LEAD_SOURCES[i].key === key) return LEAD_SOURCES[i].label;
+		}
+		// Rows created before the source was persisted have no value at all.
+		return key ? key : "نامشخص";
+	}
+
+	function setLeadSource(leadId, source) {
+		return request("/crm/lead/source", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, source: source })
+		});
+	}
+
 	function assignLead(leadId, assignedTo) {
 		return request("/crm/lead/assign", {
 			method: "POST",
@@ -438,6 +466,9 @@
 
 	global.CrmData = {
 		isAtRisk: isAtRisk,
+		LEAD_SOURCES: LEAD_SOURCES,
+		sourceLabel: sourceLabel,
+		setLeadSource: setLeadSource,
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,
