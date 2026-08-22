@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=13">
+	<link rel="stylesheet" href="assets/app.css?v=14">
 </head>
 
 <body>
@@ -118,11 +118,16 @@
 								<div class="stat-card-value" id="ai-kb-active">0</div>
 								<div class="stat-card-label">فعال</div>
 							</div>
-							<div class="stat-card tone-gold animate-in d-3">
+							<button type="button" class="stat-card stat-card-clickable tone-gold animate-in d-3" id="cardKbNeeds">
 								<div class="stat-card-icon"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></div>
 								<div class="stat-card-value" id="ai-kb-needs">0</div>
 								<div class="stat-card-label">نیاز به تکمیل</div>
-							</div>
+							</button>
+							<button type="button" class="stat-card stat-card-clickable tone-navy animate-in d-4" id="cardKbUnused">
+								<div class="stat-card-icon"><i class="fas fa-ghost" aria-hidden="true"></i></div>
+								<div class="stat-card-value" id="ai-kb-unused">0</div>
+								<div class="stat-card-label">استفاده‌نشده</div>
+							</button>
 						</div>
 					</div>
 				</div>
@@ -398,7 +403,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/ai.js?v=6"></script>
+	<script src="js/ai.js?v=7"></script>
 </body>
 
 </html>

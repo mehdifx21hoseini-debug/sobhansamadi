@@ -76,20 +76,67 @@
 		});
 	}
 
+	// Categories get a stable color so the eye can group rows without reading
+	// them. Six tones, picked by a hash of the name, so the same category is
+	// always the same color across reloads.
+	var CATEGORY_TONE_COUNT = 6;
+
+	function categoryChip(name) {
+		if (!name) return $('<span class="kb-category-chip is-none">').text("بدون‌دسته");
+		var hash = 0;
+		for (var i = 0; i < name.length; i++) {
+			hash = (hash * 31 + name.charCodeAt(i)) % 100000;
+		}
+		return $('<span class="kb-category-chip">').addClass("kb-cat-t" + (hash % CATEGORY_TONE_COUNT)).text(name);
+	}
+
 	function usageCell(row) {
 		var count = row.usage_count || 0;
+		// An entry the assistant has never used is the actionable case — either
+		// the wording does not match how people actually ask, or it is dead
+		// weight. Flag it instead of printing a quiet "هرگز".
 		if (count === 0) {
-			return $('<span class="text-muted text-sm">').text("هرگز");
+			return $('<span class="kb-usage-never">').text("استفاده نشده");
 		}
-		var $wrap = $('<div>');
-		$wrap.append($('<span class="mono">').text(count.toLocaleString("fa-IR")));
+		var $wrap = $('<div class="kb-usage-cell">');
+		$wrap.append($('<span class="kb-usage-count mono">').text(count.toLocaleString("fa-IR")));
 		if (row.last_used_at) {
 			var d = new Date(row.last_used_at);
 			if (!isNaN(d.getTime())) {
-				$wrap.append($('<div class="text-muted" style="font-size:.72rem">').text(d.toLocaleDateString("fa-IR")));
+				$wrap.append($('<span class="kb-usage-date">').text(d.toLocaleDateString("fa-IR")));
 			}
 		}
 		return $wrap;
+	}
+
+	function hasActiveFilters() {
+		return !!(searchTerm || categoryFilter || needsCompletionOnly || unusedOnly);
+	}
+
+	function clearFilters() {
+		searchTerm = "";
+		categoryFilter = "";
+		needsCompletionOnly = false;
+		unusedOnly = false;
+		$("#kbSearchInput").val("");
+		$("#kbCategoryFilter").val("");
+		$("#kbNeedsCompletionOnly").prop("checked", false);
+		$("#kbUnusedOnly").prop("checked", false);
+		$("#cardKbNeeds, #cardKbUnused").removeClass("is-active");
+		kbPageIndex = 0;
+		renderKb();
+	}
+
+	function renderKbSkeleton() {
+		var $body = $("#kbTableBody").empty();
+		for (var i = 0; i < 5; i++) {
+			var $tr = $('<tr class="kb-skeleton-row">');
+			for (var c = 0; c < 6; c++) {
+				$tr.append($("<td>").append('<span class="kb-skeleton-bar"></span>'));
+			}
+			$body.append($tr);
+		}
+		$("#kbPagination").addClass("d-none");
 	}
 
 	function renderKbPagination(totalRows, pageCount) {
@@ -116,14 +163,33 @@
 		var rows = allRows.slice(kbPageIndex * KB_PAGE_SIZE, (kbPageIndex + 1) * KB_PAGE_SIZE);
 		renderKbPagination(allRows.length, pageCount);
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="6"><div class="empty-state"><i class="fas fa-brain"></i><p>موردی یافت نشد.</p></div></td></tr>');
+			// "Nothing here yet" and "your filters matched nothing" are very
+			// different situations; only the second one is fixable by a click.
+			var $cell = $('<td colspan="6">');
+			var $empty = $('<div class="empty-state">');
+			if (hasActiveFilters()) {
+				$empty.append('<i class="fas fa-filter"></i>');
+				$empty.append("<p>با این فیلترها مدخلی پیدا نشد.</p>");
+				$empty.append(
+					$('<button type="button" class="btn btn-sm btn-outline-secondary">')
+						.html('<i class="fas fa-xmark mr-1"></i>پاک کردن فیلترها')
+						.on("click", clearFilters)
+				);
+			} else {
+				$empty.append('<i class="fas fa-brain"></i>');
+				$empty.append("<p>پایگاه دانش هنوز خالیه — با دکمه «افزودن به پایگاه دانش» اولین مدخل رو بساز.</p>");
+			}
+			$body.append($("<tr>").append($cell.append($empty)));
 			return;
 		}
 		rows.forEach(function (r) {
-			var $tr = $("<tr>");
-			$tr.append($("<td>").text(r.category || "-"));
-			$tr.append($("<td>").text(r.question || "-"));
-			$tr.append($("<td>").append($('<span class="kb-answer-preview">').text(r.answer || "—")));
+			var $tr = $("<tr>").toggleClass("kb-row-inactive", r.active === false);
+			$tr.append($("<td>").append(categoryChip(r.category)));
+			$tr.append($("<td>").append($('<span class="kb-question-text">').text(r.question || "—")));
+			var $answer = r.answer
+				? $('<span class="kb-answer-preview">').text(r.answer)
+				: $('<span class="kb-answer-empty">').text("بدون پاسخ");
+			$tr.append($("<td>").append($answer));
 			$tr.append($("<td>").html(statusBadge(r)));
 			$tr.append($("<td>").append(usageCell(r)));
 
@@ -138,7 +204,7 @@
 				});
 			});
 
-			var $actions = $("<td>").append($editBtn).append($deleteBtn);
+			var $actions = $('<td class="kb-actions-cell">').append($editBtn).append($deleteBtn);
 			$tr.append($actions);
 			$body.append($tr);
 		});
@@ -230,12 +296,16 @@
 	}
 
 	function loadKb() {
+		renderKbSkeleton();
 		return CrmData.fetchAiKnowledge()
 			.then(function (res) {
 				kbRows = Array.isArray(res) ? res : [];
 				kbPageIndex = 0;
 				populateCategoryOptions();
 				renderKb();
+				// Not part of the overview endpoint; the rows are already here,
+				// so count locally rather than adding a round-trip.
+				$("#ai-kb-unused").text(kbRows.filter(function (r) { return !r.usage_count; }).length);
 			})
 			.catch(function () {
 				$("#kbTableBody").html('<tr><td colspan="6" class="text-center text-danger py-4">خطا در بارگذاری.</td></tr>');
@@ -339,7 +409,10 @@
 		if (pairs.length === 0) {
 			$result.append('<div class="empty-state"><i class="fas fa-circle-check" style="color:#2e9e6d;opacity:.75"></i><p>هیچ مدخل تکراری یا خیلی شبیه پیدا نشد.</p></div>');
 		} else {
-			$result.append($('<p class="text-muted text-sm mb-3">').text(pairs.length + " جفت مدخل مشابه پیدا شد (شباهت ۷۰٪ یا بیشتر). هرکدوم رو بررسی کن و در صورت نیاز یکی رو ویرایش/حذف کن."));
+			// The percentage has to come from the constant, not a literal — it
+			// used to say ۷۰٪ while the threshold was actually 60٪.
+			var thresholdPct = Math.round(AUDIT_DUPLICATE_THRESHOLD * 100).toLocaleString("fa-IR");
+			$result.append($('<p class="text-muted text-sm mb-3">').text(pairs.length + " جفت مدخل مشابه پیدا شد (شباهت " + thresholdPct + "٪ یا بیشتر). هرکدوم رو بررسی کن و در صورت نیاز یکی رو ویرایش/حذف کن."));
 			pairs.forEach(function (pair) {
 				$result.append(renderDuplicatePair(pair));
 			});
@@ -352,6 +425,33 @@
 		loadOverview();
 
 		$("#btnAddKb").on("click", function () { openKbModal(null); });
+
+		// The two actionable cards double as filters — clicking one shows
+		// exactly the rows it counts, and clicking it again clears the filter.
+		function showListView() {
+			$(".filter-tab", "#kbViewTabs").removeClass("active");
+			$('.filter-tab[data-view="list"]', "#kbViewTabs").addClass("active");
+			$("#kbTextSection").addClass("d-none");
+			$("#kbListSection").removeClass("d-none");
+		}
+
+		function toggleCardFilter($card, $checkbox, apply) {
+			var next = !$checkbox.is(":checked");
+			$checkbox.prop("checked", next);
+			apply(next);
+			$card.toggleClass("is-active", next);
+			kbPageIndex = 0;
+			showListView();
+			renderKb();
+		}
+
+		$("#cardKbNeeds").on("click", function () {
+			toggleCardFilter($(this), $("#kbNeedsCompletionOnly"), function (v) { needsCompletionOnly = v; });
+		});
+
+		$("#cardKbUnused").on("click", function () {
+			toggleCardFilter($(this), $("#kbUnusedOnly"), function (v) { unusedOnly = v; });
+		});
 		$("#btnSaveKb").on("click", saveKb);
 		$("#btnAuditDuplicates").on("click", runDuplicateAudit);
 
@@ -367,11 +467,13 @@
 		});
 		$("#kbNeedsCompletionOnly").on("change", function () {
 			needsCompletionOnly = $(this).is(":checked");
+			$("#cardKbNeeds").toggleClass("is-active", needsCompletionOnly);
 			kbPageIndex = 0;
 			renderKb();
 		});
 		$("#kbUnusedOnly").on("change", function () {
 			unusedOnly = $(this).is(":checked");
+			$("#cardKbUnused").toggleClass("is-active", unusedOnly);
 			kbPageIndex = 0;
 			renderKb();
 		});
