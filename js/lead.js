@@ -179,7 +179,6 @@
 		renderQuickInfo(lead);
 		$("#leadCourse").text(lead.course || "-");
 		$("#leadRequestType").text(lead.request_type || "-");
-		renderSourceSelect(lead.source);
 		renderNotesTimeline(lead.notes);
 		renderAiHistory(lead.ai_history);
 		$("#leadId").text(lead.lead_id || "-");
@@ -188,12 +187,22 @@
 		$("#leadUpdatedAt").text(formatDate(lead.updated_at));
 		$("#leadScore").text(lead.score != null && lead.score !== "" ? lead.score : "-");
 		$("#leadQuality").text(lead.quality || "-");
-		$("#leadSource").text(lead.source || "-");
+		renderSourceSelect(lead.source);
 		$("#leadLastCallResult").text(lead.last_call_result || "-");
 
-		$("#reminderDate").val(lead.reminder_date || "");
-		if (lead.reminder_date && reminderPicker) {
-			reminderPicker.setDate(CrmData.parseLocalDate(lead.reminder_date).getTime());
+		// Reads the unified follow-up field, falling back to the legacy
+		// reminder_date for rows written before the two were merged.
+		var followUp = CrmData.leadFollowupAt(lead);
+		var followUpDate = null;
+		if (followUp) {
+			followUpDate = /^\d{4}-\d{2}-\d{2}$/.test(followUp.trim())
+				? CrmData.parseLocalDate(followUp.trim())
+				: new Date(followUp);
+			if (isNaN(followUpDate.getTime())) followUpDate = null;
+		}
+		$("#reminderDate").val(followUpDate ? toIsoDate(followUpDate) : "");
+		if (followUpDate && reminderPicker) {
+			reminderPicker.setDate(followUpDate.getTime());
 		} else {
 			$("#reminderDatePersian").val("");
 		}
@@ -294,12 +303,25 @@
 			.text(text);
 	}
 
+	// A date-only value picked in the calendar is anchored to 09:00 local, the
+	// start of the working day. Sending it as-is would be read as UTC midnight
+	// and land on the previous day in Tehran.
+	function followupIsoFromDateOnly(dateValue) {
+		if (!dateValue) return "";
+		var d = CrmData.parseLocalDate(dateValue);
+		if (isNaN(d.getTime())) return "";
+		d.setHours(9, 0, 0, 0);
+		return d.toISOString();
+	}
+
 	function saveReminder(dateValue) {
 		if (!leadId) return;
-		CrmData.setLeadReminder(leadId, dateValue)
+		// Writes next_followup_at, the single follow-up field. The endpoint
+		// clears the legacy reminder_date at the same time.
+		CrmData.setLeadFollowup(leadId, followupIsoFromDateOnly(dateValue))
 			.then(function () { loadLead(); })
 			.catch(function (err) {
-				alert("خطا در ثبت یادآوری: " + (err.message || "خطای نامشخص"));
+				alert("خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص"));
 			});
 	}
 
@@ -315,7 +337,10 @@
 	function submitCallResult() {
 		if (!leadId || !selectedCallResult) return;
 		var note = $("#callNote").val().trim();
-		var nextStep = $("#callNextStep").val().trim();
+		// This lands in next_followup_at, which is read as a date. It used to be
+		// a free-text box, so "فردا زنگ بزنم" was stored and then parsed as an
+		// invalid date, making the lead vanish from every follow-up bucket.
+		var nextStep = followupIsoFromDateOnly($("#callNextStep").val().trim());
 		var $btn = $("#btnSubmitCallResult").prop("disabled", true);
 		CrmData.recordCall(leadId, selectedCallResult, note, nextStep)
 			.then(function () {
@@ -323,6 +348,7 @@
 				$("#callResultForm").addClass("d-none");
 				$("#callNote").val("");
 				$("#callNextStep").val("");
+				$("#callNextStepPersian").val("");
 				selectedCallResult = null;
 				$(".call-result-btn").removeClass("active");
 				loadLead();
@@ -338,19 +364,18 @@
 	// The bot can only ever report itself as the channel, so Instagram and
 	// website leads have to be marked by hand. Saves on change, no extra button.
 	function renderSourceSelect(source) {
-		var current = source || "";
+		var current = CrmData.normalizeSource(source);
 		var $sel = $("#leadSourceSelect").empty();
-		$sel.append($("<option>").val("").text("نامشخص"));
 		var known = false;
 		CrmData.LEAD_SOURCES.forEach(function (s) {
 			if (s.key === current) known = true;
 			$sel.append($("<option>").val(s.key).text(s.label));
 		});
-		if (current && !known) {
+		if (!known) {
 			$sel.append($("<option>").val(current).text(CrmData.sourceLabel(current)));
 		}
 		$sel.val(current);
-		$sel.attr("class", "source-select source-" + (current || "unknown"));
+		$sel.attr("class", "source-select source-" + current);
 	}
 
 	function saveSource() {
@@ -362,12 +387,12 @@
 		CrmData.setLeadSource(leadId, value)
 			.then(function () {
 				if (currentLead) currentLead.source = value;
+				// The chip recolours to the new channel, which is the feedback.
 				renderSourceSelect(value);
-				$("#leadSourceMsg").removeClass("d-none text-danger").addClass("text-success").text("منبع لید ذخیره شد.");
 			})
 			.catch(function (err) {
-				$sel.val(previous);
-				$("#leadSourceMsg").removeClass("d-none text-success").addClass("text-danger").text("خطا در ثبت منبع: " + (err.message || "خطای نامشخص"));
+				renderSourceSelect(previous);
+				alert("خطا در ثبت منبع لید: " + (err.message || "خطای نامشخص"));
 			})
 			.finally(function () {
 				$sel.removeClass("is-saving");
@@ -422,6 +447,18 @@
 			autoClose: true,
 			initialValue: false,
 			altField: "#reminderDate",
+			altFieldFormatter: function (unixDate) {
+				return toIsoDate(new Date(unixDate));
+			}
+		});
+
+		// Same calendar on the call form's follow-up date, so both places that
+		// can set a follow-up produce a real date.
+		$("#callNextStepPersian").persianDatepicker({
+			format: "YYYY/MM/DD",
+			autoClose: true,
+			initialValue: false,
+			altField: "#callNextStep",
 			altFieldFormatter: function (unixDate) {
 				return toIsoDate(new Date(unixDate));
 			}

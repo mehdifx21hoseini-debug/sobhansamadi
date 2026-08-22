@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=15">
+	<link rel="stylesheet" href="assets/app.css?v=16">
 	<link rel="stylesheet" href="assets/vendor/persian-datepicker.min.css">
 </head>
 
@@ -153,7 +153,9 @@
 								<div id="callResultForm" class="mt-3 d-none">
 									<div class="mb-2"><span class="text-muted text-sm">نتیجه انتخاب‌شده: </span><strong id="callResultSelected"></strong></div>
 									<textarea id="callNote" class="form-control mb-2" rows="3" placeholder="یادداشت تماس (اختیاری)"></textarea>
-									<input type="text" id="callNextStep" class="form-control mb-2" placeholder="قدم بعدی (اختیاری)">
+									<label class="text-muted text-sm mb-1" for="callNextStepPersian">تاریخ پیگیری بعدی (اختیاری)</label>
+									<input type="text" id="callNextStepPersian" class="form-control mb-2" placeholder="انتخاب تاریخ" readonly>
+									<input type="hidden" id="callNextStep">
 									<button class="btn btn-brand btn-sm" id="btnSubmitCallResult">ثبت تماس</button>
 									<button class="btn btn-outline-secondary btn-sm" id="btnCancelCallResult">انصراف</button>
 								</div>
@@ -174,11 +176,6 @@
 									<div class="col-sm-6 mb-2">
 										<div class="text-muted text-sm">نوع درخواست</div>
 										<div id="leadRequestType"></div>
-									</div>
-									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">منبع لید</div>
-										<select id="leadSourceSelect" class="source-select"></select>
-										<div id="leadSourceMsg" class="text-sm mt-1 d-none"></div>
 									</div>
 								</div>
 							</div>
@@ -252,7 +249,7 @@
 										id="leadUpdatedAt"></span></div>
 								<div class="info-row"><span class="text-muted">امتیاز لید</span><span id="leadScore"></span></div>
 								<div class="info-row"><span class="text-muted">کیفیت</span><span id="leadQuality"></span></div>
-								<div class="info-row"><span class="text-muted">منبع</span><span id="leadSource"></span></div>
+								<div class="info-row"><span class="text-muted">منبع</span><select id="leadSourceSelect" class="source-select"></select></div>
 								<div class="info-row"><span class="text-muted">نتیجه آخرین تماس</span><span id="leadLastCallResult"></span></div>
 							</div>
 						</div>
@@ -271,7 +268,7 @@
 
 						<div class="card shade mb-3">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-bell c-main mr-2"></i>یادآوری پیگیری</h5>
+								<h5 class="card-title"><i class="fas fa-bell c-main mr-2"></i>پیگیری بعدی</h5>
 								<hr>
 								<div class="filter-tabs mb-2" id="reminderQuickPicks">
 									<button type="button" class="filter-tab" data-days="1">فردا</button>
@@ -285,7 +282,8 @@
 									<button class="btn btn-outline-secondary btn-sm" id="btnClearReminder">حذف</button>
 								</div>
 								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-info-circle mr-1"></i>در این
-									تاریخ، این لید در لیست «نیاز به پیگیری» نمایش داده می‌شود.</p>
+									تاریخ، این لید هم در تب «نیاز به پیگیری» و هم در صفحه‌ی «پیگیری‌های امروز»
+									نمایش داده می‌شود. با دکمه «حذف» پیگیری بسته می‌شود.</p>
 							</div>
 						</div>
 
@@ -410,11 +408,11 @@
 	</div>
 
 	<script src="js/theme.js?v=2"></script>
-	<script src="js/data.js?v=6"></script>
+	<script src="js/data.js?v=7"></script>
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/lead.js?v=5"></script>
+	<script src="js/lead.js?v=6"></script>
 </body>
 
 </html>

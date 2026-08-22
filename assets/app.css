@@ -795,8 +795,6 @@ body::before {
 .source-select.source-telegram_direct { background-color: #e8effc; color: #2f5ea8; }
 .source-select.source-instagram { background-color: #fdeaef; color: #a82f52; }
 .source-select.source-website { background-color: #e6f3f5; color: #226b76; }
-.source-select.source-referral { background-color: #e6f5ee; color: #1f7a52; }
-.source-select.source-manual { background-color: #f2ebfb; color: #61439c; }
 
 .source-select.source-unknown {
 	background-color: transparent;
@@ -832,8 +830,6 @@ body::before {
 .dark .source-select.source-telegram_direct { background-color: #22334f; color: #9dbdf0; }
 .dark .source-select.source-instagram { background-color: #40252f; color: #eda0b6; }
 .dark .source-select.source-website { background-color: #1f3639; color: #8fc9d1; }
-.dark .source-select.source-referral { background-color: #1d3a2e; color: #86d6b0; }
-.dark .source-select.source-manual { background-color: #322a47; color: #bfa5ee; }
 
 .dark .source-select.source-unknown {
 	background-color: transparent;

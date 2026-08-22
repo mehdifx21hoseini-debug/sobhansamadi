@@ -46,18 +46,18 @@
 	// editable in place because the bot can only ever report itself, so
 	// Instagram and website leads have to be corrected by hand.
 	function sourceSelectHtml(leadId, source) {
-		var current = source || "";
-		var options = ['<option value=""' + (current ? "" : " selected") + ">نامشخص</option>"];
+		var current = CrmData.normalizeSource(source);
+		var options = [];
 		var known = false;
 		CrmData.LEAD_SOURCES.forEach(function (s) {
 			var selected = s.key === current ? " selected" : "";
 			if (selected) known = true;
 			options.push('<option value="' + s.key + '"' + selected + ">" + s.label + "</option>");
 		});
-		if (current && !known) {
+		if (!known) {
 			options.push('<option value="' + current + '" selected>' + CrmData.sourceLabel(current) + "</option>");
 		}
-		return '<select class="source-select source-' + (current || "unknown") + '" data-lead-id="' + leadId + '">' + options.join("") + "</select>";
+		return '<select class="source-select source-' + current + '" data-lead-id="' + leadId + '">' + options.join("") + "</select>";
 	}
 
 	function formatRelativeTime(iso) {
@@ -86,12 +86,18 @@
 		page: 1
 	};
 
+	// Reads through the shared helper so this tab and the "پیگیری‌های امروز"
+	// page can no longer disagree about which field holds the follow-up.
 	function isDueForFollowUp(lead) {
-		if (!lead.reminder_date) return false;
-		var today = new Date();
-		today.setHours(0, 0, 0, 0);
-		var reminder = CrmData.parseLocalDate(lead.reminder_date);
-		return reminder <= today;
+		var value = CrmData.leadFollowupAt(lead);
+		if (!value) return false;
+		var due = /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+			? CrmData.parseLocalDate(value.trim())
+			: new Date(value);
+		if (isNaN(due.getTime())) return false;
+		var endOfToday = new Date();
+		endOfToday.setHours(23, 59, 59, 999);
+		return due <= endOfToday;
 	}
 
 	// Shared rule, defined once in js/data.js. Called through a wrapper because
@@ -111,9 +117,7 @@
 			})
 			.filter(function (l) {
 				if (!state.sourceFilter) return true;
-				// "unknown" collects the rows written before source was stored.
-				if (state.sourceFilter === "__unknown") return !l.source;
-				return l.source === state.sourceFilter;
+				return CrmData.normalizeSource(l.source) === state.sourceFilter;
 			})
 			.filter(function (l) {
 				if (!q) return true;
@@ -230,7 +234,6 @@
 		CrmData.LEAD_SOURCES.forEach(function (s) {
 			$sel.append($("<option>").val(s.key).text(s.label));
 		});
-		$sel.append($("<option>").val("__unknown").text("نامشخص"));
 	}
 
 	$(function () {

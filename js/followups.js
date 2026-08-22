@@ -20,7 +20,7 @@
 	function renderBucket($body, leads) {
 		$body.empty();
 		if (!leads || leads.length === 0) {
-			$body.append('<tr><td colspan="4"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی وجود ندارد.</p></div></td></tr>');
+			$body.append('<tr><td colspan="5"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی وجود ندارد.</p></div></td></tr>');
 			return;
 		}
 		leads.forEach(function (lead) {
@@ -29,6 +29,21 @@
 			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatDate(lead.next_followup_at)));
 			$tr.append($("<td>").html(statusBadgeHtml(lead.status)));
+
+			// Without this, a follow-up could only be closed by opening the lead
+			// and logging another call, so overdue rows piled up forever.
+			var $done = $('<button type="button" class="btn btn-sm btn-outline-success fu-done-btn"><i class="fas fa-check mr-1"></i>انجام شد</button>');
+			$done.on("click", function () {
+				if (!confirm("پیگیری «" + (lead.full_name || "این لید") + "» بسته بشه؟")) return;
+				$done.prop("disabled", true);
+				CrmData.setLeadFollowup(lead.lead_id, "")
+					.then(load)
+					.catch(function (err) {
+						alert("خطا در بستن پیگیری: " + (err.message || "خطای نامشخص"));
+						$done.prop("disabled", false);
+					});
+			});
+			$tr.append($('<td class="text-left">').append($done));
 			$body.append($tr);
 		});
 	}
@@ -50,7 +65,7 @@
 				}
 			})
 			.catch(function (err) {
-				$("#fuOverdueBody, #fuUrgentBody, #fuNormalBody").html('<tr><td colspan="4" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + (err.message || "خطای نامشخص") + '</td></tr>');
+				$("#fuOverdueBody, #fuUrgentBody, #fuNormalBody").html('<tr><td colspan="5" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + (err.message || "خطای نامشخص") + '</td></tr>');
 			});
 	}
 
