@@ -42,6 +42,24 @@
 		return '<select class="assign-select' + (current ? "" : " is-unassigned") + '" data-lead-id="' + leadId + '">' + options.join("") + "</select>";
 	}
 
+	// Channel the lead came from. Stored as a stable key, shown as a chip;
+	// editable in place because the bot can only ever report itself, so
+	// Instagram and website leads have to be corrected by hand.
+	function sourceSelectHtml(leadId, source) {
+		var current = source || "";
+		var options = ['<option value=""' + (current ? "" : " selected") + ">نامشخص</option>"];
+		var known = false;
+		CrmData.LEAD_SOURCES.forEach(function (s) {
+			var selected = s.key === current ? " selected" : "";
+			if (selected) known = true;
+			options.push('<option value="' + s.key + '"' + selected + ">" + s.label + "</option>");
+		});
+		if (current && !known) {
+			options.push('<option value="' + current + '" selected>' + CrmData.sourceLabel(current) + "</option>");
+		}
+		return '<select class="source-select source-' + (current || "unknown") + '" data-lead-id="' + leadId + '">' + options.join("") + "</select>";
+	}
+
 	function formatRelativeTime(iso) {
 		if (!iso) return "-";
 		var date = new Date(iso);
@@ -61,6 +79,7 @@
 	var state = {
 		leads: [],
 		statusFilter: "همه",
+		sourceFilter: "",
 		query: "",
 		loading: true,
 		error: null,
@@ -91,6 +110,12 @@
 				return l.status === state.statusFilter;
 			})
 			.filter(function (l) {
+				if (!state.sourceFilter) return true;
+				// "unknown" collects the rows written before source was stored.
+				if (state.sourceFilter === "__unknown") return !l.source;
+				return l.source === state.sourceFilter;
+			})
+			.filter(function (l) {
 				if (!q) return true;
 				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
 			})
@@ -119,18 +144,18 @@
 		$("#pagination").addClass("d-none");
 
 		if (state.loading) {
-			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
+			$body.append('<tr><td colspan="8"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
 			return;
 		}
 		if (state.error) {
-			$body.append('<tr><td colspan="7" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
+			$body.append('<tr><td colspan="8" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
 			return;
 		}
 
 		var rows = getFilteredRows();
 
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
+			$body.append('<tr><td colspan="8"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
 		}
 
@@ -150,6 +175,7 @@
 				$statusCell.append($('<span class="status-badge badge-noanswer ml-1" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>'));
 			}
 			$tr.append($statusCell);
+			$tr.append($("<td>").html(sourceSelectHtml(lead.lead_id, lead.source)));
 			$tr.append($("<td>").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
@@ -199,9 +225,24 @@
 			});
 	}
 
+	function populateSourceFilter() {
+		var $sel = $("#sourceFilter");
+		CrmData.LEAD_SOURCES.forEach(function (s) {
+			$sel.append($("<option>").val(s.key).text(s.label));
+		});
+		$sel.append($("<option>").val("__unknown").text("نامشخص"));
+	}
+
 	$(function () {
+		populateSourceFilter();
 		loadLeads();
 		loadConsultants();
+
+		$("#sourceFilter").on("change", function () {
+			state.sourceFilter = $(this).val();
+			state.page = 1;
+			renderTable();
+		});
 
 		$("#filterTabs").on("click", ".filter-tab", function () {
 			$(".filter-tab").removeClass("active");
@@ -246,6 +287,29 @@
 				.catch(function (err) {
 					alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
 					$select.val(previousStatus);
+				})
+				.finally(function () {
+					$select.removeClass("is-saving");
+				});
+		});
+
+		$("#leadsTableBody").on("change", ".source-select", function () {
+			var $select = $(this);
+			var leadId = $select.data("lead-id");
+			var newSource = $select.val();
+			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
+			if (!lead) return;
+			var previous = lead.source || "";
+			$select.addClass("is-saving");
+			CrmData.setLeadSource(leadId, newSource)
+				.then(function () {
+					lead.source = newSource;
+					lead.updated_at = new Date().toISOString();
+					render();
+				})
+				.catch(function (err) {
+					alert("خطا در ثبت منبع لید: " + (err.message || "خطای نامشخص"));
+					$select.val(previous);
 				})
 				.finally(function () {
 					$select.removeClass("is-saving");

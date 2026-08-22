@@ -303,6 +303,34 @@
 		});
 	}
 
+	// Lead channels. The bot has always sent "telegram_direct"; the other keys
+	// exist so a lead that actually came from Instagram or the site can be
+	// marked as such. Stored as stable keys, displayed through this map, so
+	// renaming a label never rewrites stored rows.
+	var LEAD_SOURCES = [
+		{ key: "telegram_direct", label: "ربات تلگرام", icon: "fa-paper-plane" },
+		{ key: "instagram", label: "اینستاگرام", icon: "fa-instagram" },
+		{ key: "website", label: "وب‌سایت", icon: "fa-globe" },
+		{ key: "referral", label: "معرفی دوستان", icon: "fa-user-group" },
+		{ key: "manual", label: "ثبت دستی", icon: "fa-pen" }
+	];
+
+	function sourceLabel(key) {
+		for (var i = 0; i < LEAD_SOURCES.length; i++) {
+			if (LEAD_SOURCES[i].key === key) return LEAD_SOURCES[i].label;
+		}
+		// Rows created before the source was persisted have no value at all.
+		return key ? key : "نامشخص";
+	}
+
+	function setLeadSource(leadId, source) {
+		return request("/crm/lead/source", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, source: source })
+		});
+	}
+
 	function assignLead(leadId, assignedTo) {
 		return request("/crm/lead/assign", {
 			method: "POST",
@@ -366,15 +394,46 @@
 	// Single source of truth for the at-risk rule. Every page that shows the
 	// badge or counts at-risk leads calls this, so the thresholds can never
 	// drift apart between the list, the dashboard and the lead detail page.
+	// These are counted in working hours, not calendar hours — see
+	// workingHoursBetween below, which skips Fridays.
 	var AT_RISK_UNCONTACTED_HOURS = 48;
 	var AT_RISK_FOLLOWUP_OVERDUE_HOURS = 24;
 	var AT_RISK_NO_FOLLOWUP_HOURS = 24 * 7;
 
+	// Fridays do not count toward the thresholds — nobody is on the phones, so
+	// a lead that arrives Thursday evening should not be "at risk" on Saturday
+	// morning. Walks day boundaries in the browser's local timezone and only
+	// adds the hours that fell on a working day.
+	var FRIDAY = 5;
+	var WORKING_HOURS_MAX_DAYS = 400;
+
+	function workingHoursBetween(startMs, endMs) {
+		if (endMs <= startMs) return 0;
+		var total = 0;
+		var cursor = new Date(startMs);
+		var guard = 0;
+		while (cursor.getTime() < endMs && guard++ < WORKING_HOURS_MAX_DAYS) {
+			var nextMidnight = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+			var segmentEnd = Math.min(nextMidnight.getTime(), endMs);
+			if (cursor.getDay() !== FRIDAY) {
+				total += (segmentEnd - cursor.getTime()) / 3600000;
+			}
+			cursor = new Date(segmentEnd);
+		}
+		return total;
+	}
+
 	function hoursSince(value) {
 		if (!value) return null;
-		var t = new Date(value).getTime();
+		// reminder_date is a date-only string, which `new Date` reads as UTC
+		// midnight and so lands on the wrong local day for any timezone behind
+		// UTC. Route those through the local-midnight parser.
+		var d = /^\d{4}-\d{2}-\d{2}$/.test(String(value).trim())
+			? parseLocalDate(String(value).trim())
+			: new Date(value);
+		var t = d.getTime();
 		if (isNaN(t)) return null;
-		return (Date.now() - t) / 3600000;
+		return workingHoursBetween(t, Date.now());
 	}
 
 	function isAtRisk(lead) {
@@ -407,6 +466,9 @@
 
 	global.CrmData = {
 		isAtRisk: isAtRisk,
+		LEAD_SOURCES: LEAD_SOURCES,
+		sourceLabel: sourceLabel,
+		setLeadSource: setLeadSource,
 		fetchLeads: fetchLeads,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,

@@ -179,6 +179,7 @@
 		renderQuickInfo(lead);
 		$("#leadCourse").text(lead.course || "-");
 		$("#leadRequestType").text(lead.request_type || "-");
+		renderSourceSelect(lead.source);
 		renderNotesTimeline(lead.notes);
 		renderAiHistory(lead.ai_history);
 		$("#leadId").text(lead.lead_id || "-");
@@ -334,6 +335,45 @@
 			});
 	}
 
+	// The bot can only ever report itself as the channel, so Instagram and
+	// website leads have to be marked by hand. Saves on change, no extra button.
+	function renderSourceSelect(source) {
+		var current = source || "";
+		var $sel = $("#leadSourceSelect").empty();
+		$sel.append($("<option>").val("").text("نامشخص"));
+		var known = false;
+		CrmData.LEAD_SOURCES.forEach(function (s) {
+			if (s.key === current) known = true;
+			$sel.append($("<option>").val(s.key).text(s.label));
+		});
+		if (current && !known) {
+			$sel.append($("<option>").val(current).text(CrmData.sourceLabel(current)));
+		}
+		$sel.val(current);
+		$sel.attr("class", "source-select source-" + (current || "unknown"));
+	}
+
+	function saveSource() {
+		if (!leadId) return;
+		var $sel = $("#leadSourceSelect");
+		var value = $sel.val();
+		var previous = currentLead ? (currentLead.source || "") : "";
+		$sel.addClass("is-saving");
+		CrmData.setLeadSource(leadId, value)
+			.then(function () {
+				if (currentLead) currentLead.source = value;
+				renderSourceSelect(value);
+				$("#leadSourceMsg").removeClass("d-none text-danger").addClass("text-success").text("منبع لید ذخیره شد.");
+			})
+			.catch(function (err) {
+				$sel.val(previous);
+				$("#leadSourceMsg").removeClass("d-none text-success").addClass("text-danger").text("خطا در ثبت منبع: " + (err.message || "خطای نامشخص"));
+			})
+			.finally(function () {
+				$sel.removeClass("is-saving");
+			});
+	}
+
 	function loadConsultants() {
 		if (typeof CrmData.fetchConsultants !== "function") return;
 		CrmData.fetchConsultants()
@@ -410,6 +450,7 @@
 		$("#btnSubmitCallResult").on("click", submitCallResult);
 
 		$("#btnSaveAssign").on("click", saveAssign);
+		$("#leadSourceSelect").on("change", saveSource);
 
 		$("#btnSaveNote").on("click", saveNote);
 

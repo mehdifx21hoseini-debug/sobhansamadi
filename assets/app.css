@@ -770,6 +770,77 @@ body::before {
 	pointer-events: none;
 }
 
+/* Lead channel. Tinted per source so the table can be scanned by where the
+   leads came from; unknown stays neutral and dashed like an empty field. */
+.source-select {
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	border: 1px solid transparent;
+	border-radius: 20px;
+	padding: 5px 26px 5px 12px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	max-width: 150px;
+	cursor: pointer;
+	background-color: #eef0f7;
+	color: #4a4a63;
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: left 10px center;
+	background-size: 10px 7px;
+	transition: filter 0.15s ease;
+}
+
+.source-select.source-telegram_direct { background-color: #e8effc; color: #2f5ea8; }
+.source-select.source-instagram { background-color: #fdeaef; color: #a82f52; }
+.source-select.source-website { background-color: #e6f3f5; color: #226b76; }
+.source-select.source-referral { background-color: #e6f5ee; color: #1f7a52; }
+.source-select.source-manual { background-color: #f2ebfb; color: #61439c; }
+
+.source-select.source-unknown {
+	background-color: transparent;
+	border: 1px dashed #dcdce8;
+	color: #a3a3b5;
+	font-weight: 500;
+}
+
+.source-select:hover {
+	filter: brightness(0.97);
+}
+
+.source-select:focus {
+	outline: 2px solid rgba(43, 43, 64, 0.15);
+}
+
+.source-select.is-saving {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.source-filter {
+	width: 150px;
+	max-width: 100%;
+	display: inline-block;
+}
+
+.dark .source-select {
+	background-color: #2f2f45;
+	color: #c9c9db;
+}
+
+.dark .source-select.source-telegram_direct { background-color: #22334f; color: #9dbdf0; }
+.dark .source-select.source-instagram { background-color: #40252f; color: #eda0b6; }
+.dark .source-select.source-website { background-color: #1f3639; color: #8fc9d1; }
+.dark .source-select.source-referral { background-color: #1d3a2e; color: #86d6b0; }
+.dark .source-select.source-manual { background-color: #322a47; color: #bfa5ee; }
+
+.dark .source-select.source-unknown {
+	background-color: transparent;
+	border-color: #3d3d55;
+	color: #7c7c93;
+}
+
 .lead-row:hover {
 	background: #f7f7fb;
 }
