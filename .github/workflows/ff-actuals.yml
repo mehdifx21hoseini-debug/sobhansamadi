@@ -33,4 +33,6 @@ jobs:
       - name: Read and post actuals
         env:
           FF_SYNC_KEY: ${{ secrets.FF_SYNC_KEY }}
-        run: node scripts/ff-actuals.mjs
+        # xvfb gives the headed browser a display; Cloudflare's challenge
+        # never resolves for headless Chromium.
+        run: xvfb-run -a node scripts/ff-actuals.mjs
