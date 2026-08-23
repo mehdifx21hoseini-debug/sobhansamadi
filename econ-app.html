@@ -305,6 +305,7 @@
 
 		.mk-hero.is-open::before { background: linear-gradient(to left, color-mix(in srgb, var(--up) 22%, transparent), transparent 65%); }
 		.mk-hero.is-closed::before { background: linear-gradient(to left, color-mix(in srgb, var(--down) 16%, transparent), transparent 65%); }
+		.mk-hero.is-break::before { background: linear-gradient(to left, color-mix(in srgb, var(--medium) 20%, transparent), transparent 65%); }
 
 		.mk-hero-main { position: relative; min-width: 0; }
 
@@ -318,6 +319,7 @@
 
 		.mk-hero.is-open .mk-hero-title { color: var(--up); }
 		.mk-hero.is-closed .mk-hero-title { color: var(--down); }
+		.mk-hero.is-break .mk-hero-title { color: var(--medium); }
 
 		.mk-dot {
 			flex: none;
@@ -388,6 +390,12 @@
 			border-color: color-mix(in srgb, var(--up) 32%, transparent);
 		}
 
+		/* Inside its hours, but the broker is in the rollover hour. */
+		.mk-m.is-paused {
+			background: color-mix(in srgb, var(--medium) 9%, var(--card));
+			border-color: color-mix(in srgb, var(--medium) 30%, transparent);
+		}
+
 		.mk-m-head {
 			display: flex;
 			align-items: center;
@@ -418,6 +426,11 @@
 			color: var(--up);
 		}
 
+		.mk-m.is-paused .mk-m-pill {
+			background: color-mix(in srgb, var(--medium) 22%, transparent);
+			color: var(--medium);
+		}
+
 		.mk-m-live {
 			width: 6px;
 			height: 6px;
@@ -442,6 +455,21 @@
 		}
 
 		.mk-m.is-live .mk-m-seg { background: color-mix(in srgb, var(--up) 28%, transparent); }
+		.mk-m.is-paused .mk-m-seg { background: color-mix(in srgb, var(--medium) 26%, transparent); }
+
+		/* The daily rollover hour, hatched so it reads as "not trading" rather
+		   than as another session. Drawn over the segments beneath it. */
+		.mk-m-break {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			z-index: 1;
+			background:
+				repeating-linear-gradient(45deg,
+					color-mix(in srgb, var(--text) 34%, transparent) 0 2px,
+					transparent 2px 5px),
+				var(--card);
+		}
 
 		/* The elapsed part of a running session. It grows from the open edge,
 		   which under RTL is the right-hand side of the track. */
@@ -497,6 +525,8 @@
 		.mk-m-cd { margin-inline-start: auto; }
 		.mk-m-cd b { color: var(--text); font-variant-numeric: tabular-nums; }
 		.mk-m.is-live .mk-m-cd b { color: var(--up); }
+		.mk-m.is-paused .mk-m-cd b { color: var(--medium); }
+		.mk-m.is-paused .mk-m-now { opacity: 1; }
 
 		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
 
@@ -1228,7 +1258,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۶</span>
+			<span class="build">نسخه ۷</span>
 		</p>
 	</div>
 
@@ -1627,9 +1657,38 @@
 				{ key: "utc3", label: "GMT+۳", fixed: 180 },
 				{ key: "eu", label: "GMT+۲/+۳ (اروپا)", zone: "Europe/Berlin" },
 				{ key: "utc2", label: "GMT+۲", fixed: 120 },
-				{ key: "utc0", label: "GMT+۰", fixed: 0 }
+				{ key: "utc0", label: "GMT+۰", fixed: 0 },
+				// Not a broker clock, but readers asked for it: picking this makes
+				// the second column Tehran time as well.
+				{ key: "tehran", label: "ایران (GMT+۳:۳۰)", fixed: 210 }
 			];
 			var BROKER_KEY = "econAppBroker";
+
+			// Brokers stop trading for one hour at the daily rollover: 00:00–01:00
+			// on a GMT+3 server, which is 00:30–01:30 Tehran. Both clocks are
+			// fixed-offset, so the window is 21:00–22:00 UTC all year and does not
+			// move with anyone's DST.
+			var BREAK_START_UTC = 21 * 60;
+			var BREAK_END_UTC = 22 * 60;
+
+			function inDailyBreak(instant) {
+				var d = new Date(instant);
+				var m = d.getUTCHours() * 60 + d.getUTCMinutes();
+				return m >= BREAK_START_UTC && m < BREAK_END_UTC;
+			}
+
+			// The end of the break window containing or following `instant`.
+			function breakEndAfter(instant) {
+				var d = new Date(instant);
+				var end = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, BREAK_END_UTC);
+				return end > instant ? end : end + 86400000;
+			}
+
+			function breakStartAfter(instant) {
+				var d = new Date(instant);
+				var start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, BREAK_START_UTC);
+				return start > instant ? start : start + 86400000;
+			}
 
 			function tzParts(date, timeZone) {
 				var dtf = new Intl.DateTimeFormat("en-US", {
@@ -1709,6 +1768,12 @@
 					if (lastOpen !== null && fridayCloses[j].close > lastOpen) { matchingClose = fridayCloses[j].close; break; }
 				}
 				if (lastOpen !== null && matchingClose !== null && t >= lastOpen && t < matchingClose) {
+					// Inside the trading week, but the broker still shuts for the
+					// daily rollover hour. Report that as its own state: it is not
+					// the weekend close, and it ends within the hour.
+					if (inDailyBreak(t)) {
+						return { open: false, onBreak: true, until: matchingClose, resumesAt: breakEndAfter(t) };
+					}
 					return { open: true, until: matchingClose };
 				}
 				var nextOpen = null;
@@ -1852,16 +1917,27 @@
 				var now = new Date();
 				var market = marketState(now);
 				var nowM = tehranMinutesOf(now.getTime());
+				// The rollover window as Tehran minutes, derived rather than
+				// hardcoded so it stays right if the constants ever move.
+				var nextBreak = breakStartAfter(now.getTime());
+				var breakM = [tehranMinutesOf(nextBreak), tehranMinutesOf(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000)];
 
 				// ---- status hero
-				var hero = el("div", "mk-hero " + (market.open ? "is-open" : "is-closed"));
+				var heroClass = market.onBreak ? "is-break" : (market.open ? "is-open" : "is-closed");
+				var hero = el("div", "mk-hero " + heroClass);
 				var heroL = el("div", "mk-hero-main");
 				var title = el("div", "mk-hero-title");
 				title.appendChild(el("span", "mk-dot"));
-				title.appendChild(el("span", null, market.open ? "بازار باز است" : "بازار بسته است"));
+				title.appendChild(el("span", null,
+					market.onBreak ? "استراحت روزانه بازار" : (market.open ? "بازار باز است" : "بازار بسته است")));
 				heroL.appendChild(title);
 				var sub = el("div", "mk-hero-sub");
-				if (market.open && market.until) {
+				if (market.onBreak) {
+					sub.appendChild(el("span", null, "از سر گرفته می‌شود "));
+					sub.appendChild(el("b", null, untilText(market.resumesAt, now)));
+					sub.appendChild(el("span", null, " دیگر، ساعت "));
+					sub.appendChild(el("b", null, fa(hhmmInZone(market.resumesAt, TEHRAN))));
+				} else if (market.open && market.until) {
 					sub.appendChild(el("span", null, "تا جمعه ساعت "));
 					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, TEHRAN))));
 				} else if (market.nextOpen) {
@@ -1883,7 +1959,11 @@
 				SESSIONS.forEach(function (s) {
 					var st = sessionState(s, now);
 					var ref = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
-					var row = el("div", "mk-m" + (st.open ? " is-live" : ""));
+					// A session whose hours cover the rollover is not trading
+					// during it, so it must not be painted as live either.
+					var paused = st.open && market.onBreak;
+					var live = st.open && !paused;
+					var row = el("div", "mk-m" + (live ? " is-live" : "") + (paused ? " is-paused" : ""));
 
 					var head = el("div", "mk-m-head");
 					var who = el("div", "mk-m-who");
@@ -1895,11 +1975,11 @@
 					// one string with a separator, RTL reordering pushed the dot
 					// against the number and "۱۱ ·" read as "۱۱۰".
 					var pill = el("span", "mk-m-pill");
-					if (st.open) {
+					if (live) {
 						pill.appendChild(el("span", "mk-m-live"));
 						pill.appendChild(el("span", null, "باز"));
 					} else {
-						pill.appendChild(el("span", null, "بسته"));
+						pill.appendChild(el("span", null, paused ? "استراحت" : "بسته"));
 					}
 					head.appendChild(pill);
 					row.appendChild(head);
@@ -1914,7 +1994,7 @@
 							seg.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
 							// While a session is running, fill the part already
 							// elapsed so the bar doubles as a progress meter.
-							if (st.open && nowM >= sp[0] && nowM <= sp[1]) {
+							if (live && nowM >= sp[0] && nowM <= sp[1]) {
 								var fill = el("div", "mk-m-fill");
 								fill.style.width = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
 								seg.appendChild(fill);
@@ -1922,6 +2002,16 @@
 							track.appendChild(seg);
 						});
 					}
+					// The rollover hour, drawn over whatever sits beneath it so the
+					// gap in the trading day is visible on every track.
+					if (breakM[1] > breakM[0]) {
+						var brk = el("div", "mk-m-break");
+						brk.style.right = (breakM[0] / 1440 * 100) + "%";
+						brk.style.width = ((breakM[1] - breakM[0]) / 1440 * 100) + "%";
+						brk.title = "استراحت روزانه بازار";
+						track.appendChild(brk);
+					}
+
 					var nl = el("div", "mk-m-now");
 					nl.style.right = (nowM / 1440 * 100) + "%";
 					track.appendChild(nl);
@@ -1940,8 +2030,13 @@
 						foot.appendChild(t2);
 
 						var cd = el("span", "mk-m-cd");
-						cd.appendChild(el("b", null, untilText(st.open ? ref.close : ref.open, now)));
-						cd.appendChild(el("span", null, st.open ? " تا بسته شدن" : " تا باز شدن"));
+						if (paused) {
+							cd.appendChild(el("b", null, untilText(market.resumesAt, now)));
+							cd.appendChild(el("span", null, " تا از سرگیری"));
+						} else {
+							cd.appendChild(el("b", null, untilText(live ? ref.close : ref.open, now)));
+							cd.appendChild(el("span", null, live ? " تا بسته شدن" : " تا باز شدن"));
+						}
 						foot.appendChild(cd);
 					}
 					row.appendChild(foot);
@@ -1997,7 +2092,9 @@
 				container.appendChild(picker);
 
 				container.appendChild(el("p", "footnote",
-					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از دوشنبه با باز شدن سیدنی تا جمعه با بسته شدن نیویورک فعال است."));
+					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از دوشنبه با باز شدن سیدنی تا جمعه با بسته شدن نیویورک فعال است. "
+					+ "هر شب هم از " + fa(hhmmAtOffset(nextBreak, 210)) + " تا " + fa(hhmmAtOffset(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, 210))
+					+ " به وقت ایران، بازار برای تسویه‌ی روزانه یک ساعت بسته است (نوار تیره روی نمودارها)."));
 			}
 
 			// ---------- month grid ----------
