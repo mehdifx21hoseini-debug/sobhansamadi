@@ -650,23 +650,45 @@
 			}
 
 			// ---------- rendering ----------
+			function todaysEvents() {
+				if (!state.data) return [];
+				var today = state.data.today;
+				return state.data.events.filter(function (e) { return e.date === today; });
+			}
+
 			function renderHero() {
 				var d = state.data;
-				var todays = d.events.filter(function (e) { return e.date === d.today; });
+				var todays = todaysEvents();
 				var highs = todays.filter(function (e) { return e.importance === "high"; }).length;
-
 				var name = d.user && d.user.first_name ? d.user.first_name : "";
-				document.getElementById("heroSub").textContent =
-					(name ? name + " عزیز، " : "") + "امروز " + fa(todays.length) + " رویداد برای دلار ثبت شده.";
+				var sub;
+
+				if (todays.length === 0) {
+					// Weekends and US bank holidays have no releases at all. Say
+					// that plainly and point at the next one, instead of leaving
+					// the screen looking like it failed to load.
+					var next = d.events.length > 0 ? d.events[0] : null;
+					sub = "امروز خبری برای دلار نیست";
+					if (next) sub += " — بعدی " + relDay(next.date) + "، " + next.title;
+				} else {
+					sub = (name ? name + " عزیز، " : "") + "امروز " + fa(todays.length) + " رویداد برای دلار ثبت شده.";
+				}
+				document.getElementById("heroSub").textContent = sub;
 
 				var pill = document.getElementById("riskPill");
 				var txt = document.getElementById("riskText");
 				var cls = "risk-pill ";
-				if (highs === 0) { cls += "risk-low"; txt.textContent = "نوسان کم"; }
+				if (highs === 0) { cls += "risk-low"; txt.textContent = todays.length === 0 ? "بدون خبر" : "نوسان کم"; }
 				else if (highs <= 2) { cls += "risk-medium"; txt.textContent = "نوسان متوسط"; }
 				else { cls += "risk-high"; txt.textContent = "نوسان بالا"; }
 				pill.className = cls;
 				pill.hidden = false;
+			}
+
+			function setScope(scope) {
+				state.scope = scope;
+				document.getElementById("tabToday").setAttribute("aria-selected", scope === "today" ? "true" : "false");
+				document.getElementById("tabWeek").setAttribute("aria-selected", scope === "week" ? "true" : "false");
 			}
 
 			var countdownTimer = null;
@@ -777,6 +799,21 @@
 							? "امروز رویدادی با این فیلتر ثبت نشده."
 							: "در این هفته رویدادی با این فیلتر ثبت نشده."
 					));
+					// An empty day is normal at weekends and on US bank holidays,
+					// so offer the way out rather than a dead end.
+					if (state.scope === "today" && state.data.events.length > 0) {
+						var jump = el("button", null, "نمایش کل هفته");
+						jump.type = "button";
+						jump.className = "chip";
+						jump.style.marginTop = "12px";
+						jump.addEventListener("click", function () {
+							setScope("week");
+							haptic("select");
+							renderList();
+						});
+						empty.appendChild(document.createElement("br"));
+						empty.appendChild(jump);
+					}
 					list.appendChild(empty);
 					return;
 				}
@@ -860,6 +897,10 @@
 				call({ action: "data" })
 					.then(function (body) {
 						state.data = body;
+						// Landing on an empty "today" makes a working app look
+						// broken, and today is empty every weekend. Open on the
+						// week instead when there is nothing today.
+						if (!scopeChosenByUser && todaysEvents().length === 0) setScope("week");
 						render();
 					})
 					.catch(function (err) {
@@ -892,18 +933,20 @@
 			}
 
 			// ---------- wiring ----------
+			// Once the reader picks a tab themselves, the auto-switch on refresh
+			// must not override them.
+			var scopeChosenByUser = false;
+
 			document.getElementById("tabToday").addEventListener("click", function () {
-				state.scope = "today";
-				this.setAttribute("aria-selected", "true");
-				document.getElementById("tabWeek").setAttribute("aria-selected", "false");
+				scopeChosenByUser = true;
+				setScope("today");
 				haptic("select");
 				renderList();
 			});
 
 			document.getElementById("tabWeek").addEventListener("click", function () {
-				state.scope = "week";
-				this.setAttribute("aria-selected", "true");
-				document.getElementById("tabToday").setAttribute("aria-selected", "false");
+				scopeChosenByUser = true;
+				setScope("week");
 				haptic("select");
 				renderList();
 			});
