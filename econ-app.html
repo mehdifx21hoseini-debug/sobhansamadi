@@ -408,6 +408,16 @@
 		.mk-m-flag { font-size: 1.22rem; line-height: 1; }
 		.mk-m-name { font-size: 0.9rem; font-weight: 600; }
 
+		.mk-m-sub {
+			font-size: 0.58rem;
+			font-weight: 700;
+			letter-spacing: .06em;
+			padding: 1px 6px;
+			border-radius: 5px;
+			color: var(--muted);
+			background: color-mix(in srgb, var(--muted) 16%, transparent);
+		}
+
 		.mk-m-pill {
 			flex: none;
 			display: inline-flex;
@@ -1258,7 +1268,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۷</span>
+			<span class="build">نسخه ۸</span>
 		</p>
 	</div>
 
@@ -1641,13 +1651,24 @@
 			// future rule change, without shipping a new version of this page.
 			var TEHRAN = "Asia/Tehran";
 
+			// Hours are local to each zone. openMin/closeMin default to 0; NYSE
+			// is the only one that needs them, since it rings in at 09:30.
 			var SESSIONS = [
-				{ name: "سیدنی", flag: "🇦🇺", zone: "Australia/Sydney", open: 7, close: 16 },
-				{ name: "توکیو", flag: "🇯🇵", zone: "Asia/Tokyo", open: 9, close: 18 },
-				{ name: "فرانکفورت", flag: "🇩🇪", zone: "Europe/Berlin", open: 8, close: 17 },
-				{ name: "لندن", flag: "🇬🇧", zone: "Europe/London", open: 8, close: 17 },
-				{ name: "نیویورک", flag: "🇺🇸", zone: "America/New_York", open: 8, close: 17 }
+				{ key: "sydney", name: "سیدنی", flag: "🇦🇺", zone: "Australia/Sydney", open: 7, close: 16 },
+				{ key: "tokyo", name: "توکیو", flag: "🇯🇵", zone: "Asia/Tokyo", open: 9, close: 18 },
+				{ key: "london", name: "لندن", flag: "🇬🇧", zone: "Europe/London", open: 8, close: 17 },
+				{ key: "newyork", name: "نیویورک", flag: "🇺🇸", zone: "America/New_York", open: 8, close: 17 },
+				// The stock exchange, not the forex session: a narrower window
+				// inside it, and where the equity open drives the dollar.
+				{ key: "nyse", name: "بورس نیویورک", sub: "NYSE", flag: "🇺🇸", zone: "America/New_York", open: 9, openMin: 30, close: 16 }
 			];
+
+			function sessionByKey(key) {
+				for (var i = 0; i < SESSIONS.length; i++) {
+					if (SESSIONS[i].key === key) return SESSIONS[i];
+				}
+				return null;
+			}
 
 			// The broker's server clock differs per broker, so it is the reader's
 			// choice rather than a guess baked into the page.
@@ -1657,10 +1678,7 @@
 				{ key: "utc3", label: "GMT+۳", fixed: 180 },
 				{ key: "eu", label: "GMT+۲/+۳ (اروپا)", zone: "Europe/Berlin" },
 				{ key: "utc2", label: "GMT+۲", fixed: 120 },
-				{ key: "utc0", label: "GMT+۰", fixed: 0 },
-				// Not a broker clock, but readers asked for it: picking this makes
-				// the second column Tehran time as well.
-				{ key: "tehran", label: "ایران (GMT+۳:۳۰)", fixed: 210 }
+				{ key: "utc0", label: "GMT+۰", fixed: 0 }
 			];
 			var BROKER_KEY = "econAppBroker";
 
@@ -1733,8 +1751,8 @@
 					var dt = localDatePlus(now, session.zone, off);
 					if (dt.dow === 0 || dt.dow === 6) continue; // markets rest at the weekend
 					out.push({
-						open: instantAt(dt.y, dt.m, dt.d, session.open, 0, session.zone),
-						close: instantAt(dt.y, dt.m, dt.d, session.close, 0, session.zone),
+						open: instantAt(dt.y, dt.m, dt.d, session.open, session.openMin || 0, session.zone),
+						close: instantAt(dt.y, dt.m, dt.d, session.close, session.closeMin || 0, session.zone),
 						dow: dt.dow
 					});
 				}
@@ -1758,8 +1776,10 @@
 			// not closures, so they must not be reported as one.
 			function marketState(now) {
 				var t = now.getTime();
-				var mondayOpens = occurrences(SESSIONS[0], now, -9, 9).filter(function (o) { return o.dow === 1; });
-				var fridayCloses = occurrences(SESSIONS[4], now, -9, 9).filter(function (o) { return o.dow === 5; });
+				// Looked up by key, not index: the list is edited from time to
+				// time and a shifted index would silently redefine the week.
+				var mondayOpens = occurrences(sessionByKey("sydney"), now, -9, 9).filter(function (o) { return o.dow === 1; });
+				var fridayCloses = occurrences(sessionByKey("newyork"), now, -9, 9).filter(function (o) { return o.dow === 5; });
 
 				var lastOpen = null;
 				mondayOpens.forEach(function (o) { if (o.open <= t) lastOpen = o.open; });
@@ -1969,6 +1989,9 @@
 					var who = el("div", "mk-m-who");
 					who.appendChild(el("span", "mk-m-flag", s.flag));
 					who.appendChild(el("span", "mk-m-name", s.name));
+					// Two rows share the New York flag and clock, so the exchange
+					// gets a ticker badge to tell them apart at a glance.
+					if (s.sub) who.appendChild(el("span", "mk-m-sub", s.sub));
 					head.appendChild(who);
 
 					// The state word and the countdown are separate elements: as
@@ -2053,7 +2076,7 @@
 				container.appendChild(axis);
 
 				// ---- the overlap is the point of the whole screen
-				var london = SESSIONS[3], ny = SESSIONS[4];
+				var london = sessionByKey("london"), ny = sessionByKey("newyork");
 				var lSt = sessionState(london, now), nSt = sessionState(ny, now);
 				var lRef = lSt.open ? { o: lSt.since, c: lSt.until } : { o: lSt.nextOpen, c: lSt.nextClose };
 				var nRef = nSt.open ? { o: nSt.since, c: nSt.until } : { o: nSt.nextOpen, c: nSt.nextClose };
@@ -2093,7 +2116,7 @@
 
 				container.appendChild(el("p", "footnote",
 					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از دوشنبه با باز شدن سیدنی تا جمعه با بسته شدن نیویورک فعال است. "
-					+ "هر شب هم از " + fa(hhmmAtOffset(nextBreak, 210)) + " تا " + fa(hhmmAtOffset(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, 210))
+					+ "هر شب هم از " + fa(hhmmInZone(nextBreak, TEHRAN)) + " تا " + fa(hhmmInZone(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, TEHRAN))
 					+ " به وقت ایران، بازار برای تسویه‌ی روزانه یک ساعت بسته است (نوار تیره روی نمودارها)."));
 			}
 
