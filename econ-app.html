@@ -276,6 +276,126 @@
 			color: var(--accent-text);
 		}
 
+		/* ---------- markets ---------- */
+		.mk-status {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			background: var(--card);
+			border-radius: 14px;
+			padding: 14px 16px;
+			margin-bottom: 16px;
+			border-right: 3px solid var(--muted);
+		}
+
+		.mk-status.is-open { border-right-color: var(--up); }
+		.mk-status.is-closed { border-right-color: var(--down); }
+
+		.mk-status-label { font-size: 0.95rem; font-weight: 700; }
+		.mk-status.is-open .mk-status-label { color: var(--up); }
+		.mk-status.is-closed .mk-status-label { color: var(--down); }
+
+		.mk-status-sub { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+
+		.mk-clock {
+			font-size: 1.5rem;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: .01em;
+		}
+
+		/* One lane per session, all sharing a 24-hour Tehran axis. */
+		.mk-strip { display: flex; flex-direction: column; gap: 4px; position: relative; }
+
+		.mk-lane {
+			position: relative;
+			height: 16px;
+			border-radius: 5px;
+			background: color-mix(in srgb, var(--muted) 14%, transparent);
+		}
+
+		.mk-bar {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			border-radius: 5px;
+			background: color-mix(in srgb, var(--muted) 45%, transparent);
+		}
+
+		.mk-bar.is-live { background: var(--accent); }
+
+		.mk-now {
+			position: absolute;
+			top: -3px;
+			bottom: -3px;
+			width: 2px;
+			margin-right: -1px;
+			background: var(--text);
+			z-index: 2;
+		}
+
+		.mk-axis { position: relative; height: 15px; margin: 5px 0 14px; }
+
+		.mk-hour {
+			position: absolute;
+			transform: translateX(50%);
+			font-size: 0.64rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.mk-row {
+			display: grid;
+			grid-template-columns: 1fr auto auto;
+			gap: 10px;
+			align-items: center;
+			padding: 9px 2px;
+			border-top: 1px solid var(--line);
+		}
+
+		.mk-row-head {
+			border-top: 0;
+			font-size: 0.7rem;
+			color: var(--muted);
+			padding-bottom: 2px;
+		}
+
+		.mk-city { display: flex; align-items: center; gap: 9px; min-width: 0; }
+		.mk-flag { font-size: 1.25rem; line-height: 1; }
+		.mk-name { display: block; font-size: 0.88rem; font-weight: 600; }
+		.mk-state { display: block; font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+		.mk-row.is-open .mk-state { color: var(--up); font-weight: 600; }
+
+		.mk-times {
+			font-size: 0.8rem;
+			font-variant-numeric: tabular-nums;
+			color: var(--muted);
+			white-space: nowrap;
+			min-width: 88px;
+			text-align: center;
+		}
+
+		.mk-row.is-open .mk-times { color: var(--text); font-weight: 600; }
+
+		.mk-picker {
+			background: var(--card);
+			border-radius: 13px;
+			padding: 13px 15px;
+			margin-top: 18px;
+		}
+
+		.mk-picker-label { font-size: 0.84rem; font-weight: 700; margin-bottom: 9px; }
+
+		.mk-picker-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+
+		.mk-picker-hint {
+			font-size: 0.7rem;
+			color: var(--muted);
+			line-height: 1.8;
+			margin-top: 10px;
+		}
+
 		/* ---------- day timeline ---------- */
 		.tl {
 			background: var(--card);
@@ -881,6 +1001,7 @@
 			<button role="tab" id="tabToday" aria-selected="true">امروز</button>
 			<button role="tab" id="tabWeek" aria-selected="false">این هفته</button>
 			<button role="tab" id="tabMonth" aria-selected="false">ماه</button>
+			<button role="tab" id="tabMarkets" aria-selected="false">بازارها</button>
 		</div>
 
 		<div class="search-row">
@@ -1158,6 +1279,16 @@
 				document.getElementById("tabToday").setAttribute("aria-selected", scope === "today" ? "true" : "false");
 				document.getElementById("tabWeek").setAttribute("aria-selected", scope === "week" ? "true" : "false");
 				document.getElementById("tabMonth").setAttribute("aria-selected", scope === "month" ? "true" : "false");
+				document.getElementById("tabMarkets").setAttribute("aria-selected", scope === "markets" ? "true" : "false");
+
+				// The event search, importance filter, countdown and alert cards
+				// are all about releases; none of them apply to session hours.
+				var eventOnly = scope !== "markets";
+				document.querySelector(".search-row").hidden = !eventOnly;
+				document.querySelector(".chips").hidden = !eventOnly;
+				document.getElementById("aiCard").hidden = !eventOnly || !state.data;
+				document.getElementById("alertsCard").hidden = !eventOnly || !state.data;
+				if (!eventOnly) document.getElementById("nextCard").hidden = true;
 			}
 
 			// Remembering the tab is a convenience, so every failure mode here is
@@ -1167,7 +1298,7 @@
 			function readStoredScope() {
 				try {
 					var v = localStorage.getItem(SCOPE_KEY);
-					return (v === "today" || v === "week" || v === "month") ? v : null;
+					return (v === "today" || v === "week" || v === "month" || v === "markets") ? v : null;
 				} catch (e) { return null; }
 			}
 
@@ -1311,6 +1442,152 @@
 				return node;
 			}
 
+			// ---------- forex sessions ----------
+			// Every zone calculation goes through the platform's own tz database
+			// rather than hand-written DST rules, so New York moving a week
+			// before London each March is handled for free — and so is any
+			// future rule change, without shipping a new version of this page.
+			var TEHRAN = "Asia/Tehran";
+
+			var SESSIONS = [
+				{ name: "سیدنی", flag: "🇦🇺", zone: "Australia/Sydney", open: 7, close: 16 },
+				{ name: "توکیو", flag: "🇯🇵", zone: "Asia/Tokyo", open: 9, close: 18 },
+				{ name: "فرانکفورت", flag: "🇩🇪", zone: "Europe/Berlin", open: 8, close: 17 },
+				{ name: "لندن", flag: "🇬🇧", zone: "Europe/London", open: 8, close: 17 },
+				{ name: "نیویورک", flag: "🇺🇸", zone: "America/New_York", open: 8, close: 17 }
+			];
+
+			// The broker's server clock differs per broker, so it is the reader's
+			// choice rather than a guess baked into the page.
+			var BROKER_MODES = [
+				{ key: "eu", label: "GMT+۲/+۳ (اروپا)", zone: "Europe/Berlin" },
+				{ key: "utc3", label: "GMT+۳ ثابت", fixed: 180 },
+				{ key: "utc2", label: "GMT+۲ ثابت", fixed: 120 },
+				{ key: "utc0", label: "GMT+۰", fixed: 0 }
+			];
+			var BROKER_KEY = "econAppBroker";
+
+			function tzParts(date, timeZone) {
+				var dtf = new Intl.DateTimeFormat("en-US", {
+					timeZone: timeZone, hour12: false,
+					year: "numeric", month: "2-digit", day: "2-digit",
+					hour: "2-digit", minute: "2-digit", second: "2-digit", weekday: "short"
+				});
+				var p = {};
+				dtf.formatToParts(date).forEach(function (x) { if (x.type !== "literal") p[x.type] = x.value; });
+				return p;
+			}
+
+			function tzOffsetMinutes(date, timeZone) {
+				var p = tzParts(date, timeZone);
+				var asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second);
+				return Math.round((asUTC - date.getTime()) / 60000);
+			}
+
+			// The UTC instant of a wall-clock time on a local calendar date. Two
+			// passes settle the case where the first guess lands on the far side
+			// of a DST transition.
+			function instantAt(y, m, d, hour, minute, timeZone) {
+				var guess = Date.UTC(y, m - 1, d, hour, minute);
+				for (var i = 0; i < 2; i++) {
+					guess = Date.UTC(y, m - 1, d, hour, minute) - tzOffsetMinutes(new Date(guess), timeZone) * 60000;
+				}
+				return guess;
+			}
+
+			function localDatePlus(now, timeZone, offset) {
+				var p = tzParts(now, timeZone);
+				var shifted = new Date(Date.UTC(+p.year, +p.month - 1, +p.day) + offset * 86400000);
+				return {
+					y: shifted.getUTCFullYear(), m: shifted.getUTCMonth() + 1,
+					d: shifted.getUTCDate(), dow: shifted.getUTCDay()
+				};
+			}
+
+			function occurrences(session, now, fromDay, toDay) {
+				var out = [];
+				for (var off = fromDay; off <= toDay; off++) {
+					var dt = localDatePlus(now, session.zone, off);
+					if (dt.dow === 0 || dt.dow === 6) continue; // markets rest at the weekend
+					out.push({
+						open: instantAt(dt.y, dt.m, dt.d, session.open, 0, session.zone),
+						close: instantAt(dt.y, dt.m, dt.d, session.close, 0, session.zone),
+						dow: dt.dow
+					});
+				}
+				return out.sort(function (a, b) { return a.open - b.open; });
+			}
+
+			function sessionState(session, now) {
+				var t = now.getTime();
+				var occ = occurrences(session, now, -2, 5);
+				for (var i = 0; i < occ.length; i++) {
+					if (t >= occ[i].open && t < occ[i].close) return { open: true, since: occ[i].open, until: occ[i].close };
+				}
+				for (var j = 0; j < occ.length; j++) {
+					if (occ[j].open > t) return { open: false, nextOpen: occ[j].open, nextClose: occ[j].close };
+				}
+				return { open: false };
+			}
+
+			// The forex week runs from the Sydney open on Monday to the New York
+			// close on Friday. Quiet gaps between sessions inside that week are
+			// not closures, so they must not be reported as one.
+			function marketState(now) {
+				var t = now.getTime();
+				var mondayOpens = occurrences(SESSIONS[0], now, -9, 9).filter(function (o) { return o.dow === 1; });
+				var fridayCloses = occurrences(SESSIONS[4], now, -9, 9).filter(function (o) { return o.dow === 5; });
+
+				var lastOpen = null;
+				mondayOpens.forEach(function (o) { if (o.open <= t) lastOpen = o.open; });
+				var matchingClose = null;
+				for (var j = 0; j < fridayCloses.length; j++) {
+					if (lastOpen !== null && fridayCloses[j].close > lastOpen) { matchingClose = fridayCloses[j].close; break; }
+				}
+				if (lastOpen !== null && matchingClose !== null && t >= lastOpen && t < matchingClose) {
+					return { open: true, until: matchingClose };
+				}
+				var nextOpen = null;
+				for (var k = 0; k < mondayOpens.length; k++) {
+					if (mondayOpens[k].open > t) { nextOpen = mondayOpens[k].open; break; }
+				}
+				return { open: false, nextOpen: nextOpen };
+			}
+
+			function hhmmInZone(instant, timeZone) {
+				var p = tzParts(new Date(instant), timeZone);
+				return (p.hour % 24 < 10 ? "0" : "") + (p.hour % 24) + ":" + p.minute;
+			}
+
+			function hhmmAtOffset(instant, offsetMinutes) {
+				var shifted = new Date(instant + offsetMinutes * 60000);
+				var h = shifted.getUTCHours(), m = shifted.getUTCMinutes();
+				return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+			}
+
+			function brokerMode() {
+				var stored;
+				try { stored = localStorage.getItem(BROKER_KEY); } catch (e) { stored = null; }
+				for (var i = 0; i < BROKER_MODES.length; i++) {
+					if (BROKER_MODES[i].key === stored) return BROKER_MODES[i];
+				}
+				return BROKER_MODES[0];
+			}
+
+			function hhmmBroker(instant) {
+				var mode = brokerMode();
+				return mode.zone ? hhmmInZone(instant, mode.zone) : hhmmAtOffset(instant, mode.fixed);
+			}
+
+			function untilText(instant, now) {
+				var mins = Math.round((instant - now.getTime()) / 60000);
+				if (mins <= 0) return "";
+				if (mins < 60) return fa(mins) + " دقیقه";
+				var h = Math.floor(mins / 60), m = mins % 60;
+				if (h < 24) return fa(h) + " ساعت" + (m ? " و " + fa(m) + " دقیقه" : "");
+				return fa(Math.round(h / 24)) + " روز";
+			}
+
 			// ---------- day timeline ----------
 			// Answers the question the list cannot: when today is dangerous to
 			// hold a position. Height of the strip is fixed; only positions vary.
@@ -1393,6 +1670,126 @@
 						? "نوار قرمز: ۳۰ دقیقه قبل و بعد از خبر خیلی مهم — پرنوسان‌ترین بازه‌ی روز."
 						: "امروز خبر خیلی مهمی نیست؛ نوسان معمولاً محدودتر است."));
 				container.appendChild(wrap);
+			}
+
+			// ---------- markets view ----------
+			function tehranMinutesOf(instant) {
+				var t = hhmmInZone(instant, TEHRAN).split(":").map(Number);
+				return t[0] * 60 + t[1];
+			}
+
+			function renderMarkets(container) {
+				var now = new Date();
+				var market = marketState(now);
+
+				// Status
+				var status = el("div", "mk-status " + (market.open ? "is-open" : "is-closed"));
+				var left = el("div");
+				left.appendChild(el("div", "mk-status-label", market.open ? "بازار باز است" : "بازار بسته است"));
+				var sub = market.open
+					? (market.until ? "تا " + hhmmInZone(market.until, TEHRAN) + " روز جمعه" : "")
+					: (market.nextOpen ? "باز می‌شود " + untilText(market.nextOpen, now) + " دیگر — ساعت " + fa(hhmmInZone(market.nextOpen, TEHRAN)) : "");
+				left.appendChild(el("div", "mk-status-sub", sub));
+				status.appendChild(left);
+				status.appendChild(el("div", "mk-clock", fa(hhmmInZone(now.getTime(), TEHRAN))));
+				container.appendChild(status);
+
+				// 24-hour strip in Tehran time, one lane per session
+				var strip = el("div", "mk-strip");
+				SESSIONS.forEach(function (s) {
+					var st = sessionState(s, now);
+					var ref = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
+					if (!ref.open) return;
+
+					var lane = el("div", "mk-lane");
+					var openM = tehranMinutesOf(ref.open);
+					var closeM = tehranMinutesOf(ref.close);
+
+					// A session that runs past Tehran midnight is drawn as two
+					// segments rather than one bar wrapping off the edge.
+					var spans = closeM > openM
+						? [[openM, closeM]]
+						: [[openM, 1440], [0, closeM]];
+					spans.forEach(function (sp) {
+						var bar = el("div", "mk-bar" + (st.open ? " is-live" : ""));
+						bar.style.right = (sp[0] / 1440 * 100) + "%";
+						bar.style.width = Math.max(0.8, (sp[1] - sp[0]) / 1440 * 100) + "%";
+						lane.appendChild(bar);
+					});
+					strip.appendChild(lane);
+				});
+
+				var nowM = tehranMinutesOf(now.getTime());
+				var nowLine = el("div", "mk-now");
+				nowLine.style.right = (nowM / 1440 * 100) + "%";
+				strip.appendChild(nowLine);
+				container.appendChild(strip);
+
+				var axis = el("div", "mk-axis");
+				[0, 4, 8, 12, 16, 20].forEach(function (h) {
+					var lab = el("span", "mk-hour", fa(h < 10 ? "0" + h : h));
+					lab.style.right = (h * 60 / 1440 * 100) + "%";
+					axis.appendChild(lab);
+				});
+				container.appendChild(axis);
+
+				// Per-session rows
+				var head = el("div", "mk-row mk-row-head");
+				head.appendChild(el("span", "mk-city", "بازار"));
+				head.appendChild(el("span", "mk-times", "به وقت تهران"));
+				head.appendChild(el("span", "mk-times", "به وقت بروکر"));
+				container.appendChild(head);
+
+				SESSIONS.forEach(function (s) {
+					var st = sessionState(s, now);
+					var ref = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
+					var row = el("div", "mk-row" + (st.open ? " is-open" : ""));
+
+					var city = el("span", "mk-city");
+					city.appendChild(el("span", "mk-flag", s.flag));
+					var nameWrap = el("span");
+					nameWrap.appendChild(el("span", "mk-name", s.name));
+					nameWrap.appendChild(el("span", "mk-state", st.open
+						? "باز · تا " + untilText(ref.close, now) + " دیگر"
+						: (ref.open ? "بسته · " + untilText(ref.open, now) + " دیگر" : "بسته")));
+					city.appendChild(nameWrap);
+					row.appendChild(city);
+
+					if (ref.open) {
+						row.appendChild(el("span", "mk-times",
+							fa(hhmmInZone(ref.open, TEHRAN)) + " – " + fa(hhmmInZone(ref.close, TEHRAN))));
+						row.appendChild(el("span", "mk-times",
+							fa(hhmmBroker(ref.open)) + " – " + fa(hhmmBroker(ref.close))));
+					} else {
+						row.appendChild(el("span", "mk-times", "—"));
+						row.appendChild(el("span", "mk-times", "—"));
+					}
+					container.appendChild(row);
+				});
+
+				// Broker clock picker
+				var picker = el("div", "mk-picker");
+				picker.appendChild(el("div", "mk-picker-label", "ساعت سرور بروکر شما"));
+				var chips = el("div", "mk-picker-chips");
+				var current = brokerMode();
+				BROKER_MODES.forEach(function (mode) {
+					var b = el("button", "chip", mode.label);
+					b.type = "button";
+					b.setAttribute("aria-pressed", mode.key === current.key ? "true" : "false");
+					b.addEventListener("click", function () {
+						try { localStorage.setItem(BROKER_KEY, mode.key); } catch (e) { /* preference only */ }
+						haptic("select");
+						renderList();
+					});
+					chips.appendChild(b);
+				});
+				picker.appendChild(chips);
+				picker.appendChild(el("div", "mk-picker-hint",
+					"در متاتریدر، ساعت بالای پنجره‌ی Market Watch ساعت سرور است. اگر با ستون بالا نخواند، گزینه‌ی دیگری را انتخاب کن."));
+				container.appendChild(picker);
+
+				container.appendChild(el("p", "footnote",
+					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از دوشنبه با باز شدن سیدنی تا جمعه با بسته شدن نیویورک فعال است."));
 			}
 
 			// ---------- month grid ----------
@@ -1529,6 +1926,11 @@
 				var list = document.getElementById("list");
 				list.textContent = "";
 
+				if (state.scope === "markets") {
+					renderMarkets(list);
+					return;
+				}
+
 				// A search spans every loaded day, so the month grid would only
 				// hide the results.
 				if (state.scope === "month" && !state.query) {
@@ -1620,6 +2022,9 @@
 				renderList();
 				renderAlerts();
 				document.getElementById("aiCard").hidden = false;
+				// renderNext and renderAlerts each reveal their own card, so the
+				// visibility rules for the current tab are re-applied last.
+				setScope(state.scope);
 			}
 
 			// ---------- network ----------
@@ -1756,6 +2161,13 @@
 				renderList();
 			});
 
+			document.getElementById("tabMarkets").addEventListener("click", function () {
+				setScope("markets");
+				storeScope("markets");
+				haptic("select");
+				renderList();
+			});
+
 			var searchInput = document.getElementById("searchInput");
 			var clearSearch = document.getElementById("btnClearSearch");
 
@@ -1828,6 +2240,13 @@
 			}
 
 			// ---------- boot ----------
+			// The markets view shows a live clock and countdowns, so it has to
+			// keep ticking. Only that tab redraws; the others are static until
+			// data changes.
+			setInterval(function () {
+				if (state.scope === "markets" && state.data) renderList();
+			}, 30000);
+
 			if (tg) {
 				tg.ready();
 				tg.expand();
