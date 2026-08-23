@@ -26,13 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install Playwright
-        run: |
-          npm install --no-save --no-audit --no-fund playwright@1.49.1
-          npx playwright install --with-deps chromium
+      - name: Install patchright
+        # patchright is a drop-in Playwright fork without the CDP tells
+        # Cloudflare's challenge detects. It drives the runner's
+        # pre-installed real Google Chrome, so no browser download needed.
+        run: npm install --no-save --no-audit --no-fund patchright
       - name: Read and post actuals
         env:
           FF_SYNC_KEY: ${{ secrets.FF_SYNC_KEY }}
-        # xvfb gives the headed browser a display; Cloudflare's challenge
-        # never resolves for headless Chromium.
+        # xvfb gives the headed browser a display.
         run: xvfb-run -a node scripts/ff-actuals.mjs
