@@ -1166,6 +1166,39 @@
 			margin-bottom: 8px;
 		}
 
+		/* ---------- same-instant clusters ---------- */
+		/* Two or more releases landing at the same minute are one market
+		   moment, not a coincidence: their cards sit on a shared tray with
+		   a single time header, and each card drops its now-redundant time
+		   column. */
+		.cluster {
+			background: color-mix(in srgb, var(--navy) 5%, transparent);
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			padding: 7px;
+			margin-bottom: 7px;
+		}
+
+		.cluster-head {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			padding: 3px 8px 8px;
+			font-size: 0.72rem;
+			color: var(--muted);
+		}
+
+		.cluster-head b {
+			font-variant-numeric: tabular-nums;
+			font-size: 0.86rem;
+			color: var(--text);
+		}
+
+		.cluster .event { margin-bottom: 6px; }
+		.cluster .event:last-child { margin-bottom: 0; }
+		.cluster .event { grid-template-columns: 1fr; }
+		.cluster .event-time { display: none; }
+
 		/* ---------- event rows ---------- */
 		.event {
 			display: grid;
@@ -1757,7 +1790,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۱۸</span>
+			<span class="build">نسخه ۱۹</span>
 		</p>
 	</div>
 
@@ -2163,6 +2196,37 @@
 					haptic("select");
 				});
 				return node;
+			}
+
+			// Walks an ordered slice of events and appends them to `list`,
+			// wrapping every run that shares one date and one release minute
+			// in a cluster tray. Untimed events never cluster.
+			function appendClustered(list, evts) {
+				var run = [];
+				function flush() {
+					if (run.length === 0) return;
+					if (run.length === 1) {
+						list.appendChild(eventNode(run[0]));
+					} else {
+						var box = el("div", "cluster");
+						var head = el("div", "cluster-head");
+						head.appendChild(el("b", null, fa((run[0].time_tehran || "").replace("+1", ""))));
+						if ((run[0].time_tehran || "").indexOf("+1") !== -1) {
+							head.appendChild(el("span", null, "فردا"));
+						}
+						head.appendChild(el("span", null, fa(run.length) + " رویداد هم‌زمان"));
+						box.appendChild(head);
+						run.forEach(function (e) { box.appendChild(eventNode(e)); });
+						list.appendChild(box);
+					}
+					run = [];
+				}
+				evts.forEach(function (e) {
+					if (!e.time_tehran) { flush(); list.appendChild(eventNode(e)); return; }
+					if (run.length && (run[0].date !== e.date || run[0].time_tehran !== e.time_tehran)) flush();
+					run.push(e);
+				});
+				flush();
 			}
 
 			// ---------- forex sessions ----------
@@ -2985,7 +3049,7 @@
 					var rel = relDay(state.selectedDay);
 					if (rel) dayHead.appendChild(el("span", "rel", rel));
 					list.appendChild(dayHead);
-					chosen.forEach(function (e) { list.appendChild(eventNode(e)); });
+					appendClustered(list, chosen);
 				} else {
 					list.appendChild(el("div", "month-hint", "روی یک روز بزن تا رویدادهایش را ببینی."));
 				}
@@ -3062,8 +3126,13 @@
 				}
 
 				var lastDate = null;
+				var dayBuf = [];
+				var flushDay = function () {
+					if (dayBuf.length) { appendClustered(list, dayBuf); dayBuf = []; }
+				};
 				events.forEach(function (e) {
 					if (e.date !== lastDate) {
+						flushDay();
 						lastDate = e.date;
 						var head = el("div", "day-head");
 						head.appendChild(el("span", "date", jalaliLabel(e.date)));
@@ -3077,8 +3146,9 @@
 							}
 						});
 					}
-					list.appendChild(eventNode(e));
+					dayBuf.push(e);
 				});
+				flushDay();
 			}
 
 			function renderAlerts() {
