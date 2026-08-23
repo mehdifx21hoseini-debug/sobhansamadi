@@ -1571,7 +1571,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۱۴</span>
+			<span class="build">نسخه ۱۵</span>
 		</p>
 	</div>
 
@@ -1600,6 +1600,9 @@
 				scope: "today",
 				importance: "all",
 				data: null,
+				// The last load failure, kept so a tab switch can put the
+				// message and its retry button back instead of a blank list.
+				failure: null,
 				open: {},
 				saving: false,
 				refreshing: false,
@@ -2705,8 +2708,20 @@
 				var list = document.getElementById("list");
 				list.textContent = "";
 
+				// Session hours are computed from the clock alone, so this tab
+				// works whether or not the release data ever arrived.
 				if (state.scope === "markets") {
 					renderMarkets(list);
+					return;
+				}
+
+				// Every other tab reads state.data. Reaching them before it
+				// exists - a failed load, or a tab tapped while the first
+				// request is still in flight - used to throw partway through
+				// and leave the list empty.
+				if (!state.data) {
+					if (state.failure) paintError();
+					else for (var i = 0; i < 3; i++) list.appendChild(el("div", "skel"));
 					return;
 				}
 
@@ -2825,23 +2840,32 @@
 				});
 			}
 
+			// Remembered so a later renderList can put the message back. Without
+			// this, switching tabs after a failed load wiped the error box and
+			// its retry button, leaving a blank screen with no way out.
 			function showError(message, retryable) {
+				state.failure = { message: message, retryable: retryable };
+				paintError();
+				document.getElementById("heroSub").textContent = "—";
+			}
+
+			function paintError() {
 				var list = document.getElementById("list");
 				list.textContent = "";
-				var box = el("div", "error", message);
-				if (retryable) {
+				var box = el("div", "error", state.failure.message);
+				if (state.failure.retryable) {
 					var btn = el("button", null, "تلاش دوباره");
 					btn.addEventListener("click", load);
 					box.appendChild(btn);
 				}
 				list.appendChild(box);
-				document.getElementById("heroSub").textContent = "—";
 			}
 
 			function load() {
 				return call({ action: "data" })
 					.then(function (body) {
 						state.data = body;
+						state.failure = null;
 						// Landing on an empty "today" makes a working app look
 						// broken, and today is empty every weekend. Fall to the
 						// week whenever today has nothing — an empty screen is
