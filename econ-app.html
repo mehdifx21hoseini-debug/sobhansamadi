@@ -1274,12 +1274,6 @@
 			border-radius: 50%;
 		}
 
-		.event-title .cat {
-			flex: none;
-			font-size: 0.85rem;
-			line-height: 1;
-		}
-
 		.imp-high { background: var(--high); }
 		.imp-medium { background: var(--medium); }
 		.imp-low { background: var(--low); }
@@ -1823,7 +1817,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۲۱</span>
+			<span class="build">نسخه ۲۲</span>
 		</p>
 	</div>
 
@@ -2187,33 +2181,7 @@
 				return wrap;
 			}
 
-			// One icon per economic category, matched on the release's English
-			// name. Order matters: speeches win over everything (a Fed chair
-			// speech about inflation is still a speech), and specific gauges
-			// come before broad ones.
-			var CATEGORIES = [
-				{ icon: "🎙", re: /speak|speech|testif|press conference|statement/ },
-				{ icon: "🏛", re: /fomc|federal funds|funds rate|rate decision|minutes/ },
-				{ icon: "🔥", re: /cpi|pce|ppi|price index|prices|inflation|deflator/ },
-				{ icon: "👷", re: /employ|unemploy|payroll|jobless|claims|jolts|labor/ },
-				{ icon: "🏠", re: /home|housing|mortgage|building permit|construction|nahb/ },
-				{ icon: "🛍", re: /retail|consumer|sentiment|spending|personal income|credit/ },
-				{ icon: "🏭", re: /pmi|ism|manufactur|industrial|durable|factory|production/ },
-				{ icon: "🚢", re: /trade balance|import|export|current account/ },
-				{ icon: "🛢", re: /crude|oil|natural gas/ },
-				{ icon: "📊", re: /gdp|growth/ },
-				{ icon: "🏦", re: /bank|treasury|bond|auction|budget|debt/ }
-			];
-
-			function catIcon(e) {
-				var name = ((e.en || "") + " " + (e.title || "")).toLowerCase();
-				for (var i = 0; i < CATEGORIES.length; i++) {
-					if (CATEGORIES[i].re.test(name)) return CATEGORIES[i].icon;
-				}
-				return "📌";
-			}
-
-			function eventNode(e) {
+function eventNode(e) {
 				var node = el("button", "event");
 				node.type = "button";
 				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
@@ -2230,11 +2198,6 @@
 				var main = el("div");
 				var title = el("div", "event-title");
 				title.appendChild(el("span", "imp imp-" + (e.importance || "low")));
-				// Decorative category glyph - the importance dot and the name
-				// already carry the information a screen reader needs.
-				var cat = el("span", "cat", catIcon(e));
-				cat.setAttribute("aria-hidden", "true");
-				title.appendChild(cat);
 				// The release's own English name, so every row is uniform; the
 				// Persian translation waits inside the expanded detail.
 				title.appendChild(el("span", "event-title-en", e.en || e.title || e.short));
