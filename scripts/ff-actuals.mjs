@@ -40,13 +40,19 @@ async function readDay(page, p) {
   const url = dayUrl(p);
   console.log('reading', url);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  try {
-    // The Cloudflare interstitial auto-solves and redirects; the calendar
-    // table appearing is the signal that we are through.
-    await page.waitForSelector('.calendar__row', { timeout: 45000 });
-  } catch (e) {
-    const title = await page.title();
-    throw new Error(`calendar table never appeared (page title: "${title}") — likely blocked`);
+  // The Cloudflare interstitial auto-solves and redirects. Poll for up to a
+  // minute; once one page passes, the clearance cookie carries the second
+  // page straight through.
+  const deadline = Date.now() + 60000;
+  for (;;) {
+    const ok = await page.locator('.calendar__row').first().isVisible().catch(() => false);
+    if (ok) break;
+    const title = await page.title().catch(() => '');
+    if (Date.now() > deadline) {
+      throw new Error(`calendar table never appeared (page title: "${title}") — likely blocked`);
+    }
+    if (/just a moment/i.test(title)) console.log('  ...waiting out the challenge');
+    await page.waitForTimeout(2500);
   }
   const rows = await page.evaluate(() => {
     const out = [];
@@ -70,14 +76,29 @@ async function readDay(page, p) {
   return rows.map((r) => ({ ...r, date: isoDate(p) }));
 }
 
+// Headed, not headless: Cloudflare's challenge fingerprints headless
+// Chromium and never resolves for it (verified - the first headless run
+// sat on "Just a moment..." forever). Under xvfb the browser believes it
+// has a display and the challenge solves itself.
 const browser = await chromium.launch({
-  args: ['--disable-blink-features=AutomationControlled'],
+  headless: false,
+  args: [
+    '--disable-blink-features=AutomationControlled',
+    '--window-size=1366,900',
+    '--no-first-run',
+  ],
 });
 const ctx = await browser.newContext({
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   viewport: { width: 1366, height: 900 },
   locale: 'en-US',
   timezoneId: 'America/New_York',
+});
+// Remove the automation tells the challenge script actually checks.
+await ctx.addInitScript(() => {
+  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  if (!window.chrome) window.chrome = { runtime: {} };
+  Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
 });
 const page = await ctx.newPage();
 
