@@ -7,7 +7,7 @@
 // by simply executing it. This script only reads the public calendar page —
 // two pages per run, on a gentle schedule — and the data goes nowhere except
 // our own private table.
-import { chromium } from 'playwright';
+import { chromium } from 'patchright';
 
 const WEBHOOK = 'https://96825.7host.cloud/webhook/econ/actuals';
 const KEY = process.env.FF_SYNC_KEY || '';
@@ -76,30 +76,18 @@ async function readDay(page, p) {
   return rows.map((r) => ({ ...r, date: isoDate(p) }));
 }
 
-// Headed, not headless: Cloudflare's challenge fingerprints headless
-// Chromium and never resolves for it (verified - the first headless run
-// sat on "Just a moment..." forever). Under xvfb the browser believes it
-// has a display and the challenge solves itself.
+// patchright (a Playwright fork that closes the CDP leaks Cloudflare's
+// challenge script probes for) driving the runner's real Google Chrome,
+// headed under xvfb. Vanilla Playwright never passed the challenge — both
+// headless and headed runs sat on "Just a moment..." — because the
+// automation is detectable at the protocol level, not the display level.
+// No fake user agent and no hand-rolled stealth scripts: with a real
+// Chrome binary those become mismatches that flag the browser instead.
 const browser = await chromium.launch({
+  channel: 'chrome',
   headless: false,
-  args: [
-    '--disable-blink-features=AutomationControlled',
-    '--window-size=1366,900',
-    '--no-first-run',
-  ],
 });
-const ctx = await browser.newContext({
-  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  viewport: { width: 1366, height: 900 },
-  locale: 'en-US',
-  timezoneId: 'America/New_York',
-});
-// Remove the automation tells the challenge script actually checks.
-await ctx.addInitScript(() => {
-  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-  if (!window.chrome) window.chrome = { runtime: {} };
-  Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-});
+const ctx = await browser.newContext({ viewport: null });
 const page = await ctx.newPage();
 
 let all = [];
