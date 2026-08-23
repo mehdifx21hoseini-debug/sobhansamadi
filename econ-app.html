@@ -276,66 +276,229 @@
 			color: var(--accent-text);
 		}
 
-		/* ---------- markets ---------- */
-		.mk-status {
+		/* ---------- markets ----------
+		   One self-contained card per market: identity, state, its own
+		   24-hour Tehran track, and the times underneath. The shared axis
+		   below the board labels all five tracks at once. */
+		.mk-hero {
+			position: relative;
+			overflow: hidden;
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
 			background: var(--card);
-			border-radius: 14px;
-			padding: 14px 16px;
-			margin-bottom: 16px;
-			border-right: 3px solid var(--muted);
+			border-radius: 18px;
+			padding: 16px 18px;
+			margin-bottom: 14px;
 		}
 
-		.mk-status.is-open { border-right-color: var(--up); }
-		.mk-status.is-closed { border-right-color: var(--down); }
+		/* A wash of the state colour behind the hero, strongest at the edge
+		   the status dot sits on. */
+		.mk-hero::before {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(to left, color-mix(in srgb, var(--muted) 20%, transparent), transparent 65%);
+			pointer-events: none;
+		}
 
-		.mk-status-label { font-size: 0.95rem; font-weight: 700; }
-		.mk-status.is-open .mk-status-label { color: var(--up); }
-		.mk-status.is-closed .mk-status-label { color: var(--down); }
+		.mk-hero.is-open::before { background: linear-gradient(to left, color-mix(in srgb, var(--up) 22%, transparent), transparent 65%); }
+		.mk-hero.is-closed::before { background: linear-gradient(to left, color-mix(in srgb, var(--down) 16%, transparent), transparent 65%); }
 
-		.mk-status-sub { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+		.mk-hero-main { position: relative; min-width: 0; }
+
+		.mk-hero-title {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 1.02rem;
+			font-weight: 700;
+		}
+
+		.mk-hero.is-open .mk-hero-title { color: var(--up); }
+		.mk-hero.is-closed .mk-hero-title { color: var(--down); }
+
+		.mk-dot {
+			flex: none;
+			width: 9px;
+			height: 9px;
+			border-radius: 50%;
+			background: currentColor;
+		}
+
+		.mk-hero.is-open .mk-dot { animation: mk-pulse 2.2s ease-out infinite; }
+
+		@keyframes mk-pulse {
+			0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); }
+			70% { box-shadow: 0 0 0 9px transparent; }
+			100% { box-shadow: 0 0 0 0 transparent; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.mk-hero.is-open .mk-dot { animation: none; }
+		}
+
+		.mk-hero-sub {
+			font-size: 0.78rem;
+			color: var(--muted);
+			margin-top: 3px;
+		}
+
+		.mk-hero-sub b {
+			color: var(--text);
+			font-variant-numeric: tabular-nums;
+		}
 
 		.mk-clock {
-			font-size: 1.5rem;
+			position: relative;
+			flex: none;
+			text-align: center;
+			line-height: 1.15;
+		}
+
+		.mk-clock-time {
+			display: block;
+			font-size: 1.62rem;
 			font-weight: 700;
 			font-variant-numeric: tabular-nums;
 			letter-spacing: .01em;
 		}
 
-		/* One lane per session, all sharing a 24-hour Tehran axis. */
-		.mk-strip { display: flex; flex-direction: column; gap: 4px; position: relative; }
-
-		.mk-lane {
-			position: relative;
-			height: 16px;
-			border-radius: 5px;
-			background: color-mix(in srgb, var(--muted) 14%, transparent);
+		.mk-clock-zone {
+			display: block;
+			font-size: 0.62rem;
+			color: var(--muted);
+			letter-spacing: .06em;
 		}
 
-		.mk-bar {
+		.mk-board { display: flex; flex-direction: column; gap: 8px; }
+
+		.mk-m {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 11px 13px 10px;
+			border: 1px solid transparent;
+		}
+
+		/* A live market gets a tinted ground and a hairline, so which row
+		   matters right now is legible before reading a single word. */
+		.mk-m.is-live {
+			background: color-mix(in srgb, var(--up) 9%, var(--card));
+			border-color: color-mix(in srgb, var(--up) 32%, transparent);
+		}
+
+		.mk-m-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin-bottom: 8px;
+		}
+
+		.mk-m-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+		.mk-m-flag { font-size: 1.22rem; line-height: 1; }
+		.mk-m-name { font-size: 0.9rem; font-weight: 600; }
+
+		.mk-m-pill {
+			flex: none;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 0.68rem;
+			font-weight: 700;
+			padding: 3px 10px;
+			border-radius: 999px;
+			background: color-mix(in srgb, var(--muted) 16%, transparent);
+			color: var(--muted);
+		}
+
+		.mk-m.is-live .mk-m-pill {
+			background: color-mix(in srgb, var(--up) 20%, transparent);
+			color: var(--up);
+		}
+
+		.mk-m-live {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: currentColor;
+		}
+
+		.mk-m-track {
+			position: relative;
+			height: 12px;
+			border-radius: 6px;
+			background: color-mix(in srgb, var(--muted) 13%, transparent);
+			overflow: hidden;
+		}
+
+		.mk-m-seg {
 			position: absolute;
 			top: 0;
 			bottom: 0;
-			border-radius: 5px;
-			background: color-mix(in srgb, var(--muted) 45%, transparent);
+			border-radius: 6px;
+			background: color-mix(in srgb, var(--muted) 34%, transparent);
 		}
 
-		.mk-bar.is-live { background: var(--accent); }
+		.mk-m.is-live .mk-m-seg { background: color-mix(in srgb, var(--up) 28%, transparent); }
 
-		.mk-now {
+		/* The elapsed part of a running session. It grows from the open edge,
+		   which under RTL is the right-hand side of the track. */
+		.mk-m-fill {
 			position: absolute;
-			top: -3px;
-			bottom: -3px;
+			top: 0;
+			bottom: 0;
+			right: 0;
+			border-radius: 6px;
+			background: var(--up);
+		}
+
+		.mk-m-now {
+			position: absolute;
+			top: 0;
+			bottom: 0;
 			width: 2px;
 			margin-right: -1px;
 			background: var(--text);
+			opacity: .55;
 			z-index: 2;
 		}
 
-		.mk-axis { position: relative; height: 15px; margin: 5px 0 14px; }
+		.mk-m.is-live .mk-m-now { opacity: 1; }
+
+		.mk-m-foot {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 5px 12px;
+			margin-top: 8px;
+			font-size: 0.72rem;
+			color: var(--muted);
+		}
+
+		.mk-m-time { display: inline-flex; align-items: center; gap: 5px; }
+
+		.mk-m-time b {
+			font-size: 0.78rem;
+			font-weight: 600;
+			font-variant-numeric: tabular-nums;
+			color: var(--text);
+		}
+
+		.mk-m-tag {
+			font-size: 0.6rem;
+			letter-spacing: .04em;
+			padding: 1px 6px;
+			border-radius: 5px;
+			background: color-mix(in srgb, var(--muted) 15%, transparent);
+		}
+
+		.mk-m-cd { margin-inline-start: auto; }
+		.mk-m-cd b { color: var(--text); font-variant-numeric: tabular-nums; }
+		.mk-m.is-live .mk-m-cd b { color: var(--up); }
+
+		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
 
 		.mk-hour {
 			position: absolute;
@@ -345,38 +508,32 @@
 			font-variant-numeric: tabular-nums;
 		}
 
-		.mk-row {
-			display: grid;
-			grid-template-columns: 1fr auto auto;
-			gap: 10px;
-			align-items: center;
-			padding: 9px 2px;
-			border-top: 1px solid var(--line);
+		/* The London∩NY window is the single most useful fact on this screen,
+		   so it gets the accent instead of sharing the neutral card look. */
+		.mk-overlap {
+			border-radius: 14px;
+			padding: 12px 15px;
+			background: color-mix(in srgb, var(--accent) 12%, var(--card));
+			border-right: 3px solid var(--accent);
 		}
 
-		.mk-row-head {
-			border-top: 0;
-			font-size: 0.7rem;
+		.mk-overlap-title {
+			font-size: 0.82rem;
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.mk-overlap-sub {
+			font-size: 0.74rem;
 			color: var(--muted);
-			padding-bottom: 2px;
+			margin-top: 2px;
 		}
 
-		.mk-city { display: flex; align-items: center; gap: 9px; min-width: 0; }
-		.mk-flag { font-size: 1.25rem; line-height: 1; }
-		.mk-name { display: block; font-size: 0.88rem; font-weight: 600; }
-		.mk-state { display: block; font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
-		.mk-row.is-open .mk-state { color: var(--up); font-weight: 600; }
-
-		.mk-times {
+		.mk-overlap-sub b {
+			color: var(--text);
 			font-size: 0.8rem;
 			font-variant-numeric: tabular-nums;
-			color: var(--muted);
-			white-space: nowrap;
-			min-width: 88px;
-			text-align: center;
 		}
-
-		.mk-row.is-open .mk-times { color: var(--text); font-weight: 600; }
 
 		.mk-picker {
 			background: var(--card);
@@ -1071,7 +1228,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۵</span>
+			<span class="build">نسخه ۶</span>
 		</p>
 	</div>
 
@@ -1464,10 +1621,12 @@
 
 			// The broker's server clock differs per broker, so it is the reader's
 			// choice rather than a guess baked into the page.
+			// GMT+3 first and default: that is the academy's own broker, so it is
+			// what almost every reader here needs.
 			var BROKER_MODES = [
+				{ key: "utc3", label: "GMT+۳", fixed: 180 },
 				{ key: "eu", label: "GMT+۲/+۳ (اروپا)", zone: "Europe/Berlin" },
-				{ key: "utc3", label: "GMT+۳ ثابت", fixed: 180 },
-				{ key: "utc2", label: "GMT+۲ ثابت", fixed: 120 },
+				{ key: "utc2", label: "GMT+۲", fixed: 120 },
 				{ key: "utc0", label: "GMT+۰", fixed: 0 }
 			];
 			var BROKER_KEY = "econAppBroker";
@@ -1683,52 +1842,112 @@
 				return t[0] * 60 + t[1];
 			}
 
+			function spansOf(openM, closeM) {
+				// A session running past Tehran midnight is drawn as two segments
+				// rather than one bar wrapping off the edge of the track.
+				return closeM > openM ? [[openM, closeM]] : [[openM, 1440], [0, closeM]];
+			}
+
 			function renderMarkets(container) {
 				var now = new Date();
 				var market = marketState(now);
+				var nowM = tehranMinutesOf(now.getTime());
 
-				// Status
-				var status = el("div", "mk-status " + (market.open ? "is-open" : "is-closed"));
-				var left = el("div");
-				left.appendChild(el("div", "mk-status-label", market.open ? "بازار باز است" : "بازار بسته است"));
-				var sub = market.open
-					? (market.until ? "تا " + hhmmInZone(market.until, TEHRAN) + " روز جمعه" : "")
-					: (market.nextOpen ? "باز می‌شود " + untilText(market.nextOpen, now) + " دیگر — ساعت " + fa(hhmmInZone(market.nextOpen, TEHRAN)) : "");
-				left.appendChild(el("div", "mk-status-sub", sub));
-				status.appendChild(left);
-				status.appendChild(el("div", "mk-clock", fa(hhmmInZone(now.getTime(), TEHRAN))));
-				container.appendChild(status);
+				// ---- status hero
+				var hero = el("div", "mk-hero " + (market.open ? "is-open" : "is-closed"));
+				var heroL = el("div", "mk-hero-main");
+				var title = el("div", "mk-hero-title");
+				title.appendChild(el("span", "mk-dot"));
+				title.appendChild(el("span", null, market.open ? "بازار باز است" : "بازار بسته است"));
+				heroL.appendChild(title);
+				var sub = el("div", "mk-hero-sub");
+				if (market.open && market.until) {
+					sub.appendChild(el("span", null, "تا جمعه ساعت "));
+					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, TEHRAN))));
+				} else if (market.nextOpen) {
+					sub.appendChild(el("span", null, "باز می‌شود "));
+					sub.appendChild(el("b", null, untilText(market.nextOpen, now)));
+					sub.appendChild(el("span", null, " دیگر، ساعت "));
+					sub.appendChild(el("b", null, fa(hhmmInZone(market.nextOpen, TEHRAN))));
+				}
+				heroL.appendChild(sub);
+				hero.appendChild(heroL);
+				var clock = el("div", "mk-clock");
+				clock.appendChild(el("span", "mk-clock-time", fa(hhmmInZone(now.getTime(), TEHRAN))));
+				clock.appendChild(el("span", "mk-clock-zone", "تهران"));
+				hero.appendChild(clock);
+				container.appendChild(hero);
 
-				// 24-hour strip in Tehran time, one lane per session
-				var strip = el("div", "mk-strip");
+				// ---- one self-contained row per market
+				var board = el("div", "mk-board");
 				SESSIONS.forEach(function (s) {
 					var st = sessionState(s, now);
 					var ref = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
-					if (!ref.open) return;
+					var row = el("div", "mk-m" + (st.open ? " is-live" : ""));
 
-					var lane = el("div", "mk-lane");
-					var openM = tehranMinutesOf(ref.open);
-					var closeM = tehranMinutesOf(ref.close);
+					var head = el("div", "mk-m-head");
+					var who = el("div", "mk-m-who");
+					who.appendChild(el("span", "mk-m-flag", s.flag));
+					who.appendChild(el("span", "mk-m-name", s.name));
+					head.appendChild(who);
 
-					// A session that runs past Tehran midnight is drawn as two
-					// segments rather than one bar wrapping off the edge.
-					var spans = closeM > openM
-						? [[openM, closeM]]
-						: [[openM, 1440], [0, closeM]];
-					spans.forEach(function (sp) {
-						var bar = el("div", "mk-bar" + (st.open ? " is-live" : ""));
-						bar.style.right = (sp[0] / 1440 * 100) + "%";
-						bar.style.width = Math.max(0.8, (sp[1] - sp[0]) / 1440 * 100) + "%";
-						lane.appendChild(bar);
-					});
-					strip.appendChild(lane);
+					// The state word and the countdown are separate elements: as
+					// one string with a separator, RTL reordering pushed the dot
+					// against the number and "۱۱ ·" read as "۱۱۰".
+					var pill = el("span", "mk-m-pill");
+					if (st.open) {
+						pill.appendChild(el("span", "mk-m-live"));
+						pill.appendChild(el("span", null, "باز"));
+					} else {
+						pill.appendChild(el("span", null, "بسته"));
+					}
+					head.appendChild(pill);
+					row.appendChild(head);
+
+					var track = el("div", "mk-m-track");
+					if (ref.open) {
+						var openM = tehranMinutesOf(ref.open);
+						var closeM = tehranMinutesOf(ref.close);
+						spansOf(openM, closeM).forEach(function (sp) {
+							var seg = el("div", "mk-m-seg");
+							seg.style.right = (sp[0] / 1440 * 100) + "%";
+							seg.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
+							// While a session is running, fill the part already
+							// elapsed so the bar doubles as a progress meter.
+							if (st.open && nowM >= sp[0] && nowM <= sp[1]) {
+								var fill = el("div", "mk-m-fill");
+								fill.style.width = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
+								seg.appendChild(fill);
+							}
+							track.appendChild(seg);
+						});
+					}
+					var nl = el("div", "mk-m-now");
+					nl.style.right = (nowM / 1440 * 100) + "%";
+					track.appendChild(nl);
+					row.appendChild(track);
+
+					var foot = el("div", "mk-m-foot");
+					if (ref.open) {
+						var t1 = el("span", "mk-m-time");
+						t1.appendChild(el("span", "mk-m-tag", "تهران"));
+						t1.appendChild(el("b", null, fa(hhmmInZone(ref.open, TEHRAN)) + "–" + fa(hhmmInZone(ref.close, TEHRAN))));
+						foot.appendChild(t1);
+
+						var t2 = el("span", "mk-m-time");
+						t2.appendChild(el("span", "mk-m-tag", "بروکر"));
+						t2.appendChild(el("b", null, fa(hhmmBroker(ref.open)) + "–" + fa(hhmmBroker(ref.close))));
+						foot.appendChild(t2);
+
+						var cd = el("span", "mk-m-cd");
+						cd.appendChild(el("b", null, untilText(st.open ? ref.close : ref.open, now)));
+						cd.appendChild(el("span", null, st.open ? " تا بسته شدن" : " تا باز شدن"));
+						foot.appendChild(cd);
+					}
+					row.appendChild(foot);
+					board.appendChild(row);
 				});
-
-				var nowM = tehranMinutesOf(now.getTime());
-				var nowLine = el("div", "mk-now");
-				nowLine.style.right = (nowM / 1440 * 100) + "%";
-				strip.appendChild(nowLine);
-				container.appendChild(strip);
+				container.appendChild(board);
 
 				var axis = el("div", "mk-axis");
 				[0, 4, 8, 12, 16, 20].forEach(function (h) {
@@ -1738,39 +1957,23 @@
 				});
 				container.appendChild(axis);
 
-				// Per-session rows
-				var head = el("div", "mk-row mk-row-head");
-				head.appendChild(el("span", "mk-city", "بازار"));
-				head.appendChild(el("span", "mk-times", "به وقت تهران"));
-				head.appendChild(el("span", "mk-times", "به وقت بروکر"));
-				container.appendChild(head);
-
-				SESSIONS.forEach(function (s) {
-					var st = sessionState(s, now);
-					var ref = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
-					var row = el("div", "mk-row" + (st.open ? " is-open" : ""));
-
-					var city = el("span", "mk-city");
-					city.appendChild(el("span", "mk-flag", s.flag));
-					var nameWrap = el("span");
-					nameWrap.appendChild(el("span", "mk-name", s.name));
-					nameWrap.appendChild(el("span", "mk-state", st.open
-						? "باز · تا " + untilText(ref.close, now) + " دیگر"
-						: (ref.open ? "بسته · " + untilText(ref.open, now) + " دیگر" : "بسته")));
-					city.appendChild(nameWrap);
-					row.appendChild(city);
-
-					if (ref.open) {
-						row.appendChild(el("span", "mk-times",
-							fa(hhmmInZone(ref.open, TEHRAN)) + " – " + fa(hhmmInZone(ref.close, TEHRAN))));
-						row.appendChild(el("span", "mk-times",
-							fa(hhmmBroker(ref.open)) + " – " + fa(hhmmBroker(ref.close))));
-					} else {
-						row.appendChild(el("span", "mk-times", "—"));
-						row.appendChild(el("span", "mk-times", "—"));
+				// ---- the overlap is the point of the whole screen
+				var london = SESSIONS[3], ny = SESSIONS[4];
+				var lSt = sessionState(london, now), nSt = sessionState(ny, now);
+				var lRef = lSt.open ? { o: lSt.since, c: lSt.until } : { o: lSt.nextOpen, c: lSt.nextClose };
+				var nRef = nSt.open ? { o: nSt.since, c: nSt.until } : { o: nSt.nextOpen, c: nSt.nextClose };
+				if (lRef.o && nRef.o) {
+					var ovStart = Math.max(lRef.o, nRef.o), ovEnd = Math.min(lRef.c, nRef.c);
+					if (ovEnd > ovStart) {
+						var ov = el("div", "mk-overlap");
+						ov.appendChild(el("div", "mk-overlap-title", "همپوشانی لندن و نیویورک"));
+						var ovs = el("div", "mk-overlap-sub");
+						ovs.appendChild(el("b", null, fa(hhmmInZone(ovStart, TEHRAN)) + " – " + fa(hhmmInZone(ovEnd, TEHRAN))));
+						ovs.appendChild(el("span", null, " به وقت تهران · پرمعامله‌ترین بازه‌ی روز"));
+						ov.appendChild(ovs);
+						container.appendChild(ov);
 					}
-					container.appendChild(row);
-				});
+				}
 
 				// Broker clock picker
 				var picker = el("div", "mk-picker");
