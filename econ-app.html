@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>تقویم اقتصادی — آکادمی سبحان صمدی</title>
+	<script src="https://telegram.org/js/telegram-web-app.js"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="stylesheet"
+		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap">
+	<style>
+		/* Colors come from Telegram so the app matches whatever theme the user
+		   is running. The fallbacks are a light theme, for the case where the
+		   page is opened outside Telegram or a param is missing. */
+		:root {
+			--bg: var(--tg-theme-bg-color, #ffffff);
+			--card: var(--tg-theme-secondary-bg-color, #f4f4f7);
+			--text: var(--tg-theme-text-color, #1c1c1e);
+			--muted: var(--tg-theme-hint-color, #8a8a8f);
+			--link: var(--tg-theme-link-color, #2f6fd0);
+			--accent: var(--tg-theme-button-color, #2f6fd0);
+			--accent-text: var(--tg-theme-button-text-color, #ffffff);
+			--line: color-mix(in srgb, var(--muted) 22%, transparent);
+
+			--high: #e0464b;
+			--medium: #e0952b;
+			--low: #9a9aa2;
+			--up: #2e9e6d;
+			--down: #e0464b;
+		}
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			background: var(--bg);
+			color: var(--text);
+		}
+
+		body {
+			font-family: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+			font-size: 15px;
+			line-height: 1.6;
+			padding: 12px 12px calc(28px + env(safe-area-inset-bottom));
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.wrap { max-width: 640px; margin: 0 auto; }
+
+		/* ---------- header ---------- */
+		.hero {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 14px;
+		}
+
+		.hero h1 {
+			font-size: 1.15rem;
+			font-weight: 700;
+			margin: 0 0 2px;
+		}
+
+		.hero p {
+			margin: 0;
+			font-size: 0.82rem;
+			color: var(--muted);
+		}
+
+		.risk-pill {
+			flex: none;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 6px 12px;
+			border-radius: 999px;
+			font-size: 0.78rem;
+			font-weight: 700;
+			white-space: nowrap;
+		}
+
+		.risk-pill .dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: currentColor;
+		}
+
+		.risk-high { background: color-mix(in srgb, var(--high) 15%, transparent); color: var(--high); }
+		.risk-medium { background: color-mix(in srgb, var(--medium) 18%, transparent); color: var(--medium); }
+		.risk-low { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+
+		/* ---------- next-event countdown ---------- */
+		.next-card {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 13px 15px;
+			margin-bottom: 14px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		.next-card .label {
+			font-size: 0.72rem;
+			color: var(--muted);
+			letter-spacing: .02em;
+		}
+
+		.next-card .name {
+			font-weight: 700;
+			font-size: 0.95rem;
+			margin-top: 1px;
+		}
+
+		.countdown {
+			flex: none;
+			text-align: center;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.countdown .value {
+			font-size: 1.15rem;
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.countdown .unit {
+			font-size: 0.68rem;
+			color: var(--muted);
+		}
+
+		/* ---------- controls ---------- */
+		.seg {
+			display: flex;
+			background: var(--card);
+			border-radius: 11px;
+			padding: 3px;
+			margin-bottom: 10px;
+		}
+
+		.seg button {
+			flex: 1;
+			border: 0;
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.85rem;
+			font-weight: 600;
+			padding: 8px 4px;
+			border-radius: 9px;
+			cursor: pointer;
+			transition: background .16s ease, color .16s ease;
+		}
+
+		.seg button[aria-selected="true"] {
+			background: var(--bg);
+			color: var(--text);
+			box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+		}
+
+		.chips {
+			display: flex;
+			gap: 7px;
+			margin-bottom: 16px;
+			overflow-x: auto;
+			scrollbar-width: none;
+			padding-bottom: 2px;
+		}
+
+		.chips::-webkit-scrollbar { display: none; }
+
+		.chip {
+			flex: none;
+			border: 1px solid var(--line);
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.78rem;
+			font-weight: 600;
+			padding: 6px 13px;
+			border-radius: 999px;
+			cursor: pointer;
+			white-space: nowrap;
+		}
+
+		.chip[aria-pressed="true"] {
+			background: var(--accent);
+			border-color: var(--accent);
+			color: var(--accent-text);
+		}
+
+		/* ---------- day groups ---------- */
+		.day-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			margin: 20px 2px 8px;
+		}
+
+		.day-head:first-child { margin-top: 4px; }
+
+		.day-head .date {
+			font-size: 0.87rem;
+			font-weight: 700;
+		}
+
+		.day-head .rel {
+			font-size: 0.74rem;
+			color: var(--muted);
+		}
+
+		.holiday {
+			background: color-mix(in srgb, var(--medium) 12%, transparent);
+			color: var(--medium);
+			border-radius: 11px;
+			padding: 9px 13px;
+			font-size: 0.8rem;
+			font-weight: 600;
+			margin-bottom: 8px;
+		}
+
+		/* ---------- event rows ---------- */
+		.event {
+			display: grid;
+			grid-template-columns: 52px 1fr;
+			gap: 11px;
+			background: var(--card);
+			border-radius: 13px;
+			padding: 11px 13px;
+			margin-bottom: 7px;
+			cursor: pointer;
+			border: 0;
+			width: 100%;
+			text-align: right;
+			font-family: inherit;
+			color: inherit;
+		}
+
+		.event.is-past { opacity: .62; }
+
+		.event-time {
+			font-variant-numeric: tabular-nums;
+			font-weight: 700;
+			font-size: 0.88rem;
+			padding-top: 1px;
+		}
+
+		.event-time .plus {
+			display: block;
+			font-size: 0.62rem;
+			font-weight: 500;
+			color: var(--muted);
+		}
+
+		.event-title {
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			font-weight: 600;
+			font-size: 0.92rem;
+		}
+
+		.imp {
+			flex: none;
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+		}
+
+		.imp-high { background: var(--high); }
+		.imp-medium { background: var(--medium); }
+		.imp-low { background: var(--low); }
+
+		.event-meta {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px 14px;
+			margin-top: 4px;
+			font-size: 0.76rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.event-meta b {
+			color: var(--text);
+			font-weight: 600;
+		}
+
+		.read {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			margin-top: 7px;
+			padding: 3px 9px;
+			border-radius: 999px;
+			font-size: 0.72rem;
+			font-weight: 700;
+		}
+
+		.read-good { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+		.read-bad { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
+
+		/* Expanded detail, revealed on tap. Keeps the list scannable while the
+		   full numbers stay one tap away. */
+		.event-detail {
+			grid-column: 1 / -1;
+			margin-top: 9px;
+			padding-top: 9px;
+			border-top: 1px solid var(--line);
+			font-size: 0.78rem;
+			color: var(--muted);
+			display: none;
+		}
+
+		.event.is-open .event-detail { display: block; }
+
+		.event-detail div { margin-bottom: 3px; }
+
+		/* ---------- alerts ---------- */
+		.alerts {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 15px;
+			margin-top: 26px;
+		}
+
+		.alerts h2 {
+			font-size: 0.95rem;
+			font-weight: 700;
+			margin: 0 0 3px;
+		}
+
+		.alerts .sub {
+			font-size: 0.78rem;
+			color: var(--muted);
+			margin: 0 0 13px;
+		}
+
+		.row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 9px 0;
+		}
+
+		.row + .row { border-top: 1px solid var(--line); }
+
+		.row .label { font-size: 0.86rem; font-weight: 600; }
+		.row .hint { font-size: 0.73rem; color: var(--muted); margin-top: 1px; }
+
+		.switch {
+			flex: none;
+			width: 48px;
+			height: 28px;
+			border-radius: 999px;
+			border: 0;
+			background: color-mix(in srgb, var(--muted) 40%, transparent);
+			position: relative;
+			cursor: pointer;
+			transition: background .18s ease;
+		}
+
+		.switch[aria-checked="true"] { background: var(--accent); }
+
+		.switch::after {
+			content: "";
+			position: absolute;
+			top: 3px;
+			right: 3px;
+			width: 22px;
+			height: 22px;
+			border-radius: 50%;
+			background: #fff;
+			transition: transform .18s ease;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+		}
+
+		.switch[aria-checked="true"]::after { transform: translateX(-20px); }
+
+		.minutes {
+			display: flex;
+			gap: 6px;
+			margin-top: 10px;
+		}
+
+		.minutes button {
+			flex: 1;
+			border: 1px solid var(--line);
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.8rem;
+			font-weight: 600;
+			padding: 8px 2px;
+			border-radius: 9px;
+			cursor: pointer;
+		}
+
+		.minutes button[aria-pressed="true"] {
+			background: var(--accent);
+			border-color: var(--accent);
+			color: var(--accent-text);
+		}
+
+		.alerts-disabled { opacity: .45; pointer-events: none; }
+
+		/* ---------- states ---------- */
+		.skel {
+			background: var(--card);
+			border-radius: 13px;
+			height: 62px;
+			margin-bottom: 7px;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.skel::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 7%, transparent), transparent);
+			animation: sweep 1.3s ease-in-out infinite;
+		}
+
+		@keyframes sweep {
+			0% { transform: translateX(-100%); }
+			100% { transform: translateX(100%); }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.skel::after { animation: none; }
+			* { transition: none !important; }
+		}
+
+		.empty {
+			text-align: center;
+			color: var(--muted);
+			padding: 34px 16px;
+			font-size: 0.88rem;
+		}
+
+		.empty .big { font-size: 1.9rem; display: block; margin-bottom: 8px; opacity: .75; }
+
+		.error {
+			background: color-mix(in srgb, var(--high) 12%, transparent);
+			color: var(--high);
+			border-radius: 12px;
+			padding: 14px;
+			font-size: 0.85rem;
+			text-align: center;
+		}
+
+		.error button {
+			display: block;
+			margin: 10px auto 0;
+			border: 0;
+			background: var(--accent);
+			color: var(--accent-text);
+			font-family: inherit;
+			font-weight: 600;
+			font-size: 0.82rem;
+			padding: 8px 20px;
+			border-radius: 9px;
+			cursor: pointer;
+		}
+
+		.footnote {
+			margin-top: 18px;
+			font-size: 0.72rem;
+			color: var(--muted);
+			text-align: center;
+			line-height: 1.8;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="wrap">
+		<div class="hero">
+			<div>
+				<h1>تقویم اقتصادی دلار</h1>
+				<p id="heroSub">در حال بارگذاری…</p>
+			</div>
+			<span id="riskPill" class="risk-pill" hidden><span class="dot"></span><span id="riskText"></span></span>
+		</div>
+
+		<div id="nextCard" class="next-card" hidden>
+			<div>
+				<div class="label">رویداد بعدی</div>
+				<div class="name" id="nextName"></div>
+			</div>
+			<div class="countdown">
+				<div class="value" id="nextValue">—</div>
+				<div class="unit" id="nextUnit">مانده</div>
+			</div>
+		</div>
+
+		<div class="seg" role="tablist">
+			<button role="tab" id="tabToday" aria-selected="true">امروز</button>
+			<button role="tab" id="tabWeek" aria-selected="false">این هفته</button>
+		</div>
+
+		<div class="chips">
+			<button class="chip" data-imp="all" aria-pressed="true">همه</button>
+			<button class="chip" data-imp="high" aria-pressed="false">🔴 خیلی مهم</button>
+			<button class="chip" data-imp="medium" aria-pressed="false">🟡 مهم به بالا</button>
+		</div>
+
+		<div id="list">
+			<div class="skel"></div>
+			<div class="skel"></div>
+			<div class="skel"></div>
+		</div>
+
+		<div id="alertsCard" class="alerts" hidden>
+			<h2>هشدار قبل از خبر</h2>
+			<p class="sub">قبل از انتشار خبرهای مهم، ربات بهت پیام می‌ده.</p>
+
+			<div class="row">
+				<div>
+					<div class="label">دریافت هشدار</div>
+					<div class="hint">فقط برای خبرهای دلار</div>
+				</div>
+				<button class="switch" id="swSubscribed" role="switch" aria-checked="false"
+					aria-label="دریافت هشدار"></button>
+			</div>
+
+			<div id="alertOptions">
+				<div class="row" style="display:block">
+					<div class="label">چند دقیقه قبل؟</div>
+					<div class="minutes" id="minutes">
+						<button data-m="5" aria-pressed="false">۵</button>
+						<button data-m="15" aria-pressed="true">۱۵</button>
+						<button data-m="30" aria-pressed="false">۳۰</button>
+						<button data-m="60" aria-pressed="false">۶۰</button>
+					</div>
+				</div>
+
+				<div class="row">
+					<div>
+						<div class="label">خبرهای کم‌اهمیت هم بیاد</div>
+						<div class="hint">پیش‌فرض: فقط مهم و خیلی مهم</div>
+					</div>
+					<button class="switch" id="swLow" role="switch" aria-checked="false"
+						aria-label="خبرهای کم‌اهمیت"></button>
+				</div>
+			</div>
+		</div>
+
+		<p class="footnote">
+			ساعت‌ها به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
+			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.
+		</p>
+	</div>
+
+	<script>
+		(function () {
+			"use strict";
+
+			var API = "https://96825.7host.cloud/webhook/econ/miniapp";
+			var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+			var state = {
+				scope: "today",
+				importance: "all",
+				data: null,
+				open: {},
+				saving: false
+			};
+
+			// ---------- Jalali ----------
+			function div(a, b) { return Math.floor(a / b); }
+
+			function toJalali(gy, gm, gd) {
+				var gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+				var jy = (gy <= 1600) ? 0 : 979;
+				gy -= (gy <= 1600) ? 621 : 1600;
+				var gy2 = (gm > 2) ? (gy + 1) : gy;
+				var days = (365 * gy) + div(gy2 + 3, 4) - div(gy2 + 99, 100) + div(gy2 + 399, 400) - 80 + gd + gdm[gm - 1];
+				jy += 33 * div(days, 12053);
+				days %= 12053;
+				jy += 4 * div(days, 1461);
+				days %= 1461;
+				if (days > 365) { jy += div(days - 1, 365); days = (days - 1) % 365; }
+				var jm, jd;
+				if (days < 186) { jm = 1 + div(days, 31); jd = 1 + (days % 31); }
+				else { jm = 7 + div(days - 186, 30); jd = 1 + ((days - 186) % 30); }
+				return [jy, jm, jd];
+			}
+
+			var MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+				"مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+			var WEEKDAYS = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنج‌شنبه", "جمعه", "شنبه"];
+
+			function fa(n) {
+				return String(n).replace(/[0-9]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+			}
+
+			function jalaliLabel(dateStr) {
+				var p = dateStr.split("-").map(Number);
+				var j = toJalali(p[0], p[1], p[2]);
+				var wd = WEEKDAYS[new Date(p[0], p[1] - 1, p[2]).getDay()];
+				return wd + " " + fa(j[2]) + " " + MONTHS[j[1] - 1];
+			}
+
+			function relDay(dateStr) {
+				var today = state.data ? state.data.today : new Date().toISOString().slice(0, 10);
+				var a = new Date(today + "T00:00:00");
+				var b = new Date(dateStr + "T00:00:00");
+				var diff = Math.round((b - a) / 86400000);
+				if (diff === 0) return "امروز";
+				if (diff === 1) return "فردا";
+				if (diff < 0) return "";
+				return fa(diff) + " روز دیگر";
+			}
+
+			// ---------- helpers ----------
+			function el(tag, cls, text) {
+				var n = document.createElement(tag);
+				if (cls) n.className = cls;
+				if (text !== undefined && text !== null) n.textContent = text;
+				return n;
+			}
+
+			function haptic(kind) {
+				try {
+					if (tg && tg.HapticFeedback) {
+						if (kind === "select") tg.HapticFeedback.selectionChanged();
+						else tg.HapticFeedback.impactOccurred("light");
+					}
+				} catch (e) { /* haptics are a nicety, never a failure */ }
+			}
+
+			function visibleEvents() {
+				if (!state.data) return [];
+				var today = state.data.today;
+				return state.data.events.filter(function (e) {
+					if (state.scope === "today" && e.date !== today) return false;
+					if (state.importance === "high" && e.importance !== "high") return false;
+					if (state.importance === "medium" && e.importance === "low") return false;
+					return true;
+				});
+			}
+
+			// ---------- rendering ----------
+			function renderHero() {
+				var d = state.data;
+				var todays = d.events.filter(function (e) { return e.date === d.today; });
+				var highs = todays.filter(function (e) { return e.importance === "high"; }).length;
+
+				var name = d.user && d.user.first_name ? d.user.first_name : "";
+				document.getElementById("heroSub").textContent =
+					(name ? name + " عزیز، " : "") + "امروز " + fa(todays.length) + " رویداد برای دلار ثبت شده.";
+
+				var pill = document.getElementById("riskPill");
+				var txt = document.getElementById("riskText");
+				var cls = "risk-pill ";
+				if (highs === 0) { cls += "risk-low"; txt.textContent = "نوسان کم"; }
+				else if (highs <= 2) { cls += "risk-medium"; txt.textContent = "نوسان متوسط"; }
+				else { cls += "risk-high"; txt.textContent = "نوسان بالا"; }
+				pill.className = cls;
+				pill.hidden = false;
+			}
+
+			var countdownTimer = null;
+
+			function renderNext() {
+				var card = document.getElementById("nextCard");
+				var now = Date.now();
+				var upcoming = state.data.events.filter(function (e) {
+					return e.at && new Date(e.at).getTime() > now && e.importance !== "low";
+				});
+				if (upcoming.length === 0) { card.hidden = true; return; }
+
+				var next = upcoming[0];
+				document.getElementById("nextName").textContent = next.title;
+				card.hidden = false;
+
+				function tick() {
+					var mins = Math.round((new Date(next.at).getTime() - Date.now()) / 60000);
+					if (mins <= 0) { load(); return; }
+					var v = document.getElementById("nextValue");
+					var u = document.getElementById("nextUnit");
+					if (mins < 60) {
+						v.textContent = fa(mins);
+						u.textContent = "دقیقه مانده";
+					} else if (mins < 1440) {
+						var h = Math.floor(mins / 60), m = mins % 60;
+						v.textContent = fa(h) + ":" + fa(m < 10 ? "0" + m : m);
+						u.textContent = "ساعت مانده";
+					} else {
+						v.textContent = fa(Math.round(mins / 1440));
+						u.textContent = "روز مانده";
+					}
+				}
+				tick();
+				if (countdownTimer) clearInterval(countdownTimer);
+				countdownTimer = setInterval(tick, 30000);
+			}
+
+			function eventNode(e) {
+				var node = el("button", "event");
+				node.type = "button";
+				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
+				if (state.open[e.event_id]) node.className += " is-open";
+
+				var time = el("div", "event-time");
+				var t = (e.time_tehran || "—").replace("+1", "");
+				time.appendChild(document.createTextNode(fa(t)));
+				if ((e.time_tehran || "").indexOf("+1") !== -1) {
+					time.appendChild(el("span", "plus", "فردا"));
+				}
+				node.appendChild(time);
+
+				var main = el("div");
+				var title = el("div", "event-title");
+				title.appendChild(el("span", "imp imp-" + (e.importance || "low")));
+				title.appendChild(el("span", null, e.title || e.short));
+				main.appendChild(title);
+
+				var meta = el("div", "event-meta");
+				if (e.forecast) {
+					var f = el("span", null, "پیش‌بینی ");
+					f.appendChild(el("b", null, fa(e.forecast)));
+					meta.appendChild(f);
+				}
+				if (e.actual) {
+					var a = el("span", null, "واقعی ");
+					a.appendChild(el("b", null, fa(e.actual)));
+					meta.appendChild(a);
+				} else if (e.status === "upcoming") {
+					meta.appendChild(el("span", null, "منتشر نشده"));
+				}
+				if (meta.childNodes.length) main.appendChild(meta);
+
+				if (e.read) {
+					var r = el("span", "read " + (e.read.good ? "read-good" : "read-bad"));
+					r.textContent = (e.read.higher ? "▲ " : "▼ ") +
+						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار");
+					main.appendChild(r);
+				}
+				node.appendChild(main);
+
+				var detail = el("div", "event-detail");
+				if (e.previous) detail.appendChild(el("div", null, "قبلی: " + fa(e.previous)));
+				detail.appendChild(el("div", null, "اهمیت: " +
+					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
+				if (e.short && e.short !== e.title) detail.appendChild(el("div", null, "نام اصلی: " + e.short));
+				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
+				node.appendChild(detail);
+
+				node.addEventListener("click", function () {
+					state.open[e.event_id] = !state.open[e.event_id];
+					node.classList.toggle("is-open");
+					haptic("select");
+				});
+				return node;
+			}
+
+			function renderList() {
+				var list = document.getElementById("list");
+				list.textContent = "";
+
+				var events = visibleEvents();
+				if (events.length === 0) {
+					var empty = el("div", "empty");
+					empty.appendChild(el("span", "big", "🗓"));
+					empty.appendChild(document.createTextNode(
+						state.scope === "today"
+							? "امروز رویدادی با این فیلتر ثبت نشده."
+							: "در این هفته رویدادی با این فیلتر ثبت نشده."
+					));
+					list.appendChild(empty);
+					return;
+				}
+
+				var lastDate = null;
+				events.forEach(function (e) {
+					if (e.date !== lastDate) {
+						lastDate = e.date;
+						var head = el("div", "day-head");
+						head.appendChild(el("span", "date", jalaliLabel(e.date)));
+						var rel = relDay(e.date);
+						if (rel) head.appendChild(el("span", "rel", rel));
+						list.appendChild(head);
+
+						(state.data.holidays || []).forEach(function (h) {
+							if (h.date === e.date) {
+								list.appendChild(el("div", "holiday", "🏦 تعطیلی بانکی آمریکا — " + h.name));
+							}
+						});
+					}
+					list.appendChild(eventNode(e));
+				});
+			}
+
+			function renderAlerts() {
+				var s = state.data.subscription;
+				var card = document.getElementById("alertsCard");
+				card.hidden = false;
+
+				document.getElementById("swSubscribed").setAttribute("aria-checked", s.subscribed ? "true" : "false");
+				document.getElementById("swLow").setAttribute("aria-checked", s.show_low_importance ? "true" : "false");
+
+				var btns = document.querySelectorAll("#minutes button");
+				for (var i = 0; i < btns.length; i++) {
+					btns[i].setAttribute("aria-pressed",
+						Number(btns[i].getAttribute("data-m")) === Number(s.alert_minutes) ? "true" : "false");
+				}
+				document.getElementById("alertOptions").className = s.subscribed ? "" : "alerts-disabled";
+			}
+
+			function render() {
+				renderHero();
+				renderNext();
+				renderList();
+				renderAlerts();
+			}
+
+			// ---------- network ----------
+			function call(payload) {
+				payload.initData = tg ? tg.initData : "";
+				return fetch(API, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload)
+				}).then(function (res) {
+					return res.json().catch(function () { return {}; }).then(function (body) {
+						if (!res.ok || body.success === false) {
+							var err = new Error(body.error || ("خطای سرور (" + res.status + ")"));
+							err.status = res.status;
+							throw err;
+						}
+						return body;
+					});
+				});
+			}
+
+			function showError(message, retryable) {
+				var list = document.getElementById("list");
+				list.textContent = "";
+				var box = el("div", "error", message);
+				if (retryable) {
+					var btn = el("button", null, "تلاش دوباره");
+					btn.addEventListener("click", load);
+					box.appendChild(btn);
+				}
+				list.appendChild(box);
+				document.getElementById("heroSub").textContent = "—";
+			}
+
+			function load() {
+				call({ action: "data" })
+					.then(function (body) {
+						state.data = body;
+						render();
+					})
+					.catch(function (err) {
+						if (err.status === 401) {
+							showError("تلگرام نتونست هویتت رو تأیید کنه. برنامه رو ببند و دوباره از دکمه‌ی داخل ربات بازش کن.", false);
+						} else {
+							showError("دریافت اطلاعات ناموفق بود.", true);
+						}
+					});
+			}
+
+			function saveSubscription() {
+				if (state.saving) return;
+				state.saving = true;
+				var s = state.data.subscription;
+				call({
+					action: "subscribe",
+					subscribed: s.subscribed,
+					alert_minutes: s.alert_minutes,
+					show_low_importance: s.show_low_importance
+				})
+					.catch(function () {
+						// Put the switches back rather than leaving the UI claiming
+						// something the server never stored.
+						s.subscribed = !s.subscribed;
+						renderAlerts();
+						if (tg && tg.showAlert) tg.showAlert("ذخیره تنظیمات هشدار ناموفق بود.");
+					})
+					.finally(function () { state.saving = false; });
+			}
+
+			// ---------- wiring ----------
+			document.getElementById("tabToday").addEventListener("click", function () {
+				state.scope = "today";
+				this.setAttribute("aria-selected", "true");
+				document.getElementById("tabWeek").setAttribute("aria-selected", "false");
+				haptic("select");
+				renderList();
+			});
+
+			document.getElementById("tabWeek").addEventListener("click", function () {
+				state.scope = "week";
+				this.setAttribute("aria-selected", "true");
+				document.getElementById("tabToday").setAttribute("aria-selected", "false");
+				haptic("select");
+				renderList();
+			});
+
+			var chips = document.querySelectorAll(".chip");
+			for (var i = 0; i < chips.length; i++) {
+				chips[i].addEventListener("click", function () {
+					state.importance = this.getAttribute("data-imp");
+					for (var j = 0; j < chips.length; j++) {
+						chips[j].setAttribute("aria-pressed", chips[j] === this ? "true" : "false");
+					}
+					haptic("select");
+					renderList();
+				});
+			}
+
+			document.getElementById("swSubscribed").addEventListener("click", function () {
+				if (!state.data) return;
+				state.data.subscription.subscribed = !state.data.subscription.subscribed;
+				haptic();
+				renderAlerts();
+				saveSubscription();
+			});
+
+			document.getElementById("swLow").addEventListener("click", function () {
+				if (!state.data) return;
+				state.data.subscription.show_low_importance = !state.data.subscription.show_low_importance;
+				haptic();
+				renderAlerts();
+				saveSubscription();
+			});
+
+			var mBtns = document.querySelectorAll("#minutes button");
+			for (var k = 0; k < mBtns.length; k++) {
+				mBtns[k].addEventListener("click", function () {
+					if (!state.data) return;
+					state.data.subscription.alert_minutes = Number(this.getAttribute("data-m"));
+					haptic("select");
+					renderAlerts();
+					saveSubscription();
+				});
+			}
+
+			// ---------- boot ----------
+			if (tg) {
+				tg.ready();
+				tg.expand();
+				if (tg.setHeaderColor) {
+					try { tg.setHeaderColor("secondary_bg_color"); } catch (e) { /* older clients */ }
+				}
+			}
+
+			if (!tg || !tg.initData) {
+				// Opened outside Telegram: there is no identity to verify, so say
+				// so plainly instead of failing with a signature error.
+				showError("این صفحه باید از داخل ربات تلگرام باز بشه.", false);
+				document.getElementById("riskPill").hidden = true;
+			} else {
+				load();
+			}
+		})();
+	</script>
+</body>
+
+</html>
