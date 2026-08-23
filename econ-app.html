@@ -1218,6 +1218,76 @@
 		.imp-medium { background: var(--medium); }
 		.imp-low { background: var(--low); }
 
+		/* The English release name inside an RTL row: isolated so the bidi
+		   algorithm cannot interleave it with the Persian around it. */
+		.event-title-en {
+			direction: ltr;
+			unicode-bidi: isolate;
+			text-align: right;
+			letter-spacing: .01em;
+			min-width: 0;
+			overflow-wrap: anywhere;
+		}
+
+		/* قبلی · پیش‌بینی · واقعی. Three equal cells so the eye learns one
+		   fixed geography and reads only the digits. */
+		.vals {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 6px;
+			margin-top: 7px;
+		}
+
+		.val {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 1px;
+			padding: 4px 4px 5px;
+			border-radius: 8px;
+			background: color-mix(in srgb, var(--muted) 9%, transparent);
+		}
+
+		.val small {
+			font-size: 0.58rem;
+			font-weight: 600;
+			letter-spacing: .04em;
+			color: var(--muted);
+		}
+
+		.val b {
+			font-size: 0.8rem;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			direction: ltr;
+			unicode-bidi: isolate;
+		}
+
+		.val.is-wait b { color: var(--muted); font-weight: 500; }
+
+		/* The actual cell carries the verdict: green when the surprise is
+		   dollar-positive, red when negative, neutral when the label has no
+		   direction to judge by. */
+		.val-actual.is-good {
+			background: color-mix(in srgb, var(--up) 16%, transparent);
+		}
+		.val-actual.is-good b { color: var(--up); }
+
+		.val-actual.is-bad {
+			background: color-mix(in srgb, var(--down) 14%, transparent);
+		}
+		.val-actual.is-bad b { color: var(--down); }
+
+		.val-actual.is-out {
+			background: color-mix(in srgb, var(--accent) 12%, transparent);
+		}
+
+		.event-fa {
+			font-size: 0.86rem;
+			font-weight: 700;
+			color: var(--text);
+		}
+
 		.event-meta {
 			display: flex;
 			flex-wrap: wrap;
@@ -1687,7 +1757,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۱۷</span>
+			<span class="build">نسخه ۱۸</span>
 		</p>
 	</div>
 
@@ -1848,7 +1918,8 @@
 				var q = normalize(state.query);
 				if (!q) return true;
 				return normalize(e.title).indexOf(q) !== -1 ||
-					normalize(e.short).indexOf(q) !== -1;
+					normalize(e.short).indexOf(q) !== -1 ||
+					normalize(e.en).indexOf(q) !== -1;
 			}
 
 			function visibleEvents() {
@@ -1896,7 +1967,7 @@
 					// the screen looking like it failed to load.
 					var next = d.events.length > 0 ? d.events[0] : null;
 					sub = "امروز خبری برای دلار نیست";
-					if (next) sub += " — بعدی " + relDay(next.date) + "، " + next.title;
+					if (next) sub += " — بعدی " + relDay(next.date) + "، " + (next.en || next.title);
 				} else {
 					sub = (name ? name + " عزیز، " : "") + "امروز " + fa(todays.length) + " رویداد برای دلار ثبت شده.";
 				}
@@ -1958,7 +2029,7 @@
 				if (upcoming.length === 0) { card.hidden = true; return; }
 
 				var next = upcoming[0];
-				document.getElementById("nextName").textContent = next.title;
+				document.getElementById("nextName").textContent = next.en || next.title;
 				card.hidden = false;
 
 				function tick() {
@@ -2039,39 +2110,50 @@
 				var main = el("div");
 				var title = el("div", "event-title");
 				title.appendChild(el("span", "imp imp-" + (e.importance || "low")));
-				title.appendChild(el("span", null, e.title || e.short));
+				// The release's own English name, so every row is uniform; the
+				// Persian translation waits inside the expanded detail.
+				title.appendChild(el("span", "event-title-en", e.en || e.title || e.short));
 				main.appendChild(title);
 
-				var meta = el("div", "event-meta");
-				if (e.forecast) {
-					var f = el("span", null, "پیش‌بینی ");
-					f.appendChild(el("b", null, fa(e.forecast)));
-					meta.appendChild(f);
-				}
-				if (e.actual) {
-					var a = el("span", null, "واقعی ");
-					a.appendChild(el("b", null, fa(e.actual)));
-					meta.appendChild(a);
-				} else if (e.status === "upcoming") {
-					meta.appendChild(el("span", null, "منتشر نشده"));
-				}
-				if (meta.childNodes.length) main.appendChild(meta);
-
-				if (e.read) {
-					var r = el("span", "read " + (e.read.good ? "read-good" : "read-bad"));
-					r.textContent = (e.read.higher ? "▲ " : "▼ ") +
-						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار");
-					main.appendChild(r);
+				// قبلی · پیش‌بینی · واقعی as one strip on the card itself. The
+				// actual cell exists even before the release - an empty waiting
+				// cell says "not out yet" louder than absence would.
+				if (e.previous || e.forecast || e.actual) {
+					var vals = el("div", "vals");
+					var cell = function (label, value, cls) {
+						var c = el("span", "val" + (cls ? " " + cls : ""));
+						c.appendChild(el("small", null, label));
+						c.appendChild(el("b", null, value));
+						return c;
+					};
+					vals.appendChild(cell("قبلی", e.previous ? fa(e.previous) : "—", e.previous ? "" : "is-wait"));
+					vals.appendChild(cell("پیش‌بینی", e.forecast ? fa(e.forecast) : "—", e.forecast ? "" : "is-wait"));
+					if (e.actual) {
+						var tone = e.read ? (e.read.good ? "is-good" : "is-bad") : "is-out";
+						var arrow = e.read ? (e.read.higher ? "▲ " : "▼ ") : "";
+						vals.appendChild(cell("واقعی", arrow + fa(e.actual), "val-actual " + tone));
+					} else {
+						vals.appendChild(cell("واقعی", "—", "val-actual is-wait"));
+					}
+					main.appendChild(vals);
 				}
 				node.appendChild(main);
 
 				var detail = el("div", "event-detail");
+				// The Persian translation leads the detail; when no label row
+				// matched, title equals the English name and the line is noise.
+				if (e.title && e.title !== (e.en || "")) {
+					detail.appendChild(el("div", "event-fa", e.title));
+				}
 				var chart = historyChart(e);
 				if (chart) detail.appendChild(chart);
-				if (e.previous) detail.appendChild(el("div", null, "قبلی: " + fa(e.previous)));
+				if (e.read) {
+					detail.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
+						(e.read.higher ? "▲ بالاتر از پیش‌بینی — " : "▼ پایین‌تر از پیش‌بینی — ") +
+						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار")));
+				}
 				detail.appendChild(el("div", null, "اهمیت: " +
 					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
-				if (e.short && e.short !== e.title) detail.appendChild(el("div", null, "نام اصلی: " + e.short));
 				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
 				node.appendChild(detail);
 
