@@ -1,0 +1,36 @@
+# Reads released actual values from the ForexFactory calendar page with a
+# real browser (the site's Cloudflare challenge blocks plain HTTP clients)
+# and posts them to the calendar's ingest webhook. Read-only, two pages per
+# run, twice an hour during US release hours only.
+name: FF Actuals Reader
+
+on:
+  schedule:
+    # 12:05–22:35 UTC covers 8:05–18:35 New York in winter and one hour
+    # earlier in summer — the window where US releases actually land.
+    - cron: '5,35 12-22 * * 1-5'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ff-actuals
+  cancel-in-progress: false
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Read and post actuals
+        env:
+          FF_SYNC_KEY: ${{ secrets.FF_SYNC_KEY }}
+        run: node scripts/ff-actuals.mjs
