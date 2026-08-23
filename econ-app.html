@@ -637,16 +637,59 @@
 			overflow: hidden;
 		}
 
+		/* --d1..--d3 are the three density bands the bar is painted with: one
+		   market open, two, three or more. They are declared per state so a
+		   live bar shades in green and an idle one in grey, while the gradient
+		   itself is built in script from the real per-minute counts. */
 		.mk-m-seg {
 			position: absolute;
 			top: 0;
 			bottom: 0;
 			border-radius: 6px;
-			background: color-mix(in srgb, var(--muted) 34%, transparent);
+			--d1: color-mix(in srgb, var(--muted) 26%, transparent);
+			--d2: color-mix(in srgb, var(--muted) 42%, transparent);
+			--d3: color-mix(in srgb, var(--muted) 60%, transparent);
+			background: var(--d1);
 		}
 
-		.mk-m.is-live .mk-m-seg { background: color-mix(in srgb, var(--up) 28%, transparent); }
-		.mk-m.is-paused .mk-m-seg { background: color-mix(in srgb, var(--medium) 26%, transparent); }
+		.mk-m.is-live .mk-m-seg {
+			--d1: color-mix(in srgb, var(--up) 22%, transparent);
+			--d2: color-mix(in srgb, var(--up) 38%, transparent);
+			--d3: color-mix(in srgb, var(--up) 56%, transparent);
+			background: var(--d1);
+		}
+
+		.mk-m.is-paused .mk-m-seg {
+			--d1: color-mix(in srgb, var(--medium) 22%, transparent);
+			--d2: color-mix(in srgb, var(--medium) 38%, transparent);
+			--d3: color-mix(in srgb, var(--medium) 56%, transparent);
+			background: var(--d1);
+		}
+
+		/* Explains the shading without a separate chart: three chips of the
+		   same three bands the bars use. */
+		.mk-legend {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-wrap: wrap;
+			gap: 6px 14px;
+			margin: -6px 2px 14px;
+			font-size: 0.66rem;
+			color: var(--muted);
+		}
+
+		.mk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+		.mk-legend i {
+			width: 16px;
+			height: 8px;
+			border-radius: 3px;
+			background: color-mix(in srgb, var(--muted) 26%, transparent);
+		}
+
+		.mk-legend i.l2 { background: color-mix(in srgb, var(--muted) 42%, transparent); }
+		.mk-legend i.l3 { background: color-mix(in srgb, var(--muted) 60%, transparent); }
 
 		/* The daily rollover hour, hatched so it reads as "not trading" rather
 		   than as another session. Drawn over the segments beneath it. */
@@ -1468,7 +1511,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۱۲</span>
+			<span class="build">نسخه ۱۳</span>
 		</p>
 	</div>
 
@@ -2185,6 +2228,27 @@
 				return t[0] * 60 + t[1];
 			}
 
+			// A hard-stop gradient across one drawn span, one band per run of
+			// equal concurrency. Hard stops rather than blends: the number of
+			// open markets changes at an instant, and a smooth ramp would imply
+			// a gradual change that does not happen.
+			//
+			// Inside a span the minutes increase leftwards - the span is pinned
+			// by its right edge under RTL - so the gradient runs "to left".
+			function densityGradient(a, b, busy) {
+				var level = function (m) { return Math.min(3, Math.max(1, busy[m] || 1)); };
+				var stops = [];
+				var runStart = a;
+				for (var m = a + 1; m <= b; m++) {
+					if (m === b || level(m) !== level(runStart)) {
+						var c = "var(--d" + level(runStart) + ")";
+						stops.push(c + " " + ((runStart - a) / (b - a) * 100) + "% " + ((m - a) / (b - a) * 100) + "%");
+						runStart = m;
+					}
+				}
+				return stops.length ? "linear-gradient(to left, " + stops.join(", ") + ")" : "";
+			}
+
 			function spansOf(openM, closeM) {
 				// A session running past Tehran midnight is drawn as two segments
 				// rather than one bar wrapping off the edge of the track.
@@ -2256,11 +2320,29 @@
 				hero.appendChild(clock);
 				container.appendChild(enter(hero));
 
+				// ---- how many markets are open at each minute of the day
+				// Shaded onto the bars, so the busiest hours are visibly denser:
+				// the London bar darkens exactly where New York joins it. The
+				// count is taken over the same spans that get drawn, so the
+				// shading can never disagree with the bars it sits on.
+				var refs = {};
+				var busy = [];
+				for (var bi = 0; bi < 1440; bi++) busy.push(0);
+				SESSIONS.forEach(function (s) {
+					var st = sessionState(s, now);
+					var r = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
+					refs[s.key] = { st: st, ref: r };
+					if (!r.open) return;
+					spansOf(tehranMinutesOf(r.open), tehranMinutesOf(r.close)).forEach(function (sp) {
+						for (var m = sp[0]; m < sp[1] && m < 1440; m++) busy[m]++;
+					});
+				});
+
 				// ---- one self-contained row per market
 				var board = el("div", "mk-board");
 				SESSIONS.forEach(function (s) {
-					var st = sessionState(s, now);
-					var ref = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
+					var st = refs[s.key].st;
+					var ref = refs[s.key].ref;
 					// A session whose hours cover the rollover is not trading
 					// during it, so it must not be painted as live either.
 					var paused = st.open && market.onBreak;
@@ -2297,6 +2379,8 @@
 							var seg = el("div", "mk-m-seg");
 							seg.style.right = (sp[0] / 1440 * 100) + "%";
 							seg.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
+							var grad = densityGradient(sp[0], sp[1], busy);
+							if (grad) seg.style.backgroundImage = grad;
 							// While a session is running, fill the part already
 							// elapsed so the bar doubles as a progress meter.
 							if (live && nowM >= sp[0] && nowM <= sp[1]) {
@@ -2358,6 +2442,15 @@
 					axis.appendChild(lab);
 				});
 				container.appendChild(axis);
+
+				var legend = el("div", "mk-legend");
+				[["", "یک بازار باز"], ["l2", "دو بازار"], ["l3", "سه بازار یا بیشتر"]].forEach(function (l) {
+					var item = el("span");
+					item.appendChild(el("i", l[0] || null));
+					item.appendChild(el("span", null, l[1]));
+					legend.appendChild(item);
+				});
+				container.appendChild(legend);
 
 				// ---- the overlap is the point of the whole screen
 				var london = sessionByKey("london"), ny = sessionByKey("newyork");
