@@ -11,24 +11,93 @@
 	<link rel="stylesheet"
 		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap">
 	<style>
-		/* Colors come from Telegram so the app matches whatever theme the user
-		   is running. The fallbacks are a light theme, for the case where the
-		   page is opened outside Telegram or a param is missing. */
-		:root {
-			--bg: var(--tg-theme-bg-color, #ffffff);
-			--card: var(--tg-theme-secondary-bg-color, #f4f4f7);
-			--text: var(--tg-theme-text-color, #1c1c1e);
-			--muted: var(--tg-theme-hint-color, #8a8a8f);
-			--link: var(--tg-theme-link-color, #2f6fd0);
-			--accent: var(--tg-theme-button-color, #2f6fd0);
-			--accent-text: var(--tg-theme-button-text-color, #ffffff);
-			--line: color-mix(in srgb, var(--muted) 22%, transparent);
+		/* The academy's own palette, taken from the logo: navy #29386c and gold
+		   #d2ae6d, the same two tokens the CRM uses. The app deliberately no
+		   longer borrows Telegram's theme colours — it only follows Telegram's
+		   light/dark choice, which the boot code stamps onto the root element
+		   as data-theme. Without that stamp the OS preference decides.
 
-			--high: #e0464b;
-			--medium: #e0952b;
-			--low: #9a9aa2;
-			--up: #2e9e6d;
-			--down: #e0464b;
+		   Every neutral here is biased toward the navy rather than being a
+		   pure grey, so the greys belong to the same family as the brand. */
+		:root {
+			--navy: #29386c;
+			--navy-dark: #1c2850;
+			--gold: #d2ae6d;
+			--gold-dark: #b8934f;
+
+			--bg: #f2f4f9;
+			--card: #ffffff;
+			--card-2: #f7f8fc;
+			--text: #1b2444;
+			--muted: #737ea3;
+			--line: color-mix(in srgb, var(--navy) 13%, transparent);
+			--link: var(--navy);
+			--accent: var(--navy);
+			--accent-text: #ffffff;
+
+			/* Two shadows, not one: a tight contact shadow plus a wide soft
+			   one. A single blurred shadow reads as fog; the pair reads as a
+			   card sitting above the page. */
+			--shadow: 0 1px 2px color-mix(in srgb, var(--navy) 8%, transparent),
+			          0 8px 24px -12px color-mix(in srgb, var(--navy) 30%, transparent);
+			--hairline: inset 0 1px 0 rgba(255, 255, 255, .6);
+
+			--high: #c8323c;
+			--medium: #c8892b;
+			--low: #99a0b8;
+			--up: #1f8f63;
+			--down: #c8323c;
+		}
+
+		/* Dark: the ground goes to a deep navy rather than neutral black, and
+		   gold takes over as the accent — navy on navy would disappear. */
+		:root[data-theme="dark"] {
+			--bg: #0d1226;
+			--card: #171f3a;
+			--card-2: #1e2748;
+			--text: #e9edf8;
+			--muted: #8d97b8;
+			--line: color-mix(in srgb, var(--gold) 15%, transparent);
+			--link: var(--gold);
+			--accent: var(--gold);
+			--accent-text: #1b2444;
+
+			--shadow: 0 1px 2px rgba(0, 0, 0, .45),
+			          0 10px 28px -14px rgba(0, 0, 0, .8);
+			--hairline: inset 0 1px 0 rgba(255, 255, 255, .05);
+
+			--high: #ef5b62;
+			--medium: #e8a545;
+			--low: #7d859f;
+			--up: #35c48b;
+			--down: #ef5b62;
+		}
+
+		/* Same values again for viewers whose Telegram never reported a scheme
+		   and whose OS is dark. Kept as a copy rather than a shared selector so
+		   an explicit light stamp always wins over a dark OS. */
+		@media (prefers-color-scheme: dark) {
+			:root:not([data-theme="light"]) {
+				--bg: #0d1226;
+				--card: #171f3a;
+				--card-2: #1e2748;
+				--text: #e9edf8;
+				--muted: #8d97b8;
+				--line: color-mix(in srgb, var(--gold) 15%, transparent);
+				--link: var(--gold);
+				--accent: var(--gold);
+				--accent-text: #1b2444;
+
+				--shadow: 0 1px 2px rgba(0, 0, 0, .45),
+				          0 10px 28px -14px rgba(0, 0, 0, .8);
+				--hairline: inset 0 1px 0 rgba(255, 255, 255, .05);
+
+				--high: #ef5b62;
+				--medium: #e8a545;
+				--low: #7d859f;
+				--up: #35c48b;
+				--down: #ef5b62;
+			}
 		}
 
 		* { box-sizing: border-box; }
@@ -59,10 +128,30 @@
 			margin-bottom: 14px;
 		}
 
+		.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+		.brand-text { min-width: 0; }
+
+		/* The mark is navy on transparent, so it always needs a light plate
+		   behind it - on the dark ground it would otherwise vanish. */
+		.brand-mark {
+			flex: none;
+			width: 38px;
+			height: 38px;
+			border-radius: 12px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: linear-gradient(150deg, #ffffff, #eef1f8);
+			box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent);
+		}
+
+		.brand-mark img { display: block; }
+
 		.hero h1 {
 			font-size: 1.15rem;
 			font-weight: 700;
 			margin: 0 0 2px;
+			letter-spacing: -.01em;
 		}
 
 		.hero p {
@@ -1169,9 +1258,14 @@
 <body>
 	<div class="wrap">
 		<div class="hero">
-			<div>
-				<h1>تقویم اقتصادی دلار</h1>
-				<p id="heroSub">در حال بارگذاری…</p>
+			<div class="brand">
+				<span class="brand-mark">
+					<img src="assets/img/logo-mark.png" alt="" aria-hidden="true" width="26" height="26">
+				</span>
+				<div class="brand-text">
+					<h1>تقویم اقتصادی دلار</h1>
+					<p id="heroSub">در حال بارگذاری…</p>
+				</div>
 			</div>
 			<div class="hero-actions">
 				<span id="riskPill" class="risk-pill" hidden><span class="dot"></span><span id="riskText"></span></span>
@@ -1268,7 +1362,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۸</span>
+			<span class="build">نسخه ۹</span>
 		</p>
 	</div>
 
@@ -1278,6 +1372,20 @@
 
 			var API = "https://96825.7host.cloud/webhook/econ/miniapp";
 			var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+
+			// The palette is the academy's, not Telegram's; the only thing taken
+			// from the client is whether the user is in light or dark mode. With
+			// no stamp the stylesheet falls back to the OS preference.
+			function applyScheme() {
+				if (!tg || !tg.colorScheme) return;
+				document.documentElement.setAttribute("data-theme", tg.colorScheme === "dark" ? "dark" : "light");
+				// Match the Telegram title bar to our own ground so the app does
+				// not sit in a differently coloured frame.
+				if (tg.setHeaderColor) {
+					var style = getComputedStyle(document.documentElement);
+					try { tg.setHeaderColor(style.getPropertyValue("--bg").trim()); } catch (e) { /* older clients accept named values only */ }
+				}
+			}
 
 			var state = {
 				scope: "today",
@@ -2578,8 +2686,10 @@
 			if (tg) {
 				tg.ready();
 				tg.expand();
-				if (tg.setHeaderColor) {
-					try { tg.setHeaderColor("secondary_bg_color"); } catch (e) { /* older clients */ }
+				applyScheme();
+				// A user can flip Telegram's theme while the app is open.
+				if (tg.onEvent) {
+					try { tg.onEvent("themeChanged", applyScheme); } catch (e) { /* older clients */ }
 				}
 			}
 
