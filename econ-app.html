@@ -1687,7 +1687,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۱۶</span>
+			<span class="build">نسخه ۱۷</span>
 		</p>
 	</div>
 
@@ -2217,7 +2217,13 @@
 				var t = now.getTime();
 				// Looked up by key, not index: the list is edited from time to
 				// time and a shifted index would silently redefine the week.
-				var mondayOpens = occurrences(sessionByKey("sydney"), now, -9, 9).filter(function (o) { return o.dow === 1; });
+				// The week does not begin with the Sydney bell: the first hour
+				// of Monday's server day is the daily settlement window, so the
+				// broker starts quoting when that window ends - 01:30 Tehran -
+				// even though Sydney itself rings in earlier.
+				var mondayOpens = occurrences(sessionByKey("sydney"), now, -9, 9)
+					.filter(function (o) { return o.dow === 1; })
+					.map(function (o) { return { open: Math.max(o.open, breakEndAfter(o.open - 1)), dow: o.dow }; });
 				var fridayCloses = occurrences(sessionByKey("newyork"), now, -9, 9).filter(function (o) { return o.dow === 5; });
 
 				var lastOpen = null;
@@ -2549,8 +2555,8 @@
 					var on = false, pausedCity = false;
 					if (c.keys) {
 						var anyOpen = c.keys.some(function (k) { return refs[k].st.open; });
-						on = anyOpen && !market.onBreak;
-						pausedCity = anyOpen && market.onBreak;
+						on = anyOpen && market.open;
+						pausedCity = anyOpen && !market.open;
 					}
 					var m = el("span", "mk-city" + (c.home ? " is-home" : "") + (on ? " is-on" : "") + (pausedCity ? " is-paused" : ""));
 					m.appendChild(el("span", "mk-city-dot"));
@@ -2604,10 +2610,11 @@
 				SESSIONS.forEach(function (s) {
 					var st = refs[s.key].st;
 					var ref = refs[s.key].ref;
-					// A session whose hours cover the rollover is not trading
-					// during it, so it must not be painted as live either.
-					var paused = st.open && market.onBreak;
-					var live = st.open && !paused;
+					// A session inside its own hours while the broker is not
+					// trading is paused - the nightly settlement, or the hour
+					// between the Sydney bell and the Monday week open.
+					var paused = st.open && !market.open;
+					var live = st.open && market.open;
 					var row = el("div", "mk-m" + (live ? " is-live" : "") + (paused ? " is-paused" : ""));
 
 					var head = el("div", "mk-m-head");
@@ -2684,7 +2691,7 @@
 						foot.appendChild(t2);
 
 						var cd = el("span", "mk-m-cd");
-						var target = paused ? market.resumesAt : (live ? ref.close : ref.open);
+						var target = paused ? (market.resumesAt || market.nextOpen) : (live ? ref.close : ref.open);
 						var cdNum = el("b", "mk-m-cdn", countdownText(target, now.getTime()));
 						cd.appendChild(cdNum);
 						cd.appendChild(el("span", null, paused ? " تا از سرگیری" : (live ? " تا بسته شدن" : " تا باز شدن")));
@@ -2753,7 +2760,7 @@
 				container.appendChild(enter(picker));
 
 				container.appendChild(el("p", "footnote",
-					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از دوشنبه با باز شدن سیدنی تا جمعه با بسته شدن نیویورک فعال است. "
+					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از بامداد دوشنبه پس از پایان تسویه (۰۱:۳۰ به وقت ایران) تا جمعه با بسته شدن نیویورک فعال است. "
 					+ "هر شب هم از " + fa(hhmmInZone(nextBreak, TEHRAN)) + " تا " + fa(hhmmInZone(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, TEHRAN))
 					+ " به وقت ایران، بازار برای تسویه‌ی روزانه یک ساعت بسته است (نوار تیره روی نمودارها)."));
 
