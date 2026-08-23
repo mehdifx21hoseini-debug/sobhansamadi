@@ -363,6 +363,33 @@
 			color: var(--muted);
 		}
 
+		/* The release minute: the countdown gives way to a pulsing live
+		   state until the actual value arrives. */
+		.next-card.is-releasing .countdown .value {
+			font-size: 0.9rem;
+			color: var(--high);
+			animation: release-pulse 1.3s ease-in-out infinite;
+		}
+
+		.next-card.is-releasing .countdown .value::before {
+			content: "";
+			display: inline-block;
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: var(--high);
+			margin-inline-end: 6px;
+			vertical-align: 1px;
+		}
+
+		@keyframes release-pulse {
+			50% { opacity: .45; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.next-card.is-releasing .countdown .value { animation: none; }
+		}
+
 		/* ---------- controls ---------- */
 		.seg {
 			display: flex;
@@ -1790,7 +1817,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۱۹</span>
+			<span class="build">نسخه ۲۰</span>
 		</p>
 	</div>
 
@@ -2052,39 +2079,67 @@
 			}
 
 			var countdownTimer = null;
+			// After the release minute the card holds a live «در حال انتشار»
+			// state for up to this long, refreshing the data once a minute
+			// until the actual lands and the card moves to the next event.
+			var RELEASE_HOLD_MS = 15 * 60000;
+			var releaseReloadAt = 0;
 
 			function renderNext() {
 				var card = document.getElementById("nextCard");
 				var now = Date.now();
+				// An event stays "next" through its own release window (until
+				// the actual arrives) so the card can show it going out.
 				var upcoming = state.data.events.filter(function (e) {
-					return e.at && new Date(e.at).getTime() > now && e.importance !== "low";
+					if (!e.at || e.importance === "low") return false;
+					var t = new Date(e.at).getTime();
+					return t > now || (!e.actual && t > now - RELEASE_HOLD_MS);
 				});
-				if (upcoming.length === 0) { card.hidden = true; return; }
+				if (upcoming.length === 0) { card.hidden = true; card.classList.remove("is-releasing"); return; }
 
 				var next = upcoming[0];
 				document.getElementById("nextName").textContent = next.en || next.title;
 				card.hidden = false;
 
 				function tick() {
-					var mins = Math.round((new Date(next.at).getTime() - Date.now()) / 60000);
-					if (mins <= 0) { load(); return; }
 					var v = document.getElementById("nextValue");
 					var u = document.getElementById("nextUnit");
-					if (mins < 60) {
-						v.textContent = fa(mins);
+					var secs = Math.floor((new Date(next.at).getTime() - Date.now()) / 1000);
+					if (secs <= 0) {
+						if (secs < -RELEASE_HOLD_MS / 1000) {
+							// The hold expired without an actual: give up on this
+							// event and let the filter pick the next one.
+							card.classList.remove("is-releasing");
+							renderNext();
+							return;
+						}
+						card.classList.add("is-releasing");
+						v.textContent = "در حال انتشار";
+						u.textContent = "منتظر عدد واقعی…";
+						if (Date.now() - releaseReloadAt > 60000) {
+							releaseReloadAt = Date.now();
+							load();
+						}
+						return;
+					}
+					card.classList.remove("is-releasing");
+					if (secs < 3600) {
+						// The last hour counts down live, to the second.
+						var s = secs % 60;
+						v.textContent = fa(Math.floor(secs / 60)) + ":" + fa(s < 10 ? "0" + s : s);
 						u.textContent = "دقیقه مانده";
-					} else if (mins < 1440) {
-						var h = Math.floor(mins / 60), m = mins % 60;
+					} else if (secs < 86400) {
+						var h = Math.floor(secs / 3600), m = Math.floor(secs / 60) % 60;
 						v.textContent = fa(h) + ":" + fa(m < 10 ? "0" + m : m);
 						u.textContent = "ساعت مانده";
 					} else {
-						v.textContent = fa(Math.round(mins / 1440));
+						v.textContent = fa(Math.round(secs / 86400));
 						u.textContent = "روز مانده";
 					}
 				}
 				tick();
 				if (countdownTimer) clearInterval(countdownTimer);
-				countdownTimer = setInterval(tick, 30000);
+				countdownTimer = setInterval(tick, 1000);
 			}
 
 			// Past releases as a small bar chart: how this indicator has actually
