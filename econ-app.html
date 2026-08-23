@@ -194,6 +194,57 @@
 			box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
 		}
 
+		/* ---------- search ---------- */
+		.search-row {
+			position: relative;
+			margin-bottom: 10px;
+		}
+
+		.search-input {
+			width: 100%;
+			border: 1px solid var(--line);
+			border-radius: 11px;
+			background: var(--card);
+			color: var(--text);
+			font-family: inherit;
+			font-size: 0.86rem;
+			padding: 10px 14px 10px 34px;
+			-webkit-appearance: none;
+			appearance: none;
+		}
+
+		.search-input::-webkit-search-cancel-button { display: none; }
+
+		.search-input::placeholder { color: var(--muted); }
+
+		.search-input:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
+
+		.search-clear {
+			position: absolute;
+			top: 50%;
+			left: 8px;
+			transform: translateY(-50%);
+			width: 24px;
+			height: 24px;
+			border: 0;
+			border-radius: 50%;
+			background: transparent;
+			color: var(--muted);
+			font-size: 1.15rem;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0;
+		}
+
+		.search-note {
+			font-size: 0.75rem;
+			color: var(--muted);
+			margin: 0 2px 10px;
+		}
+
 		.chips {
 			display: flex;
 			gap: 7px;
@@ -223,6 +274,96 @@
 			background: var(--accent);
 			border-color: var(--accent);
 			color: var(--accent-text);
+		}
+
+		/* ---------- day timeline ---------- */
+		.tl {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 13px 15px 11px;
+			margin-bottom: 16px;
+		}
+
+		.tl-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			margin-bottom: 12px;
+		}
+
+		.tl-title { font-size: 0.86rem; font-weight: 700; }
+
+		.tl-count { font-size: 0.74rem; color: var(--muted); }
+
+		/* The track is the positioning context for every mark inside it, all of
+		   which are placed with `right` because the page is RTL. */
+		.tl-track {
+			position: relative;
+			height: 30px;
+			border-radius: 7px;
+			background: color-mix(in srgb, var(--muted) 16%, transparent);
+			overflow: hidden;
+		}
+
+		.tl-band {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			background: color-mix(in srgb, var(--high) 30%, transparent);
+		}
+
+		.tl-tick {
+			position: absolute;
+			top: 5px;
+			bottom: 5px;
+			width: 3px;
+			border-radius: 2px;
+			margin-right: -1.5px;
+		}
+
+		.tl-tick.imp-high { background: var(--high); }
+		.tl-tick.imp-medium { background: var(--medium); }
+		.tl-tick.imp-low { background: color-mix(in srgb, var(--low) 80%, transparent); }
+
+		.tl-now {
+			position: absolute;
+			top: -2px;
+			bottom: -2px;
+			width: 2px;
+			margin-right: -1px;
+			background: var(--text);
+		}
+
+		.tl-now::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			right: -3px;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--text);
+		}
+
+		.tl-axis {
+			position: relative;
+			height: 15px;
+			margin-top: 5px;
+		}
+
+		.tl-hour {
+			position: absolute;
+			transform: translateX(50%);
+			font-size: 0.64rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.tl-legend {
+			font-size: 0.7rem;
+			color: var(--muted);
+			line-height: 1.7;
+			margin-top: 4px;
 		}
 
 		/* ---------- month grid ---------- */
@@ -742,6 +883,12 @@
 			<button role="tab" id="tabMonth" aria-selected="false">ماه</button>
 		</div>
 
+		<div class="search-row">
+			<input type="search" id="searchInput" class="search-input" autocomplete="off"
+				placeholder="جستجوی شاخص… مثلاً CPI یا تورم">
+			<button type="button" id="btnClearSearch" class="search-clear" aria-label="پاک کردن جستجو" hidden>×</button>
+		</div>
+
 		<div class="chips">
 			<button class="chip" data-imp="all" aria-pressed="true">همه</button>
 			<button class="chip" data-imp="high" aria-pressed="false">🔴 خیلی مهم</button>
@@ -817,7 +964,8 @@
 				saving: false,
 				refreshing: false,
 				monthOffset: 0,
-				selectedDay: null
+				selectedDay: null,
+				query: ""
 			};
 
 			// ---------- Jalali ----------
@@ -915,9 +1063,48 @@
 				} catch (e) { /* haptics are a nicety, never a failure */ }
 			}
 
+			// Persian text arrives with both Arabic and Persian forms of the same
+			// letters, plus zero-width joiners, so a raw indexOf misses obvious
+			// matches. Fold them before comparing.
+			function normalize(s) {
+				return String(s || "")
+					// Arabic forms of Persian letters: a phone keyboard may emit
+					// either, and the stored data mixes both.
+					.replace(/[يىﻱﻲ]/g, "ی")
+					.replace(/[كﻙﻚ]/g, "ک")
+					.replace(/[أإآٱ]/g, "ا")
+					.replace(/ة/g, "ه")
+					.replace(/ـ/g, "")
+					.replace(/[ً-ْ]/g, "")
+					// Compound words are written with a zero-width joiner but
+					// typed with a space, or with neither. Dropping every
+					// separator makes all three spellings compare equal:
+					// "مصرف‌کننده", "مصرف کننده" and "مصرفکننده".
+					.replace(/[\s​-‏‪-‮]/g, "")
+					.toLowerCase();
+			}
+
+			function matchesQuery(e) {
+				if (!state.query) return true;
+				var q = normalize(state.query);
+				if (!q) return true;
+				return normalize(e.title).indexOf(q) !== -1 ||
+					normalize(e.short).indexOf(q) !== -1;
+			}
+
 			function visibleEvents() {
 				if (!state.data) return [];
 				var today = state.data.today;
+
+				// A search is about finding one indicator, not about the tab the
+				// reader happens to be on, so it looks across everything loaded.
+				if (state.query) {
+					return state.data.events.filter(function (e) {
+						if (state.importance === "high" && e.importance !== "high") return false;
+						if (state.importance === "medium" && e.importance === "low") return false;
+						return matchesQuery(e);
+					});
+				}
 				// The payload now reaches 45 days out for the month grid, so the
 				// week tab has to cap its own range rather than show everything.
 				var weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
@@ -1124,6 +1311,90 @@
 				return node;
 			}
 
+			// ---------- day timeline ----------
+			// Answers the question the list cannot: when today is dangerous to
+			// hold a position. Height of the strip is fixed; only positions vary.
+			var DAY_START_HOUR = 6;   // before this, US releases essentially never land
+			var DAY_END_HOUR = 24;
+			var RISK_PAD_MINUTES = 30; // either side of a high-impact release
+
+			function minutesOfDay(e) {
+				if (!e.time_tehran) return null;
+				var t = e.time_tehran.replace("+1", "").split(":").map(Number);
+				if (isNaN(t[0])) return null;
+				// A "+1" time belongs to the next day; park it at the far edge
+				// rather than drawing it in the middle of today.
+				var m = t[0] * 60 + (t[1] || 0);
+				if (e.time_tehran.indexOf("+1") !== -1) return DAY_END_HOUR * 60;
+				return m;
+			}
+
+			function pctOfDay(mins) {
+				var from = DAY_START_HOUR * 60, to = DAY_END_HOUR * 60;
+				return Math.max(0, Math.min(100, ((mins - from) / (to - from)) * 100));
+			}
+
+			function renderTimeline(container) {
+				var todays = todaysEvents().filter(function (e) { return minutesOfDay(e) !== null; });
+				if (todays.length === 0) return;
+
+				var wrap = el("div", "tl");
+				var head = el("div", "tl-head");
+				var highs = todays.filter(function (e) { return e.importance === "high"; });
+				head.appendChild(el("span", "tl-title", "نوار زمانی امروز"));
+				head.appendChild(el("span", "tl-count",
+					highs.length > 0
+						? fa(highs.length) + " پنجره پرریسک"
+						: "بدون پنجره پرریسک"));
+				wrap.appendChild(head);
+
+				var track = el("div", "tl-track");
+
+				// Risk bands first so ticks and the now-line draw on top.
+				highs.forEach(function (e) {
+					var m = minutesOfDay(e);
+					var a = pctOfDay(m - RISK_PAD_MINUTES);
+					var b = pctOfDay(m + RISK_PAD_MINUTES);
+					var band = el("div", "tl-band");
+					band.style.right = a + "%";
+					band.style.width = Math.max(1.5, b - a) + "%";
+					band.title = e.title;
+					track.appendChild(band);
+				});
+
+				todays.forEach(function (e) {
+					var tick = el("div", "tl-tick imp-" + (e.importance || "low"));
+					tick.style.right = pctOfDay(minutesOfDay(e)) + "%";
+					tick.title = (e.time_tehran || "") + " " + e.title;
+					track.appendChild(tick);
+				});
+
+				// The marker only makes sense while the clock is inside the strip.
+				var now = new Date();
+				var nowMins = now.getHours() * 60 + now.getMinutes();
+				if (nowMins >= DAY_START_HOUR * 60 && nowMins <= DAY_END_HOUR * 60) {
+					var nowEl = el("div", "tl-now");
+					nowEl.style.right = pctOfDay(nowMins) + "%";
+					nowEl.title = "الان";
+					track.appendChild(nowEl);
+				}
+				wrap.appendChild(track);
+
+				var axis = el("div", "tl-axis");
+				[6, 10, 14, 18, 22].forEach(function (h) {
+					var lab = el("span", "tl-hour", fa(h < 10 ? "0" + h : h));
+					lab.style.right = pctOfDay(h * 60) + "%";
+					axis.appendChild(lab);
+				});
+				wrap.appendChild(axis);
+
+				wrap.appendChild(el("div", "tl-legend",
+					highs.length > 0
+						? "نوار قرمز: ۳۰ دقیقه قبل و بعد از خبر خیلی مهم — پرنوسان‌ترین بازه‌ی روز."
+						: "امروز خبر خیلی مهمی نیست؛ نوسان معمولاً محدودتر است."));
+				container.appendChild(wrap);
+			}
+
 			// ---------- month grid ----------
 			var WEEKDAY_SHORT = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
 			var IMPORTANCE_RANK = { high: 3, medium: 2, low: 1 };
@@ -1258,13 +1529,29 @@
 				var list = document.getElementById("list");
 				list.textContent = "";
 
-				if (state.scope === "month") {
+				// A search spans every loaded day, so the month grid would only
+				// hide the results.
+				if (state.scope === "month" && !state.query) {
 					renderMonth(list);
 					return;
 				}
 
+				// The timeline is about today specifically, so it belongs to the
+				// today tab and not to a search across 45 days.
+				if (state.scope === "today" && !state.query) renderTimeline(list);
+
+				if (state.query) {
+					var found = visibleEvents();
+					var note = el("p", "search-note");
+					note.textContent = found.length === 0
+						? "چیزی پیدا نشد."
+						: "‏" + fa(found.length) + " نتیجه در ۴۵ روز آینده";
+					list.appendChild(note);
+				}
+
 				var events = visibleEvents();
 				if (events.length === 0) {
+					if (state.query) return; // the search note already said so
 					var empty = el("div", "empty");
 					empty.appendChild(el("span", "big", "🗓"));
 					empty.appendChild(document.createTextNode(
@@ -1467,6 +1754,26 @@
 				storeScope("month");
 				haptic("select");
 				renderList();
+			});
+
+			var searchInput = document.getElementById("searchInput");
+			var clearSearch = document.getElementById("btnClearSearch");
+
+			function applyQuery(value) {
+				state.query = value;
+				clearSearch.hidden = !value;
+				if (state.data) renderList();
+			}
+
+			searchInput.addEventListener("input", function () {
+				applyQuery(this.value);
+			});
+
+			clearSearch.addEventListener("click", function () {
+				searchInput.value = "";
+				applyQuery("");
+				haptic("select");
+				searchInput.focus();
 			});
 
 			document.getElementById("btnRefresh").addEventListener("click", function () {
