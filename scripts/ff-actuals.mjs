@@ -5,7 +5,7 @@
 // the site itself sits behind a Cloudflare JS challenge that a plain HTTP
 // client cannot pass. A real Chromium solves the non-interactive challenge
 // by simply executing it. This script only reads the public calendar page —
-// two pages per run, on a gentle schedule — and the data goes nowhere except
+// three day pages per run, on a gentle schedule — and the data goes nowhere except
 // our own private table.
 import { chromium } from 'patchright';
 
@@ -41,17 +41,24 @@ async function readDay(page, p) {
   console.log('reading', url);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   // The Cloudflare interstitial auto-solves and redirects. Poll for up to a
-  // minute; once one page passes, the clearance cookie carries the second
-  // page straight through.
+  // minute; once one page passes, the clearance cookie carries the later
+  // pages straight through. A day with no scheduled events (weekend,
+  // holiday) has zero rows, so an empty page with the real title is a
+  // success, not a block.
   const deadline = Date.now() + 60000;
   for (;;) {
     const ok = await page.locator('.calendar__row').first().isVisible().catch(() => false);
     if (ok) break;
     const title = await page.title().catch(() => '');
-    if (Date.now() > deadline) {
-      throw new Error(`calendar table never appeared (page title: "${title}") — likely blocked`);
+    const challenged = /just a moment|attention required/i.test(title);
+    if (!challenged && /forex factory/i.test(title)) {
+      await page.waitForTimeout(4000); // let late-rendering rows settle
+      break;
     }
-    if (/just a moment/i.test(title)) console.log('  ...waiting out the challenge');
+    if (Date.now() > deadline) {
+      throw new Error(`stuck on "${title}" after 60s — likely blocked`);
+    }
+    if (challenged) console.log('  ...waiting out the challenge');
     await page.waitForTimeout(2500);
   }
   const rows = await page.evaluate(() => {
@@ -92,9 +99,10 @@ const page = await ctx.newPage();
 
 let all = [];
 let failures = 0;
-// Today catches releases as they land; yesterday catches late revisions and
-// anything a failed earlier run missed.
-for (const off of [0, -1]) {
+// Today catches releases as they land; the previous two days catch late
+// revisions, anything a failed earlier run missed, and Friday's releases
+// when a run lands on a weekend.
+for (const off of [0, -1, -2]) {
   try {
     all = all.concat(await readDay(page, etParts(off)));
   } catch (e) {
@@ -108,8 +116,10 @@ const events = all.filter((r) =>
   (r.currency === 'USD' || r.currency === 'All') && r.actual && r.actual.trim());
 console.log(`rows read: ${all.length} | with USD/All actuals: ${events.length}`);
 
-if (all.length === 0) {
-  // Both pages blocked or empty - fail loudly so the Actions run shows red.
+if (failures > 0 && all.length === 0) {
+  // Every page that could have had rows was blocked - fail loudly so the
+  // Actions run shows red. Zero rows with zero failures is just a quiet
+  // stretch of the calendar (weekend, holiday).
   console.error('nothing readable at all');
   process.exit(1);
 }
