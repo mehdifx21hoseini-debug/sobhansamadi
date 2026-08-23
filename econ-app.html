@@ -71,6 +71,36 @@
 			color: var(--muted);
 		}
 
+		.hero-actions {
+			flex: none;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.icon-btn {
+			flex: none;
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			border: 0;
+			background: var(--card);
+			color: var(--muted);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			padding: 0;
+		}
+
+		.icon-btn:active { color: var(--accent); }
+
+		.icon-btn.is-busy svg { animation: spin .8s linear infinite; }
+
+		@keyframes spin {
+			to { transform: rotate(-360deg); }
+		}
+
 		.risk-pill {
 			flex: none;
 			display: inline-flex;
@@ -322,6 +352,66 @@
 
 		.event-detail div { margin-bottom: 3px; }
 
+		/* Past releases. Height encodes the value, colour encodes beat/miss —
+		   two readings from one glance. */
+		.hist { margin-bottom: 11px; }
+
+		.hist-title {
+			font-size: 0.74rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-bottom: 7px;
+		}
+
+		.hist-bars {
+			display: flex;
+			align-items: flex-end;
+			gap: 8px;
+			height: 74px;
+		}
+
+		.hist-col {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-end;
+			height: 100%;
+			min-width: 0;
+		}
+
+		.hist-bar {
+			width: 100%;
+			max-width: 30px;
+			border-radius: 4px 4px 2px 2px;
+			min-height: 6px;
+		}
+
+		.hist-up { background: color-mix(in srgb, var(--up) 72%, transparent); }
+		.hist-down { background: color-mix(in srgb, var(--down) 72%, transparent); }
+		.hist-flat { background: color-mix(in srgb, var(--muted) 55%, transparent); }
+
+		.hist-val {
+			font-size: 0.66rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-top: 4px;
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+		}
+
+		.hist-date {
+			font-size: 0.6rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.hist-legend {
+			font-size: 0.66rem;
+			color: var(--muted);
+			margin-top: 6px;
+		}
+
 		/* ---------- alerts ---------- */
 		.alerts {
 			background: var(--card);
@@ -488,7 +578,16 @@
 				<h1>تقویم اقتصادی دلار</h1>
 				<p id="heroSub">در حال بارگذاری…</p>
 			</div>
-			<span id="riskPill" class="risk-pill" hidden><span class="dot"></span><span id="riskText"></span></span>
+			<div class="hero-actions">
+				<span id="riskPill" class="risk-pill" hidden><span class="dot"></span><span id="riskText"></span></span>
+				<button id="btnRefresh" class="icon-btn" type="button" aria-label="بروزرسانی" title="بروزرسانی">
+					<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+						stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M21 12a9 9 0 1 1-2.64-6.36" />
+						<path d="M21 3v6h-6" />
+					</svg>
+				</button>
+			</div>
 		</div>
 
 		<div id="nextCard" class="next-card" hidden>
@@ -572,7 +671,8 @@
 				importance: "all",
 				data: null,
 				open: {},
-				saving: false
+				saving: false,
+				refreshing: false
 			};
 
 			// ---------- Jalali ----------
@@ -691,6 +791,21 @@
 				document.getElementById("tabWeek").setAttribute("aria-selected", scope === "week" ? "true" : "false");
 			}
 
+			// Remembering the tab is a convenience, so every failure mode here is
+			// silent — private mode, blocked storage, a throwing accessor.
+			var SCOPE_KEY = "econAppScope";
+
+			function readStoredScope() {
+				try {
+					var v = localStorage.getItem(SCOPE_KEY);
+					return (v === "today" || v === "week") ? v : null;
+				} catch (e) { return null; }
+			}
+
+			function storeScope(scope) {
+				try { localStorage.setItem(SCOPE_KEY, scope); } catch (e) { /* not important enough to surface */ }
+			}
+
 			var countdownTimer = null;
 
 			function renderNext() {
@@ -725,6 +840,45 @@
 				tick();
 				if (countdownTimer) clearInterval(countdownTimer);
 				countdownTimer = setInterval(tick, 30000);
+			}
+
+			// Past releases as a small bar chart: how this indicator has actually
+			// been behaving, not just its last print. Bars are coloured by
+			// whether each release beat its own forecast. Returns null when
+			// there is no history, so nothing empty is ever drawn.
+			function historyChart(e) {
+				var rows = (e.history || []).filter(function (h) { return typeof h.value === "number"; });
+				if (rows.length < 2) return null;
+
+				var ordered = rows.slice().reverse(); // oldest first, reads left to right
+				var values = ordered.map(function (h) { return h.value; });
+				var max = Math.max.apply(null, values);
+				var min = Math.min.apply(null, values);
+				// Scale across the series' own range, not from zero. Claims run
+				// around 206K-211K: measured from zero every bar would clamp to
+				// full height and the chart would say nothing.
+				var flat = max === min;
+				var span = flat ? 1 : (max - min);
+
+				var wrap = el("div", "hist");
+				wrap.appendChild(el("div", "hist-title", "۵ انتشار اخیر"));
+
+				var bars = el("div", "hist-bars");
+				ordered.forEach(function (h) {
+					var col = el("div", "hist-col");
+					var bar = el("div", "hist-bar " +
+						(h.beat > 0 ? "hist-up" : h.beat < 0 ? "hist-down" : "hist-flat"));
+					var pct = flat ? 55 : Math.round(((h.value - min) / span) * 72) + 18;
+					bar.style.height = Math.max(10, Math.min(100, pct)) + "%";
+					bar.title = h.actual + (h.forecast ? " (پیش‌بینی " + h.forecast + ")" : "");
+					col.appendChild(bar);
+					col.appendChild(el("span", "hist-val", fa(h.actual)));
+					col.appendChild(el("span", "hist-date", fa(h.date.slice(5).replace("-", "/"))));
+					bars.appendChild(col);
+				});
+				wrap.appendChild(bars);
+				wrap.appendChild(el("div", "hist-legend", "سبز: بالاتر از پیش‌بینی · قرمز: پایین‌تر"));
+				return wrap;
 			}
 
 			function eventNode(e) {
@@ -771,6 +925,8 @@
 				node.appendChild(main);
 
 				var detail = el("div", "event-detail");
+				var chart = historyChart(e);
+				if (chart) detail.appendChild(chart);
 				if (e.previous) detail.appendChild(el("div", null, "قبلی: " + fa(e.previous)));
 				detail.appendChild(el("div", null, "اهمیت: " +
 					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
@@ -894,13 +1050,15 @@
 			}
 
 			function load() {
-				call({ action: "data" })
+				return call({ action: "data" })
 					.then(function (body) {
 						state.data = body;
 						// Landing on an empty "today" makes a working app look
-						// broken, and today is empty every weekend. Open on the
-						// week instead when there is nothing today.
-						if (!scopeChosenByUser && todaysEvents().length === 0) setScope("week");
+						// broken, and today is empty every weekend. Fall to the
+						// week whenever today has nothing — an empty screen is
+						// worse than ignoring the remembered tab, and this
+						// override is deliberately not persisted.
+						if (state.scope === "today" && todaysEvents().length === 0) setScope("week");
 						render();
 					})
 					.catch(function (err) {
@@ -933,22 +1091,30 @@
 			}
 
 			// ---------- wiring ----------
-			// Once the reader picks a tab themselves, the auto-switch on refresh
-			// must not override them.
-			var scopeChosenByUser = false;
-
 			document.getElementById("tabToday").addEventListener("click", function () {
-				scopeChosenByUser = true;
 				setScope("today");
+				storeScope("today");
 				haptic("select");
 				renderList();
 			});
 
 			document.getElementById("tabWeek").addEventListener("click", function () {
-				scopeChosenByUser = true;
 				setScope("week");
+				storeScope("week");
 				haptic("select");
 				renderList();
+			});
+
+			document.getElementById("btnRefresh").addEventListener("click", function () {
+				if (state.refreshing) return;
+				var btn = this;
+				state.refreshing = true;
+				btn.classList.add("is-busy");
+				haptic();
+				load().finally(function () {
+					state.refreshing = false;
+					btn.classList.remove("is-busy");
+				});
 			});
 
 			var chips = document.querySelectorAll(".chip");
@@ -1005,6 +1171,8 @@
 				showError("این صفحه باید از داخل ربات تلگرام باز بشه.", false);
 				document.getElementById("riskPill").hidden = true;
 			} else {
+				var remembered = readStoredScope();
+				if (remembered) setScope(remembered);
 				load();
 			}
 		})();
