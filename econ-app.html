@@ -225,6 +225,105 @@
 			color: var(--accent-text);
 		}
 
+		/* ---------- month grid ---------- */
+		.month-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 12px;
+		}
+
+		.month-name {
+			font-size: 0.95rem;
+			font-weight: 700;
+		}
+
+		.month-nav {
+			width: 32px;
+			height: 32px;
+			border-radius: 9px;
+			border: 0;
+			background: var(--card);
+			color: var(--text);
+			font-size: 1.15rem;
+			line-height: 1;
+			font-family: inherit;
+			cursor: pointer;
+		}
+
+		.month-grid {
+			display: grid;
+			grid-template-columns: repeat(7, 1fr);
+			gap: 4px;
+		}
+
+		.month-wd {
+			text-align: center;
+			font-size: 0.68rem;
+			font-weight: 700;
+			color: var(--muted);
+			padding-bottom: 3px;
+		}
+
+		.month-cell {
+			aspect-ratio: 1 / 1;
+			border: 0;
+			border-radius: 10px;
+			background: var(--card);
+			color: var(--text);
+			font-family: inherit;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 3px;
+			padding: 0;
+			cursor: pointer;
+		}
+
+		.month-cell:disabled { cursor: default; }
+		.month-cell.is-blank { background: transparent; }
+
+		/* Beyond the range the server sent, "no events" is unknown, not none. */
+		.month-cell.is-outside { opacity: .38; }
+
+		.month-cell.is-today {
+			outline: 2px solid var(--accent);
+			outline-offset: -2px;
+		}
+
+		.month-cell.is-selected {
+			background: var(--accent);
+			color: var(--accent-text);
+		}
+
+		.month-day {
+			font-size: 0.8rem;
+			font-weight: 600;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.month-dots {
+			display: flex;
+			gap: 2px;
+			height: 5px;
+			align-items: center;
+		}
+
+		.month-dot {
+			width: 5px;
+			height: 5px;
+			border-radius: 50%;
+			display: block;
+		}
+
+		.month-hint {
+			text-align: center;
+			color: var(--muted);
+			font-size: 0.8rem;
+			padding: 20px 10px 4px;
+		}
+
 		/* ---------- day groups ---------- */
 		.day-head {
 			display: flex;
@@ -501,6 +600,42 @@
 
 		.alerts-disabled { opacity: .45; pointer-events: none; }
 
+		/* ---------- AI analysis ---------- */
+		.ai-btn {
+			width: 100%;
+			border: 0;
+			border-radius: 10px;
+			background: var(--accent);
+			color: var(--accent-text);
+			font-family: inherit;
+			font-size: 0.86rem;
+			font-weight: 700;
+			padding: 11px;
+			cursor: pointer;
+		}
+
+		.ai-btn:disabled { opacity: .6; cursor: default; }
+
+		.ai-body {
+			margin-top: 12px;
+			font-size: 0.85rem;
+			line-height: 1.9;
+			white-space: pre-wrap;
+		}
+
+		.ai-body.is-empty {
+			color: var(--muted);
+			font-size: 0.8rem;
+			white-space: normal;
+		}
+
+		.ai-stamp {
+			display: block;
+			margin-top: 9px;
+			font-size: 0.7rem;
+			color: var(--muted);
+		}
+
 		/* ---------- states ---------- */
 		.skel {
 			background: var(--card);
@@ -604,6 +739,7 @@
 		<div class="seg" role="tablist">
 			<button role="tab" id="tabToday" aria-selected="true">امروز</button>
 			<button role="tab" id="tabWeek" aria-selected="false">این هفته</button>
+			<button role="tab" id="tabMonth" aria-selected="false">ماه</button>
 		</div>
 
 		<div class="chips">
@@ -616,6 +752,13 @@
 			<div class="skel"></div>
 			<div class="skel"></div>
 			<div class="skel"></div>
+		</div>
+
+		<div id="aiCard" class="alerts" hidden>
+			<h2>تحلیل هوش مصنوعی</h2>
+			<p class="sub">خلاصه و تفسیر خبرهای امروز.</p>
+			<button class="ai-btn" id="btnExplain" type="button">نمایش تحلیل امروز</button>
+			<div id="aiBody" class="ai-body" hidden></div>
 		</div>
 
 		<div id="alertsCard" class="alerts" hidden>
@@ -672,7 +815,9 @@
 				data: null,
 				open: {},
 				saving: false,
-				refreshing: false
+				refreshing: false,
+				monthOffset: 0,
+				selectedDay: null
 			};
 
 			// ---------- Jalali ----------
@@ -693,6 +838,38 @@
 				if (days < 186) { jm = 1 + div(days, 31); jd = 1 + (days % 31); }
 				else { jm = 7 + div(days - 186, 30); jd = 1 + ((days - 186) % 30); }
 				return [jy, jm, jd];
+			}
+
+			// Jalali -> Gregorian, needed to lay out a Persian month on a grid.
+			// Round-tripped against toJalali for every day of 2024-2028.
+			function toGregorian(jy, jm, jd) {
+				var gy = (jy <= 979) ? 621 : 1600;
+				jy -= (jy <= 979) ? 0 : 979;
+				var days = (365 * jy) + (div(jy, 33) * 8) + div((jy % 33) + 3, 4) + 78 + jd +
+					((jm < 7) ? (jm - 1) * 31 : ((jm - 7) * 30) + 186);
+				gy += 400 * div(days, 146097);
+				days %= 146097;
+				if (days > 36524) {
+					gy += 100 * div(--days, 36524);
+					days %= 36524;
+					if (days >= 365) days++;
+				}
+				gy += 4 * div(days, 1461);
+				days %= 1461;
+				if (days > 365) { gy += div(days - 1, 365); days = (days - 1) % 365; }
+				var gd = days + 1;
+				var leap = (gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0);
+				var lengths = [0, 31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+				var gm;
+				for (gm = 0; gm < 13; gm++) {
+					if (gd <= lengths[gm]) break;
+					gd -= lengths[gm];
+				}
+				return [gy, gm, gd];
+			}
+
+			function isoOf(gy, gm, gd) {
+				return gy + "-" + (gm < 10 ? "0" : "") + gm + "-" + (gd < 10 ? "0" : "") + gd;
 			}
 
 			var MONTHS = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
@@ -741,8 +918,12 @@
 			function visibleEvents() {
 				if (!state.data) return [];
 				var today = state.data.today;
+				// The payload now reaches 45 days out for the month grid, so the
+				// week tab has to cap its own range rather than show everything.
+				var weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 				return state.data.events.filter(function (e) {
 					if (state.scope === "today" && e.date !== today) return false;
+					if (state.scope === "week" && e.date > weekEnd) return false;
 					if (state.importance === "high" && e.importance !== "high") return false;
 					if (state.importance === "medium" && e.importance === "low") return false;
 					return true;
@@ -789,6 +970,7 @@
 				state.scope = scope;
 				document.getElementById("tabToday").setAttribute("aria-selected", scope === "today" ? "true" : "false");
 				document.getElementById("tabWeek").setAttribute("aria-selected", scope === "week" ? "true" : "false");
+				document.getElementById("tabMonth").setAttribute("aria-selected", scope === "month" ? "true" : "false");
 			}
 
 			// Remembering the tab is a convenience, so every failure mode here is
@@ -798,7 +980,7 @@
 			function readStoredScope() {
 				try {
 					var v = localStorage.getItem(SCOPE_KEY);
-					return (v === "today" || v === "week") ? v : null;
+					return (v === "today" || v === "week" || v === "month") ? v : null;
 				} catch (e) { return null; }
 			}
 
@@ -942,9 +1124,144 @@
 				return node;
 			}
 
+			// ---------- month grid ----------
+			var WEEKDAY_SHORT = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
+			var IMPORTANCE_RANK = { high: 3, medium: 2, low: 1 };
+
+			// Persian weeks start on Saturday. JS getDay() is 0=Sunday, so
+			// Saturday(6) has to map to column 0.
+			function persianWeekday(dateStr) {
+				var p = dateStr.split("-").map(Number);
+				return (new Date(p[0], p[1] - 1, p[2]).getDay() + 1) % 7;
+			}
+
+			function jalaliMonthLength(jy, jm) {
+				var start = toGregorian(jy, jm, 1);
+				var nextY = jm === 12 ? jy + 1 : jy;
+				var nextM = jm === 12 ? 1 : jm + 1;
+				var next = toGregorian(nextY, nextM, 1);
+				return Math.round((Date.UTC(next[0], next[1] - 1, next[2]) -
+					Date.UTC(start[0], start[1] - 1, start[2])) / 86400000);
+			}
+
+			function eventsByDate() {
+				var map = {};
+				state.data.events.forEach(function (e) {
+					if (state.importance === "high" && e.importance !== "high") return;
+					if (state.importance === "medium" && e.importance === "low") return;
+					if (!map[e.date]) map[e.date] = [];
+					map[e.date].push(e);
+				});
+				return map;
+			}
+
+			function renderMonth(list) {
+				var todayParts = state.data.today.split("-").map(Number);
+				var todayJ = toJalali(todayParts[0], todayParts[1], todayParts[2]);
+
+				// Month arithmetic in Jalali terms, so stepping never lands on a
+				// nonexistent day.
+				var jm = todayJ[1] + state.monthOffset;
+				var jy = todayJ[0];
+				while (jm > 12) { jm -= 12; jy++; }
+				while (jm < 1) { jm += 12; jy--; }
+
+				var byDate = eventsByDate();
+
+				var head = el("div", "month-head");
+				var prev = el("button", "month-nav", "‹");
+				prev.type = "button";
+				prev.addEventListener("click", function () {
+					state.monthOffset--;
+					state.selectedDay = null;
+					haptic("select");
+					renderList();
+				});
+				var next = el("button", "month-nav", "›");
+				next.type = "button";
+				next.addEventListener("click", function () {
+					state.monthOffset++;
+					state.selectedDay = null;
+					haptic("select");
+					renderList();
+				});
+				// In RTL the "next" chevron sits on the left, so it is appended
+				// first for the arrows to point the way they move.
+				head.appendChild(next);
+				head.appendChild(el("span", "month-name", MONTHS[jm - 1] + " " + fa(jy)));
+				head.appendChild(prev);
+				list.appendChild(head);
+
+				var grid = el("div", "month-grid");
+				WEEKDAY_SHORT.forEach(function (w) {
+					grid.appendChild(el("div", "month-wd", w));
+				});
+
+				var firstIso = (function () { var g = toGregorian(jy, jm, 1); return isoOf(g[0], g[1], g[2]); })();
+				var lead = persianWeekday(firstIso);
+				for (var i = 0; i < lead; i++) grid.appendChild(el("div", "month-cell is-blank"));
+
+				var length = jalaliMonthLength(jy, jm);
+				for (var d = 1; d <= length; d++) {
+					var g = toGregorian(jy, jm, d);
+					var iso = isoOf(g[0], g[1], g[2]);
+					var dayEvents = byDate[iso] || [];
+
+					var cell = el("button", "month-cell");
+					cell.type = "button";
+					if (iso === state.data.today) cell.className += " is-today";
+					if (iso === state.selectedDay) cell.className += " is-selected";
+					// Outside the range the server sent, "no events" would be a
+					// lie — it is unknown. Show it as unknown.
+					if (iso < state.data.today || iso > state.data.horizon_end) cell.className += " is-outside";
+
+					cell.appendChild(el("span", "month-day", fa(d)));
+
+					var dots = el("span", "month-dots");
+					var ranked = dayEvents.slice().sort(function (a, b) {
+						return (IMPORTANCE_RANK[b.importance] || 0) - (IMPORTANCE_RANK[a.importance] || 0);
+					});
+					ranked.slice(0, 3).forEach(function (e) {
+						dots.appendChild(el("i", "month-dot imp-" + (e.importance || "low")));
+					});
+					cell.appendChild(dots);
+
+					if (dayEvents.length > 0) {
+						(function (isoDate) {
+							cell.addEventListener("click", function () {
+								state.selectedDay = state.selectedDay === isoDate ? null : isoDate;
+								haptic("select");
+								renderList();
+							});
+						})(iso);
+					} else {
+						cell.disabled = true;
+					}
+					grid.appendChild(cell);
+				}
+				list.appendChild(grid);
+
+				if (state.selectedDay) {
+					var chosen = byDate[state.selectedDay] || [];
+					var dayHead = el("div", "day-head");
+					dayHead.appendChild(el("span", "date", jalaliLabel(state.selectedDay)));
+					var rel = relDay(state.selectedDay);
+					if (rel) dayHead.appendChild(el("span", "rel", rel));
+					list.appendChild(dayHead);
+					chosen.forEach(function (e) { list.appendChild(eventNode(e)); });
+				} else {
+					list.appendChild(el("div", "month-hint", "روی یک روز بزن تا رویدادهایش را ببینی."));
+				}
+			}
+
 			function renderList() {
 				var list = document.getElementById("list");
 				list.textContent = "";
+
+				if (state.scope === "month") {
+					renderMonth(list);
+					return;
+				}
 
 				var events = visibleEvents();
 				if (events.length === 0) {
@@ -1015,6 +1332,7 @@
 				renderNext();
 				renderList();
 				renderAlerts();
+				document.getElementById("aiCard").hidden = false;
 			}
 
 			// ---------- network ----------
@@ -1101,6 +1419,52 @@
 			document.getElementById("tabWeek").addEventListener("click", function () {
 				setScope("week");
 				storeScope("week");
+				haptic("select");
+				renderList();
+			});
+
+			// The analysis itself is produced by the bot and shared through one
+			// cache, so the app never runs a second copy of the prompt that
+			// could drift from it.
+			document.getElementById("btnExplain").addEventListener("click", function () {
+				var btn = this;
+				var box = document.getElementById("aiBody");
+				btn.disabled = true;
+				btn.textContent = "در حال دریافت…";
+				haptic();
+				call({ action: "explain" })
+					.then(function (body) {
+						box.hidden = false;
+						box.textContent = "";
+						if (body.available) {
+							box.className = "ai-body";
+							box.textContent = body.answer;
+							if (body.created_at) {
+								var d = new Date(body.created_at);
+								if (!isNaN(d.getTime())) {
+									box.appendChild(el("span", "ai-stamp",
+										"تهیه‌شده در " + fa(d.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }))));
+								}
+							}
+							btn.textContent = "بروزرسانی تحلیل";
+						} else {
+							box.className = "ai-body is-empty";
+							box.textContent = "تحلیل امروز هنوز ساخته نشده. یک بار از دکمه‌ی «🤖 توضیح AI» داخل ربات استفاده کن، بعد اینجا هم نشان داده می‌شود.";
+							btn.textContent = "بررسی دوباره";
+						}
+					})
+					.catch(function () {
+						box.hidden = false;
+						box.className = "ai-body is-empty";
+						box.textContent = "دریافت تحلیل ناموفق بود.";
+						btn.textContent = "تلاش دوباره";
+					})
+					.finally(function () { btn.disabled = false; });
+			});
+
+			document.getElementById("tabMonth").addEventListener("click", function () {
+				setScope("month");
+				storeScope("month");
 				haptic("select");
 				renderList();
 			});
