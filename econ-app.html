@@ -9,7 +9,7 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link rel="stylesheet"
-		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap">
+		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap">
 	<style>
 		/* The academy's own palette, taken from the logo: navy #29386c and gold
 		   #d2ae6d, the same two tokens the CRM uses. The app deliberately no
@@ -115,7 +115,17 @@
 			line-height: 1.6;
 			padding: 12px 12px calc(28px + env(safe-area-inset-bottom));
 			-webkit-tap-highlight-color: transparent;
+			text-rendering: optimizeLegibility;
+			-webkit-font-smoothing: antialiased;
 		}
+
+		/* Numbers are the content on this page - times, percentages, counters.
+		   Vazirmatn carries the Persian digits, so the numeric treatment is a
+		   weight and spacing decision rather than a second family: proportional
+		   digits would make a ticking counter jitter on every frame. */
+		b, strong { font-weight: 700; }
+
+		h1, h2, h3 { text-wrap: balance; }
 
 		.wrap { max-width: 640px; margin: 0 auto; }
 
@@ -403,7 +413,8 @@
 			align-items: center;
 			gap: 8px;
 			font-size: 1.02rem;
-			font-weight: 700;
+			font-weight: 800;
+			letter-spacing: -.01em;
 		}
 
 		.mk-hero.is-open .mk-hero-title { color: var(--up); }
@@ -448,12 +459,26 @@
 			line-height: 1.15;
 		}
 
+		/* The clock is the one piece of type on this screen that is allowed to
+		   be loud. Heavy, tight, tabular, with the seconds kept small so the
+		   hour and minute stay what the eye lands on. */
 		.mk-clock-time {
 			display: block;
-			font-size: 1.62rem;
-			font-weight: 700;
+			font-size: 2rem;
+			font-weight: 900;
 			font-variant-numeric: tabular-nums;
-			letter-spacing: .01em;
+			letter-spacing: -.02em;
+			line-height: 1;
+			direction: ltr;
+		}
+
+		.mk-clock-sec {
+			font-size: 0.82rem;
+			font-weight: 700;
+			letter-spacing: 0;
+			color: var(--muted);
+			margin-inline-start: 3px;
+			vertical-align: 3px;
 		}
 
 		.mk-clock-zone {
@@ -461,6 +486,7 @@
 			font-size: 0.62rem;
 			color: var(--muted);
 			letter-spacing: .06em;
+			margin-top: 4px;
 		}
 
 		.mk-board { display: flex; flex-direction: column; gap: 8px; }
@@ -607,9 +633,10 @@
 		.mk-m-time { display: inline-flex; align-items: center; gap: 5px; }
 
 		.mk-m-time b {
-			font-size: 0.78rem;
-			font-weight: 600;
+			font-size: 0.8rem;
+			font-weight: 700;
 			font-variant-numeric: tabular-nums;
+			letter-spacing: .01em;
 			color: var(--text);
 		}
 
@@ -622,9 +649,22 @@
 		}
 
 		.mk-m-cd { margin-inline-start: auto; }
-		.mk-m-cd b { color: var(--text); font-variant-numeric: tabular-nums; }
-		.mk-m.is-live .mk-m-cd b { color: var(--up); }
-		.mk-m.is-paused .mk-m-cd b { color: var(--medium); }
+
+		/* A running counter, so it needs fixed-width digits. Isolated rather
+		   than forced LTR: over a day the text is "۱ روز و ۰۲:۱۵:۳۳", and
+		   forcing LTR would reorder the Persian word. */
+		.mk-m-cdn, .mk-hero-cd {
+			display: inline-block;
+			unicode-bidi: isolate;
+			font-variant-numeric: tabular-nums;
+			font-weight: 700;
+			letter-spacing: .01em;
+			color: var(--text);
+		}
+
+		.mk-m-cdn { font-size: 0.8rem; }
+		.mk-m.is-live .mk-m-cdn { color: var(--up); }
+		.mk-m.is-paused .mk-m-cdn { color: var(--medium); }
 		.mk-m.is-paused .mk-m-now { opacity: 1; }
 
 		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
@@ -1362,7 +1402,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۹</span>
+			<span class="build">نسخه ۱۰</span>
 		</p>
 	</div>
 
@@ -1936,6 +1976,21 @@
 				return mode.zone ? hhmmInZone(instant, mode.zone) : hhmmAtOffset(instant, mode.fixed);
 			}
 
+			function secondsInZone(instant, timeZone) {
+				return tzParts(new Date(instant), timeZone).second;
+			}
+
+			// A real ticking counter rather than prose. Beyond a day the seconds
+			// stop meaning anything, so the day count leads and the clock follows.
+			function countdownText(instant, nowMs) {
+				var s = Math.max(0, Math.floor((instant - nowMs) / 1000));
+				var d = Math.floor(s / 86400);
+				var h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+				var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+				var clock = fa(pad(h) + ":" + pad(m) + ":" + pad(sec));
+				return d > 0 ? fa(d) + " روز و " + clock : clock;
+			}
+
 			function untilText(instant, now) {
 				var mins = Math.round((instant - now.getTime()) / 60000);
 				if (mins <= 0) return "";
@@ -2030,6 +2085,23 @@
 			}
 
 			// ---------- markets view ----------
+			// Per-second updaters registered by renderMarkets. Only the text
+			// nodes that actually change are touched; rebuilding the whole board
+			// every second would throw away scroll position and any transition
+			// mid-flight, for no gain.
+			var tickers = [];
+
+			// What a redraw is actually needed for: a market opening or closing.
+			// Compared each second so a transition lands on time instead of
+			// waiting out a coarse refresh interval.
+			function marketsSignature(now) {
+				var m = marketState(now);
+				var sig = (m.open ? "o" : "c") + (m.onBreak ? "b" : "-");
+				SESSIONS.forEach(function (s) { sig += sessionState(s, now).open ? "1" : "0"; });
+				return sig;
+			}
+			var marketsSig = null;
+
 			function tehranMinutesOf(instant) {
 				var t = hhmmInZone(instant, TEHRAN).split(":").map(Number);
 				return t[0] * 60 + t[1];
@@ -2043,6 +2115,8 @@
 
 			function renderMarkets(container) {
 				var now = new Date();
+				tickers = [];
+				marketsSig = marketsSignature(now);
 				var market = marketState(now);
 				var nowM = tehranMinutesOf(now.getTime());
 				// The rollover window as Tehran minutes, derived rather than
@@ -2060,25 +2134,34 @@
 					market.onBreak ? "استراحت روزانه بازار" : (market.open ? "بازار باز است" : "بازار بسته است")));
 				heroL.appendChild(title);
 				var sub = el("div", "mk-hero-sub");
-				if (market.onBreak) {
-					sub.appendChild(el("span", null, "از سر گرفته می‌شود "));
-					sub.appendChild(el("b", null, untilText(market.resumesAt, now)));
+				// The hero countdown ticks too, so the headline and the cards
+				// below can never disagree about how long is left.
+				var heroTarget = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
+				if (heroTarget) {
+					sub.appendChild(el("span", null, market.onBreak ? "از سر گرفته می‌شود " : "باز می‌شود "));
+					var heroNum = el("b", "mk-hero-cd", countdownText(heroTarget, now.getTime()));
+					sub.appendChild(heroNum);
 					sub.appendChild(el("span", null, " دیگر، ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(market.resumesAt, TEHRAN))));
+					sub.appendChild(el("b", null, fa(hhmmInZone(heroTarget, TEHRAN))));
+					tickers.push(function (t) { heroNum.textContent = countdownText(heroTarget, t); });
 				} else if (market.open && market.until) {
 					sub.appendChild(el("span", null, "تا جمعه ساعت "));
 					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, TEHRAN))));
-				} else if (market.nextOpen) {
-					sub.appendChild(el("span", null, "باز می‌شود "));
-					sub.appendChild(el("b", null, untilText(market.nextOpen, now)));
-					sub.appendChild(el("span", null, " دیگر، ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(market.nextOpen, TEHRAN))));
 				}
 				heroL.appendChild(sub);
 				hero.appendChild(heroL);
 				var clock = el("div", "mk-clock");
-				clock.appendChild(el("span", "mk-clock-time", fa(hhmmInZone(now.getTime(), TEHRAN))));
+				var clockTime = el("span", "mk-clock-time", fa(hhmmInZone(now.getTime(), TEHRAN)));
+				// Seconds ride alongside the big number rather than inside it, so
+				// the hour and minute stay the thing the eye lands on.
+				var clockSec = el("span", "mk-clock-sec", fa(secondsInZone(now.getTime(), TEHRAN)));
+				clockTime.appendChild(clockSec);
+				clock.appendChild(clockTime);
 				clock.appendChild(el("span", "mk-clock-zone", "تهران"));
+				tickers.push(function (t) {
+					clockTime.firstChild.nodeValue = fa(hhmmInZone(t, TEHRAN));
+					clockSec.textContent = fa(secondsInZone(t, TEHRAN));
+				});
 				hero.appendChild(clock);
 				container.appendChild(hero);
 
@@ -2161,13 +2244,11 @@
 						foot.appendChild(t2);
 
 						var cd = el("span", "mk-m-cd");
-						if (paused) {
-							cd.appendChild(el("b", null, untilText(market.resumesAt, now)));
-							cd.appendChild(el("span", null, " تا از سرگیری"));
-						} else {
-							cd.appendChild(el("b", null, untilText(live ? ref.close : ref.open, now)));
-							cd.appendChild(el("span", null, live ? " تا بسته شدن" : " تا باز شدن"));
-						}
+						var target = paused ? market.resumesAt : (live ? ref.close : ref.open);
+						var cdNum = el("b", "mk-m-cdn", countdownText(target, now.getTime()));
+						cd.appendChild(cdNum);
+						cd.appendChild(el("span", null, paused ? " تا از سرگیری" : (live ? " تا بسته شدن" : " تا باز شدن")));
+						tickers.push(function (t) { cdNum.textContent = countdownText(target, t); });
 						foot.appendChild(cd);
 					}
 					row.appendChild(foot);
@@ -2676,12 +2757,19 @@
 			}
 
 			// ---------- boot ----------
-			// The markets view shows a live clock and countdowns, so it has to
-			// keep ticking. Only that tab redraws; the others are static until
-			// data changes.
+			// The markets view carries a live clock and second-resolution
+			// countdowns, so it ticks every second. The tick only rewrites the
+			// digits; a full redraw happens when a market actually opens or
+			// closes, which the signature detects.
+			// No state.data check: the markets view is computed entirely from the
+			// clock, so it must keep running even when the API is unreachable.
 			setInterval(function () {
-				if (state.scope === "markets" && state.data) renderList();
-			}, 30000);
+				if (state.scope !== "markets" || !tickers.length) return;
+				var now = new Date();
+				if (marketsSignature(now) !== marketsSig) { renderList(); return; }
+				var t = now.getTime();
+				for (var i = 0; i < tickers.length; i++) tickers[i](t);
+			}, 1000);
 
 			if (tg) {
 				tg.ready();
