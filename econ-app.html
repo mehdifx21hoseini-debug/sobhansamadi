@@ -70,14 +70,6 @@
 			--low: #99a0b8;
 			--up: #1f8f63;
 			--down: #c8323c;
-
-			/* One colour per session ring on the 24h dial. Picked to stay
-			   apart from each other and from the state colours above. */
-			--s-sydney: #9179c8;
-			--s-tokyo: #b8934f;
-			--s-london: #3f6fb0;
-			--s-newyork: #1f8f63;
-			--s-nyse: #2e93a6;
 		}
 
 		/* Dark: the ground goes to a deep navy rather than neutral black, and
@@ -103,12 +95,6 @@
 			--low: #7d859f;
 			--up: #35c48b;
 			--down: #ef5b62;
-
-			--s-sydney: #a99bef;
-			--s-tokyo: #e2bd80;
-			--s-london: #7fabe8;
-			--s-newyork: #35c48b;
-			--s-nyse: #5fc9dd;
 		}
 
 		/* Same values again for viewers whose Telegram never reported a scheme
@@ -136,12 +122,6 @@
 				--low: #7d859f;
 				--up: #35c48b;
 				--down: #ef5b62;
-
-				--s-sydney: #a99bef;
-				--s-tokyo: #e2bd80;
-				--s-london: #7fabe8;
-				--s-newyork: #35c48b;
-				--s-nyse: #5fc9dd;
 			}
 		}
 
@@ -237,13 +217,13 @@
 		/* The progress bar grows to its value on arrival. The class is added
 		   with the target width so the transition is only ever live during the
 		   entrance - a per-second redraw must not animate the bar. */
-		.cc-fill.is-filling {
+		.mk-m-fill.is-filling {
 			transition: width .75s cubic-bezier(.22, .68, .35, 1) .12s;
 		}
 
 		@media (prefers-reduced-motion: reduce) {
 			.mk-enter { animation: none; }
-			.cc-fill.is-filling { transition: none; }
+			.mk-m-fill.is-filling { transition: none; }
 		}
 
 		.wrap { max-width: 640px; margin: 0 auto; }
@@ -533,10 +513,12 @@
 			overflow: hidden;
 			display: flex;
 			flex-direction: column;
-			gap: 4px;
+			justify-content: space-between;
+			gap: 12px;
+			min-height: 205px;
 			background: linear-gradient(168deg, #1a2550 0%, #0c1330 55%, #070c1f 100%);
 			border-radius: 18px;
-			padding: 15px 17px 10px;
+			padding: 15px 17px;
 			margin-bottom: 14px;
 			color: #edf1fc;
 			box-shadow: var(--shadow-3),
@@ -544,16 +526,27 @@
 			            inset 0 .5px 0 0 rgba(0, 0, 0, .467);
 		}
 
-		/* The world as a slowly turning globe rather than a flat sheet: the
-		   same Natural Earth land mask, projected orthographically. Cities
-		   and their state lights are drawn by the same projection. */
-		.mk-globe {
-			position: relative;
-			display: block;
+		/* NASA's Black Marble — earth at night — cropped offline to exactly
+		   the lon/lat window the marker projection uses, so the photo and
+		   the markers can never disagree. Its top and bottom edges fade
+		   into the card's own navy. */
+		.mk-photo {
+			position: absolute;
+			left: 0;
 			width: 100%;
-			height: 248px;
-			z-index: 1;
 			pointer-events: none;
+			-webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+			mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+		}
+
+		/* A quiet navy shade so the titles, clock and markers sit on the
+		   photo comfortably; the state light (.mk-glow) rides above it. */
+		.mk-shade {
+			position: absolute;
+			inset: 0;
+			pointer-events: none;
+			background:
+				linear-gradient(180deg, rgba(9, 14, 34, .74) 0%, rgba(9, 14, 34, .16) 36%, rgba(7, 12, 31, .1) 60%, rgba(7, 12, 31, .5) 100%);
 		}
 
 		/* Ambient state light over the map: green while trading, red over the
@@ -568,6 +561,65 @@
 		.mk-hero.is-open .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(53, 196, 139, .17), transparent 65%); }
 		.mk-hero.is-closed .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(239, 91, 98, .14), transparent 65%); }
 		.mk-hero.is-break .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(232, 165, 69, .16), transparent 65%); }
+
+		/* City markers, positioned in pixels by the same projection that draws
+		   the dots, so they can never drift off their coastlines. */
+		.mk-city {
+			position: absolute;
+			transform: translate(-50%, -50%);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 3px;
+			pointer-events: none;
+			z-index: 1;
+		}
+
+		.mk-city-dot {
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: #55607f;
+			box-shadow: 0 0 0 2px rgba(85, 96, 127, .25);
+		}
+
+		.mk-city-name {
+			font-size: 0.56rem;
+			font-weight: 600;
+			letter-spacing: .02em;
+			color: rgba(214, 222, 244, .62);
+			text-shadow: 0 1px 3px rgba(5, 8, 20, .9);
+			white-space: nowrap;
+		}
+
+		.mk-city.is-on .mk-city-dot {
+			background: #35c48b;
+			box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55);
+			animation: mk-city-pulse 2.4s ease-out infinite;
+		}
+
+		.mk-city.is-on .mk-city-name { color: #8ce8c3; }
+
+		.mk-city.is-paused .mk-city-dot {
+			background: #e8a545;
+			box-shadow: 0 0 9px 2px rgba(232, 165, 69, .5);
+		}
+
+		/* Tehran is home: the academy's gold, always lit. */
+		.mk-city.is-home .mk-city-dot {
+			width: 6px;
+			height: 6px;
+			background: var(--gold);
+			box-shadow: 0 0 8px 2px rgba(210, 174, 109, .55);
+		}
+
+		.mk-city.is-home .mk-city-name { color: rgba(233, 208, 160, .85); }
+
+		@keyframes mk-city-pulse {
+			0% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 rgba(53, 196, 139, .45); }
+			70% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 10px transparent; }
+			100% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 transparent; }
+		}
 
 		.mk-hero-main { position: relative; min-width: 0; z-index: 2; }
 
@@ -604,6 +656,7 @@
 
 		@media (prefers-reduced-motion: reduce) {
 			.mk-hero.is-open .mk-dot { animation: none; }
+			.mk-city.is-on .mk-city-dot { animation: none; }
 		}
 
 		.mk-hero-sub {
@@ -618,79 +671,49 @@
 			font-variant-numeric: tabular-nums;
 		}
 
-		.mk-board { display: flex; flex-direction: column; gap: 8px; }
-
-		/* ---------- 24h dial ---------- */
-		/* The five sessions as concentric rings on one watch face: wherever
-		   arcs overlap radially, several markets are open at once — the fact
-		   the whole screen exists to show. Tehran time at the pivot. */
-		.wl-card {
-			background: var(--card);
-			border-radius: 18px;
-			padding: 18px 12px 14px;
-			margin-bottom: 12px;
-			box-shadow: var(--shadow-2);
-			border: 1px solid var(--line);
-		}
-
-		.wl-stage { display: flex; justify-content: center; }
-
-		.wl-zone {
-			font-size: 0.54rem;
-			font-weight: 700;
-			letter-spacing: .12em;
-			fill: var(--muted);
-		}
-
-		.wl-time {
-			font-size: 1.5rem;
-			font-weight: 800;
-			fill: var(--text);
-			font-variant-numeric: tabular-nums;
-		}
-
-		.wl-hour {
-			font-size: 0.58rem;
-			fill: var(--accent);
-			font-weight: 700;
-			font-variant-numeric: tabular-nums;
-		}
-
-		.wl-track { fill: none; stroke: color-mix(in srgb, var(--muted) 14%, transparent); stroke-width: 8; }
-		.wl-arc { fill: none; stroke-linecap: round; stroke-width: 8; }
-		.wl-arc.is-dim { opacity: .22; }
-		.wl-arc.is-paused { opacity: .5; }
-		.wl-bezel { fill: none; stroke-width: 1.4; opacity: .6; }
-		.wl-tick { stroke: var(--muted); opacity: .35; }
-		.wl-baton { fill: url(#wlBatonGrad); }
-		.wl-sunray { stroke: var(--gold); stroke-width: .6; opacity: .045; }
-		.wl-break { fill: color-mix(in srgb, var(--text) 11%, transparent); }
-		.wl-needle { stroke: var(--down); stroke-width: 1.6; }
-		.wl-needle-tip { fill: var(--down); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--down) 70%, transparent)); }
-		.wl-needle-butt { fill: var(--down); opacity: .55; }
-
-		.wl-sub-face { fill: color-mix(in srgb, var(--card-2) 72%, transparent); stroke: var(--line); stroke-width: 1; }
-		.wl-sub-tick { stroke: var(--muted); opacity: .5; }
-		.wl-sub-hand { stroke: var(--accent); stroke-width: 1; stroke-linecap: round; }
-		.wl-sub-pin { fill: var(--accent); }
-
-		/* Which ring is which: a colour key dot in each card below. */
-		.cc-key {
+		/* The clock sits in the ocean corner of the map, opposite the title. */
+		.mk-clock {
+			position: relative;
 			flex: none;
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
+			align-self: flex-end;
+			text-align: center;
+			line-height: 1.15;
+			z-index: 2;
+			text-shadow: 0 2px 8px rgba(5, 8, 20, .85);
 		}
 
-		/* Elapsed share of the running session, as a slim meter. */
-		.cc-bar {
-			height: 5px;
-			border-radius: 4px;
-			background: color-mix(in srgb, var(--muted) 14%, transparent);
-			overflow: hidden;
+		/* The clock is the one piece of type on this screen that is allowed to
+		   be loud. Heavy, tight, tabular, with the seconds kept small so the
+		   hour and minute stay what the eye lands on. */
+		.mk-clock-time {
+			display: block;
+			font-size: 2.15rem;
+			font-weight: 900;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: -.02em;
+			line-height: 1;
+			direction: ltr;
+			color: #f4f7ff;
 		}
 
-		.cc-fill { height: 100%; border-radius: 4px; }
+		.mk-clock-sec {
+			font-size: 0.82rem;
+			font-weight: 700;
+			letter-spacing: 0;
+			color: rgba(196, 205, 232, .75);
+			margin-inline-start: 3px;
+			vertical-align: 3px;
+		}
+
+		.mk-clock-zone {
+			display: block;
+			font-size: 0.62rem;
+			color: rgba(196, 205, 232, .65);
+			letter-spacing: .06em;
+			margin-top: 4px;
+		}
+
+		.mk-board { display: flex; flex-direction: column; gap: 8px; }
 
 		.mk-m {
 			background: var(--card);
@@ -764,6 +787,106 @@
 			background: currentColor;
 		}
 
+		.mk-m-track {
+			position: relative;
+			height: 12px;
+			border-radius: 6px;
+			background: color-mix(in srgb, var(--muted) 13%, transparent);
+			overflow: hidden;
+		}
+
+		/* --d1..--d3 are the three density bands the bar is painted with: one
+		   market open, two, three or more. They are declared per state so a
+		   live bar shades in green and an idle one in grey, while the gradient
+		   itself is built in script from the real per-minute counts. */
+		.mk-m-seg {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			border-radius: 6px;
+			--d1: color-mix(in srgb, var(--muted) 26%, transparent);
+			--d2: color-mix(in srgb, var(--muted) 42%, transparent);
+			--d3: color-mix(in srgb, var(--muted) 60%, transparent);
+			background: var(--d1);
+		}
+
+		.mk-m.is-live .mk-m-seg {
+			--d1: color-mix(in srgb, var(--up) 22%, transparent);
+			--d2: color-mix(in srgb, var(--up) 38%, transparent);
+			--d3: color-mix(in srgb, var(--up) 56%, transparent);
+			background: var(--d1);
+		}
+
+		.mk-m.is-paused .mk-m-seg {
+			--d1: color-mix(in srgb, var(--medium) 22%, transparent);
+			--d2: color-mix(in srgb, var(--medium) 38%, transparent);
+			--d3: color-mix(in srgb, var(--medium) 56%, transparent);
+			background: var(--d1);
+		}
+
+		/* Explains the shading without a separate chart: three chips of the
+		   same three bands the bars use. */
+		.mk-legend {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-wrap: wrap;
+			gap: 6px 14px;
+			margin: -6px 2px 14px;
+			font-size: 0.66rem;
+			color: var(--muted);
+		}
+
+		.mk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+		.mk-legend i {
+			width: 16px;
+			height: 8px;
+			border-radius: 3px;
+			background: color-mix(in srgb, var(--muted) 26%, transparent);
+		}
+
+		.mk-legend i.l2 { background: color-mix(in srgb, var(--muted) 42%, transparent); }
+		.mk-legend i.l3 { background: color-mix(in srgb, var(--muted) 60%, transparent); }
+
+		/* The daily rollover hour, hatched so it reads as "not trading" rather
+		   than as another session. Drawn over the segments beneath it. */
+		.mk-m-break {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			z-index: 1;
+			background:
+				repeating-linear-gradient(45deg,
+					color-mix(in srgb, var(--text) 34%, transparent) 0 2px,
+					transparent 2px 5px),
+				var(--card);
+		}
+
+		/* The elapsed part of a running session. It grows from the open edge,
+		   which under RTL is the right-hand side of the track. */
+		.mk-m-fill {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			right: 0;
+			border-radius: 6px;
+			background: var(--up);
+		}
+
+		.mk-m-now {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			width: 2px;
+			margin-right: -1px;
+			background: var(--text);
+			opacity: .55;
+			z-index: 2;
+		}
+
+		.mk-m.is-live .mk-m-now { opacity: 1; }
+
 		.mk-m-foot {
 			display: flex;
 			flex-wrap: wrap;
@@ -809,6 +932,17 @@
 		.mk-m-cdn { font-size: 0.8rem; }
 		.mk-m.is-live .mk-m-cdn { color: var(--up); }
 		.mk-m.is-paused .mk-m-cdn { color: var(--medium); }
+		.mk-m.is-paused .mk-m-now { opacity: 1; }
+
+		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
+
+		.mk-hour {
+			position: absolute;
+			transform: translateX(50%);
+			font-size: 0.64rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
 
 		/* The London∩NY window is the single most useful fact on this screen,
 		   so it gets the accent instead of sharing the neutral card look. */
@@ -1698,7 +1832,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۲۴</span>
+			<span class="build">نسخه ۲۵</span>
 		</p>
 	</div>
 
@@ -2465,16 +2599,11 @@ function eventNode(e) {
 
 			// ---------- markets view ----------
 			// ---------- world map ----------
-			// A dot-grid land mask, generated offline from world-atlas
-			// land-110m (Natural Earth, public domain): 120x46 cells over
-			// lon -180..180, lat 72..-55, one bit per cell, LSB first.
-			var MAP_B64 = "gAHg0x/8HwAwAOz///8BHgDABMoD/v8BFhAAAAAADQAAAMOHn/8IAQAAAAAA4P//HyY4AMD7//////97wOP/D1wAAMDj/////38AgAD/P/wAAAT5/////wMDAAD+//0BAIr//////w8BAAD+//8BAOj//////w8AAAD8/38DAPz//////w8AAAD4//8AAPC/zv///wMAAAD4/w8AAJ4d7P///wkAAAD4/wcAAA7u3///bwAAAAD4/wcAAA7p3///XwQAAADw/wMAAPwA////TwMAAADg/wEAAP4J////nwAAAACADwEAAP7/7///HwAAAABADwAAgP9/n///DwAAAAAABwAAgP//fvj/FwAAAAAATgQAwP///vj5AAAAAAAAfAQAgP//ffB4EAAAAAAA4AAAwP//HWDgEAAAAAAAgAAAwP//B2DAAAAAAAAAAHgAgP//HyCAAAAAAAAAAPwBAP//HwAgIAAAAAAAAPwHAIL/DwAQBAAAAAAAAPwHAID/BwBgBwAAAAAAAP4fAID/AwBgFwEAAAAAAP5/AAD/AQBAEA4AAAAAAP7/AAD/AQCAABwAAAAAAPz/AAD/AQAAICAAAAAAAPx/AAD+AQAAAAsAAAAAAPh/AAD/EwAAwAkAAAAAAPB/AAD/CAAA4B+AAAAAAOB/AAD/CAAA+D8AAAAAAOAfAAD+CAAA/D8AAAAAAPAPAAB+AAAA/H8AAAAAAPAPAAB+AAAA/H8AAAAAAPAHAAA8AAAA+H8AAAAAAPADAAAEAAAADDwAAAAAAPABAAAAAAAAADhAAAAAAHgAAAAAAAAAAABAAAAAAHAAAAAAAAAAABAgAAAAADgAAAAAAAAAAAAQAAAAADgAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAA";
-			var MAP_W = 120, MAP_H = 46, MAP_LAT_TOP = 72, MAP_LAT_BOT = -55;
-			var mapBits = (function () {
-				var bin = atob(MAP_B64), out = new Uint8Array(bin.length);
-				for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-				return out;
-			})();
+			// The hero photo (earth-night.jpg, NASA Black Marble, public
+			// domain) is pre-cropped offline to lon -180..180 and lat
+			// 72..-55, so screen position is a plain linear mapping.
+			var MAP_LAT_TOP = 72, MAP_LAT_BOT = -55;
+			var PHOTO_ASPECT = 1600 / 565; // the shipped file's pixel size
 
 			// The five session cities plus home. New York carries both the forex
 			// session and the exchange, so its dot lights if either is open.
@@ -2486,176 +2615,30 @@ function eventNode(e) {
 				{ name: "تهران", lon: 51.39, lat: 35.69, home: true }
 			];
 
-			// The land mask unpacked once into radian (lon, lat) pairs, ready
-			// for the globe's projection.
-			var GLOBE_POINTS = (function () {
-				var pts = [];
-				for (var i = 0; i < MAP_W * MAP_H; i++) {
-					if (!((mapBits[i >> 3] >> (i & 7)) & 1)) continue;
-					var gx = i % MAP_W, gy = (i / MAP_W) | 0;
-					pts.push({
-						lon: (-180 + (gx + 0.5) / MAP_W * 360) * Math.PI / 180,
-						lat: (MAP_LAT_TOP - (gy + 0.5) / MAP_H * (MAP_LAT_TOP - MAP_LAT_BOT)) * Math.PI / 180
-					});
-				}
-				return pts;
-			})();
+			var heroMap = null;
 
-			var GLOBE_TILT = 18 * Math.PI / 180; // camera latitude
-
-			// One live globe at a time. A re-render replaces the object; the
-			// old animation loop notices its canvas has left the page and
-			// stops itself.
-			var globe = null;
-
-			function sizeGlobe(g) {
-				var w = g.canvas.clientWidth, h = g.canvas.clientHeight;
-				if (!w || !h) return false;
-				g.dpr = Math.min(window.devicePixelRatio || 1, 2);
-				g.canvas.width = Math.round(w * g.dpr);
-				g.canvas.height = Math.round(h * g.dpr);
-				return true;
-			}
-
-			// Orthographic projection at camera longitude lon0 (radians).
-			// Returns null for points on the far hemisphere.
-			function globeProject(lon, lat, lon0, R) {
-				var cosC = Math.sin(GLOBE_TILT) * Math.sin(lat) +
-					Math.cos(GLOBE_TILT) * Math.cos(lat) * Math.cos(lon - lon0);
-				if (cosC <= 0.02) return null;
-				return {
-					x: R * Math.cos(lat) * Math.sin(lon - lon0),
-					y: -R * (Math.cos(GLOBE_TILT) * Math.sin(lat) -
-						Math.sin(GLOBE_TILT) * Math.cos(lat) * Math.cos(lon - lon0)),
-					depth: cosC
-				};
-			}
-
-			// The hero card's ground is a fixed deep navy in both themes, so
-			// every colour here is a literal, same as the hero's own CSS.
-			function drawGlobe(g) {
-				var ctx = g.ctx, w = g.canvas.width, h = g.canvas.height, dpr = g.dpr;
+			// Positions the photo and the city markers with one shared
+			// projection, so markers can never drift off their coastlines.
+			// The photo is fitted to the card's width and centred vertically.
+			function layoutHeroMap() {
+				if (!heroMap || !heroMap.img.isConnected) return;
+				var host = heroMap.img.parentNode;
+				var w = host.clientWidth, h = host.clientHeight;
 				if (!w || !h) return;
-				var cx = w / 2, cy = h / 2 + 4 * dpr;
-				var R = Math.min(w, h) / 2 - 18 * dpr;
-				var lon0 = g.lon * Math.PI / 180;
-				ctx.clearRect(0, 0, w, h);
-
-				// atmosphere halo
-				var glow = ctx.createRadialGradient(cx, cy, R * 0.7, cx, cy, R * 1.22);
-				glow.addColorStop(0, "rgba(0,0,0,0)");
-				glow.addColorStop(0.72, "rgba(210,174,109,.15)");
-				glow.addColorStop(1, "rgba(0,0,0,0)");
-				ctx.fillStyle = glow;
-				ctx.beginPath();
-				ctx.arc(cx, cy, R * 1.22, 0, 6.2832);
-				ctx.fill();
-
-				// ocean sphere, lit from the upper-left limb
-				var ocean = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.35, R * 0.2, cx, cy, R);
-				ocean.addColorStop(0, "rgba(38,52,100,.65)");
-				ocean.addColorStop(1, "rgba(8,13,33,.85)");
-				ctx.fillStyle = ocean;
-				ctx.beginPath();
-				ctx.arc(cx, cy, R, 0, 6.2832);
-				ctx.fill();
-
-				// land, faded toward the limb so the sphere reads as a sphere
-				for (var i = 0; i < GLOBE_POINTS.length; i++) {
-					var p = globeProject(GLOBE_POINTS[i].lon, GLOBE_POINTS[i].lat, lon0, R);
-					if (!p) continue;
-					ctx.fillStyle = "rgba(226,189,128," + (0.2 + 0.55 * p.depth).toFixed(2) + ")";
-					ctx.beginPath();
-					ctx.arc(cx + p.x, cy + p.y, dpr * (0.9 + 0.5 * p.depth), 0, 6.2832);
-					ctx.fill();
-				}
-
-				// gold rim, brighter along the lit limb
-				ctx.strokeStyle = "rgba(210,174,109,.5)";
-				ctx.lineWidth = dpr;
-				ctx.beginPath();
-				ctx.arc(cx, cy, R, 0, 6.2832);
-				ctx.stroke();
-				ctx.strokeStyle = "rgba(240,220,177,.85)";
-				ctx.lineWidth = 1.6 * dpr;
-				ctx.beginPath();
-				ctx.arc(cx, cy, R, Math.PI * 1.05, Math.PI * 1.5);
-				ctx.stroke();
-
-				// cities, lit by their trading state
-				var pulse = motionOK() ? Math.sin(performance.now() / 400) : 0;
-				g.cities.forEach(function (c) {
-					var p = globeProject(c.lon * Math.PI / 180, c.lat * Math.PI / 180, lon0, R);
-					if (!p) return;
-					var mx = cx + p.x, my = cy + p.y;
-					var color = c.home ? "#d2ae6d" : (c.on ? "#35c48b" : (c.paused ? "#e8a545" : "#55607f"));
-					if (c.on || c.home || c.paused) {
-						var rad = (c.on ? 11 + pulse * 2 : 8) * dpr;
-						var halo = ctx.createRadialGradient(mx, my, 0, mx, my, rad);
-						halo.addColorStop(0, color + "59");
-						halo.addColorStop(1, color + "00");
-						ctx.fillStyle = halo;
-						ctx.beginPath();
-						ctx.arc(mx, my, rad, 0, 6.2832);
-						ctx.fill();
-					}
-					var dotR = (c.home ? 2.6 : (c.on ? 3.4 : 2.4)) * dpr;
-					ctx.fillStyle = color;
-					ctx.beginPath();
-					ctx.arc(mx, my, dotR, 0, 6.2832);
-					ctx.fill();
-					ctx.strokeStyle = "rgba(7,12,31,.85)";
-					ctx.lineWidth = dpr;
-					ctx.beginPath();
-					ctx.arc(mx, my, dotR, 0, 6.2832);
-					ctx.stroke();
-					ctx.font = "600 " + (10 * dpr) + "px Vazirmatn, sans-serif";
-					ctx.textAlign = "center";
-					ctx.fillStyle = "rgba(7,12,31,.9)";
-					ctx.fillText(c.name, mx + dpr * 0.5, my + 15 * dpr + dpr * 0.5);
-					ctx.fillStyle = c.on ? "#8ce8c3" : (c.home ? "rgba(233,208,160,.9)" : "rgba(214,222,244,.75)");
-					ctx.fillText(c.name, mx, my + 15 * dpr);
+				var mapH = w / PHOTO_ASPECT;
+				var oy = (h - mapH) / 2;
+				heroMap.img.style.top = oy + "px";
+				heroMap.img.style.height = mapH + "px";
+				heroMap.cities.forEach(function (c) {
+					var x = (c.lon + 180) / 360 * w;
+					var y = oy + (MAP_LAT_TOP - c.lat) / (MAP_LAT_TOP - MAP_LAT_BOT) * mapH;
+					c.node.style.left = x + "px";
+					c.node.style.top = y + "px";
 				});
 			}
 
-			function startGlobe(canvas, cities) {
-				var g = {
-					canvas: canvas,
-					ctx: canvas.getContext("2d"),
-					cities: cities,
-					// Pick up where the previous globe was, so a re-render on
-					// a session opening does not snap the world back around.
-					lon: globe ? globe.lon : 51,
-					dpr: 1,
-					last: null
-				};
-				globe = g;
-				if (!motionOK()) {
-					// Static globe, centred on home. Sized on the next frame,
-					// once the card has a layout box.
-					g.lon = 51;
-					requestAnimationFrame(function () { if (sizeGlobe(g)) drawGlobe(g); });
-					return;
-				}
-				function frame(ts) {
-					if (!g.canvas.isConnected) {
-						if (globe === g) globe = null;
-						return; // replaced, or the tab was left: stop this loop
-					}
-					var dpr = Math.min(window.devicePixelRatio || 1, 2);
-					if (g.canvas.width !== Math.round(g.canvas.clientWidth * dpr)) sizeGlobe(g);
-					if (g.last === null) g.last = ts;
-					var dt = Math.min((ts - g.last) / 1000, 0.1);
-					g.last = ts;
-					g.lon = (g.lon + 2.0 * dt) % 360;
-					drawGlobe(g);
-					requestAnimationFrame(frame);
-				}
-				requestAnimationFrame(frame);
-			}
-
 			window.addEventListener("resize", function () {
-				if (globe && globe.canvas.isConnected && !motionOK() && sizeGlobe(globe)) drawGlobe(globe);
+				if (state.scope === "markets") layoutHeroMap();
 			});
 
 			// Per-second updaters registered by renderMarkets. Only the text
@@ -2689,180 +2672,31 @@ function eventNode(e) {
 				return t[0] * 60 + t[1];
 			}
 
-			// ---------- the 24h dial ----------
-			// Five sessions as concentric rings on one clock face. A ring's
-			// arc runs from its Tehran open to its Tehran close, so wherever
-			// arcs line up radially, several markets are open at once — the
-			// fact this screen exists to show.
-			var WHEEL_COLORS = {
-				sydney: "var(--s-sydney)", tokyo: "var(--s-tokyo)", london: "var(--s-london)",
-				newyork: "var(--s-newyork)", nyse: "var(--s-nyse)"
-			};
-			var WHEEL_RADII = { sydney: 46, tokyo: 60, london: 74, newyork: 88, nyse: 102 };
-			var WCX = 136, WCY = 136;
-			var SVG_NS = "http://www.w3.org/2000/svg";
-
-			function svgEl(tag, attrs) {
-				var node = document.createElementNS(SVG_NS, tag);
-				for (var k in attrs) node.setAttribute(k, attrs[k]);
-				return node;
-			}
-
-			// 0h at the top of the dial, clockwise, like any 24h watch bezel.
-			function wheelAngle(hours) { return (hours / 24) * 360 - 90; }
-
-			function wheelPoint(r, deg) {
-				var rad = deg * Math.PI / 180;
-				return { x: WCX + r * Math.cos(rad), y: WCY + r * Math.sin(rad) };
-			}
-
-			function wheelArcPath(r, startHour, endHour) {
-				var span = endHour >= startHour ? endHour - startHour : (24 - startHour) + endHour;
-				if (span <= 0) span = 24;
-				var a0 = wheelAngle(startHour);
-				var a1 = a0 + span / 24 * 360;
-				var p0 = wheelPoint(r, a0), p1 = wheelPoint(r, a1);
-				return "M " + p0.x.toFixed(2) + " " + p0.y.toFixed(2) +
-					" A " + r + " " + r + " 0 " + (span > 12 ? 1 : 0) + " 1 " +
-					p1.x.toFixed(2) + " " + p1.y.toFixed(2);
-			}
-
-			// An annular wedge cut across every ring: the rollover hour.
-			function wheelWedgePath(r0, r1, startHour, endHour) {
-				var large = (endHour - startHour) > 12 ? 1 : 0;
-				var a0 = wheelAngle(startHour), a1 = wheelAngle(endHour);
-				var o0 = wheelPoint(r1, a0), o1 = wheelPoint(r1, a1);
-				var i1 = wheelPoint(r0, a1), i0 = wheelPoint(r0, a0);
-				return "M " + o0.x.toFixed(2) + " " + o0.y.toFixed(2) +
-					" A " + r1 + " " + r1 + " 0 " + large + " 1 " + o1.x.toFixed(2) + " " + o1.y.toFixed(2) +
-					" L " + i1.x.toFixed(2) + " " + i1.y.toFixed(2) +
-					" A " + r0 + " " + r0 + " 0 " + large + " 0 " + i0.x.toFixed(2) + " " + i0.y.toFixed(2) +
-					" Z";
-			}
-
-			function buildWheel(now, refs, market, breakM) {
-				var card = el("div", "wl-card");
-				var stage = el("div", "wl-stage");
-				var svg = svgEl("svg", { width: 272, height: 272, viewBox: "-6 -6 284 284", role: "img" });
-				stage.appendChild(svg);
-				card.appendChild(stage);
-
-				var defs = svgEl("defs", {});
-				var grad = svgEl("linearGradient", { id: "wlBatonGrad", x1: "0%", y1: "0%", x2: "0%", y2: "100%" });
-				grad.appendChild(svgEl("stop", { offset: "0%", "stop-color": "var(--gold)" }));
-				grad.appendChild(svgEl("stop", { offset: "100%", "stop-color": "var(--gold-dark)" }));
-				defs.appendChild(grad);
-				var bez = svgEl("linearGradient", { id: "wlBezelGrad", x1: "0%", y1: "0%", x2: "100%", y2: "100%" });
-				bez.appendChild(svgEl("stop", { offset: "0%", "stop-color": "var(--gold)" }));
-				bez.appendChild(svgEl("stop", { offset: "50%", "stop-color": "var(--gold-dark)" }));
-				bez.appendChild(svgEl("stop", { offset: "100%", "stop-color": "var(--gold)" }));
-				defs.appendChild(bez);
-				svg.appendChild(defs);
-
-				// sunray engraving under everything
-				for (var sa = 0; sa < 360; sa += 7.5) {
-					var si = wheelPoint(14, sa), so = wheelPoint(109, sa);
-					svg.appendChild(svgEl("line", { x1: si.x, y1: si.y, x2: so.x, y2: so.y, class: "wl-sunray" }));
-				}
-
-				// bezel
-				svg.appendChild(svgEl("circle", { cx: WCX, cy: WCY, r: 128, class: "wl-bezel", stroke: "url(#wlBezelGrad)" }));
-				svg.appendChild(svgEl("circle", { cx: WCX, cy: WCY, r: 122, class: "wl-bezel", stroke: "var(--line)", "stroke-width": 1 }));
-
-				// hour ticks: a mark per hour, gold batons with labels on the
-				// four-hour marks — the same axis hours the old bars used
-				for (var hh = 0; hh < 24; hh++) {
-					var ha = wheelAngle(hh);
-					if (hh % 4 === 0) {
-						var bp = wheelPoint(113, ha);
-						svg.appendChild(svgEl("rect", {
-							x: -2.7, y: -4.5, width: 5.4, height: 9, rx: 1.1, class: "wl-baton",
-							transform: "translate(" + bp.x.toFixed(2) + " " + bp.y.toFixed(2) + ") rotate(" + (ha + 90).toFixed(2) + ")"
-						}));
-						var lp = wheelPoint(131, ha);
-						var lt = svgEl("text", { x: lp.x, y: lp.y + 3, "text-anchor": "middle", class: "wl-hour" });
-						lt.textContent = fa(hh < 10 ? "0" + hh : hh);
-						svg.appendChild(lt);
-					} else {
-						var ti = wheelPoint(hh % 2 === 0 ? 116 : 117.5, ha);
-						var to = wheelPoint(121, ha);
-						svg.appendChild(svgEl("line", {
-							x1: ti.x, y1: ti.y, x2: to.x, y2: to.y, class: "wl-tick",
-							"stroke-width": hh % 2 === 0 ? 1.1 : 0.7
-						}));
+			// A hard-stop gradient across one drawn span, one band per run of
+			// equal concurrency. Hard stops rather than blends: the number of
+			// open markets changes at an instant, and a smooth ramp would imply
+			// a gradual change that does not happen.
+			//
+			// Inside a span the minutes increase leftwards - the span is pinned
+			// by its right edge under RTL - so the gradient runs "to left".
+			function densityGradient(a, b, busy) {
+				var level = function (m) { return Math.min(3, Math.max(1, busy[m] || 1)); };
+				var stops = [];
+				var runStart = a;
+				for (var m = a + 1; m <= b; m++) {
+					if (m === b || level(m) !== level(runStart)) {
+						var c = "var(--d" + level(runStart) + ")";
+						stops.push(c + " " + ((runStart - a) / (b - a) * 100) + "% " + ((m - a) / (b - a) * 100) + "%");
+						runStart = m;
 					}
 				}
+				return stops.length ? "linear-gradient(to left, " + stops.join(", ") + ")" : "";
+			}
 
-				// rings, then arcs from the real session times
-				SESSIONS.forEach(function (s) {
-					svg.appendChild(svgEl("circle", { cx: WCX, cy: WCY, r: WHEEL_RADII[s.key], class: "wl-track" }));
-				});
-				SESSIONS.forEach(function (s) {
-					var ref = refs[s.key].ref;
-					if (!ref.open) return; // deep weekend: nothing scheduled to draw
-					var st = refs[s.key].st;
-					var live = st.open && market.open;
-					var pausedS = st.open && !market.open;
-					var cls = "wl-arc" + (live ? "" : (pausedS ? " is-paused" : " is-dim"));
-					var arc = svgEl("path", {
-						d: wheelArcPath(WHEEL_RADII[s.key], tehranMinutesOf(ref.open) / 60, tehranMinutesOf(ref.close) / 60),
-						class: cls, stroke: WHEEL_COLORS[s.key]
-					});
-					if (live) arc.style.filter = "drop-shadow(0 0 5px color-mix(in srgb, " + WHEEL_COLORS[s.key] + " 65%, transparent))";
-					svg.appendChild(arc);
-				});
-
-				// the rollover hour, cut across every ring
-				if (breakM[1] > breakM[0]) {
-					var wedge = svgEl("path", { d: wheelWedgePath(40, 108, breakM[0] / 60, breakM[1] / 60), class: "wl-break" });
-					var wt = svgEl("title", {});
-					wt.textContent = "استراحت روزانه سشن‌ها";
-					wedge.appendChild(wt);
-					svg.appendChild(wedge);
-				}
-
-				// needle at Tehran now: counterweight, blade, glowing tip
-				svg.appendChild(svgEl("circle", { cx: WCX, cy: WCY, r: 4, class: "wl-needle-butt" }));
-				var needle = svgEl("line", { x1: WCX, y1: WCY, x2: WCX, y2: WCY - 112, class: "wl-needle" });
-				svg.appendChild(needle);
-				var needleTip = svgEl("circle", { cx: WCX, cy: WCY - 112, r: 3.2, class: "wl-needle-tip" });
-				svg.appendChild(needleTip);
-
-				// centre clock, kept above the pivot so the needle's
-				// counterweight never sits on the digits
-				var zone = svgEl("text", { x: WCX, y: WCY - 30, "text-anchor": "middle", class: "wl-zone" });
-				zone.textContent = "به وقت تهران";
-				svg.appendChild(zone);
-				var time = svgEl("text", { x: WCX, y: WCY - 7, "text-anchor": "middle", class: "wl-time" });
-				svg.appendChild(time);
-
-				// seconds subdial, low on the face like a chronograph
-				var scy = WCY + 46;
-				svg.appendChild(svgEl("circle", { cx: WCX, cy: scy, r: 20, class: "wl-sub-face" }));
-				for (var sd = 0; sd < 12; sd++) {
-					var sda = (sd * 30 - 90) * Math.PI / 180;
-					svg.appendChild(svgEl("line", {
-						x1: WCX + 16.5 * Math.cos(sda), y1: scy + 16.5 * Math.sin(sda),
-						x2: WCX + 19.2 * Math.cos(sda), y2: scy + 19.2 * Math.sin(sda),
-						class: "wl-sub-tick", "stroke-width": sd % 3 === 0 ? 1 : 0.6
-					}));
-				}
-				var subHand = svgEl("line", { x1: WCX, y1: scy, x2: WCX, y2: scy - 15, class: "wl-sub-hand" });
-				svg.appendChild(subHand);
-				svg.appendChild(svgEl("circle", { cx: WCX, cy: scy, r: 1.6, class: "wl-sub-pin" }));
-
-				// hands and clock ride the shared one-second tick
-				var setClock = function (t) {
-					time.textContent = fa(hhmmInZone(t, TEHRAN));
-					var deg = tehranMinutesOf(t) / 1440 * 360;
-					needle.setAttribute("transform", "rotate(" + deg.toFixed(2) + " " + WCX + " " + WCY + ")");
-					needleTip.setAttribute("transform", "rotate(" + deg.toFixed(2) + " " + WCX + " " + WCY + ")");
-					subHand.setAttribute("transform", "rotate(" + (secondsInZone(t, TEHRAN) * 6) + " " + WCX + " " + scy + ")");
-				};
-				setClock(now.getTime());
-				tickers.push(setClock);
-
-				return card;
+			function spansOf(openM, closeM) {
+				// A session running past Tehran midnight is drawn as two segments
+				// rather than one bar wrapping off the edge of the track.
+				return closeM > openM ? [[openM, closeM]] : [[openM, 1440], [0, closeM]];
 			}
 
 			function renderMarkets(container) {
@@ -2883,25 +2717,58 @@ function eventNode(e) {
 				};
 				var fills = [];
 				var market = marketState(now);
+				var nowM = tehranMinutesOf(now.getTime());
 				// The rollover window as Tehran minutes, derived rather than
 				// hardcoded so it stays right if the constants ever move.
 				var nextBreak = breakStartAfter(now.getTime());
 				var breakM = [tehranMinutesOf(nextBreak), tehranMinutesOf(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000)];
 
-				// ---- each session's reference occurrence: the running one, or
-				// the next one coming up. Everything below draws from these.
+				// ---- how many markets are open at each minute of the day
+				// Shaded onto the bars, so the busiest hours are visibly denser:
+				// the London bar darkens exactly where New York joins it. The
+				// count is taken over the same spans that get drawn, so the
+				// shading can never disagree with the bars it sits on.
 				var refs = {};
+				var busy = [];
+				for (var bi = 0; bi < 1440; bi++) busy.push(0);
 				SESSIONS.forEach(function (s) {
 					var st = sessionState(s, now);
 					var r = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
 					refs[s.key] = { st: st, ref: r };
+					if (!r.open) return;
+					spansOf(tehranMinutesOf(r.open), tehranMinutesOf(r.close)).forEach(function (sp) {
+						for (var m = sp[0]; m < sp[1] && m < 1440; m++) busy[m]++;
+					});
 				});
 
 
-				// ---- status hero: the turning globe
+				// ---- status hero
 				var heroClass = market.onBreak ? "is-break" : (market.open ? "is-open" : "is-closed");
 				var hero = el("div", "mk-hero " + heroClass);
+				var photo = el("img", "mk-photo");
+				photo.src = "earth-night.jpg";
+				photo.alt = "";
+				photo.setAttribute("aria-hidden", "true");
+				hero.appendChild(photo);
+				hero.appendChild(el("div", "mk-shade"));
 				hero.appendChild(el("div", "mk-glow"));
+				var cityEls = [];
+				CITIES.forEach(function (c) {
+					var on = false, pausedCity = false;
+					if (c.keys) {
+						var anyOpen = c.keys.some(function (k) { return refs[k].st.open; });
+						on = anyOpen && market.open;
+						pausedCity = anyOpen && !market.open;
+					}
+					var m = el("span", "mk-city" + (c.home ? " is-home" : "") + (on ? " is-on" : "") + (pausedCity ? " is-paused" : ""));
+					m.appendChild(el("span", "mk-city-dot"));
+					m.appendChild(el("span", "mk-city-name", c.name));
+					hero.appendChild(m);
+					cityEls.push({ node: m, lon: c.lon, lat: c.lat });
+				});
+				heroMap = { img: photo, cities: cityEls };
+				// The photo can only be placed once the card has a layout box.
+				requestAnimationFrame(layoutHeroMap);
 				var heroL = el("div", "mk-hero-main");
 				var title = el("div", "mk-hero-title");
 				title.appendChild(el("span", "mk-dot"));
@@ -2925,24 +2792,20 @@ function eventNode(e) {
 				}
 				heroL.appendChild(sub);
 				hero.appendChild(heroL);
-				// City lights are drawn by the globe itself, from the same
-				// open/paused logic the cards use.
-				var globeCv = el("canvas", "mk-globe");
-				hero.appendChild(globeCv);
-				var globeCities = CITIES.map(function (c) {
-					var on = false, pausedCity = false;
-					if (c.keys) {
-						var anyOpen = c.keys.some(function (k) { return refs[k].st.open; });
-						on = anyOpen && market.open;
-						pausedCity = anyOpen && !market.open;
-					}
-					return { name: c.name, lon: c.lon, lat: c.lat, home: !!c.home, on: on, paused: pausedCity };
+				var clock = el("div", "mk-clock");
+				var clockTime = el("span", "mk-clock-time", fa(hhmmInZone(now.getTime(), TEHRAN)));
+				// Seconds ride alongside the big number rather than inside it, so
+				// the hour and minute stay the thing the eye lands on.
+				var clockSec = el("span", "mk-clock-sec", fa(secondsInZone(now.getTime(), TEHRAN)));
+				clockTime.appendChild(clockSec);
+				clock.appendChild(clockTime);
+				clock.appendChild(el("span", "mk-clock-zone", "تهران"));
+				tickers.push(function (t) {
+					clockTime.firstChild.nodeValue = fa(hhmmInZone(t, TEHRAN));
+					clockSec.textContent = fa(secondsInZone(t, TEHRAN));
 				});
-				startGlobe(globeCv, globeCities);
+				hero.appendChild(clock);
 				container.appendChild(enter(hero));
-
-				// ---- the 24h dial
-				container.appendChild(enter(buildWheel(now, refs, market, breakM)));
 
 				// ---- one self-contained row per market
 				var board = el("div", "mk-board");
@@ -2958,10 +2821,6 @@ function eventNode(e) {
 
 					var head = el("div", "mk-m-head");
 					var who = el("div", "mk-m-who");
-					// The colour key ties this card to its ring on the dial.
-					var key = el("span", "cc-key");
-					key.style.background = WHEEL_COLORS[s.key];
-					who.appendChild(key);
 					who.appendChild(el("span", "mk-m-flag", s.flag));
 					who.appendChild(el("span", "mk-m-name", s.name));
 					// Two rows share the New York flag and clock, so the exchange
@@ -2982,38 +2841,47 @@ function eventNode(e) {
 					head.appendChild(pill);
 					row.appendChild(head);
 
-					// While the session runs, the share of it already elapsed, in
-					// the same colour as its ring. The span itself lives on the
-					// dial now, so the card only carries the progress.
-					if (st.open && ref.open) {
-						var bar = el("div", "cc-bar");
-						var fill = el("div", "cc-fill");
-						fill.style.background = paused ? "var(--medium)" : WHEEL_COLORS[s.key];
-						var barPct = function (t) {
-							var p = (t - ref.open) / (ref.close - ref.open) * 100;
-							return Math.max(0, Math.min(100, p)) + "%";
-						};
-						var pct = barPct(now.getTime());
-						// On entry the bar grows to its value rather than
-						// appearing at it; on a redraw it is simply correct.
-						if (animate) { fill.style.width = "0%"; fills.push([fill, pct]); }
-						else { fill.style.width = pct; }
-						tickers.push(function (t) { fill.style.width = barPct(t); });
-						bar.appendChild(fill);
-						row.appendChild(bar);
+					var track = el("div", "mk-m-track");
+					if (ref.open) {
+						var openM = tehranMinutesOf(ref.open);
+						var closeM = tehranMinutesOf(ref.close);
+						spansOf(openM, closeM).forEach(function (sp) {
+							var seg = el("div", "mk-m-seg");
+							seg.style.right = (sp[0] / 1440 * 100) + "%";
+							seg.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
+							var grad = densityGradient(sp[0], sp[1], busy);
+							if (grad) seg.style.backgroundImage = grad;
+							// While a session is running, fill the part already
+							// elapsed so the bar doubles as a progress meter.
+							if (live && nowM >= sp[0] && nowM <= sp[1]) {
+								var fill = el("div", "mk-m-fill");
+								var pct = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
+								// On entry the bar grows to its value rather than
+								// appearing at it; on a redraw it is simply correct.
+								if (animate) { fill.style.width = "0%"; fills.push([fill, pct]); }
+								else { fill.style.width = pct; }
+								seg.appendChild(fill);
+							}
+							track.appendChild(seg);
+						});
 					}
+					// The rollover hour, drawn over whatever sits beneath it so the
+					// gap in the trading day is visible on every track.
+					if (breakM[1] > breakM[0]) {
+						var brk = el("div", "mk-m-break");
+						brk.style.right = (breakM[0] / 1440 * 100) + "%";
+						brk.style.width = ((breakM[1] - breakM[0]) / 1440 * 100) + "%";
+						brk.title = "استراحت روزانه سشن‌ها";
+						track.appendChild(brk);
+					}
+
+					var nl = el("div", "mk-m-now");
+					nl.style.right = (nowM / 1440 * 100) + "%";
+					track.appendChild(nl);
+					row.appendChild(track);
 
 					var foot = el("div", "mk-m-foot");
 					if (ref.open) {
-						// The city's own wall clock, live: the demoed "LOCAL"
-						// readout, in the same chip language as the others.
-						var t0 = el("span", "mk-m-time");
-						t0.appendChild(el("span", "mk-m-tag", "محلی"));
-						var localB = el("b", null, fa(hhmmInZone(now.getTime(), s.zone)));
-						t0.appendChild(localB);
-						tickers.push(function (t) { localB.textContent = fa(hhmmInZone(t, s.zone)); });
-						foot.appendChild(t0);
-
 						var t1 = el("span", "mk-m-time");
 						t1.appendChild(el("span", "mk-m-tag", "تهران"));
 						t1.appendChild(el("b", null, fa(hhmmInZone(ref.open, TEHRAN)) + "–" + fa(hhmmInZone(ref.close, TEHRAN))));
@@ -3036,6 +2904,23 @@ function eventNode(e) {
 					board.appendChild(enter(row));
 				});
 				container.appendChild(board);
+
+				var axis = el("div", "mk-axis");
+				[0, 4, 8, 12, 16, 20].forEach(function (h) {
+					var lab = el("span", "mk-hour", fa(h < 10 ? "0" + h : h));
+					lab.style.right = (h * 60 / 1440 * 100) + "%";
+					axis.appendChild(lab);
+				});
+				container.appendChild(axis);
+
+				var legend = el("div", "mk-legend");
+				[["", "یک سشن باز"], ["l2", "دو سشن"], ["l3", "سه سشن یا بیشتر"]].forEach(function (l) {
+					var item = el("span");
+					item.appendChild(el("i", l[0] || null));
+					item.appendChild(el("span", null, l[1]));
+					legend.appendChild(item);
+				});
+				container.appendChild(legend);
 
 				// ---- the overlap is the point of the whole screen
 				var london = sessionByKey("london"), ny = sessionByKey("newyork");
@@ -3079,7 +2964,7 @@ function eventNode(e) {
 				container.appendChild(el("p", "footnote",
 					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. سشن‌ها از بامداد دوشنبه پس از پایان تسویه (۰۱:۳۰ به وقت ایران) تا جمعه با بسته شدن نیویورک فعال‌اند. "
 					+ "هر شب هم از " + fa(hhmmInZone(nextBreak, TEHRAN)) + " تا " + fa(hhmmInZone(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, TEHRAN))
-					+ " به وقت ایران، سشن‌ها برای تسویه‌ی روزانه یک ساعت بسته‌اند (قطاع تیره روی ساعت)."));
+					+ " به وقت ایران، سشن‌ها برای تسویه‌ی روزانه یک ساعت بسته‌اند (نوار تیره روی نمودارها)."));
 
 				// The width has to be set in a later frame than the 0% it starts
 				// at, or the browser collapses the two into one value and the
