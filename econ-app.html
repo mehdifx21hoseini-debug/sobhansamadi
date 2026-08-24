@@ -70,6 +70,10 @@
 			--low: #99a0b8;
 			--up: #1f8f63;
 			--down: #c8323c;
+
+			/* The hairline around a flag badge: brand gold at rest, taken over
+			   by the state colour while a session is live or on its break. */
+			--flag-ring: color-mix(in srgb, var(--gold-dark) 62%, transparent);
 		}
 
 		/* Dark: the ground goes to a deep navy rather than neutral black, and
@@ -95,6 +99,8 @@
 			--low: #7d859f;
 			--up: #35c48b;
 			--down: #ef5b62;
+
+			--flag-ring: color-mix(in srgb, var(--gold) 58%, transparent);
 		}
 
 		/* Same values again for viewers whose Telegram never reported a scheme
@@ -122,6 +128,8 @@
 				--low: #7d859f;
 				--up: #35c48b;
 				--down: #ef5b62;
+
+				--flag-ring: color-mix(in srgb, var(--gold) 58%, transparent);
 			}
 		}
 
@@ -744,7 +752,44 @@
 		}
 
 		.mk-m-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
-		.mk-m-flag { font-size: 1.22rem; line-height: 1; }
+		/* Real flag artwork rather than an emoji, in a coin-shaped badge: the
+		   ring carries the row's state, so a market's flag is itself the
+		   signal — gold at rest, green while trading, amber on the break. */
+		.mk-m-flag {
+			flex: none;
+			width: 30px;
+			height: 30px;
+			border-radius: 50%;
+			overflow: hidden;
+			display: block;
+			border: 1.6px solid var(--flag-ring);
+			box-shadow: 0 2px 6px hsl(var(--shadow-color) / 22%);
+			transition: border-color .35s var(--ease-out-3), box-shadow .35s var(--ease-out-3);
+		}
+
+		/* The symbols are square; the badge crops them to the coin. */
+		.mk-m-flag svg {
+			width: 100%;
+			height: 100%;
+			display: block;
+		}
+
+		.mk-m.is-live .mk-m-flag {
+			border-color: var(--up);
+			box-shadow: 0 0 9px color-mix(in srgb, var(--up) 45%, transparent);
+		}
+
+		.mk-m.is-paused .mk-m-flag {
+			border-color: var(--medium);
+			box-shadow: 0 0 8px color-mix(in srgb, var(--medium) 40%, transparent);
+		}
+
+		/* Defined once, drawn by reference: the sprite itself never renders. */
+		.flag-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+		@media (prefers-reduced-motion: reduce) {
+			.mk-m-flag { transition: none; }
+		}
 		.mk-m-name { font-size: 0.9rem; font-weight: 600; }
 
 		.mk-m-sub {
@@ -1726,6 +1771,10 @@
 </head>
 
 <body>
+	<!-- Flag artwork from flag-icons (MIT, Panayiotis Lipiridis), inlined
+	     once as symbols: emoji flags do not render on Windows, where
+	     Telegram Desktop shows the two-letter code instead. -->
+	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/><path fill="#fff" d="m202 402.8-45.8 5.4 4.6 45.9-32.8-32.4-33 32.2 4.9-45.9-45.8-5.8L93 377.4 69 338l43.6 15 15.8-43.4 15.5 43.5 43.7-14.7-24.3 39.2 38.8 25.1Zm222.7 8-20.5 2.6 2.2 20.5-14.8-14.4-14.7 14.5 2-20.5-20.5-2.4 17.3-11.2-10.9-17.5 19.6 6.5 6.9-19.5 7.1 19.4 19.5-6.7-10.7 17.6zM415 293.6l2.7-13-9.8-9 13.2-1.5 5.5-12.1 5.5 12.1 13.2 1.5-9.8 9 2.7 13-11.6-6.6zm-84.1-60-20.3 2.2 1.8 20.3-14.4-14.5-14.8 14.1 2.4-20.3-20.2-2.7 17.3-10.8-10.5-17.5 19.3 6.8 7.2-19.1 6.7 19.3 19.4-6.3-10.9 17.3zm175.8-32.8-20.9 2.7 2.3 20.9-15.1-14.7-15 14.8 2.1-21-20.9-2.4 17.7-11.5-11.1-17.9 20 6.7 7-19.8 7.2 19.8 19.9-6.9-11 18zm-82.1-83.5-20.7 2.3 1.9 20.8-14.7-14.8L376 140l2.4-20.7-20.7-2.8 17.7-11-10.7-17.9 19.7 6.9 7.3-19.5 6.8 19.7 19.8-6.5-11.1 17.6z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol></defs></svg>
 	<div class="wrap">
 		<div class="hero">
 			<div class="brand">
@@ -1832,7 +1881,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۲۵</span>
+			<span class="build">نسخه ۲۶</span>
 		</p>
 	</div>
 
@@ -2309,13 +2358,13 @@ function eventNode(e) {
 			// Hours are local to each zone. openMin/closeMin default to 0; NYSE
 			// is the only one that needs them, since it rings in at 09:30.
 			var SESSIONS = [
-				{ key: "sydney", name: "سیدنی", flag: "🇦🇺", zone: "Australia/Sydney", open: 7, close: 16 },
-				{ key: "tokyo", name: "توکیو", flag: "🇯🇵", zone: "Asia/Tokyo", open: 9, close: 18 },
-				{ key: "london", name: "لندن", flag: "🇬🇧", zone: "Europe/London", open: 8, close: 17 },
-				{ key: "newyork", name: "نیویورک", flag: "🇺🇸", zone: "America/New_York", open: 8, close: 17 },
+				{ key: "sydney", name: "سیدنی", flag: "au", zone: "Australia/Sydney", open: 7, close: 16 },
+				{ key: "tokyo", name: "توکیو", flag: "jp", zone: "Asia/Tokyo", open: 9, close: 18 },
+				{ key: "london", name: "لندن", flag: "gb", zone: "Europe/London", open: 8, close: 17 },
+				{ key: "newyork", name: "نیویورک", flag: "us", zone: "America/New_York", open: 8, close: 17 },
 				// The stock exchange, not the forex session: a narrower window
 				// inside it, and where the equity open drives the dollar.
-				{ key: "nyse", name: "بورس نیویورک", sub: "NYSE", flag: "🇺🇸", zone: "America/New_York", open: 9, openMin: 30, close: 16 }
+				{ key: "nyse", name: "بورس نیویورک", sub: "NYSE", flag: "us", zone: "America/New_York", open: 9, openMin: 30, close: 16 }
 			];
 
 			function sessionByKey(key) {
@@ -2615,6 +2664,31 @@ function eventNode(e) {
 				{ name: "تهران", lon: 51.39, lat: 35.69, home: true }
 			];
 
+			// One <use> pointing at a symbol in the sprite at the top of the
+			// page, so the same flag can appear on several rows - New York
+			// carries both the forex session and the exchange - while its
+			// artwork is defined once. xlink:href is set alongside href for
+			// webviews predating SVG2.
+			var SVG_NS = "http://www.w3.org/2000/svg";
+			var XLINK_NS = "http://www.w3.org/1999/xlink";
+
+			// The badge is a span so the coin's border and rounding are plain
+			// box decoration; the artwork sits inside it as SVG.
+			function flagBadge(code, label) {
+				var badge = el("span", "mk-m-flag");
+				badge.setAttribute("role", "img");
+				badge.setAttribute("aria-label", "پرچم " + label);
+				var svg = document.createElementNS(SVG_NS, "svg");
+				svg.setAttribute("viewBox", "0 0 512 512");
+				svg.setAttribute("aria-hidden", "true");
+				var use = document.createElementNS(SVG_NS, "use");
+				use.setAttribute("href", "#fi-" + code);
+				use.setAttributeNS(XLINK_NS, "xlink:href", "#fi-" + code);
+				svg.appendChild(use);
+				badge.appendChild(svg);
+				return badge;
+			}
+
 			var heroMap = null;
 
 			// Positions the photo and the city markers with one shared
@@ -2821,7 +2895,7 @@ function eventNode(e) {
 
 					var head = el("div", "mk-m-head");
 					var who = el("div", "mk-m-who");
-					who.appendChild(el("span", "mk-m-flag", s.flag));
+					who.appendChild(flagBadge(s.flag, s.name));
 					who.appendChild(el("span", "mk-m-name", s.name));
 					// Two rows share the New York flag and clock, so the exchange
 					// gets a ticker badge to tell them apart at a glance.
