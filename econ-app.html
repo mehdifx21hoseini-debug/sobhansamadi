@@ -1749,7 +1749,7 @@
 			<button role="tab" id="tabToday" aria-selected="true">امروز</button>
 			<button role="tab" id="tabWeek" aria-selected="false">این هفته</button>
 			<button role="tab" id="tabMonth" aria-selected="false">ماه</button>
-			<button role="tab" id="tabMarkets" aria-selected="false">بازارها</button>
+			<button role="tab" id="tabMarkets" aria-selected="false">سشن‌ها</button>
 		</div>
 
 		<div class="search-row">
@@ -1817,7 +1817,7 @@
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
 			<!-- Printed so a stale copy can be identified at a glance: the
 			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۲۲</span>
+			<span class="build">نسخه ۲۳</span>
 		</p>
 	</div>
 
@@ -2772,7 +2772,7 @@ function eventNode(e) {
 				var title = el("div", "mk-hero-title");
 				title.appendChild(el("span", "mk-dot"));
 				title.appendChild(el("span", null,
-					market.onBreak ? "استراحت روزانه بازار" : (market.open ? "بازار باز است" : "بازار بسته است")));
+					market.onBreak ? "استراحت روزانه سشن‌ها" : (market.open ? "سشن باز است" : "سشن بسته است")));
 				heroL.appendChild(title);
 				var sub = el("div", "mk-hero-sub");
 				// The hero countdown ticks too, so the headline and the cards
@@ -2870,7 +2870,7 @@ function eventNode(e) {
 						var brk = el("div", "mk-m-break");
 						brk.style.right = (breakM[0] / 1440 * 100) + "%";
 						brk.style.width = ((breakM[1] - breakM[0]) / 1440 * 100) + "%";
-						brk.title = "استراحت روزانه بازار";
+						brk.title = "استراحت روزانه سشن‌ها";
 						track.appendChild(brk);
 					}
 
@@ -2913,7 +2913,7 @@ function eventNode(e) {
 				container.appendChild(axis);
 
 				var legend = el("div", "mk-legend");
-				[["", "یک بازار باز"], ["l2", "دو بازار"], ["l3", "سه بازار یا بیشتر"]].forEach(function (l) {
+				[["", "یک سشن باز"], ["l2", "دو سشن"], ["l3", "سه سشن یا بیشتر"]].forEach(function (l) {
 					var item = el("span");
 					item.appendChild(el("i", l[0] || null));
 					item.appendChild(el("span", null, l[1]));
@@ -2961,9 +2961,9 @@ function eventNode(e) {
 				container.appendChild(enter(picker));
 
 				container.appendChild(el("p", "footnote",
-					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. بازار از بامداد دوشنبه پس از پایان تسویه (۰۱:۳۰ به وقت ایران) تا جمعه با بسته شدن نیویورک فعال است. "
+					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. سشن‌ها از بامداد دوشنبه پس از پایان تسویه (۰۱:۳۰ به وقت ایران) تا جمعه با بسته شدن نیویورک فعال‌اند. "
 					+ "هر شب هم از " + fa(hhmmInZone(nextBreak, TEHRAN)) + " تا " + fa(hhmmInZone(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, TEHRAN))
-					+ " به وقت ایران، بازار برای تسویه‌ی روزانه یک ساعت بسته است (نوار تیره روی نمودارها)."));
+					+ " به وقت ایران، سشن‌ها برای تسویه‌ی روزانه یک ساعت بسته‌اند (نوار تیره روی نمودارها)."));
 
 				// The width has to be set in a later frame than the 0% it starts
 				// at, or the browser collapses the two into one value and the
