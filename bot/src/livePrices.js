@@ -1,14 +1,13 @@
 import { InlineKeyboard } from "grammy";
 
-// هر دو منبع رایگانند، بدون نیاز به API key - برای همین این قابلیت به
-// هیچ secret یا زیرساخت اضافه‌ای وابسته نیست.
-// CoinGecko رایگان برای مصارف عمومی مثل این خیلی محدودیت‌دار بود (سقف
-// نرخش بین همه‌ی کاربرهای Cloudflare Workers مشترک است) - به‌جایش از
-// Binance استفاده می‌شود که دقیقاً برای همین نوع مصرف عمومی ساخته شده و
-// سقف بسیار بالاتری دارد.
-const BINANCE_URL =
-  "https://api.binance.com/api/v3/ticker/24hr?symbols=" +
-  encodeURIComponent(JSON.stringify(["BTCUSDT", "ETHUSDT"]));
+// هر دو منبع رایگانند، بدون نیاز به API key.
+// CoinGecko و Binance هر دو رد کردن: اولی محدودیت نرخ سختی داشت (IP
+// خروجی Cloudflare Workers بین کاربرهای زیادی مشترک است)، دومی بسته به
+// اینکه Worker از کدام دیتاسنتر اجرا شود ممکن است بر اساس محدودیت
+// جغرافیایی بلاک شود. Coinbase برای همین مصرف عمومی متداول‌تر و
+// پایدارتر است.
+const COINBASE_BTC_URL = "https://api.coinbase.com/v2/prices/BTC-USD/spot";
+const COINBASE_ETH_URL = "https://api.coinbase.com/v2/prices/ETH-USD/spot";
 const FX_URL = "https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY";
 
 function fmt(n, digits = 2) {
@@ -18,28 +17,18 @@ function fmt(n, digits = 2) {
   });
 }
 
-function changeArrow(pct) {
-  if (pct >= 0) return `🟢 ▲ ${fmt(pct)}%`;
-  return `🔴 ▼ ${fmt(Math.abs(pct))}%`;
-}
-
 export async function fetchLiveData() {
-  const [binance, fx] = await Promise.all([
-    fetch(BINANCE_URL).then((r) => r.json()),
+  const [btcRes, ethRes, fx] = await Promise.all([
+    fetch(COINBASE_BTC_URL).then((r) => r.json()),
+    fetch(COINBASE_ETH_URL).then((r) => r.json()),
     fetch(FX_URL).then((r) => r.json()),
   ]);
 
-  if (!Array.isArray(binance)) {
-    throw new Error(`Binance error: ${JSON.stringify(binance)}`);
+  if (!btcRes.data || !ethRes.data) {
+    throw new Error(`Coinbase error: ${JSON.stringify(btcRes)} / ${JSON.stringify(ethRes)}`);
   }
 
-  const btc = binance.find((t) => t.symbol === "BTCUSDT");
-  const eth = binance.find((t) => t.symbol === "ETHUSDT");
-  if (!btc || !eth) {
-    throw new Error("Binance response missing BTCUSDT/ETHUSDT ticker");
-  }
-
-  return { btc, eth, fx };
+  return { btc: btcRes.data, eth: ethRes.data, fx };
 }
 
 function formatMessage({ btc, eth, fx }) {
@@ -53,8 +42,8 @@ function formatMessage({ btc, eth, fx }) {
   return [
     "📊 <b>بازارهای لحظه‌ای</b>",
     "",
-    `₿ بیت‌کوین: <b>$${fmt(btc.lastPrice, 0)}</b>  ${changeArrow(Number(btc.priceChangePercent))}`,
-    `Ξ اتریوم: <b>$${fmt(eth.lastPrice, 0)}</b>  ${changeArrow(Number(eth.priceChangePercent))}`,
+    `₿ بیت‌کوین: <b>$${fmt(btc.amount, 0)}</b>`,
+    `Ξ اتریوم: <b>$${fmt(eth.amount, 0)}</b>`,
     "",
     "💱 <b>نرخ برابری دلار</b>",
     `یورو: <b>${fmt(fx.rates.EUR, 4)}</b>`,
