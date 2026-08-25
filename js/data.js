@@ -69,6 +69,12 @@
 		leadsCacheTime = 0;
 	}
 
+	// The mentoring questionnaire lives in its own table, so the page that
+	// shows it reads it separately from the leads list.
+	function fetchMentoringRequests() {
+		return request("/crm/mentoring-requests", { method: "GET" });
+	}
+
 	function fetchLead(leadId) {
 		return request("/crm/lead?id=" + encodeURIComponent(leadId), { method: "GET" });
 	}
@@ -521,6 +527,7 @@
 		leadFollowupAt: leadFollowupAt,
 		fetchLeads: fetchLeads,
 		invalidateLeadsCache: invalidateLeadsCache,
+		fetchMentoringRequests: fetchMentoringRequests,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,
 		addLeadNote: addLeadNote,
