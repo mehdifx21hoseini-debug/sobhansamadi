@@ -11,5 +11,7 @@ export function mainMenuKeyboard() {
     .row()
     .text("☎️ پشتیبانی", "support")
     .row()
-    .text("📊 بازارهای لحظه‌ای", "live_prices");
+    .text("📊 بازارهای لحظه‌ای", "live_prices")
+    .row()
+    .text("📈 نمودار زنده بیت‌کوین", "btc_chart");
 }

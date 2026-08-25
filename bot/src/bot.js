@@ -2,6 +2,7 @@ import { Bot } from "grammy";
 import { handleStart } from "./commands/start.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendLivePrices, refreshLivePrices } from "./livePrices.js";
+import { sendBtcChart, refreshBtcChart } from "./priceChart.js";
 
 // یک‌جا ساخته می‌شود تا هم روی Cloudflare Workers و هم (در صورت نیاز) در
 // یک محیط دیگر قابل استفاده باشد.
@@ -29,6 +30,16 @@ export function createBot(token) {
 
     if (data === "live_prices_refresh") {
       await refreshLivePrices(ctx);
+      return;
+    }
+
+    if (data === "btc_chart") {
+      await sendBtcChart(ctx);
+      return;
+    }
+
+    if (data === "btc_chart_refresh") {
+      await refreshBtcChart(ctx);
       return;
     }
 

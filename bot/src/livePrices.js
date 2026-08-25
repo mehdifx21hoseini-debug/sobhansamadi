@@ -85,6 +85,8 @@ export async function refreshLivePrices(ctx) {
     });
   } catch (err) {
     console.error("خطای به‌روزرسانی قیمت لحظه‌ای:", err);
-    await ctx.answerCallbackQuery({ text: "به‌روزرسانی الان ممکن نشد.", show_alert: false });
+    // callback_query از قبل در bot.js یک‌بار answer شده - این تلاش دوم
+    // فقط برای نمایش toast خطاست، اگر رد شود بی‌سروصدا نادیده گرفته می‌شود.
+    await ctx.answerCallbackQuery({ text: "به‌روزرسانی الان ممکن نشد.", show_alert: false }).catch(() => {});
   }
 }
