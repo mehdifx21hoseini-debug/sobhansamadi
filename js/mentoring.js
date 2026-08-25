@@ -86,30 +86,34 @@
 		var leadById = {};
 		(leads || []).forEach(function (l) { if (l && l.lead_id) leadById[l.lead_id] = l; });
 
-		if (requests && requests.length) {
-			return requests.map(function (r) {
-				var lead = leadById[r.lead_id] || {};
-				return {
-					id: r.request_id,
-					lead_id: r.lead_id,
-					name: r.full_name || lead.full_name || "(بدون نام)",
-					phone: r.phone || lead.phone || "",
-					telegram: r.telegram_id || "",
-					email: r.email || "",
-					goal: r.consultation_goal || "",
-					answers: r.answers || {},
-					created_at: r.created_at,
-					status: normalizeStatus(lead.status),
-					assigned_to: lead.assigned_to || "",
-					hasLead: !!lead.lead_id
-				};
-			});
-		}
-
-		// No questionnaire rows yet: fall back to what the notes hold, so the
-		// page still shows the requests that arrived before this table existed.
 		var out = [];
+		var covered = {};
+
+		(requests || []).forEach(function (r) {
+			var lead = leadById[r.lead_id] || {};
+			covered[r.lead_id] = true;
+			out.push({
+				id: r.request_id,
+				lead_id: r.lead_id,
+				name: r.full_name || lead.full_name || "(بدون نام)",
+				phone: r.phone || lead.phone || "",
+				telegram: r.telegram_id || "",
+				email: r.email || "",
+				goal: r.consultation_goal || "",
+				answers: r.answers || {},
+				created_at: r.created_at,
+				status: normalizeStatus(lead.status),
+				assigned_to: lead.assigned_to || "",
+				hasLead: !!lead.lead_id
+			});
+		});
+
+		// Submissions that arrived before the questionnaire table existed have
+		// no row there and survive only in the lead's notes. They are recovered
+		// here so they do not vanish the moment a newer request appears — and
+		// skipped for anyone who does have a row, whose record is the richer one.
 		(leads || []).filter(CrmData.isMentoringLead).forEach(function (l) {
+			if (covered[l.lead_id]) return;
 			var entries = legacyEntries(l.notes);
 			if (entries.length === 0) {
 				entries = [{ at: "", message: "" }];
