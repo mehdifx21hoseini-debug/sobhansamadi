@@ -1,0 +1,33 @@
+name: Bot Load Test
+
+# دستی اجرا می‌شود، نه خودکار - برای اینکه بار مصنوعی روی سرویس زنده ایجاد
+# نمی‌کنیم مگر وقتی خودمان بخواهیم. فقط مسیر /health وورکر را می‌زند، نه
+# مسیر webhook (که توکن واقعی بات را دارد) - پس هیچ پیام واقعی به تلگرام
+# فرستاده نمی‌شود و هیچ کاربری متوجه این تست نمی‌شود.
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "آدرس /health وورکر که تست می‌شود"
+        required: true
+        default: "https://sobhansamadi.mehdifx21hoseini.workers.dev/health"
+      connections:
+        description: "تعداد کاربر همزمان شبیه‌سازی‌شده"
+        required: true
+        default: "3000"
+      duration_seconds:
+        description: "مدت تست به ثانیه"
+        required: true
+        default: "30"
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run autocannon load test
+        run: |
+          npx --yes autocannon@7 \
+            -c ${{ inputs.connections }} \
+            -d ${{ inputs.duration_seconds }} \
+            --renderStatusCodes \
+            "${{ inputs.target_url }}"
