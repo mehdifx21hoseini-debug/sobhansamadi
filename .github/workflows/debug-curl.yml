@@ -12,6 +12,6 @@ jobs:
   debug-curl:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch and print
+      - name: Fetch headers
         run: |
-          curl -sS -i "${{ inputs.target_url }}"
+          curl -sS -o /dev/null -D - "${{ inputs.target_url }}"
