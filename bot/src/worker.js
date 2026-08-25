@@ -1,5 +1,6 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
+import { debugFetchCandlesAndChartUrl } from "./priceChart.js";
 
 export default {
   async fetch(request, env) {
@@ -13,6 +14,22 @@ export default {
 
     if (url.pathname === "/health") {
       return new Response("ok");
+    }
+
+    // مسیر تشخیصی موقت - بررسی fetch کندل‌ها و آدرس نمودار قبل از اطمینان
+    // به این‌که ویژگی جدید کار می‌کند. بعد از تایید حذف می‌شود.
+    if (url.pathname === "/debug/btc-chart") {
+      try {
+        const result = await debugFetchCandlesAndChartUrl();
+        return new Response(JSON.stringify(result, null, 2), {
+          headers: { "content-type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ error: String(err), stack: err && err.stack }, null, 2),
+          { status: 500, headers: { "content-type": "application/json" } }
+        );
+      }
     }
 
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن
