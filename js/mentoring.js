@@ -293,12 +293,28 @@
 		rows.forEach(function (item) { $list.append(buildCard(item)); });
 	}
 
+	// A browser holding a cached data.js from before this page existed has no
+	// fetchMentoringRequests, and calling it would throw before any catch is
+	// attached — leaving the loading state on screen for good. The page has a
+	// fallback for a missing questionnaire; a missing function is the same
+	// situation, so it takes the same path.
+	function requestsPromise() {
+		if (!window.CrmData || typeof CrmData.fetchMentoringRequests !== "function") {
+			return Promise.resolve(null);
+		}
+		try {
+			return CrmData.fetchMentoringRequests().catch(function () { return null; });
+		} catch (e) {
+			return Promise.resolve(null);
+		}
+	}
+
 	function load() {
 		$("#mentoringList").html('<div class="text-center py-5 text-muted">در حال بارگذاری…</div>');
 		// The questionnaire endpoint is new; if it is not reachable the page
 		// still renders from the leads' notes rather than showing an error.
 		Promise.all([
-			CrmData.fetchMentoringRequests().catch(function () { return null; }),
+			requestsPromise(),
 			CrmData.fetchLeads().catch(function () { return []; })
 		]).then(function (res) {
 			var requests = Array.isArray(res[0]) ? res[0] : null;
@@ -313,13 +329,25 @@
 		});
 	}
 
+	// Last line of defence: whatever goes wrong, the loading placeholder is
+	// replaced by something the reader can act on.
+	function safeLoad() {
+		try {
+			load();
+		} catch (err) {
+			$("#mentoringList").html('<div class="text-center py-5" style="color:#c81e4b">خطا در بارگذاری صفحه: '
+				+ ((err && err.message) || "خطای نامشخص")
+				+ '<br><span class="text-muted text-sm">یک بار صفحه را با Ctrl+Shift+R تازه کنید.</span></div>');
+		}
+	}
+
 	$(function () {
 		$("#mentoringSearch").on("input", function () { state.query = this.value; render(); });
 		$("#mentoringStatus").on("change", function () { state.statusFilter = this.value; render(); });
 		$("#btnRefreshMentoring").on("click", function () {
-			if (CrmData.invalidateLeadsCache) CrmData.invalidateLeadsCache();
-			load();
+			if (window.CrmData && CrmData.invalidateLeadsCache) CrmData.invalidateLeadsCache();
+			safeLoad();
 		});
-		load();
+		safeLoad();
 	});
 })();
