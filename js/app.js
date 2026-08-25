@@ -185,7 +185,10 @@
 		render();
 		CrmData.fetchLeads()
 			.then(function (leads) {
-				state.leads = leads;
+				// Mentoring-form requests have their own page. Filtering here
+				// rather than at render time keeps the counters, the tab
+				// badges and the pagination agreeing with the visible rows.
+				state.leads = leads.filter(function (l) { return !CrmData.isMentoringLead(l); });
 				state.loading = false;
 				render();
 			})
@@ -213,6 +216,9 @@
 	function populateSourceFilter() {
 		var $sel = $("#sourceFilter");
 		CrmData.LEAD_SOURCES.forEach(function (s) {
+			// The mentoring source is excluded from this list entirely, so
+			// offering it here would only ever select nothing.
+			if (s.key === CrmData.MENTORING_SOURCE) return;
 			$sel.append($("<option>").val(s.key).text(s.label));
 		});
 	}

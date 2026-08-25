@@ -1,8 +1,6 @@
 (function () {
 	"use strict";
 
-	var MENTORING_SOURCE = "website_mentoring_form";
-
 	// WF-21 records each submission as one line inside the lead's notes,
 	// so the site's message is recovered by splitting on that marker.
 	// Splitting rather than matching per line keeps multi-line messages
@@ -147,7 +145,7 @@
 		CrmData.fetchLeads()
 			.then(function (leads) {
 				state.leads = (leads || [])
-					.filter(function (l) { return l && l.source === MENTORING_SOURCE; })
+					.filter(CrmData.isMentoringLead)
 					.sort(function (a, b) {
 						return new Date(b.created_at || 0) - new Date(a.created_at || 0);
 					});
