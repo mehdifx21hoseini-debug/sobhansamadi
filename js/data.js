@@ -62,6 +62,13 @@
 		return leadsInFlight;
 	}
 
+	// Drops the 5-second cache so an explicit refresh really goes to the
+	// server instead of replaying the response the page just rendered.
+	function invalidateLeadsCache() {
+		leadsCache = null;
+		leadsCacheTime = 0;
+	}
+
 	function fetchLead(leadId) {
 		return request("/crm/lead?id=" + encodeURIComponent(leadId), { method: "GET" });
 	}
@@ -313,7 +320,10 @@
 	var LEAD_SOURCES = [
 		{ key: "telegram_direct", label: "ربات تلگرام", icon: "fa-paper-plane" },
 		{ key: "instagram", label: "اینستاگرام", icon: "fa-instagram" },
-		{ key: "website", label: "سایت", icon: "fa-globe" }
+		{ key: "website", label: "سایت", icon: "fa-globe" },
+		// Written by WF-21 for every submission of the site's dedicated
+		// mentoring form; the مشاوره اختصاصی page lists exactly these.
+		{ key: "website_mentoring_form", label: "فرم منتورینگ سایت", icon: "fa-graduation-cap" }
 	];
 
 	var DEFAULT_LEAD_SOURCE = "telegram_direct";
@@ -501,6 +511,7 @@
 		setLeadFollowup: setLeadFollowup,
 		leadFollowupAt: leadFollowupAt,
 		fetchLeads: fetchLeads,
+		invalidateLeadsCache: invalidateLeadsCache,
 		fetchLead: fetchLead,
 		updateLeadStatus: updateLeadStatus,
 		addLeadNote: addLeadNote,
