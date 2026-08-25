@@ -317,13 +317,20 @@
 	// exist so a lead that actually came from Instagram or the site can be
 	// marked as such. Stored as stable keys, displayed through this map, so
 	// renaming a label never rewrites stored rows.
+	// Written by WF-21 for every submission of the site's dedicated mentoring
+	// form. These leads live on their own page and are deliberately kept out
+	// of the sales leads list, so the rule is defined once, here.
+	var MENTORING_SOURCE = "website_mentoring_form";
+
+	function isMentoringLead(lead) {
+		return !!lead && lead.source === MENTORING_SOURCE;
+	}
+
 	var LEAD_SOURCES = [
 		{ key: "telegram_direct", label: "ربات تلگرام", icon: "fa-paper-plane" },
 		{ key: "instagram", label: "اینستاگرام", icon: "fa-instagram" },
 		{ key: "website", label: "سایت", icon: "fa-globe" },
-		// Written by WF-21 for every submission of the site's dedicated
-		// mentoring form; the مشاوره اختصاصی page lists exactly these.
-		{ key: "website_mentoring_form", label: "فرم منتورینگ سایت", icon: "fa-graduation-cap" }
+		{ key: MENTORING_SOURCE, label: "فرم منتورینگ سایت", icon: "fa-graduation-cap" }
 	];
 
 	var DEFAULT_LEAD_SOURCE = "telegram_direct";
@@ -504,6 +511,8 @@
 
 	global.CrmData = {
 		isAtRisk: isAtRisk,
+		MENTORING_SOURCE: MENTORING_SOURCE,
+		isMentoringLead: isMentoringLead,
 		LEAD_SOURCES: LEAD_SOURCES,
 		sourceLabel: sourceLabel,
 		normalizeSource: normalizeSource,
