@@ -18,11 +18,22 @@ function changeArrow(pct) {
   return `🔴 ▼ ${fmt(Math.abs(pct))}%`;
 }
 
+// CoinGecko رد می‌کند اگر User-Agent نداشته باشد (fetch پیش‌فرض Cloudflare
+// Workers یکی نمی‌فرستد) - کد ۴۰۳ با پیام "add a descriptive User-Agent".
+const COINGECKO_HEADERS = {
+  "User-Agent": "sobhan-academy-bot/1.0 (+https://github.com/mehdifx21hoseini-debug/sobhansamadi)",
+};
+
 export async function fetchLiveData() {
   const [cg, fx] = await Promise.all([
-    fetch(COINGECKO_URL).then((r) => r.json()),
+    fetch(COINGECKO_URL, { headers: COINGECKO_HEADERS }).then((r) => r.json()),
     fetch(FX_URL).then((r) => r.json()),
   ]);
+
+  if (cg.status && cg.status.error_code) {
+    throw new Error(`CoinGecko error ${cg.status.error_code}: ${cg.status.error_message}`);
+  }
+
   return { cg, fx };
 }
 
