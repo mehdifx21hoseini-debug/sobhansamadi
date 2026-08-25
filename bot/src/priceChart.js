@@ -62,7 +62,11 @@ function buildChartUrl(candles) {
   };
 
   const encoded = encodeURIComponent(JSON.stringify(chartConfig));
-  return `https://quickchart.io/chart?c=${encoded}&backgroundColor=%230b0b0f&width=800&height=450&devicePixelRatio=2`;
+  // پارامتر _ts کاری با رسم نمودار ندارد، فقط باعث می‌شود آدرس همیشه یکتا
+  // باشد - وگرنه وقتی قیمت داخل یک ساعت عوض نشده، Telegram روی
+  // editMessageMedia خطای "message is not modified" می‌دهد و دکمه‌ی
+  // به‌روزرسانی از دید کاربر بی‌اثر به نظر می‌رسد.
+  return `https://quickchart.io/chart?c=${encoded}&backgroundColor=%230b0b0f&width=800&height=450&devicePixelRatio=2&_ts=${Date.now()}`;
 }
 
 function chartKeyboard() {
