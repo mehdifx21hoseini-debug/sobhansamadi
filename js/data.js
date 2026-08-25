@@ -71,8 +71,30 @@
 
 	// The mentoring questionnaire lives in its own table, so the page that
 	// shows it reads it separately from the leads list.
+	//
+	// It is given a deadline because this page has a fallback path: if the
+	// request never settles the page would sit on its loading state forever
+	// instead of rendering what it can. A rejection is the useful outcome.
 	function fetchMentoringRequests() {
-		return request("/crm/mentoring-requests", { method: "GET" });
+		var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+		var timer;
+		var timeout = new Promise(function (_resolve, reject) {
+			timer = setTimeout(function () {
+				if (controller) controller.abort();
+				reject(new Error("پاسخی از سرویس منتورینگ دریافت نشد."));
+			}, 12000);
+		});
+		var call = request("/crm/mentoring-requests", {
+			method: "GET",
+			signal: controller ? controller.signal : undefined
+		});
+		return Promise.race([call, timeout]).then(function (res) {
+			clearTimeout(timer);
+			return res;
+		}, function (err) {
+			clearTimeout(timer);
+			throw err;
+		});
 	}
 
 	function fetchLead(leadId) {
