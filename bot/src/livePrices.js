@@ -2,8 +2,13 @@ import { InlineKeyboard } from "grammy";
 
 // هر دو منبع رایگانند، بدون نیاز به API key - برای همین این قابلیت به
 // هیچ secret یا زیرساخت اضافه‌ای وابسته نیست.
-const COINGECKO_URL =
-  "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true";
+// CoinGecko رایگان برای مصارف عمومی مثل این خیلی محدودیت‌دار بود (سقف
+// نرخش بین همه‌ی کاربرهای Cloudflare Workers مشترک است) - به‌جایش از
+// Binance استفاده می‌شود که دقیقاً برای همین نوع مصرف عمومی ساخته شده و
+// سقف بسیار بالاتری دارد.
+const BINANCE_URL =
+  "https://api.binance.com/api/v3/ticker/24hr?symbols=" +
+  encodeURIComponent(JSON.stringify(["BTCUSDT", "ETHUSDT"]));
 const FX_URL = "https://api.frankfurter.app/latest?from=USD&to=EUR,GBP,JPY";
 
 function fmt(n, digits = 2) {
@@ -18,28 +23,26 @@ function changeArrow(pct) {
   return `🔴 ▼ ${fmt(Math.abs(pct))}%`;
 }
 
-// CoinGecko رد می‌کند اگر User-Agent نداشته باشد (fetch پیش‌فرض Cloudflare
-// Workers یکی نمی‌فرستد) - کد ۴۰۳ با پیام "add a descriptive User-Agent".
-const COINGECKO_HEADERS = {
-  "User-Agent": "sobhan-academy-bot/1.0 (+https://github.com/mehdifx21hoseini-debug/sobhansamadi)",
-};
-
 export async function fetchLiveData() {
-  const [cg, fx] = await Promise.all([
-    fetch(COINGECKO_URL, { headers: COINGECKO_HEADERS }).then((r) => r.json()),
+  const [binance, fx] = await Promise.all([
+    fetch(BINANCE_URL).then((r) => r.json()),
     fetch(FX_URL).then((r) => r.json()),
   ]);
 
-  if (cg.status && cg.status.error_code) {
-    throw new Error(`CoinGecko error ${cg.status.error_code}: ${cg.status.error_message}`);
+  if (!Array.isArray(binance)) {
+    throw new Error(`Binance error: ${JSON.stringify(binance)}`);
   }
 
-  return { cg, fx };
+  const btc = binance.find((t) => t.symbol === "BTCUSDT");
+  const eth = binance.find((t) => t.symbol === "ETHUSDT");
+  if (!btc || !eth) {
+    throw new Error("Binance response missing BTCUSDT/ETHUSDT ticker");
+  }
+
+  return { btc, eth, fx };
 }
 
-function formatMessage({ cg, fx }) {
-  const btc = cg.bitcoin;
-  const eth = cg.ethereum;
+function formatMessage({ btc, eth, fx }) {
   const now = new Date().toLocaleTimeString("fa-IR", {
     timeZone: "Asia/Tehran",
     hour: "2-digit",
@@ -50,8 +53,8 @@ function formatMessage({ cg, fx }) {
   return [
     "📊 <b>بازارهای لحظه‌ای</b>",
     "",
-    `₿ بیت‌کوین: <b>$${fmt(btc.usd, 0)}</b>  ${changeArrow(btc.usd_24h_change)}`,
-    `Ξ اتریوم: <b>$${fmt(eth.usd, 0)}</b>  ${changeArrow(eth.usd_24h_change)}`,
+    `₿ بیت‌کوین: <b>$${fmt(btc.lastPrice, 0)}</b>  ${changeArrow(Number(btc.priceChangePercent))}`,
+    `Ξ اتریوم: <b>$${fmt(eth.lastPrice, 0)}</b>  ${changeArrow(Number(eth.priceChangePercent))}`,
     "",
     "💱 <b>نرخ برابری دلار</b>",
     `یورو: <b>${fmt(fx.rates.EUR, 4)}</b>`,
