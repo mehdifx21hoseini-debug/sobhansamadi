@@ -9,5 +9,7 @@ export function mainMenuKeyboard() {
     .row()
     .text("🎓 منتورینگ اختصاصی", "mentoring")
     .row()
-    .text("☎️ پشتیبانی", "support");
+    .text("☎️ پشتیبانی", "support")
+    .row()
+    .text("📊 بازارهای لحظه‌ای", "live_prices");
 }

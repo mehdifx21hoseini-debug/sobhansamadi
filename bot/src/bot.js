@@ -1,5 +1,7 @@
 import { Bot } from "grammy";
 import { handleStart } from "./commands/start.js";
+import { mainMenuKeyboard } from "./menu.js";
+import { sendLivePrices, refreshLivePrices } from "./livePrices.js";
 
 // یک‌جا ساخته می‌شود تا هم روی Cloudflare Workers و هم (در صورت نیاز) در
 // یک محیط دیگر قابل استفاده باشد.
@@ -17,6 +19,21 @@ export function createBot(token) {
 
     if (data === "econ_calendar" || data === "mentoring" || data === "support") {
       await ctx.reply("این بخش هنوز به بات جدید منتقل نشده - به‌زودی.");
+      return;
+    }
+
+    if (data === "live_prices") {
+      await sendLivePrices(ctx);
+      return;
+    }
+
+    if (data === "live_prices_refresh") {
+      await refreshLivePrices(ctx);
+      return;
+    }
+
+    if (data === "back_to_menu") {
+      await ctx.editMessageText("منوی اصلی:", { reply_markup: mainMenuKeyboard() });
       return;
     }
   });
