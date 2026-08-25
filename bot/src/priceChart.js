@@ -72,17 +72,6 @@ function chartKeyboard() {
     .text("⬅️ بازگشت به منو", "back_to_menu");
 }
 
-// تشخیصی موقت - بعد از تایید حذف می‌شود (به worker.js هم مراجعه کنید).
-export async function debugFetchCandlesAndChartUrl() {
-  const candles = await fetchCandles();
-  return {
-    candleCount: candles.length,
-    first: candles[0],
-    last: candles[candles.length - 1],
-    chartUrl: buildChartUrl(candles),
-  };
-}
-
 async function buildCaption(candles) {
   const first = candles[0].close;
   const last = candles[candles.length - 1].close;
