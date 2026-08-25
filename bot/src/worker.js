@@ -1,5 +1,6 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
+import { fetchLiveData } from "./livePrices.js";
 
 export default {
   async fetch(request, env) {
@@ -13,6 +14,22 @@ export default {
 
     if (url.pathname === "/health") {
       return new Response("ok");
+    }
+
+    // مسیر تشخیصی موقت - برای دیدن خطای واقعی fetch قیمت‌ها، بدون نیاز
+    // به Observability/Logs که فعلاً روی این Worker خاموش است.
+    if (url.pathname === "/debug/live-prices") {
+      try {
+        const data = await fetchLiveData();
+        return new Response(JSON.stringify(data, null, 2), {
+          headers: { "content-type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ error: String(err), stack: err && err.stack }, null, 2),
+          { status: 500, headers: { "content-type": "application/json" } }
+        );
+      }
     }
 
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن

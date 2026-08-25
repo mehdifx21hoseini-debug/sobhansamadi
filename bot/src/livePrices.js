@@ -18,7 +18,7 @@ function changeArrow(pct) {
   return `🔴 ▼ ${fmt(Math.abs(pct))}%`;
 }
 
-async function fetchLiveData() {
+export async function fetchLiveData() {
   const [cg, fx] = await Promise.all([
     fetch(COINGECKO_URL).then((r) => r.json()),
     fetch(FX_URL).then((r) => r.json()),
