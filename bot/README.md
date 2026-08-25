@@ -9,30 +9,41 @@
 «به‌زودی» می‌دهند) - این کار در فاز بعدی و بعد از اینکه منطق دقیقشان از
 n8n خوانده شود انجام می‌شود.
 
-نیازی به Docker نیست. یک پلتفرم آماده (Railway) کل مدیریت سرور، ری‌استارت
+نیازی به Docker نیست. یک پلتفرم آماده (Render) کل مدیریت سرور، ری‌استارت
 خودکار و SSL را برایتان انجام می‌دهد.
 
-## دیپلوی روی Railway (بدون داکر)
+## دیپلوی روی Render (بدون داکر)
 
-۱. به [railway.app](https://railway.app) بروید و با گیت‌هاب لاگین کنید.
-۲. **New Project → Deploy from GitHub repo** و همین ریپو
+۱. در پنل [render.com](https://render.com) روی **New → Web Service** بزنید.
+۲. حساب گیت‌هابتان را وصل کنید و ریپو
    (`mehdifx21hoseini-debug/sobhansamadi`) را انتخاب کنید.
-۳. چون بات در پوشه‌ی `bot/` است، در تنظیمات سرویس (Settings → Root
-   Directory) مقدار `bot` را وارد کنید تا Railway فقط همین پوشه را بیلد کند.
-۴. در تب **Variables** این مقدار را اضافه کنید:
+۳. تنظیمات سرویس را این‌طور بزنید:
+   - **Root Directory**: `bot`
+   - **Runtime**: `Node`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Instance Type**: حتماً یکی از پلن‌های پولی (مثلاً Starter) را انتخاب
+     کنید، نه Free. توضیح چرا پایین‌تر آمده - این نکته‌ی مهم همین «همیشه
+     فعال بودن» است که دنبالش هستیم.
+۴. در بخش **Environment Variables** اضافه کنید:
    - `BOT_TOKEN` = توکن ربات (همانی که الان در n8n استفاده می‌شود)
-   Railway خودش `PORT` را ست می‌کند، دست نزنید.
-۵. Deploy را بزنید. بعد از اتمام، از تب **Settings → Networking** روی
-   **Generate Domain** بزنید تا یک آدرس عمومی مثل
-   `https://sobhan-bot-production.up.railway.app` بگیرید.
+   Render خودش `PORT` را تزریق می‌کند، دست نزنید.
+۵. **Create Web Service** را بزنید. بعد از اولین دیپلوی موفق، بالای صفحه‌ی
+   سرویس یک آدرس عمومی مثل `https://sobhan-bot.onrender.com` می‌بینید.
+
+> **چرا پلن Free مناسب نیست:** در پلن رایگان Render، سرویس بعد از حدود
+> ۱۵ دقیقه بی‌فعالیتی می‌خوابد و اولین درخواست بعدش تا ۵۰ ثانیه طول
+> می‌کشد تا بیدار شود. برای یک بات که هدفش «همیشه پاسخگو بودن» است، این
+> دقیقاً همان مشکلی‌ست که می‌خواهیم حلش کنیم. پلن Starter (حدود ۷ دلار در
+> ماه) سرویس را کاملاً همیشه‌روشن نگه می‌دارد.
 
 ## وصل کردن Telegram به این آدرس (setWebhook)
 
-با آدرسی که از Railway گرفتید (و توکن واقعی) این دستور را یک‌بار در ترمینال
+با آدرسی که از Render گرفتید (و توکن واقعی) این دستور را یک‌بار در ترمینال
 اجرا کنید:
 
 ```bash
-curl -F "url=https://<آدرس-ریلوی>.up.railway.app/webhook/<BOT_TOKEN>" \
+curl -F "url=https://<آدرس-رندر>.onrender.com/webhook/<BOT_TOKEN>" \
   https://api.telegram.org/bot<BOT_TOKEN>/setWebhook
 ```
 
