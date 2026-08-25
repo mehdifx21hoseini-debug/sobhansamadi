@@ -23,7 +23,19 @@
 	// submission as one line inside the lead's notes. Split on the marker
 	// rather than per line, so multi-line messages survive intact.
 	var NOTE_MARKER = "📩 درخواست منتورینگ اختصاصی (وبسایت) - ";
+	var NOTE_SIGN = "📩 درخواست منتورینگ اختصاصی";
 	var STAMPED = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?::\s*)?([\s\S]*)$/;
+
+	// Source records where a person first came from, so someone already known
+	// to us keeps theirs when they later fill the mentoring form — the intake
+	// appends a note to their existing lead instead of creating a new one.
+	// Filtering by source alone therefore hid every request from an existing
+	// contact. The note is the thing that means "asked for mentoring".
+	function hasMentoringRequest(lead) {
+		if (!lead) return false;
+		if (CrmData.isMentoringLead(lead)) return true;
+		return String(lead.notes || "").indexOf(NOTE_SIGN) !== -1;
+	}
 
 	var STATUS_META = {
 		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock", label: "در انتظار تماس" },
@@ -112,7 +124,7 @@
 		// no row there and survive only in the lead's notes. They are recovered
 		// here so they do not vanish the moment a newer request appears — and
 		// skipped for anyone who does have a row, whose record is the richer one.
-		(leads || []).filter(CrmData.isMentoringLead).forEach(function (l) {
+		(leads || []).filter(hasMentoringRequest).forEach(function (l) {
 			if (covered[l.lead_id]) return;
 			var entries = legacyEntries(l.notes);
 			if (entries.length === 0) {
