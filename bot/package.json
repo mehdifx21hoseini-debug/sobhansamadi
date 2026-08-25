@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=18"
-  },
   "scripts": {
-    "start": "node src/index.js"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "express": "^4.19.2",
     "grammy": "^1.30.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
   }
 }
