@@ -231,10 +231,10 @@
 		$nameCell.append($name);
 		$tr.append($nameCell);
 
-		$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(item.phone || "-"));
+		$tr.append($("<td>").attr("dir", "ltr").addClass("mono text-center").text(item.phone || "-"));
 		$tr.append($("<td>").addClass("mt-goal-cell").attr("title", item.goal || "").text(truncate(item.goal, 42)));
-		$tr.append($("<td>").html(statusSelectHtml(item.id, item.status, !item.hasLead)));
-		$tr.append($("<td>").html(consultantSelectHtml(item.id, item.assigned_to, !item.hasLead)));
+		$tr.append($("<td>").addClass("text-center").html(statusSelectHtml(item.id, item.status, !item.hasLead)));
+		$tr.append($("<td>").addClass("text-center").html(consultantSelectHtml(item.id, item.assigned_to, !item.hasLead)));
 		$tr.append($("<td>").addClass("text-muted text-sm").text(timeAgo(item.updated_at || item.created_at)));
 
 		var $rows = $tr;

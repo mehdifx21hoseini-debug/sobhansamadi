@@ -1575,14 +1575,11 @@ body::before {
 	color: #dcdff0;
 }
 
-/* Leads and mentoring tables: every column reads as a scannable field
-   rather than a line of prose, so cells (and their header labels) are
-   centered instead of following the page's RTL text alignment. */
-.crm-data-table th,
-.crm-data-table td {
-	text-align: center;
-}
-
+/* Leads and mentoring tables: text columns (name, course, goal, last
+   update) keep the page's natural RTL alignment since they're meant to
+   be read; only the columns holding a badge, dropdown, or icon — short,
+   fixed-shape content rather than prose — are centered so the control
+   itself lines up column to column. */
 .crm-data-table .status-cell-wrap {
 	justify-content: center;
 }
