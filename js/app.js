@@ -151,9 +151,21 @@
 		var pageRows = rows.slice(start, start + PAGE_SIZE);
 
 		pageRows.forEach(function (lead) {
-			var $tr = $("<tr>").addClass("lead-row").attr("data-id", lead.lead_id);
+			var statusMeta = STATUS_META[lead.status] || STATUS_META["پاسخ‌داده‌نشده"];
+			var $tr = $("<tr>").addClass("lead-row row-" + statusMeta.cls).attr("data-id", lead.lead_id);
+			if (isAtRisk(lead)) $tr.addClass("row-at-risk");
 			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id)).addClass("lead-name-link").text(lead.full_name || "(بدون نام)")));
-			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
+
+			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell");
+			$phoneCell.append($("<span>").text(lead.phone || "-"));
+			if (lead.phone) {
+				$phoneCell.append($("<a>").addClass("quick-call-btn").attr({
+					href: "tel:" + lead.phone.replace(/[^\d+]/g, ""),
+					title: "تماس با " + (lead.full_name || "این لید")
+				}).on("click", function (e) { e.stopPropagation(); }).html('<i class="fas fa-phone"></i>'));
+			}
+			$tr.append($phoneCell);
+
 			$tr.append($("<td>").text(lead.course || "-"));
 			$tr.append($("<td>").text(lead.request_type || "-"));
 			var $statusWrap = $("<div>").addClass("status-cell-wrap").append(statusSelectHtml(lead.lead_id, lead.status));

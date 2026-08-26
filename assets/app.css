@@ -1587,6 +1587,76 @@ body::before {
 	justify-content: center;
 }
 
+/* Header stays put while a long list scrolls underneath it, so the
+   column labels are never more than one glance away. */
+.table-scroll {
+	max-height: 65vh;
+	overflow-y: auto;
+}
+
+.crm-data-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background: var(--card);
+	box-shadow: 0 1px 0 var(--line);
+}
+
+/* A colored rail on the leading cell echoes the same at-a-glance queue
+   the mentoring cards use: what still needs a call jumps out without
+   reading the status column. */
+.lead-row td:first-child {
+	border-right: 3px solid transparent;
+	transition: border-color .15s;
+}
+
+.lead-row.row-badge-pending td:first-child {
+	border-right-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.lead-row.row-badge-called td:first-child {
+	border-right-color: color-mix(in srgb, var(--up, #1a9e6b) 55%, transparent);
+}
+
+.lead-row.row-badge-noanswer td:first-child {
+	border-right-color: color-mix(in srgb, var(--down, #d84343) 55%, transparent);
+}
+
+.lead-row.row-at-risk td:first-child {
+	border-right-color: var(--down, #d84343);
+}
+
+/* Quick-call button in the phone column: same pull-to-act treatment as
+   the mentoring card's call button, sized down to fit a table cell. */
+.phone-cell {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+}
+
+.quick-call-btn {
+	flex: none;
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: color-mix(in srgb, var(--up, #1a9e6b) 14%, transparent);
+	color: var(--up, #1a9e6b);
+	font-size: 0.72rem;
+	transition: background .15s, transform .1s;
+}
+
+.quick-call-btn:hover {
+	background: color-mix(in srgb, var(--up, #1a9e6b) 24%, transparent);
+	color: var(--up, #1a9e6b);
+	transform: translateY(-1px);
+}
+
+.quick-call-btn:active { transform: translateY(0); }
+
 .dark .badge-pending {
 	background: #4a3a10;
 	color: #f2c463;
