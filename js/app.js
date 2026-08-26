@@ -156,7 +156,7 @@
 			if (isAtRisk(lead)) $tr.addClass("row-at-risk");
 			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id)).addClass("lead-name-link").text(lead.full_name || "(بدون نام)")));
 
-			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell");
+			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
 			$phoneCell.append($("<span>").text(lead.phone || "-"));
 			if (lead.phone) {
 				$phoneCell.append($("<a>").addClass("quick-call-btn").attr({
@@ -172,9 +172,9 @@
 			if (isAtRisk(lead)) {
 				$statusWrap.append('<span class="risk-icon" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i></span>');
 			}
-			var $statusCell = $("<td>").append($statusWrap);
+			var $statusCell = $("<td>").addClass("text-center").append($statusWrap);
 			$tr.append($statusCell);
-			$tr.append($("<td>").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
+			$tr.append($("<td>").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
 		});
