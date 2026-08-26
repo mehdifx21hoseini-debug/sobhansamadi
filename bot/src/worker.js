@@ -77,6 +77,20 @@ export default {
       }
     }
 
+    // مسیر تشخیصی موقت - اضافه کردن ستون channel_verified_at به جدولی
+    // که قبلاً بدون این ستون ساخته شده بود.
+    if (url.pathname === "/debug/migrate-1") {
+      if (url.searchParams.get("key") !== env.BOT_TOKEN) {
+        return new Response("forbidden", { status: 403 });
+      }
+      try {
+        await env.DB.prepare("ALTER TABLE user_state ADD COLUMN channel_verified_at TEXT").run();
+        return new Response("ok - column added", { status: 200 });
+      } catch (err) {
+        return new Response("error (maybe already exists): " + String(err), { status: 200 });
+      }
+    }
+
     // مسیر تشخیصی موقت - اجرای مستقیم handleContentRequest بدون تلگرام
     // واقعی، برای دیدن خطای دقیق بدون نیاز به تست دستی از تلگرام.
     if (url.pathname === "/debug/content") {

@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS user_state (
   phone TEXT,
   intro_progress INTEGER DEFAULT 0,
   source_first_seen TEXT,
-  last_interaction_at TEXT
+  last_interaction_at TEXT,
+  channel_verified_at TEXT  -- آخرین باری که عضویت کانال با موفقیت تایید شد
 );
 
 CREATE TABLE IF NOT EXISTS leads (

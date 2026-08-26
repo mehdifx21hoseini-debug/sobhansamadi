@@ -5,6 +5,10 @@ const CHANNEL_USERNAME = "@sobhanforex";
 const CHANNEL_JOIN_URL = "https://t.me/sobhanforex";
 // این آیدی (صاحب/ادمین اصلی) در نسخه‌ی قبلی از چک عضویت معاف بود.
 const EXEMPT_TELEGRAM_ID = "6923823275";
+// چک واقعی از API تلگرام فقط یک‌بار در این بازه برای هر کاربر انجام
+// می‌شود، نه روی هر تک تعامل - هم سریع‌تر است هم روی مقیاس چند هزار
+// کاربر همزمان به تلگرام فشار کمتری وارد می‌کند.
+const RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 function joinPromptKeyboard() {
   return new InlineKeyboard()
@@ -24,6 +28,35 @@ const RETRY_PROMPT_TEXT = [
   "",
   "ابتدا از طریق دکمه زیر عضو کانال بشو، سپس دوباره روی «بررسی مجدد» بزن.",
 ].join("\n");
+
+async function getCachedVerification(env, userId) {
+  if (!env?.DB) return null;
+  try {
+    const row = await env.DB
+      .prepare("SELECT channel_verified_at FROM user_state WHERE telegram_user_id = ?")
+      .bind(String(userId))
+      .first();
+    return row?.channel_verified_at || null;
+  } catch (err) {
+    console.error("خطای خواندن کش عضویت:", err);
+    return null;
+  }
+}
+
+async function markVerified(env, userId) {
+  if (!env?.DB) return;
+  try {
+    await env.DB
+      .prepare(
+        `INSERT INTO user_state (telegram_user_id, channel_verified_at) VALUES (?, ?)
+         ON CONFLICT(telegram_user_id) DO UPDATE SET channel_verified_at = excluded.channel_verified_at`
+      )
+      .bind(String(userId), new Date().toISOString())
+      .run();
+  } catch (err) {
+    console.error("خطای ذخیره‌ی کش عضویت:", err);
+  }
+}
 
 async function isChannelMember(api, userId) {
   try {
@@ -48,9 +81,18 @@ export function membershipGate() {
     }
 
     const isRetryCallback = ctx.callbackQuery?.data === "CHECK_MEMBERSHIP";
+
+    if (!isRetryCallback) {
+      const cachedAt = await getCachedVerification(ctx.env, userId);
+      if (cachedAt && Date.now() - new Date(cachedAt).getTime() < RECHECK_INTERVAL_MS) {
+        return next();
+      }
+    }
+
     const member = await isChannelMember(ctx.api, userId);
 
     if (member) {
+      await markVerified(ctx.env, userId);
       if (isRetryCallback) {
         // در نسخه‌ی قبلی، تایید موفق عضویت مستقیم می‌رود به منوی اصلی.
         await ctx.answerCallbackQuery();
