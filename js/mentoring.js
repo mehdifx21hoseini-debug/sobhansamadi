@@ -5,14 +5,14 @@
 	// the page shows is driven from here, so adding a question later means
 	// adding one line rather than touching the markup.
 	var QUESTIONS = [
-		{ key: "market_experience", label: "مدت فعالیت در بازارهای مالی", icon: "fa-hourglass-half", quick: true },
-		{ key: "has_real_account", label: "سابقه حساب ریل", icon: "fa-wallet", quick: true },
+		{ key: "market_experience", label: "مدت فعالیت در بازارهای مالی", icon: "fa-hourglass-half" },
+		{ key: "has_real_account", label: "سابقه حساب ریل", icon: "fa-wallet" },
 		{ key: "real_account_duration", label: "مدت معامله در حساب ریل", icon: "fa-clock-rotate-left" },
-		{ key: "capital_traded", label: "میزان سرمایه‌ی معامله‌شده", icon: "fa-coins", quick: true },
+		{ key: "capital_traded", label: "میزان سرمایه‌ی معامله‌شده", icon: "fa-coins" },
 		{ key: "styles_learned", label: "سبک‌هایی که آموزش دیده", icon: "fa-book-open" },
 		{ key: "teacher_name", label: "استاد", icon: "fa-user-tie" },
 		{ key: "trading_goal", label: "هدف از معامله‌گر شدن", icon: "fa-bullseye" },
-		{ key: "has_strategy", label: "استراتژی معاملاتی", icon: "fa-chess", quick: true },
+		{ key: "has_strategy", label: "استراتژی معاملاتی", icon: "fa-chess" },
 		{ key: "strategy_performance", label: "بازدهی استراتژی", icon: "fa-chart-line" },
 		{ key: "strategy_image_url", label: "تصویر استراتژی", icon: "fa-image", isLink: true }
 	];
@@ -26,11 +26,6 @@
 	var NOTE_SIGN = "📩 درخواست منتورینگ اختصاصی";
 	var STAMPED = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})(?::\s*)?([\s\S]*)$/;
 
-	// Source records where a person first came from, so someone already known
-	// to us keeps theirs when they later fill the mentoring form — the intake
-	// appends a note to their existing lead instead of creating a new one.
-	// Filtering by source alone therefore hid every request from an existing
-	// contact. The note is the thing that means "asked for mentoring".
 	function hasMentoringRequest(lead) {
 		if (!lead) return false;
 		if (CrmData.isMentoringLead(lead)) return true;
@@ -57,10 +52,9 @@
 		return d.toLocaleString("fa-IR", { dateStyle: "short", timeStyle: "short" });
 	}
 
-	// A relative age reads faster than a date when triaging a queue.
 	function timeAgo(iso) {
 		var t = new Date(iso).getTime();
-		if (isNaN(t)) return "";
+		if (isNaN(t)) return "-";
 		var mins = Math.floor((Date.now() - t) / 60000);
 		if (mins < 1) return "همین الان";
 		if (mins < 60) return fa(mins) + " دقیقه پیش";
@@ -84,16 +78,14 @@
 		return out;
 	}
 
-	// Note stamps come from toISOString() with the zone dropped; put it back
-	// before formatting or every legacy row reads hours off.
 	function stampToIso(stamp) {
 		return stamp ? stamp.replace(" ", "T") + ":00Z" : "";
 	}
 
-	var state = { items: [], query: "", statusFilter: "", expanded: {} };
+	var PAGE_SIZE = 15;
+	var state = { items: [], query: "", statusFilter: "", expanded: {}, page: 1 };
+	var consultants = [];
 
-	// One record per submission, whether it came from the questionnaire
-	// table or from the older notes format, so the page renders one shape.
 	function buildItems(requests, leads) {
 		var leadById = {};
 		(leads || []).forEach(function (l) { if (l && l.lead_id) leadById[l.lead_id] = l; });
@@ -114,22 +106,17 @@
 				goal: r.consultation_goal || "",
 				answers: r.answers || {},
 				created_at: r.created_at,
+				updated_at: lead.updated_at || r.created_at,
 				status: normalizeStatus(lead.status),
 				assigned_to: lead.assigned_to || "",
 				hasLead: !!lead.lead_id
 			});
 		});
 
-		// Submissions that arrived before the questionnaire table existed have
-		// no row there and survive only in the lead's notes. They are recovered
-		// here so they do not vanish the moment a newer request appears — and
-		// skipped for anyone who does have a row, whose record is the richer one.
 		(leads || []).filter(hasMentoringRequest).forEach(function (l) {
 			if (covered[l.lead_id]) return;
 			var entries = legacyEntries(l.notes);
-			if (entries.length === 0) {
-				entries = [{ at: "", message: "" }];
-			}
+			if (entries.length === 0) entries = [{ at: "", message: "" }];
 			entries.forEach(function (e, idx) {
 				out.push({
 					id: l.lead_id + "-" + idx,
@@ -141,6 +128,7 @@
 					goal: e.message,
 					answers: {},
 					created_at: stampToIso(e.at) || l.created_at,
+					updated_at: l.updated_at || l.created_at,
 					status: normalizeStatus(l.status),
 					assigned_to: l.assigned_to || "",
 					hasLead: true
@@ -176,6 +164,28 @@
 		$("#mt-answered").text(withAnswers);
 	}
 
+	function statusSelectHtml(id, status, disabled) {
+		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
+		var options = Object.keys(STATUS_META).map(function (key) {
+			var selected = key === status ? " selected" : "";
+			return '<option value="' + key + '"' + selected + '>' + STATUS_META[key].label + '</option>';
+		}).join("");
+		return '<select class="status-select ' + meta.cls + '" data-id="' + id + '"' + (disabled ? " disabled" : "") + '>' + options + '</select>';
+	}
+
+	function consultantSelectHtml(id, assignedTo, disabled) {
+		var current = assignedTo || "";
+		var options = ['<option value=""' + (current ? "" : " selected") + ">بدون مشاور</option>"];
+		var known = false;
+		consultants.forEach(function (c) {
+			var selected = c.username === current ? " selected" : "";
+			if (selected) known = true;
+			options.push('<option value="' + c.username + '"' + selected + ">" + (c.display_name || c.username) + "</option>");
+		});
+		if (current && !known) options.push('<option value="' + current + '" selected>' + current + "</option>");
+		return '<select class="assign-select' + (current ? "" : " is-unassigned") + '" data-id="' + id + '"' + (disabled ? " disabled" : "") + '>' + options.join("") + "</select>";
+	}
+
 	function answerRow(key, value) {
 		var meta = KNOWN[key];
 		var label = meta ? meta.label : key;
@@ -196,126 +206,108 @@
 		return $row;
 	}
 
-	var STATUS_CARD_CLASS = {
-		"پاسخ‌داده‌نشده": "is-new",
-		"تماس گرفته شد": "is-called",
-		"پاسخ نداد": "is-noanswer"
-	};
+	function truncate(s, n) {
+		s = String(s || "").replace(/\s+/g, " ").trim();
+		if (!s) return "-";
+		return s.length > n ? s.slice(0, n) + "…" : s;
+	}
 
-	function buildCard(item) {
-		var $card = $("<article>").addClass("mr-card").addClass(STATUS_CARD_CLASS[item.status] || "");
+	function buildRow(item) {
+		var $tr = $("<tr>").addClass("mt-row");
+		var hasDetails = !!item.goal || Object.keys(item.answers).length > 0;
 
-		// --- header
-		var $head = $("<header>").addClass("mr-head");
-		$head.append($("<span>").addClass("mr-avatar").text((item.name || "?").trim().charAt(0)));
+		var $toggleCell = $("<td>").addClass("mt-toggle-cell");
+		if (hasDetails) {
+			$toggleCell.append($("<button type='button'>").addClass("btn btn-link btn-sm p-0 mt-toggle-btn")
+				.html('<i class="fas fa-chevron-' + (state.expanded[item.id] ? "up" : "down") + '"></i>'));
+		}
+		$tr.append($toggleCell);
 
-		var $who = $("<div>").addClass("mr-who");
+		var $nameCell = $("<td>");
 		var $name = item.hasLead
-			? $("<a>").attr("href", "lead.html?id=" + encodeURIComponent(item.lead_id)).addClass("mr-name")
-			: $("<span>").addClass("mr-name");
+			? $("<a>").attr("href", "lead.html?id=" + encodeURIComponent(item.lead_id)).addClass("lead-name-link")
+			: $("<span>");
 		$name.text(item.name);
-		$who.append($name);
+		$nameCell.append($name);
+		$tr.append($nameCell);
 
-		var $meta = $("<div>").addClass("mr-meta");
-		if (item.telegram) {
-			$meta.append($("<span>").addClass("mr-chip mono").attr("dir", "ltr")
-				.append($("<i>").addClass("fab fa-telegram"))
-				.append(document.createTextNode(item.telegram)));
-		}
-		$meta.append($("<span>").addClass("mr-chip is-quiet")
-			.append($("<i>").addClass("fas fa-clock"))
-			.append(document.createTextNode(timeAgo(item.created_at))));
-		$who.append($meta);
-		$head.append($who);
+		$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(item.phone || "-"));
+		$tr.append($("<td>").addClass("mt-goal-cell").attr("title", item.goal || "").text(truncate(item.goal, 42)));
+		$tr.append($("<td>").html(statusSelectHtml(item.id, item.status, !item.hasLead)));
+		$tr.append($("<td>").html(consultantSelectHtml(item.id, item.assigned_to, !item.hasLead)));
+		$tr.append($("<td>").addClass("text-muted text-sm").text(timeAgo(item.updated_at || item.created_at)));
 
-		var $side = $("<div>").addClass("mr-head-side");
-		if (item.phone) {
-			$side.append($("<a>").attr("href", "tel:" + item.phone).addClass("mr-call-btn")
-				.append($("<i>").addClass("fas fa-phone"))
-				.append(document.createTextNode(item.phone)));
-		}
-		var sm = STATUS_META[item.status] || STATUS_META["پاسخ‌داده‌نشده"];
-		$side.append($("<span>").addClass("status-badge " + sm.cls)
-			.append($("<i>").addClass("fas " + sm.icon))
-			.append(document.createTextNode(sm.label)));
-		$side.append($("<span>").addClass("mr-assignee")
-			.text(item.assigned_to ? "مشاور: " + item.assigned_to : "بدون مشاور"));
-		$head.append($side);
-		$card.append($head);
+		var $rows = $tr;
 
-		// --- the applicant's own words, given the most weight on the card
-		if (item.goal) {
-			$card.append($("<blockquote>").addClass("mr-goal").text(item.goal));
-		}
+		if (hasDetails) {
+			var $detail = $("<tr>").addClass("mt-detail-row").toggleClass("d-none", !state.expanded[item.id]);
+			var $td = $("<td>").attr("colspan", 7);
+			var $wrap = $("<div>").addClass("mt-detail-wrap");
 
-		var keys = Object.keys(item.answers);
-		if (keys.length === 0) {
-			$card.append($("<p>").addClass("mr-empty-answers")
-				.text("پاسخ‌های فرم برای این درخواست ثبت نشده است."));
-			return $card;
-		}
+			if (item.goal) $wrap.append($("<blockquote>").addClass("mr-goal").text(item.goal));
 
-		// --- the four facts that decide whether this person is a fit
-		var $quick = $("<div>").addClass("mr-quick");
-		QUESTIONS.filter(function (q) { return q.quick && item.answers[q.key]; }).forEach(function (q) {
-			$quick.append($("<div>").addClass("mr-quick-item")
-				.append($("<span>").addClass("mr-quick-label").text(q.label))
-				.append($("<span>").addClass("mr-quick-value").text(item.answers[q.key])));
-		});
-		if ($quick.children().length) $card.append($quick);
+			var keys = Object.keys(item.answers);
+			if (keys.length) {
+				var $answers = $("<div>").addClass("mr-answers mt-answers-open");
+				QUESTIONS.forEach(function (q) {
+					if (item.answers[q.key]) $answers.append(answerRow(q.key, item.answers[q.key]));
+				});
+				keys.forEach(function (k) {
+					if (!KNOWN[k]) $answers.append(answerRow(k, item.answers[k]));
+				});
+				$wrap.append($answers);
+			} else if (!item.goal) {
+				$wrap.append($("<p>").addClass("mr-empty-answers").text("پاسخ‌های فرم برای این درخواست ثبت نشده است."));
+			}
 
-		// --- everything else, folded away until asked for
-		var rest = [];
-		QUESTIONS.forEach(function (q) {
-			if (!q.quick && item.answers[q.key]) rest.push([q.key, item.answers[q.key]]);
-		});
-		keys.forEach(function (k) {
-			if (!KNOWN[k]) rest.push([k, item.answers[k]]);
-		});
+			$td.append($wrap);
+			$detail.append($td);
+			$rows = $tr.add($detail);
 
-		if (rest.length) {
-			var open = !!state.expanded[item.id];
-			var $body = $("<div>").addClass("mr-answers").toggleClass("d-none", !open);
-			rest.forEach(function (pair) { $body.append(answerRow(pair[0], pair[1])); });
-
-			var $toggle = $("<button type='button'>").addClass("mr-toggle")
-				.html('<i class="fas fa-chevron-' + (open ? "up" : "down") + ' ml-1"></i>'
-					+ (open ? "بستن پاسخ‌ها" : "نمایش " + fa(rest.length) + " پاسخ دیگر"));
-			$toggle.on("click", function () {
+			$toggleCell.find(".mt-toggle-btn").on("click", function () {
 				state.expanded[item.id] = !state.expanded[item.id];
 				render();
 			});
-			$card.append($toggle).append($body);
 		}
 
-		return $card;
+		return $rows;
 	}
 
 	function render() {
 		var rows = state.items.filter(matches);
-		var $list = $("#mentoringList").empty();
+		var $body = $("#mentoringTableBody").empty();
 
-		$("#mt-shown").text(rows.length === state.items.length
-			? ""
-			: "نمایش " + fa(rows.length) + " از " + fa(state.items.length));
-
-		if (rows.length === 0) {
-			var msg = state.items.length === 0
-				? "هنوز درخواستی از فرم منتورینگ سایت ثبت نشده است."
-				: "موردی با این فیلترها پیدا نشد.";
-			$list.append($("<div>").addClass("empty-state")
-				.append($("<i>").addClass("fas fa-graduation-cap"))
-				.append($("<p>").text(msg)));
+		if (state.items.length === 0) {
+			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-graduation-cap"></i><p>هنوز درخواستی از فرم منتورینگ سایت ثبت نشده است.</p></div></td></tr>');
+			$("#mentoringPagination").addClass("d-none");
 			return;
 		}
-		rows.forEach(function (item) { $list.append(buildCard(item)); });
+		if (rows.length === 0) {
+			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی با این فیلترها پیدا نشد.</p></div></td></tr>');
+			$("#mentoringPagination").addClass("d-none");
+			return;
+		}
+
+		var totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+		if (state.page > totalPages) state.page = totalPages;
+		var start = (state.page - 1) * PAGE_SIZE;
+		var pageRows = rows.slice(start, start + PAGE_SIZE);
+		pageRows.forEach(function (item) { $body.append(buildRow(item)); });
+
+		if (rows.length > PAGE_SIZE) {
+			$("#mentoringPagination").removeClass("d-none");
+			$("#mentoringPaginationInfo").text("صفحه " + fa(state.page) + " از " + fa(totalPages) + " (" + fa(rows.length) + " مورد)");
+			$("#btnMentoringPrevPage").prop("disabled", state.page <= 1);
+			$("#btnMentoringNextPage").prop("disabled", state.page >= totalPages);
+		} else {
+			$("#mentoringPagination").addClass("d-none");
+		}
 	}
 
-	// A browser holding a cached data.js from before this page existed has no
-	// fetchMentoringRequests, and calling it would throw before any catch is
-	// attached — leaving the loading state on screen for good. The page has a
-	// fallback for a missing questionnaire; a missing function is the same
-	// situation, so it takes the same path.
+	function findItem(id) {
+		return state.items.find(function (i) { return String(i.id) === String(id); });
+	}
+
 	function requestsPromise() {
 		if (!window.CrmData || typeof CrmData.fetchMentoringRequests !== "function") {
 			return Promise.resolve(null);
@@ -327,10 +319,16 @@
 		}
 	}
 
+	function loadConsultants() {
+		if (!window.CrmData || typeof CrmData.fetchConsultants !== "function") return;
+		CrmData.fetchConsultants().then(function (list) {
+			consultants = list || [];
+			render();
+		}).catch(function () {});
+	}
+
 	function load() {
-		$("#mentoringList").html('<div class="text-center py-5 text-muted">در حال بارگذاری…</div>');
-		// The questionnaire endpoint is new; if it is not reachable the page
-		// still renders from the leads' notes rather than showing an error.
+		$("#mentoringTableBody").html('<tr><td colspan="7"><div class="text-center py-5 text-muted">در حال بارگذاری…</div></td></tr>');
 		Promise.all([
 			requestsPromise(),
 			CrmData.fetchLeads().catch(function () { return []; })
@@ -342,30 +340,74 @@
 			renderStats(state.items);
 			render();
 		}).catch(function (err) {
-			$("#mentoringList").html('<div class="text-center py-5" style="color:#c81e4b">خطا در دریافت اطلاعات: '
-				+ (err.message || "خطای نامشخص") + "</div>");
+			$("#mentoringTableBody").html('<tr><td colspan="7" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: '
+				+ (err.message || "خطای نامشخص") + "</td></tr>");
 		});
 	}
 
-	// Last line of defence: whatever goes wrong, the loading placeholder is
-	// replaced by something the reader can act on.
 	function safeLoad() {
 		try {
 			load();
 		} catch (err) {
-			$("#mentoringList").html('<div class="text-center py-5" style="color:#c81e4b">خطا در بارگذاری صفحه: '
+			$("#mentoringTableBody").html('<tr><td colspan="7"><div class="text-center py-5" style="color:#c81e4b">خطا در بارگذاری صفحه: '
 				+ ((err && err.message) || "خطای نامشخص")
-				+ '<br><span class="text-muted text-sm">یک بار صفحه را با Ctrl+Shift+R تازه کنید.</span></div>');
+				+ '<br><span class="text-muted text-sm">یک بار صفحه را با Ctrl+Shift+R تازه کنید.</span></div></td></tr>');
 		}
 	}
 
 	$(function () {
-		$("#mentoringSearch").on("input", function () { state.query = this.value; render(); });
-		$("#mentoringStatus").on("change", function () { state.statusFilter = this.value; render(); });
+		$("#mentoringSearch").on("input", function () { state.query = this.value; state.page = 1; render(); });
+		$("#mentoringStatusTabs").on("click", ".filter-tab", function () {
+			$(".filter-tab", "#mentoringStatusTabs").removeClass("active");
+			$(this).addClass("active");
+			state.statusFilter = $(this).data("status") || "";
+			state.page = 1;
+			render();
+		});
 		$("#btnRefreshMentoring").on("click", function () {
 			if (window.CrmData && CrmData.invalidateLeadsCache) CrmData.invalidateLeadsCache();
 			safeLoad();
+			loadConsultants();
 		});
+		$("#btnMentoringPrevPage").on("click", function () { if (state.page > 1) { state.page--; render(); } });
+		$("#btnMentoringNextPage").on("click", function () { state.page++; render(); });
+
+		$("#mentoringTableBody").on("change", ".status-select", function () {
+			var $select = $(this);
+			var item = findItem($select.data("id"));
+			if (!item || !item.hasLead) return;
+			var newStatus = $select.val();
+			var previous = item.status;
+			$select.addClass("is-saving");
+			CrmData.updateLeadStatus(item.lead_id, newStatus).then(function () {
+				item.status = newStatus;
+				item.updated_at = new Date().toISOString();
+				renderStats(state.items);
+				render();
+			}).catch(function (err) {
+				alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
+				$select.val(previous);
+			}).finally(function () { $select.removeClass("is-saving"); });
+		});
+
+		$("#mentoringTableBody").on("change", ".assign-select", function () {
+			var $select = $(this);
+			var item = findItem($select.data("id"));
+			if (!item || !item.hasLead) return;
+			var newAssignee = $select.val();
+			var previous = item.assigned_to || "";
+			$select.addClass("is-saving");
+			CrmData.assignLead(item.lead_id, newAssignee).then(function () {
+				item.assigned_to = newAssignee;
+				item.updated_at = new Date().toISOString();
+				render();
+			}).catch(function (err) {
+				alert("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
+				$select.val(previous);
+			}).finally(function () { $select.removeClass("is-saving"); });
+		});
+
 		safeLoad();
+		loadConsultants();
 	});
 })();
