@@ -209,12 +209,12 @@ export async function handleContentRequest(ctx, contentId) {
   ]);
 
   if (contentId === "EMOTIONAL_P04") {
-    // این لینک به‌جای دکمه، مستقیم تو متن گذاشته شده - تلگرام خودش
-    // URLهای متنی رو کلیک‌پذیر می‌کنه. یه دکمه با آدرس فارسی encode-شده
-    // اینجا امتحان شده بود که همیشه با خطای «در پردازش پیام...» شکست
-    // می‌خورد؛ این روش برای دکمه‌های URL با مسیر غیرانگلیسی مطمئن‌تره.
-    const eqTestUrl = "https://sobhansamadi.com/مجموعه-آموزشی-هوش-هیجانی/";
-    await ctx.reply(ACK_TEXT + "\n\n" + EQ_P4_FOLLOWUP_TEXT + "\n\n🔗 " + eqTestUrl);
+    await ctx.reply(ACK_TEXT + "\n\n" + EQ_P4_FOLLOWUP_TEXT, {
+      reply_markup: new InlineKeyboard().url(
+        "🎓 تست هوش هیجانی",
+        encodeURI("https://sobhansamadi.com/مجموعه-آموزشی-هوش-هیجانی/")
+      ),
+    });
     return;
   }
 
