@@ -698,6 +698,35 @@ body::before {
 	color: #c81e4b;
 }
 
+/* Status cell in the leads table: the dropdown plus an optional at-risk
+   flag, kept side by side and vertically centered so row height never
+   depends on whether the flag is present — every row lines up with the
+   ones above and below it. */
+.status-cell-wrap {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.risk-icon {
+	flex: none;
+	width: 22px;
+	height: 22px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: #fde1e7;
+	color: #c81e4b;
+	font-size: 0.72rem;
+	cursor: default;
+}
+
+.dark .risk-icon {
+	background: #3d1520;
+	color: #ff8fa3;
+}
+
 .status-select {
 	appearance: none;
 	-webkit-appearance: none;

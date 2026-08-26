@@ -156,10 +156,11 @@
 			$tr.append($("<td>").attr("dir", "ltr").addClass("mono").text(lead.phone || "-"));
 			$tr.append($("<td>").text(lead.course || "-"));
 			$tr.append($("<td>").text(lead.request_type || "-"));
-			var $statusCell = $("<td>").html(statusSelectHtml(lead.lead_id, lead.status));
+			var $statusWrap = $("<div>").addClass("status-cell-wrap").append(statusSelectHtml(lead.lead_id, lead.status));
 			if (isAtRisk(lead)) {
-				$statusCell.append($('<span class="status-badge badge-noanswer ml-1" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>'));
+				$statusWrap.append('<span class="risk-icon" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i></span>');
 			}
+			var $statusCell = $("<td>").append($statusWrap);
 			$tr.append($statusCell);
 			$tr.append($("<td>").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
