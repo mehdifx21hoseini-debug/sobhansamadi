@@ -30,6 +30,34 @@
 	--accent-text: #ffffff;
 	--up: #1f8f63;
 	--down: #c8323c;
+
+	/* Aliases: some component rules were written against these shorter
+	   names. Pointing them at the brand values keeps one source of truth
+	   instead of a second, drifting palette. */
+	--navy: var(--brand-navy);
+	--navy-dark: var(--brand-navy-dark);
+	--gold: var(--brand-gold);
+	--gold-dark: var(--brand-gold-dark);
+
+	/* Elevation and easing, likewise referenced but never defined. */
+	--shadow-sm: 0 2px 8px rgba(16, 24, 60, .06);
+	--shadow-2: 0 4px 18px rgba(16, 24, 60, .08);
+	--shadow-3: 0 10px 28px rgba(16, 24, 60, .13);
+	--ease-out-3: cubic-bezier(.22, .61, .36, 1);
+}
+
+/* Referenced by the mentoring detail panel and card entrance; without it
+   those elements animated from nothing and simply appeared. */
+@keyframes mk-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .dark {
@@ -42,6 +70,9 @@
 	--accent-text: #08201f;
 	--up: #35c48b;
 	--down: #ef5b62;
+	--shadow-sm: 0 2px 8px rgba(0, 0, 0, .3);
+	--shadow-2: 0 4px 18px rgba(0, 0, 0, .35);
+	--shadow-3: 0 10px 28px rgba(0, 0, 0, .5);
 }
 
 body {
@@ -1616,6 +1647,227 @@ body::before {
    itself lines up column to column. */
 .crm-data-table .status-cell-wrap {
 	justify-content: center;
+}
+
+/* ===== today worklist ===== */
+
+/* The entry page opens on a decision, not a dataset: who to call next.
+   The hero states the size of the job in one sentence so the number is
+   read before any row is. */
+.today-hero {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 14px;
+	padding: 20px 24px;
+	border-radius: 16px;
+	background: linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
+	color: #f3f5fb;
+	box-shadow: 0 10px 28px rgba(16, 24, 60, .18);
+}
+
+.today-hero-greeting {
+	margin: 0 0 4px;
+	font-size: 1.28rem;
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.today-hero-sub {
+	margin: 0;
+	font-size: 0.92rem;
+	color: color-mix(in srgb, #ffffff 78%, transparent);
+}
+
+.today-hero-side {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.today-hero-date {
+	font-size: 0.82rem;
+	padding: 6px 14px;
+	border-radius: 999px;
+	background: color-mix(in srgb, #ffffff 14%, transparent);
+	color: #f3f5fb;
+	white-space: nowrap;
+}
+
+.today-hero-side .btn-outline-secondary {
+	border-color: color-mix(in srgb, #ffffff 35%, transparent);
+	color: #f3f5fb;
+}
+
+.today-hero-side .btn-outline-secondary:hover {
+	background: color-mix(in srgb, #ffffff 16%, transparent);
+	color: #ffffff;
+}
+
+/* Each bucket is a named reason to act, with its own severity color, so
+   the eye lands on "فوری" before it reads a single name. */
+.queue-group {
+	margin-bottom: 20px;
+}
+
+.queue-group-head {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 10px;
+	padding: 0 4px;
+}
+
+.queue-group-icon {
+	flex: none;
+	width: 36px;
+	height: 36px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 11px;
+	font-size: 0.95rem;
+}
+
+.queue-group-titles { flex: 1; min-width: 0; }
+.queue-group-titles h4 { margin: 0; font-size: 1rem; font-weight: 700; color: var(--text); }
+.queue-group-titles p { margin: 2px 0 0; font-size: 0.76rem; color: var(--muted); }
+
+.queue-group-count {
+	flex: none;
+	min-width: 30px;
+	text-align: center;
+	font-weight: 700;
+	font-size: 0.86rem;
+	padding: 4px 10px;
+	border-radius: 999px;
+	background: var(--card-2);
+	color: var(--text);
+}
+
+.queue-group-critical .queue-group-icon { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
+.queue-group-critical .queue-group-count { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
+
+.queue-group-today .queue-group-icon { background: color-mix(in srgb, var(--teal) 16%, transparent); color: var(--teal-dark); }
+.queue-group-today .queue-group-count { background: color-mix(in srgb, var(--teal) 15%, transparent); color: var(--teal-dark); }
+
+.queue-group-new .queue-group-icon { background: var(--brand-navy-soft); color: var(--brand-navy); }
+
+.dark .queue-group-today .queue-group-icon,
+.dark .queue-group-today .queue-group-count { color: var(--accent); }
+.dark .queue-group-new .queue-group-icon { background: color-mix(in srgb, var(--brand-navy) 55%, transparent); color: #b9c6f2; }
+
+.queue-items { display: flex; flex-direction: column; gap: 8px; }
+
+.queue-item {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 12px 16px;
+	border-radius: 12px;
+	background: var(--card);
+	border-right: 3px solid transparent;
+	box-shadow: var(--shadow-sm, 0 2px 8px rgba(16, 24, 60, .06));
+	transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.queue-item:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 8px 20px rgba(16, 24, 60, .1);
+}
+
+.dark .queue-item:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, .4); }
+
+.queue-critical { border-right-color: var(--down); }
+.queue-today { border-right-color: var(--teal); }
+.queue-new { border-right-color: color-mix(in srgb, var(--brand-navy) 55%, transparent); }
+
+.queue-item-main { flex: 1; min-width: 0; }
+
+.queue-item-name {
+	font-size: 0.95rem;
+	font-weight: 700;
+	color: var(--text);
+}
+
+.queue-item-name:hover { color: var(--accent); text-decoration: underline; }
+
+.queue-item-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 8px;
+	margin-top: 5px;
+}
+
+/* The reason is the point of the row — it gets the weight, the chips
+   next to it stay quiet supporting detail. */
+.queue-reason {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.queue-critical .queue-reason { color: var(--down); }
+.queue-today .queue-reason { color: var(--teal-dark); }
+.dark .queue-today .queue-reason { color: var(--accent); }
+
+.queue-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 0.72rem;
+	padding: 3px 9px;
+	border-radius: 999px;
+	background: var(--card-2);
+	color: var(--text);
+}
+
+.queue-chip.is-quiet { color: var(--muted); }
+
+.queue-chip.is-mentoring {
+	background: color-mix(in srgb, var(--teal) 14%, transparent);
+	color: var(--teal-dark);
+}
+
+.dark .queue-chip.is-mentoring { color: var(--accent); }
+
+.queue-item-actions {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex: none;
+}
+
+.queue-phone { font-size: 0.82rem; color: var(--muted); }
+
+.queue-done-btn { white-space: nowrap; }
+
+/* The reward state. An empty queue is the goal, so it gets a real
+   moment rather than the generic "no rows" line. */
+.today-allclear .card-body {
+	text-align: center;
+	padding: 44px 24px;
+}
+
+.today-allclear i {
+	font-size: 2.4rem;
+	color: var(--up);
+	margin-bottom: 12px;
+}
+
+.today-allclear h4 { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.today-allclear p { color: var(--muted); font-size: 0.88rem; margin-bottom: 16px; }
+
+@media (max-width: 767px) {
+	.today-hero { padding: 16px 18px; }
+	.today-hero-side { width: 100%; justify-content: space-between; }
+	.queue-item { flex-wrap: wrap; align-items: flex-start; }
+	.queue-item-actions { width: 100%; justify-content: flex-end; }
 }
 
 /* Header stays put while a long list scrolls underneath it, so the

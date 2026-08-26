@@ -5,7 +5,7 @@
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<script src="js/auth.js?v=2"></script>
-	<title>CRM آکادمی — لیدهای مشاوره</title>
+	<title>کارتابل امروز — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
@@ -56,7 +56,7 @@
 		<div id="dw-s1" class="bmd-layout-drawer bg-faded">
 			<div class="container-fluid side-bar-container">
 				<header class="pb-0">
-					<a class="navbar-brand" href="index.html">
+					<a class="navbar-brand" href="today.html">
 						<div class="brand-logo">
 							<span class="brand-logo-badge"><img src="assets/img/logo.png" alt="آکادمی سبحان صمدی"></span>
 							<span>CRM آکادمی</span>
@@ -66,17 +66,17 @@
 				<p class="side-comment">منو</p>
 				<ul class="side a-collapse">
 					<div class="side-item-container">
-						<li class="side-item"><a href="today.html"><i
+						<li class="side-item selected"><a href="today.html"><i
 									class="fas fa-bolt mr-2"></i>کارتابل امروز <span id="todayActionCount" class="nav-badge d-none"></span></a></li>
-						<li class="side-item selected"><a href="index.html"><i
-									class="fas fa-users mr-2"></i>لیدهای مشاوره</a></li>
+						<li class="side-item"><a href="index.html"><i class="fas fa-users mr-2"></i>لیدهای مشاوره</a>
+						</li>
 						<li class="side-item"><a href="dashboard.html"><i
 									class="fas fa-chart-pie mr-2"></i>داشبورد مدیر</a></li>
 						<li class="side-item"><a href="mentoring.html"><i
 									class="fas fa-graduation-cap mr-2"></i>منتورینگ اختصاصی <span id="mentoringNewCount" class="nav-badge d-none"></span></a></li>
-												<li class="side-item"><a href="followups.html"><i
+						<li class="side-item"><a href="followups.html"><i
 									class="fas fa-bell mr-2"></i>پیگیری‌های امروز <span id="followupsTodayCount" class="nav-badge d-none"></span></a></li>
-<li class="side-item"><a href="support.html"><i
+						<li class="side-item"><a href="support.html"><i
 									class="fas fa-headset mr-2"></i>پیام‌های پشتیبانی <span id="supportOpenCount" class="nav-badge d-none"></span></a></li>
 						<li class="side-item"><a href="content.html"><i
 									class="fas fa-photo-film mr-2"></i>مدیریت محتوا</a></li>
@@ -94,111 +94,40 @@
 		<main class="bmd-layout-content">
 			<div class="container-fluid">
 
-				<div class="row m-1 pb-4 mb-2">
+				<div class="row m-1 pb-2 mb-1">
 					<div class="col-12 p-2">
-						<div class="page-header breadcrumb-header">
-							<div class="row align-items-end">
-								<div class="col-lg-8">
-									<div class="page-header-title text-left-rtl">
-										<h3 class="lite-text">لیدهای مشاوره</h3>
-										<span class="lite-text text-gray">افرادی که از طریق ربات تلگرام درخواست
-											مشاوره ثبت کرده‌اند</span>
-									</div>
-								</div>
+						<div class="today-hero animate-in">
+							<div class="today-hero-main">
+								<h3 class="today-hero-greeting">سلام <span id="todayUserName">همکار</span> 👋</h3>
+								<p class="today-hero-sub" id="todayHeroSummary">در حال بررسی کارتابل…</p>
+							</div>
+							<div class="today-hero-side">
+								<span class="today-hero-date" id="todayDate"></span>
+								<button type="button" class="btn btn-outline-secondary btn-sm" id="btnRefreshToday"
+									title="بارگذاری دوباره"><i class="fas fa-rotate"></i></button>
 							</div>
 						</div>
 					</div>
 				</div>
 
-				<div class="row m-1 mb-2">
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-users b-first" aria-hidden="true"></i>
-							<span class="c-first">کل لیدها</span>
-							<span id="stat-total">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-clock b-second" aria-hidden="true"></i>
-							<span class="c-second">در انتظار تماس</span>
-							<span id="stat-pending">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-phone b-third" aria-hidden="true"></i>
-							<span class="c-third">تماس گرفته شد</span>
-							<span id="stat-called">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-4">
-							<i class="fas fa-phone-slash b-forth" aria-hidden="true"></i>
-							<span class="c-forth">پاسخ نداد</span>
-							<span id="stat-noanswer">0</span>
+				<div class="row m-1 mb-1">
+					<div class="col-12 p-2">
+						<div class="toolbar-row">
+							<div class="filter-tabs" id="todayScopeTabs">
+								<button class="filter-tab active" data-scope="mine">موارد من</button>
+								<button class="filter-tab" data-scope="all">همه موارد</button>
+							</div>
+							<div class="toolbar-actions">
+								<input type="text" id="todaySearch" class="form-control search-input"
+									placeholder="جستجوی نام یا شماره…">
+							</div>
 						</div>
 					</div>
 				</div>
 
 				<div class="row m-1">
 					<div class="col-12 p-2">
-						<div class="card shade animate-in table-card">
-							<div class="card-body">
-
-								<div class="toolbar-row">
-									<div class="filter-tabs" id="filterTabs">
-										<button class="filter-tab active" data-status="همه">همه</button>
-										<button class="filter-tab" data-status="پاسخ‌داده‌نشده">در انتظار تماس</button>
-										<button class="filter-tab" data-status="تماس گرفته شد">تماس گرفته شد</button>
-										<button class="filter-tab" data-status="پاسخ نداد">پاسخ نداد</button>
-										<button class="filter-tab" data-status="یادآوری"><i
-												class="fas fa-bell mr-1"></i>نیاز به پیگیری <span
-												id="reminderTabCount"></span></button>
-										<button class="filter-tab" data-status="در_ریسک"><i
-												class="fas fa-triangle-exclamation mr-1"></i>در ریسک <span
-												id="atRiskTabCount"></span></button>
-									</div>
-									<div class="toolbar-actions">
-										<select id="sourceFilter" class="form-control source-filter">
-											<option value="">همه منابع</option>
-										</select>
-										<input type="text" id="searchInput" class="form-control search-input"
-											placeholder="جستجوی نام یا شماره...">
-									</div>
-								</div>
-
-								<hr>
-
-								<div class="table-responsive table-scroll">
-									<table class="table table-striped table-hover crm-data-table">
-										<thead>
-											<tr>
-												<th>نام</th>
-												<th class="text-center">شماره تماس</th>
-												<th>دوره</th>
-												<th>نوع درخواست</th>
-												<th class="text-center">وضعیت</th>
-												<th class="text-center">مشاور</th>
-												<th>آخرین به‌روزرسانی</th>
-											</tr>
-										</thead>
-										<tbody id="leadsTableBody"></tbody>
-									</table>
-								</div>
-
-								<div class="crm-pagination" id="pagination">
-									<span id="paginationInfo"></span>
-									<div>
-										<button class="btn btn-outline-secondary btn-sm" id="btnPrevPage"><i
-												class="fas fa-chevron-right"></i></button>
-										<button class="btn btn-outline-secondary btn-sm" id="btnNextPage"><i
-												class="fas fa-chevron-left"></i></button>
-									</div>
-								</div>
-
-							</div>
-						</div>
+						<div id="todayQueue"></div>
 					</div>
 				</div>
 
@@ -307,7 +236,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/app.js?v=12"></script>
+	<script src="js/today.js?v=1"></script>
 </body>
 
 </html>
