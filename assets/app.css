@@ -38,6 +38,7 @@
 	--navy-dark: var(--brand-navy-dark);
 	--gold: var(--brand-gold);
 	--gold-dark: var(--brand-gold-dark);
+	--link: var(--accent);
 
 	/* Elevation and easing, likewise referenced but never defined. */
 	--shadow-sm: 0 2px 8px rgba(16, 24, 60, .06);
