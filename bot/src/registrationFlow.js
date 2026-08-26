@@ -61,11 +61,12 @@ function buildConfirmText(flow, temp) {
   );
 }
 
-export async function startFlow(ctx, flow) {
+export async function startFlow(ctx, flow, promptOverride) {
   const promptText =
-    flow === "registration"
+    promptOverride ||
+    (flow === "registration"
       ? "برای ثبت‌نام، لطفاً دوره موردنظر خود را انتخاب کنید:"
-      : "🎯 برای شروع، کدام دوره یا خدمات آموزشی موردنظرتان است؟";
+      : "🎯 برای شروع، کدام دوره یا خدمات آموزشی موردنظرتان است؟");
   await setUserState(ctx.env, ctx.from.id, {
     current_flow: flow,
     current_step: "choose_course",

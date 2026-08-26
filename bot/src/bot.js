@@ -92,6 +92,12 @@ export function createBot(token, env) {
       return;
     }
 
+    if (data === "INTRO_REGISTER_ADVANCED") {
+      await ctx.answerCallbackQuery();
+      await startRegistrationFlow(ctx, "registration", "برای ثبت‌نام در مجموعه آموزشی پیشرفته، لطفاً دوره موردنظر خود را انتخاب کنید:");
+      return;
+    }
+
     if (data === "COURSE_PSY" || data === "COURSE_TECH" || data === "COURSE_BOTH") {
       await ctx.answerCallbackQuery();
       await handleCourseChoice(ctx, data);
