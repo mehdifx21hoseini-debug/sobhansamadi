@@ -197,13 +197,19 @@ const INTRO_P16_FOLLOWUP_TEXT = [
   "امید روزی که از من تاییدیه‌ی حساب ریل دریافت کنی.",
 ].join("\n");
 
+const ACK_TEXT = "✅ درخواست شما ثبت شد؛ تیم آکادمی به‌زودی فایل/ویدیوی این بخش رو براتون می‌فرسته. 🙏";
+
+// دو تماس مستقل (نوشتن در D1، answer کردن callback) هم‌زمان اجرا
+// می‌شوند تا هر پیام کمتر منتظر رفت‌وبرگشت‌های پشت‌سرهم به تلگرام بماند -
+// روی مقیاس چند هزار کاربر همزمان این تاخیرها جمع می‌شوند.
 export async function handleContentRequest(ctx, contentId) {
-  await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, contentId);
-  await ctx.answerCallbackQuery({ text: "✅ درخواست شما ثبت شد", show_alert: false }).catch(() => {});
-  await ctx.reply("✅ درخواست شما ثبت شد؛ تیم آکادمی به‌زودی فایل/ویدیوی این بخش رو براتون می‌فرسته. 🙏");
+  await Promise.allSettled([
+    logContentRequest(ctx.env, ctx.from.id, ctx.from.username, contentId),
+    ctx.answerCallbackQuery({ text: "✅ درخواست شما ثبت شد", show_alert: false }).catch(() => {}),
+  ]);
 
   if (contentId === "EMOTIONAL_P04") {
-    await ctx.reply(EQ_P4_FOLLOWUP_TEXT, {
+    await ctx.reply(ACK_TEXT + "\n\n" + EQ_P4_FOLLOWUP_TEXT, {
       reply_markup: new InlineKeyboard().url(
         "🎓 تست هوش هیجانی",
         encodeURI("https://sobhansamadi.com/مجموعه-آموزشی-هوش-هیجانی/")
@@ -213,9 +219,12 @@ export async function handleContentRequest(ctx, contentId) {
   }
 
   if (contentId === "INTRO_P16") {
-    await ctx.reply(INTRO_P16_FOLLOWUP_TEXT, {
+    await ctx.reply(ACK_TEXT + "\n\n" + INTRO_P16_FOLLOWUP_TEXT, {
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard().text("🎓 مجموعه آموزشی پیشرفته", "INTRO_REGISTER_ADVANCED"),
     });
+    return;
   }
+
+  await ctx.reply(ACK_TEXT);
 }

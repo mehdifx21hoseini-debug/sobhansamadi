@@ -22,8 +22,8 @@ import {
 // یک‌جا ساخته می‌شود تا هم روی Cloudflare Workers و هم (در صورت نیاز) در
 // یک محیط دیگر قابل استفاده باشد. `env` (شامل env.DB) روی ctx.env قرار
 // می‌گیرد تا همه‌ی ماژول‌ها بدون پاس دادن دستی بهش دسترسی داشته باشند.
-export function createBot(token, env) {
-  const bot = new Bot(token);
+export function createBot(token, env, botInfo) {
+  const bot = new Bot(token, botInfo ? { botInfo } : undefined);
 
   bot.use(async (ctx, next) => {
     ctx.env = env;
