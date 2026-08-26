@@ -10,7 +10,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=27">
+	<link rel="stylesheet" href="assets/app.css?v=28">
 </head>
 
 <body>
@@ -100,7 +100,7 @@
 						sessionStorage.setItem("crmUsername", data.username || username);
 						sessionStorage.setItem("crmRole", data.role || "admin");
 					sessionStorage.setItem("crmAvatar", data.avatar || "");
-						window.location.href = "index.html";
+						window.location.href = "today.html";
 					} else {
 						$error.classList.remove("d-none");
 					}
