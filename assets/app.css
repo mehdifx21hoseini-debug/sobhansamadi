@@ -3518,3 +3518,51 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 	.mr-answer { flex-direction: column; gap: 3px; }
 	.mr-answer-label { flex: none; max-width: none; }
 }
+
+/* Mentoring table (matches the leads table layout). The row itself stays
+   plain; a chevron opens a second row below it with the goal quote and
+   full questionnaire answers, reusing the .mr-goal/.mr-answers styles
+   from the card layout so the two views feel like one system. */
+.mt-row > td { vertical-align: middle; }
+
+.mt-toggle-cell { width: 28px; padding-left: 0; padding-right: 0; text-align: center; }
+
+.mt-toggle-btn {
+	width: 24px;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	color: var(--muted);
+	transition: background .15s, color .15s;
+}
+
+.mt-toggle-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.mt-toggle-btn i { font-size: 0.78rem; }
+
+.mt-goal-cell {
+	max-width: 260px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text);
+}
+
+.mt-detail-row td {
+	background: color-mix(in srgb, var(--accent) 4%, var(--card-2));
+	border-top: none;
+	padding: 0;
+}
+
+.mt-detail-wrap {
+	padding: 4px 18px 14px 18px;
+	animation: mk-in .25s var(--ease-out-3) both;
+}
+
+.mt-detail-wrap .mr-goal { margin-top: 6px; }
+.mt-detail-wrap .mr-answers.mt-answers-open { margin-top: 10px; }
+
+@media (max-width: 767px) {
+	.mt-goal-cell { max-width: 140px; }
+}
