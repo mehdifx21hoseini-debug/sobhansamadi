@@ -1591,6 +1591,23 @@ body::before {
 	overflow-y: auto;
 }
 
+/* The card framing the leads/mentoring table carries the same gold as
+   its header — a border and a faint corner wash — so the whole box
+   reads as one gold-accented unit instead of just the header row. */
+.table-card {
+	border: 1px solid color-mix(in srgb, var(--brand-gold) 45%, transparent);
+	background:
+		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--brand-gold) 12%, transparent), transparent),
+		var(--card);
+}
+
+.dark .table-card {
+	border-color: color-mix(in srgb, var(--brand-gold) 35%, transparent);
+	background:
+		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--brand-gold) 10%, transparent), transparent),
+		var(--card);
+}
+
 .crm-data-table thead th {
 	position: sticky;
 	top: 0;
