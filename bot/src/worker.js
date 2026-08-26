@@ -108,6 +108,49 @@ export default {
       }
     }
 
+    // مسیر تشخیصی موقت - یک آپدیت واقعی (callback_query) می‌سازد و از
+    // مسیر واقعی bot.handleUpdate رد می‌کند (نه mock) تا هر خطای واقعی
+    // (شامل خود تماس با API تلگرام) گرفته شود. پیام‌های واقعی به چت
+    // خود کاربر تست می‌رود.
+    if (url.pathname === "/debug/simulate") {
+      if (url.searchParams.get("key") !== env.BOT_TOKEN) {
+        return new Response("forbidden", { status: 403 });
+      }
+      const userId = Number(url.searchParams.get("user_id"));
+      const data = url.searchParams.get("data") || "CONTENT|EMOTIONAL_P04";
+      if (!userId) {
+        return new Response("user_id query param is required", { status: 400 });
+      }
+      const update = {
+        update_id: Date.now(),
+        callback_query: {
+          id: "debug" + Date.now(),
+          from: { id: userId, is_bot: false, first_name: "Debug" },
+          message: {
+            message_id: 1,
+            date: Math.floor(Date.now() / 1000),
+            chat: { id: userId, type: "private", first_name: "Debug" },
+            text: "debug placeholder",
+          },
+          chat_instance: "debug",
+          data,
+        },
+      };
+      const bot = createBot(env.BOT_TOKEN, env);
+      try {
+        await bot.init();
+        await bot.handleUpdate(update);
+        return new Response(JSON.stringify({ ok: true }, null, 2), {
+          headers: { "content-type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ ok: false, error: String(err), stack: err && err.stack }, null, 2),
+          { status: 500, headers: { "content-type": "application/json" } }
+        );
+      }
+    }
+
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن
     // درخواست جعلی به این آدرس بفرستد.
     if (url.pathname === `/webhook/${env.BOT_TOKEN}`) {
