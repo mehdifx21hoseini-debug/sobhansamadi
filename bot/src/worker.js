@@ -1,5 +1,6 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
+import { handleContentRequest } from "./contentMenus.js";
 
 export default {
   async fetch(request, env) {
@@ -73,6 +74,37 @@ export default {
         return new Response("ok - tables created", { status: 200 });
       } catch (err) {
         return new Response("error: " + String(err), { status: 500 });
+      }
+    }
+
+    // مسیر تشخیصی موقت - اجرای مستقیم handleContentRequest بدون تلگرام
+    // واقعی، برای دیدن خطای دقیق بدون نیاز به تست دستی از تلگرام.
+    if (url.pathname === "/debug/content") {
+      if (url.searchParams.get("key") !== env.BOT_TOKEN) {
+        return new Response("forbidden", { status: 403 });
+      }
+      const contentId = url.searchParams.get("id") || "EMOTIONAL_P04";
+      const calls = [];
+      const fakeCtx = {
+        env,
+        from: { id: "999999999", username: "debug_user" },
+        reply: async (text, extra) => {
+          calls.push({ method: "reply", text, extra });
+        },
+        answerCallbackQuery: async (extra) => {
+          calls.push({ method: "answerCallbackQuery", extra });
+        },
+      };
+      try {
+        await handleContentRequest(fakeCtx, contentId);
+        return new Response(JSON.stringify({ ok: true, calls }, null, 2), {
+          headers: { "content-type": "application/json" },
+        });
+      } catch (err) {
+        return new Response(
+          JSON.stringify({ ok: false, error: String(err), stack: err && err.stack, calls }, null, 2),
+          { status: 500, headers: { "content-type": "application/json" } }
+        );
       }
     }
 
