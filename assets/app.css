@@ -3335,12 +3335,12 @@ textarea:focus-visible,
 .mr-search { width: 240px; }
 .mr-select { width: 150px; }
 
-.mr-list { display: flex; flex-direction: column; gap: 14px; }
+.mr-list { display: flex; flex-direction: column; gap: 9px; }
 
 .mr-card {
 	background: var(--card);
-	border-radius: 16px;
-	padding: 16px 18px 14px;
+	border-radius: 14px;
+	padding: 12px 15px 11px;
 	box-shadow: var(--shadow-2);
 	border: 1px solid transparent;
 	border-right: 3px solid transparent;
@@ -3368,17 +3368,17 @@ textarea:focus-visible,
 	border-right-color: color-mix(in srgb, var(--down, #d84343) 55%, transparent);
 }
 
-.mr-head { display: flex; align-items: flex-start; gap: 12px; }
+.mr-head { display: flex; align-items: center; gap: 10px; }
 
 .mr-avatar {
 	flex: none;
-	width: 42px;
-	height: 42px;
+	width: 34px;
+	height: 34px;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 1.05rem;
+	font-size: 0.92rem;
 	font-weight: 700;
 	color: var(--accent-text);
 	background: linear-gradient(150deg, var(--navy), var(--navy-dark));
@@ -3387,10 +3387,10 @@ textarea:focus-visible,
 .dark .mr-avatar { background: linear-gradient(150deg, var(--gold), var(--gold-dark)); }
 
 .mr-who { flex: 1; min-width: 0; }
-.mr-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+.mr-name { font-size: 0.92rem; font-weight: 700; color: var(--text); }
 a.mr-name:hover { color: var(--link); text-decoration: underline; }
 
-.mr-meta { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 5px; }
+.mr-meta { display: flex; flex-wrap: wrap; gap: 5px 7px; margin-top: 3px; }
 
 .mr-chip {
 	display: inline-flex;
@@ -3414,13 +3414,13 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 .mr-call-btn {
 	display: inline-flex;
 	align-items: center;
-	gap: 7px;
-	padding: 7px 14px;
+	gap: 6px;
+	padding: 5px 11px;
 	border-radius: 999px;
 	background: color-mix(in srgb, var(--up, #1a9e6b) 14%, transparent);
 	color: var(--up, #1a9e6b);
 	font-weight: 700;
-	font-size: 0.85rem;
+	font-size: 0.78rem;
 	direction: ltr;
 	white-space: nowrap;
 	transition: background .15s, transform .1s;
@@ -3433,13 +3433,13 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 /* The applicant's own answer to "why do you want this" — the single most
    useful line on the card, so it is set as a pull quote. */
 .mr-goal {
-	margin: 13px 0 0;
-	padding: 11px 14px 11px 12px;
+	margin: 9px 0 0;
+	padding: 8px 12px 8px 10px;
 	border-right: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
 	background: color-mix(in srgb, var(--accent) 6%, transparent);
-	border-radius: 0 10px 10px 0;
-	font-size: 0.88rem;
-	line-height: 1.95;
+	border-radius: 0 8px 8px 0;
+	font-size: 0.84rem;
+	line-height: 1.6;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
@@ -3447,32 +3447,32 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 .mr-quick {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-	gap: 8px;
-	margin-top: 13px;
+	gap: 6px;
+	margin-top: 9px;
 }
 
 .mr-quick-item {
 	background: var(--card-2);
-	border-radius: 10px;
-	padding: 9px 11px;
+	border-radius: 9px;
+	padding: 7px 10px;
 	min-width: 0;
 	transition: background .15s;
 }
 
 .mr-quick-item:hover { background: color-mix(in srgb, var(--accent) 10%, var(--card-2)); }
 
-.mr-quick-label { display: block; font-size: 0.66rem; color: var(--muted); margin-bottom: 3px; }
-.mr-quick-value { display: block; font-size: 0.82rem; font-weight: 600; overflow-wrap: anywhere; }
+.mr-quick-label { display: block; font-size: 0.64rem; color: var(--muted); margin-bottom: 2px; }
+.mr-quick-value { display: block; font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
 
 .mr-toggle {
-	margin-top: 12px;
+	margin-top: 8px;
 	border: 0;
 	background: transparent;
 	color: var(--link);
 	font-family: inherit;
-	font-size: 0.78rem;
+	font-size: 0.76rem;
 	font-weight: 600;
-	padding: 4px 0;
+	padding: 2px 0;
 	cursor: pointer;
 }
 
@@ -3503,8 +3503,8 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 .mr-answer-value { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.85; }
 
 .mr-empty-answers {
-	margin: 12px 0 0;
-	font-size: 0.76rem;
+	margin: 7px 0 0;
+	font-size: 0.72rem;
 	color: var(--muted);
 	font-style: italic;
 }
