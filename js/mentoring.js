@@ -231,7 +231,15 @@
 		$nameCell.append($name);
 		$tr.append($nameCell);
 
-		$tr.append($("<td>").attr("dir", "ltr").addClass("mono text-center").text(item.phone || "-"));
+		var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
+		$phoneCell.append($("<span>").text(item.phone || "-"));
+		if (item.phone) {
+			$phoneCell.append($("<a>").addClass("quick-call-btn").attr({
+				href: "tel:" + item.phone.replace(/[^\d+]/g, ""),
+				title: "تماس با " + (item.name || "این فرد")
+			}).on("click", function (e) { e.stopPropagation(); }).html('<i class="fas fa-phone"></i>'));
+		}
+		$tr.append($phoneCell);
 		$tr.append($("<td>").addClass("mt-goal-cell").attr("title", item.goal || "").text(truncate(item.goal, 42)));
 		$tr.append($("<td>").addClass("text-center").html(statusSelectHtml(item.id, item.status, !item.hasLead)));
 		$tr.append($("<td>").addClass("text-center").html(consultantSelectHtml(item.id, item.assigned_to, !item.hasLead)));
