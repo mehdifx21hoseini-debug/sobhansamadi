@@ -8,6 +8,40 @@
 	--brand-navy-soft: #eef1f8;
 	--brand-gold: #d2ae6d;
 	--brand-gold-dark: #b8934f;
+
+	/* New system accent: a deep-navy + teal identity, used for anything
+	   interactive or data-driven (tables, active states, focus rings).
+	   Gold above stays for legacy brand marks (top strip, login hero)
+	   but no longer carries the interactive/accent role. */
+	--teal: #1a8f8a;
+	--teal-dark: #106b67;
+	--teal-soft: #e6f4f3;
+
+	/* Surface tokens: previously several component rules referenced
+	   --card/--accent/--line/--up/--down without ever defining them
+	   (those names only exist in econ-app.html, a different page), so
+	   the declarations silently no-oped. Defined here for real. */
+	--card: #ffffff;
+	--card-2: #f5f6fa;
+	--text: #1b2444;
+	--muted: #737ea3;
+	--line: #e4e7f2;
+	--accent: var(--teal);
+	--accent-text: #ffffff;
+	--up: #1f8f63;
+	--down: #c8323c;
+}
+
+.dark {
+	--card: #1c2340;
+	--card-2: #232a4d;
+	--text: #e9edf8;
+	--muted: #8d97b8;
+	--line: #333c5c;
+	--accent: #35b3ac;
+	--accent-text: #08201f;
+	--up: #35c48b;
+	--down: #ef5b62;
 }
 
 body {
@@ -101,12 +135,12 @@ body,
 }
 
 .side-item.selected {
-	background: linear-gradient(180deg, var(--brand-gold), var(--brand-gold-dark)) !important;
+	background: linear-gradient(180deg, var(--teal), var(--teal-dark)) !important;
 }
 
 .side-item.selected a,
 .side-item.selected a i {
-	color: #2b2200 !important;
+	color: #ffffff !important;
 	display: inline-block !important;
 }
 
@@ -1591,20 +1625,20 @@ body::before {
 	overflow-y: auto;
 }
 
-/* The card framing the leads/mentoring table carries the same gold as
+/* The card framing the leads/mentoring table carries the same teal as
    its header — a border and a faint corner wash — so the whole box
-   reads as one gold-accented unit instead of just the header row. */
+   reads as one accented unit instead of just the header row. */
 .table-card {
-	border: 1px solid color-mix(in srgb, var(--brand-gold) 45%, transparent);
+	border: 1px solid color-mix(in srgb, var(--teal) 30%, var(--line));
 	background:
-		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--brand-gold) 12%, transparent), transparent),
+		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--teal) 8%, transparent), transparent),
 		var(--card);
 }
 
 .dark .table-card {
-	border-color: color-mix(in srgb, var(--brand-gold) 35%, transparent);
+	border-color: color-mix(in srgb, var(--teal) 30%, var(--line));
 	background:
-		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--brand-gold) 10%, transparent), transparent),
+		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--teal) 14%, transparent), transparent),
 		var(--card);
 }
 
@@ -1612,19 +1646,19 @@ body::before {
 	position: sticky;
 	top: 0;
 	z-index: 2;
-	background: linear-gradient(180deg, var(--brand-gold) 0%, var(--brand-gold-dark) 100%);
-	color: var(--brand-navy-dark);
+	background: linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
+	color: #f3f5fb;
 	font-weight: 700;
 	font-size: 0.82rem;
 	padding-top: 12px;
 	padding-bottom: 12px;
-	box-shadow: inset 0 -2px 0 var(--brand-navy), 0 2px 6px rgba(16, 24, 60, .12);
+	box-shadow: inset 0 -2px 0 var(--teal), 0 2px 6px rgba(16, 24, 60, .12);
 }
 
 .dark .crm-data-table thead th {
-	background: linear-gradient(180deg, var(--brand-gold) 0%, var(--brand-gold-dark) 100%);
-	color: #1c2850;
-	box-shadow: inset 0 -2px 0 var(--brand-navy-dark), 0 2px 8px rgba(0, 0, 0, .35);
+	background: linear-gradient(180deg, #1f2c56 0%, var(--brand-navy-dark) 100%);
+	color: #f3f5fb;
+	box-shadow: inset 0 -2px 0 var(--teal), 0 2px 8px rgba(0, 0, 0, .35);
 }
 
 /* A colored rail on the leading cell echoes the same at-a-glance queue
