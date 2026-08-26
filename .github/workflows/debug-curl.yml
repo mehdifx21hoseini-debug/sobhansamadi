@@ -1,0 +1,17 @@
+name: Debug Curl
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "آدرسی که کامل fetch و چاپ می‌شود"
+        required: true
+        default: "https://sobhansamadi.mehdifx21hoseini.workers.dev/debug/live-prices"
+
+jobs:
+  debug-curl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch headers
+        run: |
+          curl -sS -o /dev/null -D - "${{ inputs.target_url }}"
