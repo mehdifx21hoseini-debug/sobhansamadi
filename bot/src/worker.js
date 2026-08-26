@@ -18,7 +18,7 @@ export default {
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن
     // درخواست جعلی به این آدرس بفرستد.
     if (url.pathname === `/webhook/${env.BOT_TOKEN}`) {
-      const bot = createBot(env.BOT_TOKEN);
+      const bot = createBot(env.BOT_TOKEN, env);
       return webhookCallback(bot, "cloudflare-mod")(request);
     }
 
