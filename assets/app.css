@@ -3343,14 +3343,29 @@ textarea:focus-visible,
 	padding: 16px 18px 14px;
 	box-shadow: var(--shadow-2);
 	border: 1px solid transparent;
+	border-right: 3px solid transparent;
 	animation: mk-in .35s var(--ease-out-3) both;
+	transition: box-shadow .18s var(--ease-out-3), transform .18s var(--ease-out-3);
 }
 
-/* An untouched request is the one that needs work, so it carries the
-   accent rail rather than every card carrying one. */
+.mr-card:hover {
+	box-shadow: var(--shadow-3, var(--shadow-2));
+	transform: translateY(-1px);
+}
+
+/* The status rail turns every card into an at-a-glance queue: what
+   still needs a call jumps out, what's already handled recedes. */
 .mr-card.is-new {
 	border-color: color-mix(in srgb, var(--accent) 26%, transparent);
-	border-right: 3px solid var(--accent);
+	border-right-color: var(--accent);
+}
+
+.mr-card.is-called {
+	border-right-color: color-mix(in srgb, var(--up, #1a9e6b) 55%, transparent);
+}
+
+.mr-card.is-noanswer {
+	border-right-color: color-mix(in srgb, var(--down, #d84343) 55%, transparent);
 }
 
 .mr-head { display: flex; align-items: flex-start; gap: 12px; }
@@ -3391,8 +3406,29 @@ a.mr-name:hover { color: var(--link); text-decoration: underline; }
 a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--text); }
 .mr-chip.is-quiet { color: var(--muted); }
 
-.mr-head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
+.mr-head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; flex: none; }
 .mr-assignee { font-size: 0.7rem; color: var(--muted); }
+
+/* The one action every card exists for. Sized and colored to be found
+   without reading anything else on the card first. */
+.mr-call-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 7px 14px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--up, #1a9e6b) 14%, transparent);
+	color: var(--up, #1a9e6b);
+	font-weight: 700;
+	font-size: 0.85rem;
+	direction: ltr;
+	white-space: nowrap;
+	transition: background .15s, transform .1s;
+}
+
+.mr-call-btn:hover { background: color-mix(in srgb, var(--up, #1a9e6b) 24%, transparent); color: var(--up, #1a9e6b); transform: translateY(-1px); }
+.mr-call-btn:active { transform: translateY(0); }
+.mr-call-btn i { font-size: 0.9rem; }
 
 /* The applicant's own answer to "why do you want this" — the single most
    useful line on the card, so it is set as a pull quote. */
@@ -3420,7 +3456,10 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 	border-radius: 10px;
 	padding: 9px 11px;
 	min-width: 0;
+	transition: background .15s;
 }
+
+.mr-quick-item:hover { background: color-mix(in srgb, var(--accent) 10%, var(--card-2)); }
 
 .mr-quick-label { display: block; font-size: 0.66rem; color: var(--muted); margin-bottom: 3px; }
 .mr-quick-value { display: block; font-size: 0.82rem; font-weight: 600; overflow-wrap: anywhere; }

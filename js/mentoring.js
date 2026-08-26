@@ -196,8 +196,14 @@
 		return $row;
 	}
 
+	var STATUS_CARD_CLASS = {
+		"پاسخ‌داده‌نشده": "is-new",
+		"تماس گرفته شد": "is-called",
+		"پاسخ نداد": "is-noanswer"
+	};
+
 	function buildCard(item) {
-		var $card = $("<article>").addClass("mr-card").toggleClass("is-new", item.status === "پاسخ‌داده‌نشده");
+		var $card = $("<article>").addClass("mr-card").addClass(STATUS_CARD_CLASS[item.status] || "");
 
 		// --- header
 		var $head = $("<header>").addClass("mr-head");
@@ -211,11 +217,6 @@
 		$who.append($name);
 
 		var $meta = $("<div>").addClass("mr-meta");
-		if (item.phone) {
-			$meta.append($("<a>").attr("href", "tel:" + item.phone).addClass("mr-chip mono").attr("dir", "ltr")
-				.append($("<i>").addClass("fas fa-phone"))
-				.append(document.createTextNode(item.phone)));
-		}
 		if (item.telegram) {
 			$meta.append($("<span>").addClass("mr-chip mono").attr("dir", "ltr")
 				.append($("<i>").addClass("fab fa-telegram"))
@@ -228,6 +229,11 @@
 		$head.append($who);
 
 		var $side = $("<div>").addClass("mr-head-side");
+		if (item.phone) {
+			$side.append($("<a>").attr("href", "tel:" + item.phone).addClass("mr-call-btn")
+				.append($("<i>").addClass("fas fa-phone"))
+				.append(document.createTextNode(item.phone)));
+		}
 		var sm = STATUS_META[item.status] || STATUS_META["پاسخ‌داده‌نشده"];
 		$side.append($("<span>").addClass("status-badge " + sm.cls)
 			.append($("<i>").addClass("fas " + sm.icon))
