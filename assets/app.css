@@ -1575,6 +1575,18 @@ body::before {
 	color: #dcdff0;
 }
 
+/* Leads and mentoring tables: every column reads as a scannable field
+   rather than a line of prose, so cells (and their header labels) are
+   centered instead of following the page's RTL text alignment. */
+.crm-data-table th,
+.crm-data-table td {
+	text-align: center;
+}
+
+.crm-data-table .status-cell-wrap {
+	justify-content: center;
+}
+
 .dark .badge-pending {
 	background: #4a3a10;
 	color: #f2c463;
