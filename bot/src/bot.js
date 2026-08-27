@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { handleStart } from "./commands/start.js";
-import { MENU_LABELS, mainMenuKeyboard } from "./menu.js";
+import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
 import { sendEconCalendar, sendPendingSection } from "./menuActions.js";
@@ -44,8 +44,8 @@ export function createBot(token, env, botInfo) {
 
     // اگر کاربر وسط یه فرآیند چندمرحله‌ای (ثبت‌نام/مشاوره/پشتیبانی) است
     // و این پیام یه دکمه‌ی منوی اصلی نیست، آن را به همون فرآیند بده.
-    const isMenuLabel = Object.values(MENU_LABELS).includes(text);
-    if (state?.current_flow && !isMenuLabel) {
+    const action = resolveMenuAction(text);
+    if (state?.current_flow && !action) {
       if (["ask_name", "ask_phone", "ask_level", "ask_topic", "ask_time"].includes(state.current_step)) {
         await handleFlowText(ctx, state);
         return;
@@ -56,26 +56,26 @@ export function createBot(token, env, botInfo) {
       }
     }
 
-    switch (text) {
-      case MENU_LABELS.ECON_CALENDAR:
+    switch (action) {
+      case "ECON_CALENDAR":
         return sendEconCalendar(ctx);
-      case MENU_LABELS.ABOUT:
+      case "ABOUT":
         return sendAbout(ctx);
-      case MENU_LABELS.SUPPORT:
+      case "SUPPORT":
         return startSupport(ctx);
-      case MENU_LABELS.LIBRARY:
+      case "LIBRARY":
         return sendLibrary(ctx);
-      case MENU_LABELS.FREE_COURSES:
+      case "FREE_COURSES":
         return sendFreeCoursesMenu(ctx);
-      case MENU_LABELS.PSY_VOICES:
+      case "PSY_VOICES":
         return sendPendingSection(ctx, "PSY_VOICES");
-      case MENU_LABELS.EXPERT:
+      case "EXPERT":
         return sendExpert(ctx);
-      case MENU_LABELS.LIVE_TRADE:
+      case "LIVE_TRADE":
         return sendPendingSection(ctx, "LIVE_TRADE");
-      case MENU_LABELS.CONSULT:
+      case "CONSULT":
         return startRegistrationFlow(ctx, "consultation");
-      case MENU_LABELS.TRUSTED_BROKER:
+      case "TRUSTED_BROKER":
         return sendTrustedBroker(ctx);
       default:
         return; // پیام‌های دیگر (بدون فرآیند فعال) نادیده گرفته می‌شوند.
