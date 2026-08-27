@@ -1,5 +1,6 @@
 import { Bot } from "grammy";
 import { handleStart, handleHelp } from "./commands/start.js";
+import { handleDiag } from "./commands/diag.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
@@ -25,7 +26,7 @@ import {
 // یک‌جا ساخته می‌شود تا هم روی Cloudflare Workers و هم (در صورت نیاز) در
 // یک محیط دیگر قابل استفاده باشد. `env` (شامل env.DB) روی ctx.env قرار
 // می‌گیرد تا همه‌ی ماژول‌ها بدون پاس دادن دستی بهش دسترسی داشته باشند.
-export function createBot(token, env, botInfo) {
+export function createBot(token, env, botInfo, build = "?") {
   const bot = new Bot(token, botInfo ? { botInfo } : undefined);
 
   bot.use(async (ctx, next) => {
@@ -48,6 +49,8 @@ export function createBot(token, env, botInfo) {
 
   bot.command("start", handleStart);
   bot.command("help", handleHelp);
+  // فقط مدیر پاسخ می‌گیرد؛ برای بقیه انگار وجود ندارد.
+  bot.command("diag", (ctx) => handleDiag(ctx, build));
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);
