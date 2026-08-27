@@ -17,7 +17,7 @@ let cachedBotInfo = null;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq-2";
+const BUILD = "econ+outbox+miniapp+faq-3";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -31,7 +31,7 @@ function json(body, status = 200) {
   });
 }
 
-async function handleAdmin(url, env) {
+async function handleAdmin(request, url, env) {
   // با همان کلید تقویم محافظت می‌شود. اگر کلید اصلاً ست نشده باشد، همین
   // پیام خودش جواب سوال است: متغیرها به ورکر نرسیده‌اند.
   if (!env.ECON_EXPORT_KEY) {
@@ -53,8 +53,33 @@ async function handleAdmin(url, env) {
       503
     );
   }
-  if (url.searchParams.get("key") !== env.ECON_EXPORT_KEY) {
-    return json({ ok: false, error: "unauthorized" }, 401);
+  // کلید هم از هدر پذیرفته می‌شود هم از کوئری. دلیلش این نیست که راحت‌تر
+  // است: اگر کلید کاراکتر + داشته باشد، در رشته‌ی کوئری به فاصله تبدیل
+  // می‌شود و بدون اینکه کسی بفهمد چرا، ۴۰۱ می‌گیرد. هدر این تله را ندارد.
+  const provided = request.headers.get("x-admin-key") || url.searchParams.get("key") || "";
+
+  if (provided !== env.ECON_EXPORT_KEY) {
+    // «کلید غلط»، «فاصله‌ی اضافه‌ی کپی‌شده» و «+ که در URL خراب شد» از
+    // بیرون یک شکل دارند. این سه نشانه آن‌ها را از هم جدا می‌کنند بدون
+    // اینکه خود کلید یا مقدارش جایی برود.
+    return json(
+      {
+        ok: false,
+        error: "unauthorized",
+        hint: "کلید ارسالی با کلید ورکر یکی نیست",
+        diagnostics: {
+          provided_length: provided.length,
+          length_matches: provided.length === String(env.ECON_EXPORT_KEY).length,
+          matches_if_trimmed: provided.trim() === String(env.ECON_EXPORT_KEY).trim(),
+          // اگر این true باشد یعنی + در URL به فاصله تبدیل شده؛ همان کلید
+          // را در هدر x-admin-key بفرستید یا + را %2B بنویسید.
+          matches_if_plus_restored:
+            provided.replace(/ /g, "+") === String(env.ECON_EXPORT_KEY),
+          sent_via: request.headers.get("x-admin-key") ? "header" : "query",
+        },
+      },
+      401
+    );
   }
 
   if (url.pathname === "/admin/sync") {
@@ -166,7 +191,7 @@ export default {
     // دیپلوی نشده»، «متغیر ست نشده»، «Cron اجرا نمی‌شود» و «n8n جواب
     // نمی‌دهد» حدس زد. این‌ها همان چهار حالت را از هم جدا می‌کنند.
     if (url.pathname === "/admin/status" || url.pathname === "/admin/sync" || url.pathname === "/admin/ff-probe") {
-      return handleAdmin(url, env);
+      return handleAdmin(request, url, env);
     }
 
     // مینی‌اپ تقویم. تا پیش از این مستقیم به n8n می‌زد و با هر قطعی آن
