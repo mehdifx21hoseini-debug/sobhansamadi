@@ -2,6 +2,7 @@ import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
 import { syncFromN8n, readSyncState } from "./econ/store.js";
 import { drainLeadOutbox } from "./crmSync.js";
+import { handleMiniapp } from "./econ/miniapp.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -16,7 +17,7 @@ let cachedBotInfo = null;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox-1";
+const BUILD = "econ+outbox+miniapp-1";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -69,6 +70,7 @@ async function handleAdmin(url, env) {
   const env_set = {
     ECON_EXPORT_URL: !!env.ECON_EXPORT_URL,
     ECON_EXPLAIN_URL: !!env.ECON_EXPLAIN_URL,
+    ECON_MINIAPP_URL: !!env.ECON_MINIAPP_URL,
     ECON_EXPORT_KEY: !!env.ECON_EXPORT_KEY,
     CRM_LEAD_INTAKE_URL: !!env.CRM_LEAD_INTAKE_URL,
     CRM_LEAD_INTAKE_KEY: !!env.CRM_LEAD_INTAKE_KEY,
@@ -118,6 +120,13 @@ export default {
     // نمی‌دهد» حدس زد. این‌ها همان چهار حالت را از هم جدا می‌کنند.
     if (url.pathname === "/admin/status" || url.pathname === "/admin/sync") {
       return handleAdmin(url, env);
+    }
+
+    // مینی‌اپ تقویم. تا پیش از این مستقیم به n8n می‌زد و با هر قطعی آن
+    // هاست، همه‌ی تب‌های تقویم خالی می‌شدند در حالی که خود ربات - که از
+    // آینه‌ی D1 می‌خواند - سالم بود. حالا هر دو از یک منبع می‌خوانند.
+    if (url.pathname === "/econ/miniapp") {
+      return handleMiniapp(request, env);
     }
 
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن

@@ -52,6 +52,23 @@ export function etMinutesUntilNow(dateStr, timeStr) {
   return Math.round((utcInstant.getTime() - Date.now()) / 60000);
 }
 
+// همان تبدیلی که etMinutesUntilNow انجام می‌دهد، ولی خودِ لحظه را
+// برمی‌گرداند نه فاصله‌اش تا حالا. مینی‌اپ به این نیاز دارد چون
+// شمارش معکوسش را سمت مرورگر و هر ثانیه یک‌بار حساب می‌کند، پس یک
+// لحظه‌ی مطلق می‌خواهد نه عددی که در لحظه‌ی ساخت پاسخ منجمد شده.
+export function etInstantIso(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null;
+  const parts = String(timeStr).split(":").map(Number);
+  if (!Number.isFinite(parts[0]) || !Number.isFinite(parts[1])) return null;
+  const dateParts = String(dateStr).split("-").map(Number);
+  if (dateParts.length !== 3 || dateParts.some((n) => !Number.isFinite(n))) return null;
+  const offsetHours = isDstUS(dateStr) ? 4 : 5;
+  const d = new Date(
+    Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2], parts[0] + offsetHours, parts[1])
+  );
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function div(a, b) { return Math.floor(a / b); }
 
 export function toJalali(gy, gm, gd) {

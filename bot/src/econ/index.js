@@ -20,7 +20,7 @@ import {
 } from "./views.js";
 import { relativeTimeFa } from "./format.js";
 
-const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=27";
+const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=28";
 
 // متن و چیدمان دکمه‌ها عیناً از نودهای Build Econ Menu View و
 // Send Econ Menu (HTTP) در WF-Economic-Calendar است.

@@ -23,6 +23,8 @@ database_id = "6cf5fd65-8247-4688-9f17-f8c9887c87bd"
 [vars]
 ECON_EXPORT_URL = "https://96825.7host.cloud/webhook/econ/export"
 ECON_EXPLAIN_URL = "https://96825.7host.cloud/webhook/econ/explain"
+# فقط برای تنظیمات هشدار استفاده می‌شود؛ داده‌ی تقویم از آینه‌ی D1 می‌آید.
+ECON_MINIAPP_URL = "https://96825.7host.cloud/webhook/econ/miniapp"
 CRM_LEAD_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/bot-intake"
 
 # آینه‌ی تقویم را هر ۱۰ دقیقه تازه می‌کند. زمان‌بندهای خود n8n داده را
