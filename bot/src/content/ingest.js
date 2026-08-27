@@ -10,6 +10,7 @@
 // دیگر شناخته نمی‌شوند.
 
 import { upsertContent, upsertTextContent } from "./store.js";
+import { readContentChannel, writeContentChannel } from "./channel.js";
 
 const FIXED_CONTENT_CODES = [
   "INTRO_P01","INTRO_P02","INTRO_P03","INTRO_P04_LINK","INTRO_P05","INTRO_P06","INTRO_P07",
@@ -125,65 +126,64 @@ export function normalizeChannelId(v) {
   return digits ? "-100" + digits : "";
 }
 
-// آیا این پست از کانال مجاز آمده؟
-//
-// نسخه‌ی n8n هر پست کانالی را می‌پذیرفت. برای رباتی که عمومی می‌شود این
-// یک راه نفوذ است: هر کسی می‌تواند همین ربات را در کانال خودش ادمین کند و
-// با پست کردن #BOOK_01_PDF فایل کتاب را برای همه‌ی کاربران عوض کند.
-// پس فقط کانال پیکربندی‌شده پذیرفته می‌شود، و اگر پیکربندی نشده باشد
-// دریافت خاموش است - نه باز برای همه.
-export function isAllowedChannel(env, chat) {
-  if (!chat) return false;
-  const byId = normalizeChannelId(env.CONTENT_CHANNEL_ID);
-  const byName = String(env.CONTENT_CHANNEL_USERNAME || "").trim().replace(/^@/, "").toLowerCase();
-  if (!byId && !byName) return false;
-  if (byId && normalizeChannelId(chat.id) === byId) return true;
-  if (byName && String(chat.username || "").toLowerCase() === byName) return true;
-  return false;
+// کانال مجاز، به‌ترتیب اولویت: چیزی که در D1 ثبت شده، وگرنه متغیر
+// محیطی. متغیر فقط یک پیشنهاد اولیه است و اگر شکلش هم عجیب باشد،
+// normalizeChannelId درستش می‌کند.
+export async function resolveAllowedChannel(env) {
+  const stored = await readContentChannel(env).catch(() => null);
+  if (stored) return { id: normalizeChannelId(stored), source: "ثبت‌شده" };
+  const fromEnv = normalizeChannelId(env.CONTENT_CHANNEL_ID);
+  if (fromEnv) return { id: fromEnv, source: "متغیر محیطی" };
+  return { id: "", source: "" };
 }
 
 export async function handleChannelPost(ctx) {
   const post = ctx.channelPost || ctx.update.channel_post || ctx.update.edited_channel_post;
-  if (!post) return;
+  if (!post || !post.chat) return;
 
   const c = classifyPost(post);
+  if (c.kind === "none") return;
 
-  if (!isAllowedChannel(ctx.env, post.chat)) {
-    console.log(
-      "پست کانال نادیده گرفته شد (کانال مجاز نیست):",
-      post.chat && post.chat.id,
-      post.chat && post.chat.username
+  const here = normalizeChannelId(post.chat.id);
+  const allowed = await resolveAllowedChannel(ctx.env);
+
+  // هنوز هیچ کانالی ثبت نشده: همین کانال ثبت می‌شود.
+  //
+  // پنجره‌ی خطر این است که یک نفر زودتر از آکادمی رباتش را در کانال خودش
+  // ادمین کند و اول پست بگذارد. برای همین مدیر همان لحظه پیام می‌گیرد و
+  // با /resetchannel می‌تواند بازش کند - اشتباه دیده می‌شود و برگشت‌پذیر
+  // است، که از یک تنظیم دستی که سه بار غلط وارد شد بهتر است.
+  if (!allowed.id) {
+    await writeContentChannel(ctx.env, here);
+    console.log("کانال محتوا ثبت شد:", here);
+    await notifyOwner(
+      ctx,
+      [
+        "✅ کانال محتوا ثبت شد.",
+        "",
+        "کانال: «" + (post.chat.title || "?") + "»",
+        "آیدی: <code>" + here + "</code>",
+        "",
+        "از این به بعد فقط فایل‌های همین کانال پذیرفته می‌شوند.",
+        "اگر این کانال درست نیست، /resetchannel را بزنید.",
+      ].join("\n")
     );
-
-    // فقط وقتی پست هشتگ معتبر دارد جواب می‌دهیم، نه روی هر پست کانال.
-    //
-    // چرا اصلاً جواب می‌دهیم: از بیرون، «آیدی را اشتباه گذاشته‌ام» و
-    // «متغیر موقع دیپلوی پاک شده» و «ربات پست را اصلاً نمی‌بیند» هر سه
-    // یک شکل دارند - هیچ اتفاقی نمی‌افتد. و لاگ ورکر هم برای همه در
-    // دسترس نیست. این پیام هر سه را از هم جدا می‌کند و خودِ عددی را که
-    // لازم است می‌دهد.
-    if (c.kind !== "none") {
-      const configured = !!(ctx.env.CONTENT_CHANNEL_ID || ctx.env.CONTENT_CHANNEL_USERNAME);
-      const text = [
-        "⚠️ این فایل ثبت نشد.",
-        "",
-        configured
-          ? "کانالِ تنظیم‌شده با این کانال یکی نیست."
-          : "هیچ کانالی برای دریافت محتوا تنظیم نشده است.",
-        "",
-        "آیدی این کانال:",
-        String(post.chat.id),
-        "",
-        "این عدد را در CONTENT_CHANNEL_ID بگذارید (به‌صورت Secret، نه Variable — متغیرهای متنی با هر دیپلوی پاک می‌شوند).",
-      ].join("\n");
-      await ctx.api.sendMessage(post.chat.id, text).catch((err) =>
-        console.error("ارسال راهنمای پیکربندی به کانال شکست خورد:", err && err.message)
-      );
-    }
+  } else if (allowed.id !== here) {
+    console.log("پست کانال نادیده گرفته شد:", here, "≠", allowed.id);
+    await ctx.api
+      .sendMessage(
+        post.chat.id,
+        [
+          "⚠️ این فایل ثبت نشد.",
+          "",
+          "کانال محتوای این ربات، کانال دیگری است.",
+          "",
+          "آیدی این کانال: " + here,
+        ].join("\n")
+      )
+      .catch(() => {});
     return;
   }
-
-  if (c.kind === "none") return;
 
   if (c.kind === "text") {
     await upsertTextContent(ctx.env, {
@@ -202,4 +202,20 @@ export async function handleChannelPost(ctx) {
     fileType: c.fileType,
   });
   console.log("محتوا ثبت شد:", c.contentId, c.fileType);
+
+  // تایید در خود کانال: بدون آن، تنها راه فهمیدن اینکه فایل ثبت شده،
+  // رفتن به ربات و امتحان کردن دکمه است.
+  await ctx.api
+    .sendMessage(post.chat.id, "✅ ثبت شد: " + c.contentId, {
+      reply_to_message_id: post.message_id,
+    })
+    .catch(() => {});
+}
+
+const OWNER_ID = "6923823275";
+
+async function notifyOwner(ctx, text) {
+  await ctx.api
+    .sendMessage(OWNER_ID, text, { parse_mode: "HTML" })
+    .catch((err) => console.error("اطلاع به مدیر نرسید:", err && err.message));
 }

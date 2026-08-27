@@ -6,7 +6,8 @@
 //
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
-import { normalizeChannelId } from "../content/ingest.js";
+import { resolveAllowedChannel } from "../content/ingest.js";
+import { clearContentChannel } from "../content/channel.js";
 
 // همان آیدی معاف در دروازه‌ی عضویت: مدیر اصلی آکادمی.
 const OWNER_ID = "6923823275";
@@ -69,53 +70,25 @@ export async function handleDiag(ctx, build) {
   // ۳) کانال محتوا: تنظیم شده؟ بات می‌بیندش؟ ادمین هست؟
   lines.push("");
   lines.push("📁 <b>کانال محتوا</b>");
-  const chanId = env.CONTENT_CHANNEL_ID || env.CONTENT_CHANNEL_USERNAME;
-  lines.push("تنظیم شده: " + yes(!!chanId));
+  const allowed = await resolveAllowedChannel(env).catch(() => ({ id: "", source: "" }));
 
-  if (chanId) {
-    // همان تبدیلی که خودِ مسیر دریافت انجام می‌دهد.
-    //
-    // این‌جا قبلاً مقدار خام فرستاده می‌شد و نتیجه گمراه‌کننده بود: کسی که
-    // عدد را از لینک t.me/c برداشته (بدون پیشوند -100)، «chat not found»
-    // می‌گرفت و فکر می‌کرد بات در کانال نیست - در حالی که خودِ دریافت
-    // محتوا با همان مقدار درست کار می‌کرد. ابزار تشخیص باید همان چیزی را
-    // ببیند که کد واقعی می‌بیند، وگرنه بدتر از نبودنش است.
-    const target = env.CONTENT_CHANNEL_ID
-      ? normalizeChannelId(env.CONTENT_CHANNEL_ID)
-      : "@" + String(env.CONTENT_CHANNEL_USERNAME).trim().replace(/^@/, "");
-    lines.push("مقدار استفاده‌شده: <code>" + target + "</code>");
+  if (!allowed.id) {
+    lines.push("هنوز ثبت نشده.");
+    lines.push("کافی است یک فایل با هشتگ در کانال بگذارید؛ همان لحظه ثبت می‌شود.");
+  } else {
+    lines.push("آیدی: <code>" + allowed.id + "</code> (" + allowed.source + ")");
     try {
-      const chat = await ctx.api.getChat(target);
-      lines.push("کانال پیدا شد: «" + (chat.title || "?") + "»");
-      lines.push("آیدی واقعی: <code>" + chat.id + "</code>");
-      try {
-        const me = await ctx.api.getMe();
-        const member = await ctx.api.getChatMember(chat.id, me.id);
-        const isAdmin = member.status === "administrator" || member.status === "creator";
-        lines.push("بات در این کانال ادمین است: " + yes(isAdmin) + " (" + member.status + ")");
-        if (!isAdmin) {
-          lines.push("");
-          lines.push("⚠️ بدون ادمین بودن، تلگرام پست‌های کانال را به بات نمی‌دهد.");
-        }
-      } catch (err) {
-        lines.push("وضعیت عضویت بات: خطا — " + (err && err.message));
-      }
+      const chat = await ctx.api.getChat(allowed.id);
+      lines.push("کانال: «" + (chat.title || "?") + "»");
+      const me = await ctx.api.getMe();
+      const member = await ctx.api.getChatMember(chat.id, me.id);
+      const isAdmin = member.status === "administrator" || member.status === "creator";
+      lines.push("بات ادمین است: " + yes(isAdmin) + " (" + member.status + ")");
     } catch (err) {
-      const msg = String(err && err.message);
-      lines.push("❌ کانال پیدا نشد: <code>" + msg.slice(0, 140) + "</code>");
-      // «chat not found» تقریباً همیشه یک معنی دارد: بات عضو آن کانال
-      // نیست. تلگرام به باتی که در چتی نیست، حتی وجود آن چت را هم نشان
-      // نمی‌دهد - پس این خطا با «آیدی اشتباه» یک شکل است.
-      lines.push("");
-      lines.push("محتمل‌ترین علت: این بات هنوز در آن کانال ادمین نشده.");
-      try {
-        const me = await ctx.api.getMe();
-        lines.push("کانال را باز کنید و <code>@" + me.username + "</code> را ادمین کنید.");
-      } catch {
-        lines.push("کانال را باز کنید و همین بات را ادمین کنید.");
-      }
-      lines.push("بعدش دوباره /diag بزنید.");
+      lines.push("⚠️ بررسی نشد: <code>" + String(err && err.message).slice(0, 120) + "</code>");
+      lines.push("اگر فایل‌ها ثبت می‌شوند، این خطا اهمیتی ندارد.");
     }
+    lines.push("برای عوض کردن کانال: /resetchannel");
   }
 
   // ۴) چه چیزی تا حالا ثبت شده.
@@ -142,4 +115,17 @@ export async function handleDiag(ctx, build) {
   lines.push("کلید تقویم: " + yes(!!env.ECON_EXPORT_KEY));
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+}
+
+// کانال ثبت‌شده را باز می‌کند تا کانال بعدی که پست بگذارد جایش بنشیند.
+export async function handleResetChannel(ctx) {
+  if (String(ctx.from.id) !== OWNER_ID) return;
+  await clearContentChannel(ctx.env);
+  await ctx.reply(
+    [
+      "🔄 کانال محتوا پاک شد.",
+      "",
+      "حالا در کانال درست یک فایل با هشتگ بگذارید؛ همان کانال ثبت می‌شود.",
+    ].join("\n")
+  );
 }
