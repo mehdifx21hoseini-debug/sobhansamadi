@@ -7,7 +7,11 @@
 //
 // اینجا نگه داشته می‌شود تا اگر گردش‌کار در n8n پاک یا خراب شد، از همین
 // فایل بشود دوباره ساختش. با mcp create_workflow_from_code ساخته می‌شود.
-// کلید داخل فایل همان کلیدی است که باید در ECON_EXPORT_KEY ورکر بنشیند.
+//
+// کلید مشترک عمداً اینجا نیست. این مخزن عمومی است، پس هر چیزی که در آن
+// کامیت شود برای همیشه در تاریخچه‌ی گیت عمومی می‌ماند - حتی اگر بعداً
+// پاکش کنیم. موقع بازسازی، REPLACE_WITH_SHARED_KEY را با همان مقداری
+// عوض کنید که در ECON_EXPORT_KEY کلادفلر نشسته، و نتیجه را کامیت نکنید.
 
 import { workflow, node, trigger, ifElse, expr } from '@n8n/workflow-sdk';
 
@@ -36,7 +40,7 @@ const checkKey = ifElse({
           {
             leftValue: expr('{{ $json.body.key }}'),
             operator: { type: 'string', operation: 'equals' },
-            rightValue: 'DMWerHpLk9xhmA0ag6hdoTInJHIz1NJK',
+            rightValue: 'REPLACE_WITH_SHARED_KEY',
           },
         ],
         combinator: 'and',
