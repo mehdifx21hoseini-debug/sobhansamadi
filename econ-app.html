@@ -1896,7 +1896,17 @@
 		(function () {
 			"use strict";
 
-			var API = "https://96825.7host.cloud/webhook/econ/miniapp";
+			// The Worker, not n8n directly. Both the bot and this page now read
+			// the same D1 mirror, so an n8n outage no longer empties the
+			// calendar — it only makes the data a little stale. Alert settings
+			// still live in n8n and the Worker proxies those through.
+			//
+			// The old n8n endpoint stays as a fallback. The Worker and this page
+			// deploy through different pipelines, so for a while one can be live
+			// without the other; without the fallback that window would look
+			// exactly like the outage this change exists to fix.
+			var API = "https://sobhansamadi.mehdifx21hoseini.workers.dev/econ/miniapp";
+			var API_FALLBACK = "https://96825.7host.cloud/webhook/econ/miniapp";
 			var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
 			// The palette is the academy's, not Telegram's; the only thing taken
@@ -2130,7 +2140,8 @@
 				document.querySelector(".search-row").hidden = !eventOnly;
 				document.querySelector(".chips").hidden = !eventOnly;
 				document.getElementById("aiCard").hidden = !eventOnly || !state.data;
-				document.getElementById("alertsCard").hidden = !eventOnly || !state.data;
+				document.getElementById("alertsCard").hidden =
+					!eventOnly || !state.data || !state.data.subscription;
 				if (!eventOnly) document.getElementById("nextCard").hidden = true;
 			}
 
@@ -3291,6 +3302,11 @@ function eventNode(e) {
 			function renderAlerts() {
 				var s = state.data.subscription;
 				var card = document.getElementById("alertsCard");
+				// Null when the alert settings could not be fetched. Showing the
+				// switches in a guessed state would be worse than hiding them:
+				// the next tap would write that guess back and could silently
+				// unsubscribe someone who is subscribed.
+				if (!s) { card.hidden = true; return; }
 				card.hidden = false;
 
 				document.getElementById("swSubscribed").setAttribute("aria-checked", s.subscribed ? "true" : "false");
@@ -3316,9 +3332,8 @@ function eventNode(e) {
 			}
 
 			// ---------- network ----------
-			function call(payload) {
-				payload.initData = tg ? tg.initData : "";
-				return fetch(API, {
+			function callOnce(url, payload) {
+				return fetch(url, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload)
@@ -3331,6 +3346,23 @@ function eventNode(e) {
 						}
 						return body;
 					});
+				});
+			}
+
+			function call(payload) {
+				payload.initData = tg ? tg.initData : "";
+				return callOnce(API, payload).catch(function (err) {
+					// 401 means the signature was rejected, and the fallback
+					// checks the same signature with the same bot token — it
+					// would fail identically, so surface the real reason instead
+					// of hiding it behind a second failure.
+					//
+					// Everything else (the Worker not deployed yet, a 404, a 5xx,
+					// a dead connection) means this request never reached a
+					// working backend, so nothing was written and retrying
+					// elsewhere is safe.
+					if (err.status === 401) throw err;
+					return callOnce(API_FALLBACK, payload);
 				});
 			}
 
@@ -3510,7 +3542,7 @@ function eventNode(e) {
 			}
 
 			document.getElementById("swSubscribed").addEventListener("click", function () {
-				if (!state.data) return;
+				if (!state.data || !state.data.subscription) return;
 				state.data.subscription.subscribed = !state.data.subscription.subscribed;
 				haptic();
 				renderAlerts();
@@ -3518,7 +3550,7 @@ function eventNode(e) {
 			});
 
 			document.getElementById("swLow").addEventListener("click", function () {
-				if (!state.data) return;
+				if (!state.data || !state.data.subscription) return;
 				state.data.subscription.show_low_importance = !state.data.subscription.show_low_importance;
 				haptic();
 				renderAlerts();
@@ -3528,7 +3560,7 @@ function eventNode(e) {
 			var mBtns = document.querySelectorAll("#minutes button");
 			for (var k = 0; k < mBtns.length; k++) {
 				mBtns[k].addEventListener("click", function () {
-					if (!state.data) return;
+					if (!state.data || !state.data.subscription) return;
 					state.data.subscription.alert_minutes = Number(this.getAttribute("data-m"));
 					haptic("select");
 					renderAlerts();
