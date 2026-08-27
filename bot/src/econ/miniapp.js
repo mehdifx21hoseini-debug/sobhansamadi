@@ -226,8 +226,22 @@ export async function buildMiniappPayload(env, user) {
 // درخواست را دست‌نخورده به همان وبهوکی می‌فرستد که مینی‌اپ قبلاً
 // مستقیم صدا می‌زد. قرارداد عوض نشده، فقط یک واسطه اضافه شده - پس
 // خواندن/نوشتن اشتراک دقیقاً مثل قبل کار می‌کند.
+// قطع‌کننده‌ی مدار.
+//
+// اگر n8n پایین باشد، بدون این هر بار باز کردن مینی‌اپ تا سقف مهلت منتظر
+// می‌ماند - تقویم در چند صدم ثانیه از D1 آماده است ولی پاسخ پشت انتظاری
+// گیر می‌کند که جوابش از قبل معلوم است. بعد از یک شکست، تماس‌های بعدی
+// برای چند دقیقه اصلاً برقرار نمی‌شوند.
+//
+// در حافظه‌ی isolate نگه داشته می‌شود نه D1: این فقط یک بهینه‌سازی است،
+// پس ارزش یک نوشتن در پایگاه داده به‌ازای هر درخواست را ندارد. اگر
+// isolate تازه باشد، بدترین حالت یک تماس اضافه است.
+const BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
+let n8nDownUntil = 0;
+
 async function callN8n(env, payload, timeoutMs) {
   if (!env.ECON_MINIAPP_URL) throw new Error("ECON_MINIAPP_URL تنظیم نشده است");
+  if (Date.now() < n8nDownUntil) throw new Error("n8n اخیراً پاسخ نداد؛ تماس رد شد");
   const res = await fetch(env.ECON_MINIAPP_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -235,7 +249,14 @@ async function callN8n(env, payload, timeoutMs) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("پاسخ ناموفق از n8n: " + res.status);
+  n8nDownUntil = 0;
   return res.json();
+}
+
+// هر شکستی مدار را باز می‌کند - چه مهلت تمام شود، چه اتصال بمیرد، چه
+// ۵۰۲ برگردد. هر سه یک معنی دارند: الان نپرس.
+function tripBreaker() {
+  n8nDownUntil = Date.now() + BREAKER_COOLDOWN_MS;
 }
 
 // ---------- مسیریابی ----------
@@ -266,9 +287,12 @@ export async function handleMiniapp(request, env) {
     // است، و همان چیزی است که این تغییر برای حلش نوشته شد.
     payload.subscription = null;
     try {
-      const upstream = await callN8n(env, { action: "data", initData: body.initData }, 8000);
+      // مهلت کوتاه: این فقط یک بخش فرعی صفحه است و کاربر نباید برای
+      // آن منتظر بماند. اگر نرسید، کارت هشدار پنهان می‌شود.
+      const upstream = await callN8n(env, { action: "data", initData: body.initData }, 3000);
       if (upstream && upstream.subscription) payload.subscription = upstream.subscription;
     } catch (err) {
+      tripBreaker();
       console.error("اشتراک مینی‌اپ از n8n نیامد:", err && err.message);
     }
 
@@ -300,6 +324,7 @@ export async function handleMiniapp(request, env) {
       );
       return reply(upstream && upstream.success === false ? upstream : { success: true });
     } catch (err) {
+      tripBreaker();
       return reply({ success: false, error: String(err && err.message) }, 502);
     }
   }
