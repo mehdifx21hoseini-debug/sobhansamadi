@@ -10,7 +10,7 @@
 const SYNC_STATE_KEY = "econ_last_sync";
 
 // جدول‌ها را خودِ همگام‌سازی می‌سازد تا راه‌اندازی به یک مسیر موقت
-// مهاجرت وابسته نباشد. هر سه دستور idempotent هستند.
+// مهاجرت وابسته نباشد. همه‌ی دستورها idempotent هستند.
 const DDL = [
   `CREATE TABLE IF NOT EXISTS econ_events (
      event_id TEXT PRIMARY KEY, date TEXT, time TEXT, event TEXT, event_fa TEXT,
@@ -61,9 +61,9 @@ export async function readLabels(env) {
       `SELECT match_text, label_fa, label_short_en, direction, priority, active
          FROM econ_labels`
     ).all();
-    // active در D1 عدد است ولی سازنده‌ی متن انتظار boolean دارد؛ اگر خام
-    // بماند، ۰ به‌جای false به‌عنوان مقدارِ truthy تفسیر نمی‌شود اما
-    // مقایسه‌ی `!== false` هم رد نمی‌کند و برچسب غیرفعال باز به کار می‌آید.
+    // در D1 این ستون عدد است، ولی سازنده‌ی متن با `active !== false` فیلتر
+    // می‌کند - و 0 برابر false نیست، پس برچسب غیرفعال بدون این تبدیل باز
+    // هم اعمال می‌شد.
     return (results || []).map((r) => ({ ...r, active: r.active !== 0 }));
   } catch (err) {
     emptyIfNoTable(err);
