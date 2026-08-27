@@ -15,9 +15,22 @@ import { handleMiniapp } from "./econ/miniapp.js";
 // در حافظه‌ی این isolate تا وقتی گرمه.
 let cachedBotInfo = null;
 
+// فهرست دستورها فقط یک‌بار روی هر isolate سرد ثبت می‌شود.
+//
+// بدون این، کاربر وقتی / را تایپ می‌کند هیچ پیشنهادی نمی‌بیند و دکمه‌ی
+// منوی تلگرام خالی است - برای رباتی که قرار است عمومی شود، یعنی نیمی از
+// کاربران هرگز /help را پیدا نمی‌کنند. تلگرام این فراخوانی را idempotent
+// می‌داند، پس تکرارش روی isolateهای بعدی ضرری ندارد.
+let commandsRegistered = false;
+
+const BOT_COMMANDS = [
+  { command: "start", description: "منوی اصلی" },
+  { command: "help", description: "راهنمای ربات" },
+];
+
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq-4";
+const BUILD = "econ+outbox+miniapp+faq+public-1";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -219,6 +232,14 @@ export default {
       if (!cachedBotInfo) {
         await bot.init();
         cachedBotInfo = bot.botInfo;
+      }
+      // شکستش نباید جلوی پردازش پیام را بگیرد: یک فهرست دستور، به‌اندازه‌ی
+      // پاسخ ندادن به کاربر مهم نیست.
+      if (!commandsRegistered) {
+        commandsRegistered = true;
+        await bot.api
+          .setMyCommands(BOT_COMMANDS)
+          .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
       }
       return webhookCallback(bot, "cloudflare-mod")(request);
     }

@@ -1,11 +1,12 @@
 import { Bot } from "grammy";
-import { handleStart } from "./commands/start.js";
+import { handleStart, handleHelp } from "./commands/start.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
 import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menuActions.js";
 import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
 import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
+import { handleFreeText } from "./freeText.js";
 import { startSupport, handleQuestion } from "./support.js";
 import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
@@ -34,6 +35,7 @@ export function createBot(token, env, botInfo) {
   bot.use(membershipGate());
 
   bot.command("start", handleStart);
+  bot.command("help", handleHelp);
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);
@@ -53,6 +55,15 @@ export function createBot(token, env, botInfo) {
       }
       if (state.current_flow === "faq" && state.current_step === "ask_question") {
         await handleQuestion(ctx);
+        return;
+      }
+
+      // مرحله‌هایی که منتظر ضربه‌ی دکمه‌اند (انتخاب دوره و تایید نهایی).
+      // کاربری که به‌جای دکمه سوال می‌نویسد - «کدوم دوره بهتره؟» - قبلاً
+      // هیچ جوابی نمی‌گرفت. نسخه‌ی n8n همین حالت را هم به دستیار می‌داد.
+      // فرآیندش دست‌نخورده می‌ماند؛ فقط سوالش جواب داده می‌شود.
+      if (["choose_course", "confirm"].includes(state.current_step)) {
+        await handleFreeText(ctx, state);
         return;
       }
     }
@@ -92,7 +103,9 @@ export function createBot(token, env, botInfo) {
       case "TRUSTED_BROKER":
         return sendTrustedBroker(ctx);
       default:
-        return; // پیام‌های دیگر (بدون فرآیند فعال) نادیده گرفته می‌شوند.
+        // متن آزاد بدون فرآیند فعال. سکوت بدترین پاسخ ممکن است، پس به
+        // دستیار می‌رود و اگر او هم در دسترس نبود، دست‌کم راهنمایی.
+        return handleFreeText(ctx, state);
     }
   });
 
@@ -213,8 +226,13 @@ export function createBot(token, env, botInfo) {
     await ctx.answerCallbackQuery();
   });
 
-  bot.catch((err) => {
+  // آخرین تور ایمنی. بدون این، هر خطای پیش‌بینی‌نشده فقط در لاگ می‌نشیند
+  // و کاربر سکوت می‌بیند - که از دید او یعنی «ربات خراب است».
+  bot.catch(async (err) => {
     console.error("خطای بات:", err);
+    await err.ctx
+      ?.reply("⚠️ مشکلی پیش آمد. لطفاً دوباره امتحان کنید یا /start بزنید.")
+      .catch(() => {});
   });
 
   return bot;

@@ -102,3 +102,46 @@ export async function logContentRequest(env, telegramUserId, username, contentId
     .bind(String(telegramUserId), username || null, contentId, new Date().toISOString())
     .run();
 }
+
+// --- منبع جذب کاربر ---
+//
+// لینک‌های عمیق تلگرام (t.me/BOT?start=instagram) اجازه می‌دهند بدانیم هر
+// کاربر از کدام کمپین آمده. برای انتشار عمومی این تنها راه فهمیدن این است
+// که تبلیغ اینستاگرام جواب داده یا پست کانال.
+//
+// جدول جداست و نه ستونی در user_state، چون clearUserState در پایان هر
+// فرآیند temp_data را خالی می‌کند و منبع جذب باید برای همیشه بماند.
+export async function ensureUserSource(env) {
+  await env.DB
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS user_source (
+         telegram_user_id TEXT PRIMARY KEY, source TEXT, first_seen_at TEXT)`
+    )
+    .run();
+}
+
+// اولین لمس برنده است: اگر کاربری اول از اینستاگرام آمد و بعد از کانال،
+// اعتبار جذب مال اینستاگرام است. DO NOTHING دقیقاً همین را تضمین می‌کند.
+export async function recordUserSource(env, telegramUserId, source) {
+  if (!source) return;
+  await ensureUserSource(env);
+  await env.DB
+    .prepare(
+      `INSERT INTO user_source (telegram_user_id, source, first_seen_at) VALUES (?, ?, ?)
+         ON CONFLICT(telegram_user_id) DO NOTHING`
+    )
+    .bind(String(telegramUserId), String(source).slice(0, 64), new Date().toISOString())
+    .run();
+}
+
+export async function readUserSource(env, telegramUserId) {
+  try {
+    const row = await env.DB
+      .prepare(`SELECT source FROM user_source WHERE telegram_user_id = ?`)
+      .bind(String(telegramUserId))
+      .first();
+    return row ? row.source : null;
+  } catch {
+    return null;
+  }
+}

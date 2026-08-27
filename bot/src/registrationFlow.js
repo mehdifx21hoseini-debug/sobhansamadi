@@ -1,5 +1,5 @@
 import { InlineKeyboard, Keyboard } from "grammy";
-import { getUserState, setUserState, clearUserState, createLead } from "./db.js";
+import { getUserState, setUserState, clearUserState, createLead, readUserSource } from "./db.js";
 import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
 import { mainMenuKeyboard } from "./menu.js";
 
@@ -178,6 +178,7 @@ export async function handleConfirm(ctx) {
   const state = await getUserState(ctx.env, ctx.from.id);
   if (!state) return;
   const temp = state.temp_data;
+  const acqSource = await readUserSource(ctx.env, ctx.from.id).catch(() => null);
 
   const lead = {
     request_type: state.current_flow === "registration" ? "ثبت‌نام" : "مشاوره",
@@ -190,7 +191,9 @@ export async function handleConfirm(ctx) {
     topic: temp.topic,
     preferred_time: temp.preferred_time,
     confirmed: "true",
-    source: "telegram_bot",
+    // اگر کاربر از یک لینک عمیق آمده بود، همان کمپین روی لید می‌نشیند -
+    // این‌طور در CRM معلوم است هر مشتری از کجا آمده، نه فقط «تلگرام».
+    source: acqSource ? "telegram_bot:" + acqSource : "telegram_bot",
   };
 
   await createLead(ctx.env, lead);
