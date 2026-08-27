@@ -43,3 +43,46 @@ export async function sendTrustedBroker(ctx) {
     reply_markup: new InlineKeyboard().url("🏦 ثبت‌نام در بروکر معتمد", "https://sobhansamadi.com/broker"),
   });
 }
+
+const CONTACT_TEXT = [
+  "📞 تماس با ما",
+  "",
+  "☎️ تلفن:",
+  "09121575569",
+  "",
+  "🕐 ساعات کاری:",
+  "یکشنبه تا جمعه، ساعت ۹ صبح تا ۶ عصر",
+  "",
+  "📸 اینستاگرام آکادمی:",
+  "@sobhansamaddi",
+  "",
+  "📢 کانال رسمی تلگرام:",
+  "@sobhanforex",
+  "",
+  "برای ارتباط با آکادمی، اطلاع از آموزش‌ها، محتوای جدید و آخرین مطالب، می‌توانید از طریق راه‌های ارتباطی بالا با ما در ارتباط باشید.",
+  "",
+  "👇 برای عضویت، روی آیکون موردنظر کلیک کنید.",
+].join("\n");
+
+export async function sendContact(ctx) {
+  // شیء خام و نه InlineKeyboard، چون سازنده‌ی grammy فیلد style را بی‌صدا
+  // دور می‌ریزد و دکمه‌ها بی‌رنگ می‌شوند.
+  await ctx.reply(CONTACT_TEXT, {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: "📢 کانال تلگرام",
+            url: "https://t.me/sobhanforex",
+            style: "primary",
+          },
+          {
+            text: "📸 اینستاگرام",
+            url: "https://instagram.com/sobhansamaddi",
+            style: "primary",
+          },
+        ],
+      ],
+    },
+  });
+}

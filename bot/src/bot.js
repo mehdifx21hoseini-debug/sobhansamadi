@@ -4,7 +4,7 @@ import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
 import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menuActions.js";
-import { sendAbout, sendTrustedBroker } from "./staticContent.js";
+import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
 import { startSupport, handleQuestion } from "./support.js";
 import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
@@ -61,6 +61,8 @@ export function createBot(token, env, botInfo) {
         return sendEconCalendar(ctx);
       case "ABOUT":
         return sendAbout(ctx);
+      case "CONTACT":
+        return sendContact(ctx);
       case "SUPPORT":
         return startSupport(ctx);
       case "LIBRARY":

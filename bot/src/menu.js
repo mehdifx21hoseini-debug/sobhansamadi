@@ -19,6 +19,7 @@ export const MENU_LABELS = {
   TRUSTED_BROKER: "🏦 بروکر معتمد",
   SUPPORT: "💬 پشتیبانی",
   ABOUT: "🏛 درباره آکادمی",
+  CONTACT: "📞 تماس با ما",
 };
 
 // آیدی ایموجی‌های پرمیوم، از همان نود Send Main Menu.
@@ -45,7 +46,7 @@ export function mainMenuKeyboard() {
       ],
       [btn(MENU_LABELS.CONSULT, "success", ICON.CONSULT)],
       [btn(MENU_LABELS.TRUSTED_BROKER, "primary"), btn(MENU_LABELS.SUPPORT, "primary")],
-      [btn(MENU_LABELS.ABOUT, "primary")],
+      [btn(MENU_LABELS.ABOUT, "primary"), btn(MENU_LABELS.CONTACT, "primary")],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
