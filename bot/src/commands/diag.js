@@ -6,6 +6,8 @@
 //
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
+import { normalizeChannelId } from "../content/ingest.js";
+
 // همان آیدی معاف در دروازه‌ی عضویت: مدیر اصلی آکادمی.
 const OWNER_ID = "6923823275";
 
@@ -71,11 +73,17 @@ export async function handleDiag(ctx, build) {
   lines.push("تنظیم شده: " + yes(!!chanId));
 
   if (chanId) {
-    // آیدی خام همان‌طور که هست فرستاده می‌شود؛ اگر شکلش غلط باشد همین
-    // خطا خودش جواب است.
+    // همان تبدیلی که خودِ مسیر دریافت انجام می‌دهد.
+    //
+    // این‌جا قبلاً مقدار خام فرستاده می‌شد و نتیجه گمراه‌کننده بود: کسی که
+    // عدد را از لینک t.me/c برداشته (بدون پیشوند -100)، «chat not found»
+    // می‌گرفت و فکر می‌کرد بات در کانال نیست - در حالی که خودِ دریافت
+    // محتوا با همان مقدار درست کار می‌کرد. ابزار تشخیص باید همان چیزی را
+    // ببیند که کد واقعی می‌بیند، وگرنه بدتر از نبودنش است.
     const target = env.CONTENT_CHANNEL_ID
-      ? String(env.CONTENT_CHANNEL_ID).trim()
+      ? normalizeChannelId(env.CONTENT_CHANNEL_ID)
       : "@" + String(env.CONTENT_CHANNEL_USERNAME).trim().replace(/^@/, "");
+    lines.push("مقدار استفاده‌شده: <code>" + target + "</code>");
     try {
       const chat = await ctx.api.getChat(target);
       lines.push("کانال پیدا شد: «" + (chat.title || "?") + "»");

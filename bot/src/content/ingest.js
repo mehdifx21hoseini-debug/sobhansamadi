@@ -120,7 +120,7 @@ export function classifyPost(post) {
 // (t.me/c/2445678901/12) فقط بخش میانی را نشان می‌دهد. هر دو شکل - و
 // حتی نسخه‌ی بدون منفی - به یک عدد یکسان تبدیل می‌شوند تا کسی به‌خاطر
 // جا انداختن پیشوند ساعت‌ها دنبال باگی نگردد که وجود ندارد.
-function normalizeChannelId(v) {
+export function normalizeChannelId(v) {
   const digits = String(v || "").trim().replace(/^-/, "").replace(/^100/, "");
   return digits ? "-100" + digits : "";
 }
