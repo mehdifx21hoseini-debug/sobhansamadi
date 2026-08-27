@@ -1,5 +1,6 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import { getUserState, setUserState, clearUserState, createLead } from "./db.js";
+import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
 import { mainMenuKeyboard } from "./menu.js";
 
 const COURSE_LABELS = {
@@ -178,7 +179,7 @@ export async function handleConfirm(ctx) {
   if (!state) return;
   const temp = state.temp_data;
 
-  await createLead(ctx.env, {
+  const lead = {
     request_type: state.current_flow === "registration" ? "ثبت‌نام" : "مشاوره",
     telegram_user_id: ctx.from.id,
     username: ctx.from.username,
@@ -190,7 +191,17 @@ export async function handleConfirm(ctx) {
     preferred_time: temp.preferred_time,
     confirmed: "true",
     source: "telegram_bot",
-  });
+  };
+
+  await createLead(ctx.env, lead);
+
+  // CRM لیدها را از جدول‌های n8n می‌خواند، نه از D1. بدون این صف، لیدی که
+  // ربات می‌گیرد در CRM دیده نمی‌شود و مشاور هرگز با آن مشتری تماس
+  // نمی‌گیرد. ثبت در صف نباید جلوی پاسخ به کاربر را بگیرد، پس خطایش
+  // بلعیده می‌شود - رکورد اصلی در جدول leads است و از دست نمی‌رود.
+  await queueLead(ctx.env, lead).catch((err) =>
+    console.error("ثبت لید در صف CRM شکست خورد:", err && err.message)
+  );
 
   await clearUserState(ctx.env, ctx.from.id);
 
@@ -199,6 +210,11 @@ export async function handleConfirm(ctx) {
     parse_mode: "HTML",
     reply_markup: mainMenuKeyboard(),
   });
+
+  // بعد از اینکه کاربر پاسخش را گرفت: یک تلاش فوری تا لید در همان لحظه در
+  // CRM ظاهر شود، نه ده دقیقه بعد. عمداً بعد از reply است تا اگر n8n کند
+  // یا قطع بود، کاربر منتظر نماند.
+  await flushLeadOutboxSoon(ctx.env);
 }
 
 export async function handleCancel(ctx) {

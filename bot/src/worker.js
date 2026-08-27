@@ -1,6 +1,7 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
 import { syncFromN8n } from "./econ/store.js";
+import { drainLeadOutbox } from "./crmSync.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -50,6 +51,19 @@ export default {
       syncFromN8n(env)
         .then((n) => console.log("همگام‌سازی تقویم:", JSON.stringify(n)))
         .catch((err) => console.error("همگام‌سازی تقویم شکست خورد:", err && err.message))
+    );
+
+    // تلاش دوباره برای لیدهایی که موقع ثبت نتوانستند به CRM برسند. این
+    // چیزی است که قطعی n8n را از «مشتری از دست رفت» به «مشتری چند دقیقه
+    // دیرتر در CRM ظاهر شد» تبدیل می‌کند.
+    ctx.waitUntil(
+      drainLeadOutbox(env)
+        .then((n) => {
+          if (n && !n.skipped && (n.sent || n.failed)) {
+            console.log("ارسال لیدهای معلق:", JSON.stringify(n));
+          }
+        })
+        .catch((err) => console.error("ارسال لیدهای معلق شکست خورد:", err && err.message))
     );
   },
 };
