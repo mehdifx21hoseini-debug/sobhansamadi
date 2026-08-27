@@ -16,6 +16,8 @@ import {
   buildNextEventText,
   buildAlertSettingsText,
   buildExplainContext,
+  formatAiAnswer,
+  buildAiHeader,
 } from "./views.js";
 import { relativeTimeFa } from "./format.js";
 
@@ -246,20 +248,27 @@ export async function handleEconCallback(ctx, action) {
       return true;
     }
 
-    const stamp = row.created_at ? "\n\nℹ️ تهیه‌شده " + relativeTimeFa(row.created_at) : "";
+    // سرصفحه و پاصفحه را خودمان می‌سازیم، نه مدل. این‌طور تاریخ همیشه درست
+    // است و ظاهر پیام هر بار یکسان می‌ماند، حتی اگر مدل روزی متن را جور
+    // دیگری شروع کند.
+    const body = formatAiAnswer(row.answer);
+    const footer =
+      "\n\n➖➖➖\n" +
+      (row.created_at ? "🕘 تهیه‌شده " + relativeTimeFa(row.created_at) + "\n" : "") +
+      "<i>این متن آموزشی است، نه توصیه‌ی معاملاتی.</i>";
+    const message = buildAiHeader() + body + footer;
 
-    // متن را مدل می‌سازد و با تگ‌های HTML تلگرام می‌نویسد. اگر مدل یک تگ
-    // خارج از فهرست مجاز یا ناقص تولید کند، تلگرام کل پیام را رد می‌کند و
-    // کاربر هیچ چیز نمی‌بیند. در آن حالت همان متن بدون parse_mode فرستاده
-    // می‌شود: تگ‌ها خام دیده می‌شوند ولی تحلیل از دست نمی‌رود.
+    // اگر مدل تگ ناقصی تولید کند تلگرام کل پیام را رد می‌کند و کاربر هیچ
+    // نمی‌بیند. در آن حالت همان متن بدون parse_mode می‌رود: تگ‌ها خام دیده
+    // می‌شوند ولی تحلیل از دست نمی‌رود.
     try {
-      await ctx.reply(row.answer + stamp, {
+      await ctx.reply(message, {
         parse_mode: "HTML",
         reply_markup: backToEconMenu(),
       });
     } catch (err) {
       console.error("ارسال HTML شکست خورد، متن ساده فرستاده شد:", err && err.message);
-      await ctx.reply(row.answer + stamp, { reply_markup: backToEconMenu() });
+      await ctx.reply(message.replace(/<[^>]+>/g, ""), { reply_markup: backToEconMenu() });
     }
     return true;
   }

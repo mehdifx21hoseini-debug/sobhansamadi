@@ -356,3 +356,52 @@ export function buildExplainContext(events) {
           .join("\n"))
   );
 }
+
+// ---------------------------------------------------------------------
+// آراستن پاسخ هوش مصنوعی
+// ---------------------------------------------------------------------
+// متن را مدل می‌سازد، پس شکلش هر بار کمی فرق می‌کند: گاهی تگی می‌آورد که
+// تلگرام نمی‌شناسد و کل پیام رد می‌شود، گاهی ساعت را با رقم لاتین
+// می‌نویسد در حالی که بقیه‌ی ربات فارسی است، گاهی سه خط خالی پشت‌سرهم
+// می‌گذارد. این تابع همان‌ها را یکدست می‌کند تا ظاهر پیام به سلیقه‌ی مدل
+// وابسته نباشد.
+
+// فهرست تگ‌های مجاز تلگرام. هرچه بیرون این فهرست باشد حذف می‌شود ولی
+// متنش می‌ماند - بهتر از رد شدن کل پیام.
+const TELEGRAM_TAGS = new Set(["b", "strong", "i", "em", "u", "ins", "s", "strike", "del", "code", "pre", "a", "blockquote", "tg-spoiler", "br"]);
+
+function stripUnknownTags(html) {
+  return String(html).replace(/<\/?([a-zA-Z][a-zA-Z0-9-]*)[^>]*>/g, (tag, name) =>
+    TELEGRAM_TAGS.has(name.toLowerCase()) ? tag : ""
+  );
+}
+
+// ارقام فقط در متن عوض می‌شوند، نه داخل تگ‌ها - وگرنه href و نام تگ خراب
+// می‌شود و پیام از کار می‌افتد.
+function persianDigitsOutsideTags(html) {
+  return String(html)
+    .split(/(<[^>]*>)/)
+    .map((part, i) => (i % 2 === 1 ? part : toPersianDigits(part)))
+    .join("");
+}
+
+export function formatAiAnswer(answer) {
+  let out = stripUnknownTags(answer);
+  out = persianDigitsOutsideTags(out);
+
+  // مدل گاهی با «سلام» یا یک جمله‌ی مقدماتی شروع می‌کند. سرصفحه را خودمان
+  // می‌گذاریم، پس این تکرار فقط جا می‌گیرد.
+  out = out.replace(/^\s*(سلام[.،!]?\s*)/, "");
+
+  // فاصله‌های افراطی جمع می‌شوند تا پیام فشرده و خوانا بماند.
+  out = out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+
+  return out;
+}
+
+// سرصفحه‌ی ثابت. چون خودمان می‌سازیم، تاریخ همیشه درست و یکسان است و به
+// اینکه مدل یادش بماند تاریخ بنویسد وابسته نیست.
+export function buildAiHeader() {
+  const today = new Date().toISOString().slice(0, 10);
+  return "🤖 <b>تحلیل اخبار اقتصادی امروز</b>\n📅 " + formatJalaliDate(today) + "\n\n";
+}
