@@ -146,18 +146,43 @@ export async function handleChannelPost(ctx) {
   const post = ctx.channelPost || ctx.update.channel_post || ctx.update.edited_channel_post;
   if (!post) return;
 
+  const c = classifyPost(post);
+
   if (!isAllowedChannel(ctx.env, post.chat)) {
-    // آیدی را لاگ می‌کنیم تا اگر کانال درست است ولی پیکربندی نشده،
-    // بشود از روی همین لاگ مقدارش را برداشت.
     console.log(
       "پست کانال نادیده گرفته شد (کانال مجاز نیست):",
       post.chat && post.chat.id,
       post.chat && post.chat.username
     );
+
+    // فقط وقتی پست هشتگ معتبر دارد جواب می‌دهیم، نه روی هر پست کانال.
+    //
+    // چرا اصلاً جواب می‌دهیم: از بیرون، «آیدی را اشتباه گذاشته‌ام» و
+    // «متغیر موقع دیپلوی پاک شده» و «ربات پست را اصلاً نمی‌بیند» هر سه
+    // یک شکل دارند - هیچ اتفاقی نمی‌افتد. و لاگ ورکر هم برای همه در
+    // دسترس نیست. این پیام هر سه را از هم جدا می‌کند و خودِ عددی را که
+    // لازم است می‌دهد.
+    if (c.kind !== "none") {
+      const configured = !!(ctx.env.CONTENT_CHANNEL_ID || ctx.env.CONTENT_CHANNEL_USERNAME);
+      const text = [
+        "⚠️ این فایل ثبت نشد.",
+        "",
+        configured
+          ? "کانالِ تنظیم‌شده با این کانال یکی نیست."
+          : "هیچ کانالی برای دریافت محتوا تنظیم نشده است.",
+        "",
+        "آیدی این کانال:",
+        String(post.chat.id),
+        "",
+        "این عدد را در CONTENT_CHANNEL_ID بگذارید (به‌صورت Secret، نه Variable — متغیرهای متنی با هر دیپلوی پاک می‌شوند).",
+      ].join("\n");
+      await ctx.api.sendMessage(post.chat.id, text).catch((err) =>
+        console.error("ارسال راهنمای پیکربندی به کانال شکست خورد:", err && err.message)
+      );
+    }
     return;
   }
 
-  const c = classifyPost(post);
   if (c.kind === "none") return;
 
   if (c.kind === "text") {

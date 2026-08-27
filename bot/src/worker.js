@@ -30,7 +30,31 @@ const BOT_COMMANDS = [
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+content-1";
+const BUILD = "econ+outbox+miniapp+faq+public+content-2";
+
+// تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
+// آن‌ها را شامل شود.
+//
+// اگر وبهوک زمانی با فهرست محدودی ثبت شده باشد - مثلاً فقط message و
+// callback_query، که در نصب‌های n8n رایج است - پست‌های کانال سمت تلگرام
+// دور ریخته می‌شوند و هرگز به ورکر نمی‌رسند. از بیرون این دقیقاً شبیه
+// «ربات کار نمی‌کند» است: نه خطایی، نه لاگی، هیچ.
+//
+// فهرست خالی یعنی «همه‌ی انواع پیش‌فرض» که channel_post را شامل می‌شود،
+// پس فقط فهرست‌های صریحِ ناقص اصلاح می‌شوند.
+async function ensureChannelPostsAllowed(bot) {
+  const info = await bot.api.getWebhookInfo();
+  const allowed = info && info.allowed_updates;
+  if (!Array.isArray(allowed) || allowed.length === 0) return;
+  if (allowed.includes("channel_post")) return;
+  if (!info.url) return;
+
+  const next = [...new Set([...allowed, "channel_post", "edited_channel_post"])];
+  // همان آدرس قبلی دوباره ثبت می‌شود و فقط فهرست گسترده می‌شود.
+  // drop_pending_updates عمداً false است تا پیامی در صف از بین نرود.
+  await bot.api.setWebhook(info.url, { allowed_updates: next, drop_pending_updates: false });
+  console.log("allowed_updates اصلاح شد:", JSON.stringify(next));
+}
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -244,6 +268,9 @@ export default {
         await bot.api
           .setMyCommands(BOT_COMMANDS)
           .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
+        await ensureChannelPostsAllowed(bot).catch((err) =>
+          console.error("بررسی allowed_updates شکست خورد:", err && err.message)
+        );
       }
       return webhookCallback(bot, "cloudflare-mod")(request);
     }
