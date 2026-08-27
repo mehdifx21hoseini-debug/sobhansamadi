@@ -17,7 +17,7 @@ let cachedBotInfo = null;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq-3";
+const BUILD = "econ+outbox+miniapp+faq-4";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -32,9 +32,17 @@ function json(body, status = 200) {
 }
 
 async function handleAdmin(request, url, env) {
-  // با همان کلید تقویم محافظت می‌شود. اگر کلید اصلاً ست نشده باشد، همین
-  // پیام خودش جواب سوال است: متغیرها به ورکر نرسیده‌اند.
-  if (!env.ECON_EXPORT_KEY) {
+  // ADMIN_KEY کلید مخصوص همین مسیرهای تشخیصی است و اگر نبود، به کلید
+  // تقویم برمی‌گردد.
+  //
+  // چرا جدا: ECON_EXPORT_KEY یک راز مشترک با n8n است. برای عوض کردنش
+  // باید هر دو طرف هم‌زمان به‌روز شوند، وگرنه همگام‌سازی تقویم می‌شکند -
+  // یعنی برای «می‌خواهم یک مسیر تشخیصی را باز کنم» باید یک سیستم زنده را
+  // دست‌کاری کرد. ADMIN_KEY هیچ طرف دیگری ندارد، پس هر وقت لازم شد
+  // بی‌خطر عوض می‌شود.
+  const expected = env.ADMIN_KEY || env.ECON_EXPORT_KEY;
+
+  if (!expected) {
     // نامِ متغیرها را برمی‌گرداند، نه مقدارشان. دلیلش این است که «اسم را
     // غلط نوشته‌ای»، «فاصله‌ی اضافه چسبیده» و «اصلاً اضافه نشده» از بیرون
     // یک شکل دارند و بدون دیدن فهرست واقعی نمی‌شود از هم جدایشان کرد.
@@ -45,8 +53,8 @@ async function handleAdmin(request, url, env) {
       {
         ok: false,
         build: BUILD,
-        error: "ECON_EXPORT_KEY تنظیم نشده است",
-        hint: "این‌ها متغیرهایی هستند که ورکر واقعاً می‌بیند - اگر ECON_EXPORT_KEY در فهرست نیست یعنی در بخش Runtime ذخیره نشده",
+        error: "هیچ‌کدام از ADMIN_KEY و ECON_EXPORT_KEY تنظیم نشده‌اند",
+        hint: "این‌ها متغیرهایی هستند که ورکر واقعاً می‌بیند - اگر نامی در فهرست نیست یعنی در بخش Runtime ذخیره نشده",
         bindings_present: names.map((n) => JSON.stringify(n)),
         count: names.length,
       },
@@ -58,7 +66,7 @@ async function handleAdmin(request, url, env) {
   // می‌شود و بدون اینکه کسی بفهمد چرا، ۴۰۱ می‌گیرد. هدر این تله را ندارد.
   const provided = request.headers.get("x-admin-key") || url.searchParams.get("key") || "";
 
-  if (provided !== env.ECON_EXPORT_KEY) {
+  if (provided !== expected) {
     // «کلید غلط»، «فاصله‌ی اضافه‌ی کپی‌شده» و «+ که در URL خراب شد» از
     // بیرون یک شکل دارند. این سه نشانه آن‌ها را از هم جدا می‌کنند بدون
     // اینکه خود کلید یا مقدارش جایی برود.
@@ -69,13 +77,15 @@ async function handleAdmin(request, url, env) {
         hint: "کلید ارسالی با کلید ورکر یکی نیست",
         diagnostics: {
           provided_length: provided.length,
-          length_matches: provided.length === String(env.ECON_EXPORT_KEY).length,
-          matches_if_trimmed: provided.trim() === String(env.ECON_EXPORT_KEY).trim(),
+          length_matches: provided.length === String(expected).length,
+          matches_if_trimmed: provided.trim() === String(expected).trim(),
           // اگر این true باشد یعنی + در URL به فاصله تبدیل شده؛ همان کلید
           // را در هدر x-admin-key بفرستید یا + را %2B بنویسید.
           matches_if_plus_restored:
-            provided.replace(/ /g, "+") === String(env.ECON_EXPORT_KEY),
+            provided.replace(/ /g, "+") === String(expected),
           sent_via: request.headers.get("x-admin-key") ? "header" : "query",
+          // کدام کلید ملاک است - تا معلوم باشد کجا باید ست شود.
+          checking_against: env.ADMIN_KEY ? "ADMIN_KEY" : "ECON_EXPORT_KEY",
         },
       },
       401
@@ -142,6 +152,7 @@ async function handleAdmin(request, url, env) {
     ECON_EXPLAIN_URL: !!env.ECON_EXPLAIN_URL,
     ECON_MINIAPP_URL: !!env.ECON_MINIAPP_URL,
     ECON_EXPORT_KEY: !!env.ECON_EXPORT_KEY,
+    ADMIN_KEY: !!env.ADMIN_KEY,
     CRM_LEAD_INTAKE_URL: !!env.CRM_LEAD_INTAKE_URL,
     CRM_LEAD_INTAKE_KEY: !!env.CRM_LEAD_INTAKE_KEY,
     GEMINI_API_KEY: !!env.GEMINI_API_KEY,
