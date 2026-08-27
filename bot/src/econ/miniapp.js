@@ -83,16 +83,29 @@ export async function verifyInitData(initData, botToken) {
   const hash = params.get("hash");
   if (!hash) return null;
 
-  const pairs = [];
+  // اینکه فیلد `signature` جزو رشته‌ی امضا هست یا نه، بین نسخه‌های
+  // کلاینت تلگرام فرق می‌کند. مستندات فقط می‌گوید `hash` را بردار، ولی
+  // بعضی نسخه‌ها `signature` را هم بیرون می‌گذارند. حدس زدن یعنی نیمی از
+  // کاربران ۴۰۱ بگیرند - همان چیزی که واقعاً اتفاق افتاد. پس هر دو حالت
+  // ساخته و امتحان می‌شود.
+  //
+  // پذیرفتن هر دو چیزی را ضعیف نمی‌کند: هر دو از همان توکن بات مشتق
+  // می‌شوند، پس مهاجم بدون توکن هیچ‌کدام را نمی‌تواند بسازد.
+  const withSig = [];
+  const withoutSig = [];
   for (const [k, v] of params) {
-    if (k === "hash" || k === "signature") continue;
-    pairs.push(k + "=" + v);
+    if (k === "hash") continue;
+    withSig.push(k + "=" + v);
+    if (k !== "signature") withoutSig.push(k + "=" + v);
   }
-  pairs.sort();
+  withSig.sort();
+  withoutSig.sort();
 
   const secret = await hmac(new TextEncoder().encode("WebAppData"), botToken);
-  const expected = toHex(await hmac(secret, pairs.join("\n")));
-  if (!timingSafeEqual(expected, String(hash).toLowerCase())) return null;
+  const given = String(hash).toLowerCase();
+  const okWith = timingSafeEqual(toHex(await hmac(secret, withSig.join("\n"))), given);
+  const okWithout = timingSafeEqual(toHex(await hmac(secret, withoutSig.join("\n"))), given);
+  if (!okWith && !okWithout) return null;
 
   const authDate = Number(params.get("auth_date"));
   if (!Number.isFinite(authDate)) return null;
