@@ -17,6 +17,11 @@ const DDL = [
      importance TEXT, forecast TEXT, previous TEXT, actual TEXT, status TEXT,
      source TEXT, last_updated TEXT)`,
   `CREATE INDEX IF NOT EXISTS idx_econ_events_date ON econ_events (date)`,
+  `CREATE TABLE IF NOT EXISTS econ_labels (
+     match_text TEXT PRIMARY KEY, label_fa TEXT, label_short_en TEXT,
+     direction TEXT, priority INTEGER, active INTEGER)`,
+  `CREATE TABLE IF NOT EXISTS econ_holidays (
+     date TEXT, name TEXT, name_fa TEXT, country TEXT, market_status TEXT)`,
   `CREATE TABLE IF NOT EXISTS econ_ai_cache (
      cache_key TEXT PRIMARY KEY, answer TEXT, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS econ_sync_state (
@@ -42,6 +47,34 @@ export async function readEvents(env) {
       `SELECT event_id, date, time, event, event_fa, importance, forecast, previous,
               actual, status, source, last_updated
          FROM econ_events`
+    ).all();
+    return results || [];
+  } catch (err) {
+    emptyIfNoTable(err);
+    return [];
+  }
+}
+
+export async function readLabels(env) {
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT match_text, label_fa, label_short_en, direction, priority, active
+         FROM econ_labels`
+    ).all();
+    // active در D1 عدد است ولی سازنده‌ی متن انتظار boolean دارد؛ اگر خام
+    // بماند، ۰ به‌جای false به‌عنوان مقدارِ truthy تفسیر نمی‌شود اما
+    // مقایسه‌ی `!== false` هم رد نمی‌کند و برچسب غیرفعال باز به کار می‌آید.
+    return (results || []).map((r) => ({ ...r, active: r.active !== 0 }));
+  } catch (err) {
+    emptyIfNoTable(err);
+    return [];
+  }
+}
+
+export async function readHolidays(env) {
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT date, name, name_fa, country, market_status FROM econ_holidays`
     ).all();
     return results || [];
   } catch (err) {
@@ -121,6 +154,50 @@ export async function replaceEvents(env, events) {
   return rows.length;
 }
 
+export async function replaceLabels(env, labels) {
+  const rows = (labels || []).filter((r) => r && r.match_text);
+  const statements = [env.DB.prepare(`DELETE FROM econ_labels`)];
+  for (const r of rows) {
+    statements.push(
+      env.DB.prepare(
+        `INSERT OR REPLACE INTO econ_labels
+           (match_text, label_fa, label_short_en, direction, priority, active)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(
+        String(r.match_text),
+        r.label_fa || null,
+        r.label_short_en || null,
+        r.direction || null,
+        Number(r.priority) || 0,
+        r.active === false ? 0 : 1
+      )
+    );
+  }
+  await env.DB.batch(statements);
+  return rows.length;
+}
+
+export async function replaceHolidays(env, holidays) {
+  const rows = (holidays || []).filter((r) => r && r.date);
+  const statements = [env.DB.prepare(`DELETE FROM econ_holidays`)];
+  for (const r of rows) {
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO econ_holidays (date, name, name_fa, country, market_status)
+         VALUES (?, ?, ?, ?, ?)`
+      ).bind(
+        String(r.date),
+        r.name || null,
+        r.name_fa || null,
+        r.country || null,
+        r.market_status || null
+      )
+    );
+  }
+  await env.DB.batch(statements);
+  return rows.length;
+}
+
 export async function replaceAiCache(env, entries) {
   const rows = (entries || []).filter((r) => r && r.cache_key && r.answer);
   const statements = [env.DB.prepare(`DELETE FROM econ_ai_cache`)];
@@ -171,8 +248,15 @@ export async function syncFromN8n(env) {
   await ensureSchema(env);
 
   const eventCount = await replaceEvents(env, data.events);
+  const labelCount = await replaceLabels(env, data.labels);
+  const holidayCount = await replaceHolidays(env, data.holidays);
   const cacheCount = await replaceAiCache(env, data.ai_cache);
   await markSynced(env, new Date().toISOString());
 
-  return { events: eventCount, ai_cache: cacheCount };
+  return {
+    events: eventCount,
+    labels: labelCount,
+    holidays: holidayCount,
+    ai_cache: cacheCount,
+  };
 }

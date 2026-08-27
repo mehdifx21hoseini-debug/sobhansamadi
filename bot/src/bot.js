@@ -152,7 +152,9 @@ export function createBot(token, env, botInfo) {
     }
 
     // handleEconCallback خودش callback را answer می‌کند.
-    if (data.startsWith("ECON_")) {
+    // MENU_ECON_CALENDAR پیشوند ECON_ ندارد ولی دکمه‌ی بازگشتِ همه‌ی
+    // نماهای تقویم است، پس صریح به همان مسیر می‌رود.
+    if (data.startsWith("ECON_") || data === "MENU_ECON_CALENDAR") {
       await handleEconCallback(ctx, data);
       return;
     }

@@ -10,22 +10,45 @@ import {
   relativeTimeFa,
   toPersianDigits,
 } from "./format.js";
+import { makeLabelHelpers, mdCell, wrapName } from "./labels.js";
+
+// همان فیلتر و مرتب‌سازی که هر دو نمای متن و markdown از آن استفاده
+// می‌کنند، تا دو نسخه هرگز از هم جدا نیفتند.
+function todaysEvents(events) {
+  const today = new Date().toISOString().slice(0, 10);
+  return events
+    .filter((e) => e.date === today && e.importance !== "low")
+    .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+}
+
+function weekEventsOf(events) {
+  const today = new Date().toISOString().slice(0, 10);
+  const todayD = new Date(today + "T00:00:00Z");
+  const weekEnd = new Date(todayD.getTime() + 7 * 86400000);
+  return events
+    .filter((e) => {
+      if (!e.date || e.importance === "low") return false;
+      const d = new Date(e.date + "T00:00:00Z");
+      return d >= todayD && d <= weekEnd;
+    })
+    .sort((a, b) => (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99")));
+}
 
 // متن‌های زیر عیناً همان چیزی را می‌سازند که نودهای Build Today Text،
 // Build Week Text و Build Next Event Text در n8n می‌ساختند - فقط منبع
 // داده از جدول‌های n8n به آینه‌ی D1 عوض شده. فرمت پیام دست‌نخورده است تا
 // کاربر تفاوتی حس نکند.
 
-// نسخه‌ی n8n فقط ستون‌های text را می‌فرستاد؛ نسخه‌ی markdown آن برای
-// پیام‌های Rich بود که این منو استفاده‌شان نمی‌کرد، پس پورت نشده.
+// دو نمای امروز و هفته در نسخه‌ی n8n با متد sendRichMessage و ستون
+// markdown فرستاده می‌شدند، نه با متن ساده. پس هر دو ساخته می‌شوند: متن
+// ساده برای مسیرهایی که همان را می‌خواهند، و markdown برای همان چیزی که
+// کاربر واقعاً می‌دید.
 
 export function buildTodayText(events) {
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
 
-  const todays = events
-    .filter((e) => e.date === today && e.importance !== "low")
-    .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+  const todays = todaysEvents(events);
 
   let text = RLM + "🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n" + RLM + "📅 " + formatJalaliDate(today) + "\n\n";
 
@@ -54,17 +77,7 @@ export function buildTodayText(events) {
 }
 
 export function buildWeekText(events) {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayD = new Date(today + "T00:00:00Z");
-  const weekEnd = new Date(todayD.getTime() + 7 * 86400000);
-  const inRange = (dateStr) => {
-    const d = new Date(dateStr + "T00:00:00Z");
-    return d >= todayD && d <= weekEnd;
-  };
-
-  const weekEvents = events
-    .filter((e) => e.date && inRange(e.date) && e.importance !== "low")
-    .sort((a, b) => (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99")));
+  const weekEvents = weekEventsOf(events);
 
   let text = RLM + "📆 تقویم اقتصادی این هفته (دلار)\n\n";
 
@@ -151,4 +164,171 @@ export function buildAlertSettingsText(sub) {
     (showMedium ? "✅" : "❌") + " هشدار اخبار با اهمیت متوسط\n" +
     "⏱ زمان‌بندی: " + minutes + " دقیقه قبل از انتشار"
   );
+}
+
+// ---------------------------------------------------------------------
+// نماهای Rich. نسخه‌ی n8n این‌ها را با متد sendRichMessage می‌فرستاد؛
+// جدول markdown، بلوک‌های <details> تاشو و «خوانش برای دلار» همان چیزی
+// است که کاربر روی دکمه‌های «امروز» و «این هفته» می‌دید.
+// ---------------------------------------------------------------------
+
+export function buildTodayMarkdown(events, labels) {
+  const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
+  const nowIso = new Date().toISOString();
+  const today = nowIso.slice(0, 10);
+  const todays = todaysEvents(events);
+
+  // جزئیات کامل هر رویداد، به‌صورت پیش‌فرض بسته، تا پیام خوانا بماند.
+  function detailsBlock(list) {
+    if (!list || list.length === 0) return "";
+    const lines = ["<details><summary>📋 جزئیات کامل رویدادها</summary>", ""];
+    for (const e of list) {
+      const when = e.time
+        ? toPersianDigits(etTimeToTehran(e.date, e.time)) + " به وقت تهران"
+        : "زمان اعلام‌نشده";
+      const en = enFull(e);
+      const fa2 = faName(e);
+      lines.push(
+        "**" + mdCell(en || fa2) + "**" +
+          (en && fa2 && fa2 !== en ? " — " + mdCell(fa2) : "") +
+          " · " + when
+      );
+      lines.push("");
+      const bits = [
+        "پیش‌بینی " + (e.forecast || "-"),
+        "قبلی " + (e.previous || "-"),
+        "واقعی " + (e.actual || (e.status === "upcoming" ? "منتشر نشده" : "-")),
+      ];
+      if (e.source) bits.push("منبع " + e.source);
+      lines.push(mdCell(bits.join(" · ")));
+      lines.push("");
+    }
+    lines.push("</details>");
+    lines.push("");
+    return lines.join("\n");
+  }
+
+  function usdReadBlock(list) {
+    const lines = [];
+    for (const e of list) {
+      if (e.status !== "released") continue;
+      const r = usdRead(e);
+      if (!r) continue;
+      lines.push("- " + mdCell(enShort(e)) + " " + r.arrow + " " + r.word + " — " + r.icon + " " + r.verdict);
+    }
+    if (lines.length === 0) return "";
+    return (
+      "\n**💵 خوانش برای دلار**\n\n" + lines.join("\n") +
+      "\n\n_این یک برداشت کلی از رابطه معمول این شاخص با دلار است، نه سیگنال معاملاتی._\n"
+    );
+  }
+
+  let markdown = "## 🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n\n";
+  markdown += "📅 " + formatJalaliDate(today) + "\n\n";
+  if (todays.length === 0) {
+    markdown += "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n";
+  } else {
+    markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n";
+    markdown += "|---|---|---|---|\n";
+    for (const e of todays) {
+      const emoji = IMPORTANCE_EMOJI[e.importance] || "⚪";
+      const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
+      let actual = e.actual || (e.status === "upcoming" ? "—" : "-");
+      if (e.actual) {
+        const r0 = usdRead(e);
+        if (r0) actual = e.actual + " " + r0.icon;
+      }
+      const name = emoji + " " + wrapName(mdCell(enShort(e)), 12);
+      markdown += "| " + mdCell(t) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(actual) + " |\n";
+    }
+    markdown += "\n";
+    const upcoming = todays.filter((e) => e.time && e.status === "upcoming");
+    if (upcoming.length > 0) {
+      const nextEvent = upcoming[0];
+      const cd = formatCountdown(etMinutesUntilNow(nextEvent.date, nextEvent.time));
+      if (cd) markdown += "**" + mdCell(faName(nextEvent)) + "** — " + cd + "\n\n";
+    }
+  }
+  markdown += detailsBlock(todays);
+  markdown += usdReadBlock(todays);
+  const lastUpdated = todays.length > 0 ? todays[0].last_updated : nowIso;
+  markdown += "ℹ️ آخرین بروزرسانی: " + relativeTimeFa(lastUpdated);
+  return markdown;
+}
+
+export function buildWeekMarkdown(events, labels) {
+  const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
+  const weekEvents = weekEventsOf(events);
+
+  let markdown = "## 📆 تقویم اقتصادی این هفته (دلار)\n";
+  if (weekEvents.length === 0) {
+    markdown += "\nرویداد مهمی برای این هفته ثبت نشده است.";
+    return markdown.trim();
+  }
+
+  let lastMdDate = "";
+  for (const e of weekEvents) {
+    if (e.date !== lastMdDate) {
+      const dd = new Date(e.date + "T00:00:00Z");
+      markdown += "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(e.date) + "\n\n";
+      markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
+      lastMdDate = e.date;
+    }
+    const em = IMPORTANCE_EMOJI[e.importance] || "⚪";
+    const tt = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
+    let ac = e.actual || (e.status === "upcoming" ? "—" : "-");
+    if (e.actual) {
+      const r0 = usdRead(e);
+      if (r0) ac = e.actual + " " + r0.icon;
+    }
+    const name = em + " " + wrapName(mdCell(enShort(e)), 12);
+    markdown += "| " + mdCell(tt) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(ac) + " |\n";
+  }
+
+  // واژه‌نامه‌ی تاشو: نام کامل انگلیسی → فارسی، یک‌بار برای هر رویداد
+  // متمایز.
+  const seen = {};
+  const gl = [];
+  for (const e of weekEvents) {
+    const en = enFull(e);
+    if (!en || seen[en]) continue;
+    seen[en] = true;
+    const fa2 = faName(e);
+    gl.push("- **" + mdCell(en) + "**" + (fa2 && fa2 !== en ? " — " + mdCell(fa2) : ""));
+  }
+  if (gl.length > 0) {
+    markdown += "\n<details><summary>📖 نام کامل و ترجمه رویدادها</summary>\n\n" + gl.join("\n") + "\n\n</details>\n";
+  }
+  markdown += "\n⏰ زمان‌ها به وقت تهران هستن.";
+  return markdown.trim();
+}
+
+export function buildHolidaysMarkdown(holidays) {
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = (holidays || [])
+    .filter((h) => h.date && h.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  let markdown = "## 🏦 تعطیلات بانکی آمریکا\n\n";
+  markdown += "تعطیلی بانک‌ها روی نقدشوندگی و شرایط معاملاتی دلار اثر می‌گذارد.\n\n";
+  if (upcoming.length === 0) {
+    markdown += "تعطیلی ثبت‌شده‌ای برای بازه‌ی پیش‌رو وجود ندارد.";
+    return markdown.trim();
+  }
+
+  const nx = upcoming[0];
+  const isTodayHoliday = nx.date === today;
+  const daysLeft = Math.round(
+    (new Date(nx.date + "T00:00:00Z") - new Date(today + "T00:00:00Z")) / 86400000
+  );
+  markdown +=
+    (isTodayHoliday
+      ? "**🔴 امروز تعطیل بانکی است: " + mdCell(nx.name) + "**"
+      : "**🔜 تعطیلی بعدی: " + mdCell(nx.name) + "** — " + toPersianDigits(daysLeft) + " روز دیگر") + "\n\n";
+  markdown += "| تاریخ | مناسبت |\n|---|---|\n";
+  for (const hh of upcoming.slice(0, 8)) {
+    markdown += "| " + mdCell(formatJalaliDate(hh.date)) + " | " + mdCell(hh.name) + " |\n";
+  }
+  markdown += "\n⚠️ تعطیلی بانکی به معنای تعطیلی کامل بازار فارکس نیست.";
+  return markdown.trim();
 }

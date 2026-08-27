@@ -1,8 +1,16 @@
 import { InlineKeyboard } from "grammy";
-import { readEvents, readAiAnswer, readSyncState, todayCacheKey } from "./store.js";
 import {
-  buildTodayText,
-  buildWeekText,
+  readEvents,
+  readLabels,
+  readHolidays,
+  readAiAnswer,
+  readSyncState,
+  todayCacheKey,
+} from "./store.js";
+import {
+  buildTodayMarkdown,
+  buildWeekMarkdown,
+  buildHolidaysMarkdown,
   buildNextEventText,
   buildAlertSettingsText,
 } from "./views.js";
@@ -43,13 +51,83 @@ export function econMenuKeyboard() {
     .text("⬅️ بازگشت", "MENU_MAIN");
 }
 
-// زیر هر نما یک دکمه‌ی بازگشت به منوی تقویم، همان‌طور که نسخه‌ی n8n داشت.
-function backToEconMenu() {
-  return new InlineKeyboard().text("⬅️ بازگشت به تقویم", "ECON_MENU");
+// چیدمان زیر هر نما، عیناً از نودهای Send Today/Week/Holidays View. سبک
+// primary همان دکمه‌های رنگی است که grammy نمی‌سازد، پس این‌ها به‌صورت
+// شیء خام ساخته می‌شوند نه با InlineKeyboard.
+const VIEW_KEYBOARDS = {
+  ECON_TODAY: {
+    inline_keyboard: [
+      [
+        { text: "📆 این هفته", callback_data: "ECON_WEEK", style: "primary" },
+        { text: "🏦 تعطیلات", callback_data: "ECON_HOLIDAYS", style: "primary" },
+      ],
+      [
+        { text: "🔄 بروزرسانی", callback_data: "ECON_TODAY", style: "primary" },
+        { text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" },
+      ],
+    ],
+  },
+  ECON_WEEK: {
+    inline_keyboard: [
+      [
+        { text: "📅 امروز", callback_data: "ECON_TODAY", style: "primary" },
+        { text: "🏦 تعطیلات", callback_data: "ECON_HOLIDAYS", style: "primary" },
+      ],
+      [
+        { text: "🔄 بروزرسانی", callback_data: "ECON_WEEK", style: "primary" },
+        { text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" },
+      ],
+    ],
+  },
+  ECON_HOLIDAYS: {
+    inline_keyboard: [
+      [
+        { text: "📅 امروز", callback_data: "ECON_TODAY", style: "primary" },
+        { text: "📆 این هفته", callback_data: "ECON_WEEK", style: "primary" },
+      ],
+      [
+        { text: "🔄 بروزرسانی", callback_data: "ECON_HOLIDAYS", style: "primary" },
+        { text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" },
+      ],
+    ],
+  },
+};
+
+const NEXT_EVENT_KEYBOARD = new InlineKeyboard()
+  .text("🔄 بروزرسانی", "ECON_NEXT_EVENT")
+  .row()
+  .text("⬅️ منوی تقویم", "MENU_ECON_CALENDAR");
+
+// sendRichMessage یک متد غیرمستند تلگرام است و در تایپ‌های grammy وجود
+// ندارد، پس مثل نسخه‌ی n8n مستقیم صدا زده می‌شود. همین متد است که جدول
+// markdown و بلوک‌های تاشو را رندر می‌کند؛ sendMessage معمولی آن‌ها را
+// به‌صورت متن خام نشان می‌داد.
+async function sendRichMessage(ctx, markdown, replyMarkup) {
+  const res = await fetch(
+    "https://api.telegram.org/bot" + ctx.env.BOT_TOKEN + "/sendRichMessage",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: ctx.chat.id,
+        rich_message: { markdown },
+        reply_markup: replyMarkup,
+      }),
+    }
+  );
+  return res.ok;
 }
 
 export async function sendEconMenu(ctx) {
   await ctx.reply(ECON_MENU_TEXT, { reply_markup: econMenuKeyboard() });
+}
+
+// نسخه‌ی n8n پیام قبلی را پاک می‌کرد و نمای تازه را می‌فرستاد، تا چند بار
+// زدن دکمه‌ها چت را پر نکند. اگر پاک کردن شکست بخورد (پیام خیلی قدیمی)
+// مهم نیست - نمای جدید در هر حال فرستاده می‌شود.
+async function replaceCallbackMessage(ctx) {
+  if (!ctx.callbackQuery || !ctx.callbackQuery.message) return;
+  await ctx.deleteMessage().catch(() => {});
 }
 
 // اگر آینه هنوز پر نشده باشد (اولین اجرا، یا چند بار پشت‌سرهم شکست
@@ -62,61 +140,78 @@ async function emptyMirrorNotice(env) {
   return null;
 }
 
-async function replyView(ctx, text) {
-  await ctx.reply(text, { reply_markup: backToEconMenu() });
+function backToEconMenu() {
+  return new InlineKeyboard().text("⬅️ منوی تقویم", "MENU_ECON_CALENDAR");
 }
 
 export async function handleEconCallback(ctx, action) {
-  if (action === "ECON_MENU") {
-    await ctx.answerCallbackQuery().catch(() => {});
+  await ctx.answerCallbackQuery().catch(() => {});
+
+  if (action === "ECON_MENU" || action === "MENU_ECON_CALENDAR") {
+    await replaceCallbackMessage(ctx);
     await sendEconMenu(ctx);
     return true;
   }
 
-  if (action === "ECON_TODAY" || action === "ECON_WEEK" || action === "ECON_NEXT_EVENT") {
-    await ctx.answerCallbackQuery().catch(() => {});
-
+  if (action === "ECON_TODAY" || action === "ECON_WEEK" || action === "ECON_HOLIDAYS") {
     const notice = await emptyMirrorNotice(ctx.env);
     if (notice) {
-      await replyView(ctx, notice);
+      await ctx.reply(notice, { reply_markup: backToEconMenu() });
       return true;
     }
 
-    const events = await readEvents(ctx.env);
-    const text =
-      action === "ECON_TODAY"
-        ? buildTodayText(events)
-        : action === "ECON_WEEK"
-        ? buildWeekText(events)
-        : buildNextEventText(events);
+    let markdown;
+    if (action === "ECON_HOLIDAYS") {
+      markdown = buildHolidaysMarkdown(await readHolidays(ctx.env));
+    } else {
+      const [events, labels] = await Promise.all([readEvents(ctx.env), readLabels(ctx.env)]);
+      markdown =
+        action === "ECON_TODAY"
+          ? buildTodayMarkdown(events, labels)
+          : buildWeekMarkdown(events, labels);
+    }
 
-    await replyView(ctx, text);
+    await replaceCallbackMessage(ctx);
+    const sent = await sendRichMessage(ctx, markdown, VIEW_KEYBOARDS[action]);
+    // اگر متد Rich در دسترس نبود، پیام نباید گم شود: همان markdown به‌صورت
+    // متن ساده می‌رود تا کاربر دست‌خالی نماند.
+    if (!sent) {
+      await ctx.reply(markdown, { reply_markup: backToEconMenu() });
+    }
+    return true;
+  }
+
+  if (action === "ECON_NEXT_EVENT") {
+    const notice = await emptyMirrorNotice(ctx.env);
+    if (notice) {
+      await ctx.reply(notice, { reply_markup: backToEconMenu() });
+      return true;
+    }
+    const events = await readEvents(ctx.env);
+    await replaceCallbackMessage(ctx);
+    await ctx.reply(buildNextEventText(events), { reply_markup: NEXT_EVENT_KEYBOARD });
     return true;
   }
 
   if (action === "ECON_EXPLAIN") {
-    await ctx.answerCallbackQuery().catch(() => {});
-
     // تحلیل را ایجنت هوش مصنوعی در n8n می‌سازد و در econ_ai_cache
     // می‌نویسد؛ ورکر فقط همان پاسخ آماده را از آینه می‌خواند. تولیدش
     // اینجا انجام نمی‌شود چون کلید و ایجنت آنجاست.
     const row = await readAiAnswer(ctx.env, todayCacheKey());
     if (!row || !row.answer) {
-      await replyView(
-        ctx,
-        "🤖 تحلیل امروز هنوز آماده نشده است.\n\nتحلیل هر روز پس از انتشار اخبار ساخته می‌شود؛ کمی بعد دوباره امتحان کنید."
+      await ctx.reply(
+        "🤖 تحلیل امروز هنوز آماده نشده است.\n\nتحلیل هر روز پس از انتشار اخبار ساخته می‌شود؛ کمی بعد دوباره امتحان کنید.",
+        { reply_markup: backToEconMenu() }
       );
       return true;
     }
 
     const stamp = row.created_at ? "\n\nℹ️ تهیه‌شده " + relativeTimeFa(row.created_at) : "";
-    await replyView(ctx, row.answer + stamp);
+    await ctx.reply(row.answer + stamp, { reply_markup: backToEconMenu() });
     return true;
   }
 
   if (action === "ECON_ALERT_SETTINGS") {
-    await ctx.answerCallbackQuery().catch(() => {});
-
     // اشتراک هشدار را زمان‌بند n8n می‌خواند تا پیام بفرستد، پس نوشتنش
     // باید در n8n بماند؛ آینه‌کردنش فقط باعث می‌شد کاربر تنظیمی ببیند که
     // فرستنده‌ی هشدار هرگز از آن خبردار نمی‌شود. تا وقتی مسیر نوشتن ساخته
@@ -128,7 +223,7 @@ export async function handleEconCallback(ctx, action) {
         reply_markup: new InlineKeyboard()
           .webApp("🟢 باز کردن تقویم", ECON_APP_URL)
           .row()
-          .text("⬅️ بازگشت به تقویم", "ECON_MENU"),
+          .text("⬅️ منوی تقویم", "MENU_ECON_CALENDAR"),
       }
     );
     return true;

@@ -23,6 +23,26 @@ CREATE TABLE IF NOT EXISTS econ_events (
 -- هر سه نما (امروز/هفته/رویداد بعدی) بر اساس تاریخ فیلتر می‌کنند.
 CREATE INDEX IF NOT EXISTS idx_econ_events_date ON econ_events (date);
 
+-- نام کوتاه انگلیسی، ترجمه‌ی فارسی و جهت اثر هر شاخص روی دلار. بدون این
+-- جدول، نماهای Rich نام خام و طولانی نشان می‌دهند و بخش «خوانش برای
+-- دلار» اصلاً ساخته نمی‌شود.
+CREATE TABLE IF NOT EXISTS econ_labels (
+  match_text     TEXT PRIMARY KEY,
+  label_fa       TEXT,
+  label_short_en TEXT,
+  direction      TEXT,
+  priority       INTEGER,
+  active         INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS econ_holidays (
+  date          TEXT,
+  name          TEXT,
+  name_fa       TEXT,
+  country       TEXT,
+  market_status TEXT
+);
+
 CREATE TABLE IF NOT EXISTS econ_ai_cache (
   cache_key  TEXT PRIMARY KEY,
   answer     TEXT,
