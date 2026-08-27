@@ -116,6 +116,15 @@ export function classifyPost(post) {
   return { kind: "none" };
 }
 
+// آیدی کانال خصوصی در تلگرام به شکل -1002445678901 است، ولی لینک پست
+// (t.me/c/2445678901/12) فقط بخش میانی را نشان می‌دهد. هر دو شکل - و
+// حتی نسخه‌ی بدون منفی - به یک عدد یکسان تبدیل می‌شوند تا کسی به‌خاطر
+// جا انداختن پیشوند ساعت‌ها دنبال باگی نگردد که وجود ندارد.
+function normalizeChannelId(v) {
+  const digits = String(v || "").trim().replace(/^-/, "").replace(/^100/, "");
+  return digits ? "-100" + digits : "";
+}
+
 // آیا این پست از کانال مجاز آمده؟
 //
 // نسخه‌ی n8n هر پست کانالی را می‌پذیرفت. برای رباتی که عمومی می‌شود این
@@ -125,10 +134,10 @@ export function classifyPost(post) {
 // دریافت خاموش است - نه باز برای همه.
 export function isAllowedChannel(env, chat) {
   if (!chat) return false;
-  const byId = String(env.CONTENT_CHANNEL_ID || "").trim();
+  const byId = normalizeChannelId(env.CONTENT_CHANNEL_ID);
   const byName = String(env.CONTENT_CHANNEL_USERNAME || "").trim().replace(/^@/, "").toLowerCase();
   if (!byId && !byName) return false;
-  if (byId && String(chat.id) === byId) return true;
+  if (byId && normalizeChannelId(chat.id) === byId) return true;
   if (byName && String(chat.username || "").toLowerCase() === byName) return true;
   return false;
 }
