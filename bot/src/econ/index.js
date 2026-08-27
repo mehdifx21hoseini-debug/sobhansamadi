@@ -210,6 +210,7 @@ export async function handleEconCallback(ctx, action) {
     await ctx.replyWithChatAction("typing").catch(() => {});
 
     let row = null;
+    let failure = null;
     try {
       row = await askExplain(ctx.env, {
         cacheKey,
@@ -217,16 +218,29 @@ export async function handleEconCallback(ctx, action) {
         context,
       });
     } catch (err) {
-      console.error("تحلیل هوش مصنوعی شکست خورد:", err && err.message);
+      failure = err && err.message;
+      console.error("تحلیل هوش مصنوعی شکست خورد:", failure);
     }
 
     // اگر n8n قطع بود، آخرین پاسخی که در آینه نشسته بهتر از هیچ است -
-    // با برچسب زمان، تا کاربر بداند تازه نیست.
-    if (!row) row = await readAiAnswer(ctx.env, cacheKey);
+    // با برچسب زمان، تا کاربر بداند تازه نیست. خواندن از آینه هم داخل
+    // try است: اگر این هم بترکد، کاربر باید پیام بگیرد نه سکوت.
+    if (!row) {
+      try {
+        row = await readAiAnswer(ctx.env, cacheKey);
+      } catch (err) {
+        console.error("خواندن تحلیل از آینه شکست خورد:", err && err.message);
+      }
+    }
 
     if (!row || !row.answer) {
+      // تمایز مهلت از بقیه‌ی خطاها، چون کاربر باید بداند «دوباره بزن»
+      // احتمالاً جواب می‌دهد.
+      const timedOut = failure && /timed out|abort/i.test(failure);
       await ctx.reply(
-        "🤖 تحلیل امروز در دسترس نیست.\n\nسرویس تحلیل موقتاً پاسخ نمی‌دهد؛ کمی بعد دوباره امتحان کنید.",
+        timedOut
+          ? "🤖 سرویس تحلیل الان کند است و به‌موقع جواب نداد.\n\nچند لحظه بعد دوباره دکمه را بزنید."
+          : "🤖 تحلیل امروز در دسترس نیست.\n\nسرویس تحلیل موقتاً پاسخ نمی‌دهد؛ کمی بعد دوباره امتحان کنید.",
         { reply_markup: backToEconMenu() }
       );
       return true;

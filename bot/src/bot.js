@@ -154,8 +154,19 @@ export function createBot(token, env, botInfo) {
     // handleEconCallback خودش callback را answer می‌کند.
     // MENU_ECON_CALENDAR پیشوند ECON_ ندارد ولی دکمه‌ی بازگشتِ همه‌ی
     // نماهای تقویم است، پس صریح به همان مسیر می‌رود.
+    //
+    // هر خطای پیش‌بینی‌نشده اینجا گرفته می‌شود تا کاربر دست‌کم یک پیام
+    // بگیرد. بدون این، bot.catch فقط در لاگ می‌نویسد و از دید کاربر دکمه
+    // «هیچ کاری نمی‌کند» - سخت‌ترین حالت برای تشخیص.
     if (data.startsWith("ECON_") || data === "MENU_ECON_CALENDAR") {
-      await handleEconCallback(ctx, data);
+      try {
+        await handleEconCallback(ctx, data);
+      } catch (err) {
+        console.error("خطای تقویم:", data, err && err.message);
+        await ctx
+          .reply("⚠️ در نمایش این بخش مشکلی پیش آمد. لطفاً دوباره امتحان کنید.")
+          .catch(() => {});
+      }
       return;
     }
 

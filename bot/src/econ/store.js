@@ -229,9 +229,12 @@ export async function syncFromN8n(env) {
     throw new Error("ECON_EXPORT_URL/ECON_EXPORT_KEY تنظیم نشده است");
   }
 
+  // اینجا کاربری منتظر نیست (زمان‌بند صدایش می‌زند)، پس مهلت سخاوتمندانه‌تر
+  // است - ولی بی‌نهایت نیست، وگرنه یک اجرای معلق تا اجرای بعدی می‌ماند.
   const res = await fetch(env.ECON_EXPORT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(30000),
     body: JSON.stringify({ key: env.ECON_EXPORT_KEY }),
   });
 
@@ -271,9 +274,14 @@ export async function syncFromN8n(env) {
 export async function askExplain(env, { cacheKey, question, context }) {
   if (!env.ECON_EXPLAIN_URL || !env.ECON_EXPORT_KEY) return null;
 
+  // مهلت زمانی حیاتی است. n8n وقتی زیر فشار است نه خطا می‌دهد نه می‌بندد -
+  // فقط جواب نمی‌دهد. بدون این مهلت، fetch تا ابد معلق می‌ماند، کلادفلر
+  // درخواست را می‌کشد و تلگرام هیچ پاسخی نمی‌گیرد: کاربر «در حال تایپ»
+  // می‌بیند و بعد هیچ. با مهلت، به مسیر خطا می‌افتیم و پیام روشن می‌رود.
   const res = await fetch(env.ECON_EXPLAIN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(20000),
     body: JSON.stringify({
       key: env.ECON_EXPORT_KEY,
       cache_key: cacheKey,

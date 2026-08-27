@@ -41,9 +41,12 @@ export async function queueLead(env, lead) {
 }
 
 async function postLead(env, lead) {
+  // بدون مهلت، یک n8nِ معلق (نه قطع، فقط بی‌جواب) کل پاسخ‌دهی به کاربر را
+  // گروگان می‌گیرد. با مهلت، لید در صف می‌ماند و دفعه‌ی بعد فرستاده می‌شود.
   const res = await fetch(env.CRM_LEAD_INTAKE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(15000),
     body: JSON.stringify({ key: env.CRM_LEAD_INTAKE_KEY, ...lead }),
   });
 
