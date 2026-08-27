@@ -1,6 +1,6 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
-import { syncFromN8n } from "./econ/store.js";
+import { syncFromN8n, readSyncState } from "./econ/store.js";
 import { drainLeadOutbox } from "./crmSync.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
@@ -14,6 +14,70 @@ import { drainLeadOutbox } from "./crmSync.js";
 // در حافظه‌ی این isolate تا وقتی گرمه.
 let cachedBotInfo = null;
 
+// نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
+// است و مشکل از تنظیمات نیست - از دیپلوی.
+const BUILD = "econ+outbox-1";
+
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body, null, 2), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}
+
+async function handleAdmin(url, env) {
+  // با همان کلید تقویم محافظت می‌شود. اگر کلید اصلاً ست نشده باشد، همین
+  // پیام خودش جواب سوال است: متغیرها به ورکر نرسیده‌اند.
+  if (!env.ECON_EXPORT_KEY) {
+    return json({ ok: false, build: BUILD, error: "ECON_EXPORT_KEY تنظیم نشده است" }, 503);
+  }
+  if (url.searchParams.get("key") !== env.ECON_EXPORT_KEY) {
+    return json({ ok: false, error: "unauthorized" }, 401);
+  }
+
+  if (url.pathname === "/admin/sync") {
+    try {
+      const result = await syncFromN8n(env);
+      return json({ ok: true, build: BUILD, synced: result });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
+  // status: هرگز مقدار متغیرها را برنمی‌گرداند، فقط بودن یا نبودنشان.
+  const env_set = {
+    ECON_EXPORT_URL: !!env.ECON_EXPORT_URL,
+    ECON_EXPLAIN_URL: !!env.ECON_EXPLAIN_URL,
+    ECON_EXPORT_KEY: !!env.ECON_EXPORT_KEY,
+    CRM_LEAD_INTAKE_URL: !!env.CRM_LEAD_INTAKE_URL,
+    CRM_LEAD_INTAKE_KEY: !!env.CRM_LEAD_INTAKE_KEY,
+    DB: !!env.DB,
+  };
+
+  async function count(sql) {
+    try {
+      const row = await env.DB.prepare(sql).first();
+      return row ? Object.values(row)[0] : null;
+    } catch (err) {
+      return "no table";
+    }
+  }
+
+  return json({
+    ok: true,
+    build: BUILD,
+    env_set,
+    last_sync: await readSyncState(env),
+    mirrored: {
+      events: await count("SELECT COUNT(*) FROM econ_events"),
+      labels: await count("SELECT COUNT(*) FROM econ_labels"),
+      holidays: await count("SELECT COUNT(*) FROM econ_holidays"),
+      ai_cache: await count("SELECT COUNT(*) FROM econ_ai_cache"),
+    },
+    lead_outbox_pending: await count("SELECT COUNT(*) FROM lead_outbox"),
+  });
+}
+
 export default {
   async fetch(request, env) {
     if (!env.BOT_TOKEN) {
@@ -25,7 +89,14 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
-      return new Response("ok");
+      return new Response("ok " + BUILD);
+    }
+
+    // مسیرهای تشخیص. وقتی چیزی کار نمی‌کند، بدون این‌ها باید بین «کد
+    // دیپلوی نشده»، «متغیر ست نشده»، «Cron اجرا نمی‌شود» و «n8n جواب
+    // نمی‌دهد» حدس زد. این‌ها همان چهار حالت را از هم جدا می‌کنند.
+    if (url.pathname === "/admin/status" || url.pathname === "/admin/sync") {
+      return handleAdmin(url, env);
     }
 
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن
