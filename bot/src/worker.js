@@ -21,7 +21,12 @@ const BUILD = "econ+outbox-1";
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      // بدون این، پاسخ می‌تواند کش شود و ساعت‌ها همان خطای قدیمی را نشان
+      // بدهد در حالی که مشکل حل شده - دقیقاً چیزی که تشخیص را گمراه می‌کند.
+      "Cache-Control": "no-store, max-age=0",
+    },
   });
 }
 
@@ -29,7 +34,23 @@ async function handleAdmin(url, env) {
   // با همان کلید تقویم محافظت می‌شود. اگر کلید اصلاً ست نشده باشد، همین
   // پیام خودش جواب سوال است: متغیرها به ورکر نرسیده‌اند.
   if (!env.ECON_EXPORT_KEY) {
-    return json({ ok: false, build: BUILD, error: "ECON_EXPORT_KEY تنظیم نشده است" }, 503);
+    // نامِ متغیرها را برمی‌گرداند، نه مقدارشان. دلیلش این است که «اسم را
+    // غلط نوشته‌ای»، «فاصله‌ی اضافه چسبیده» و «اصلاً اضافه نشده» از بیرون
+    // یک شکل دارند و بدون دیدن فهرست واقعی نمی‌شود از هم جدایشان کرد.
+    // JSON.stringify روی نام‌ها اجرا می‌شود تا فاصله یا کاراکتر نامرئی
+    // داخل اسم هم دیده شود.
+    const names = Object.keys(env).sort();
+    return json(
+      {
+        ok: false,
+        build: BUILD,
+        error: "ECON_EXPORT_KEY تنظیم نشده است",
+        hint: "این‌ها متغیرهایی هستند که ورکر واقعاً می‌بیند - اگر ECON_EXPORT_KEY در فهرست نیست یعنی در بخش Runtime ذخیره نشده",
+        bindings_present: names.map((n) => JSON.stringify(n)),
+        count: names.length,
+      },
+      503
+    );
   }
   if (url.searchParams.get("key") !== env.ECON_EXPORT_KEY) {
     return json({ ok: false, error: "unauthorized" }, 401);
