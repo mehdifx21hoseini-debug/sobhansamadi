@@ -50,7 +50,7 @@ export const ECON_MENU_TEXT = [
 export function econMenuKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "📊 نمای تعاملی", web_app: { url: ECON_APP_URL }, style: "success" }],
+      [{ text: "📊 تقویم و سشن‌ها", web_app: { url: ECON_APP_URL }, style: "success" }],
       [
         { text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" },
         { text: "📆 این هفته", callback_data: "ECON_WEEK", style: "primary" },
@@ -59,10 +59,9 @@ export function econMenuKeyboard() {
         { text: "⏭ رویداد بعدی", callback_data: "ECON_NEXT_EVENT", style: "primary" },
         { text: "🤖 توضیح AI", callback_data: "ECON_EXPLAIN", style: "primary" },
       ],
-      [
-        { text: "🏦 تعطیلات بانکی", callback_data: "ECON_HOLIDAYS", style: "primary" },
-        { text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS", style: "primary" },
-      ],
+      // danger همان قرمز است. مقدار معتبری است - WF-02 روی دکمه‌های
+      // «انصراف» و «لغو فرآیند» از همین استفاده می‌کند.
+      [{ text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS", style: "danger" }],
       // دکمه‌ی بازگشت عمداً بی‌رنگ است تا از کارهای اصلی جدا دیده شود -
       // همان الگویی که نماهای امروز/هفته/تعطیلات دارند.
       [{ text: "⬅️ بازگشت", callback_data: "MENU_MAIN" }],
