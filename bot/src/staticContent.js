@@ -36,11 +36,14 @@ export async function sendAbout(ctx) {
   await ctx.reply(ABOUT_TEXT);
 }
 
+// لینک رفرال واقعی آکادمی. pt=41263 شناسه‌ی معرف است و اگر بیفتد،
+// پورسانت هر ثبت‌نامی که از این مسیر بیاید از دست می‌رود - پس هرگز
+// «تمیزکاری» نشود.
+const BROKER_URL = "https://km.mywmportal.com/?pt=41263";
+
 export async function sendTrustedBroker(ctx) {
-  // TODO: لینک واقعی ثبت‌نام بروکر باید از صاحب آکادمی گرفته شود - این
-  // URL هنوز تایید نشده.
   await ctx.reply(TRUSTED_BROKER_TEXT, {
-    reply_markup: new InlineKeyboard().url("🏦 ثبت‌نام در بروکر معتمد", "https://sobhansamadi.com/broker"),
+    reply_markup: new InlineKeyboard().url("🏦 ثبت‌نام در بروکر معتمد", BROKER_URL),
   });
 }
 

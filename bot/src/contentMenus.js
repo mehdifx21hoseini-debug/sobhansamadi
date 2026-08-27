@@ -1,5 +1,6 @@
 import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
+import { deliverContent } from "./content/deliver.js";
 
 // --- کتابخانه‌ی روانشناسی ---
 
@@ -83,9 +84,26 @@ export async function sendExpert(ctx) {
 }
 
 export async function handleExpertPlatform(ctx, platform) {
+  const name = platform === "MT4" ? "MetaTrader 4" : "MetaTrader 5";
   await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, `EXPERT_${platform}_FILE`);
+
+  // اکسپرت دو تکه دارد: خود فایل و ویدیوی آموزش نصبش. فایل بدون ویدیو
+  // برای کسی که تا حالا اکسپرت نصب نکرده تقریباً بی‌فایده است، پس هر دو
+  // فرستاده می‌شوند.
+  let delivered = 0;
+  try {
+    await ctx.replyWithChatAction("upload_document").catch(() => {});
+    for (const id of [`EXPERT_${platform}_FILE`, `EXPERT_${platform}_VIDEO`]) {
+      delivered += await deliverContent(ctx, id);
+    }
+  } catch (err) {
+    console.error("ارسال اکسپرت شکست خورد:", platform, err && err.message);
+  }
+
   await ctx.editMessageText(
-    `✅ درخواست شما برای اکسپرت هوشمند SsProX نسخه ${platform === "MT4" ? "MetaTrader 4" : "MetaTrader 5"} ثبت شد.\n\nتیم آکادمی به‌زودی فایل و ویدیوی آموزشی رو براتون می‌فرسته. 🙏\n\nاگر پلتفرم دیگری هم نیاز دارید، از دکمه‌های زیر انتخاب کنید:`,
+    delivered > 0
+      ? `✅ اکسپرت هوشمند SsProX نسخه ${name} براتون ارسال شد.\n\nاگر پلتفرم دیگری هم نیاز دارید، از دکمه‌های زیر انتخاب کنید:`
+      : `✅ درخواست شما برای اکسپرت هوشمند SsProX نسخه ${name} ثبت شد.\n\nتیم آکادمی به‌زودی فایل و ویدیوی آموزشی رو براتون می‌فرسته. 🙏\n\nاگر پلتفرم دیگری هم نیاز دارید، از دکمه‌های زیر انتخاب کنید:`,
     { reply_markup: expertKeyboard() }
   );
 }
@@ -203,13 +221,29 @@ const ACK_TEXT = "✅ درخواست شما ثبت شد؛ تیم آکادمی ب
 // می‌شوند تا هر پیام کمتر منتظر رفت‌وبرگشت‌های پشت‌سرهم به تلگرام بماند -
 // روی مقیاس چند هزار کاربر همزمان این تاخیرها جمع می‌شوند.
 export async function handleContentRequest(ctx, contentId) {
+  // callback فوراً پاسخ داده می‌شود تا ساعت شنی روی دکمه گیر نکند؛ ثبت
+  // درخواست هم موازی می‌رود چون هیچ‌کدام به دیگری وابسته نیست.
   await Promise.allSettled([
     logContentRequest(ctx.env, ctx.from.id, ctx.from.username, contentId),
-    ctx.answerCallbackQuery({ text: "✅ درخواست شما ثبت شد", show_alert: false }).catch(() => {}),
+    ctx.answerCallbackQuery().catch(() => {}),
   ]);
 
+  // اگر فایل واقعی در کتابخانه هست، همین حالا می‌رود. پیام «ثبت شد» فقط
+  // برای چیزهایی می‌ماند که هنوز از کانال نیامده‌اند.
+  let delivered = 0;
+  try {
+    await ctx.replyWithChatAction("upload_document").catch(() => {});
+    delivered = await deliverContent(ctx, contentId);
+  } catch (err) {
+    console.error("ارسال محتوا شکست خورد:", contentId, err && err.message);
+  }
+
+  // پیام تایید فقط وقتی معنی دارد که چیزی نرفته باشد؛ بعد از دریافت
+  // خودِ فایل، «درخواست شما ثبت شد» گیج‌کننده است.
+  const ack = delivered > 0 ? "" : ACK_TEXT + "\n\n";
+
   if (contentId === "EMOTIONAL_P04") {
-    await ctx.reply(ACK_TEXT + "\n\n" + EQ_P4_FOLLOWUP_TEXT, {
+    await ctx.reply(ack + EQ_P4_FOLLOWUP_TEXT, {
       reply_markup: new InlineKeyboard().url(
         "🎓 تست هوش هیجانی",
         encodeURI("https://sobhansamadi.com/مجموعه-آموزشی-هوش-هیجانی/")
@@ -219,12 +253,15 @@ export async function handleContentRequest(ctx, contentId) {
   }
 
   if (contentId === "INTRO_P16") {
-    await ctx.reply(ACK_TEXT + "\n\n" + INTRO_P16_FOLLOWUP_TEXT, {
+    await ctx.reply(ack + INTRO_P16_FOLLOWUP_TEXT, {
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard().text("🎓 مجموعه آموزشی پیشرفته", "INTRO_REGISTER_ADVANCED"),
     });
     return;
   }
+
+  // فایل رفت و دنباله‌ای هم ندارد: دیگر چیزی لازم نیست.
+  if (delivered > 0) return;
 
   await ctx.reply(ACK_TEXT);
 }

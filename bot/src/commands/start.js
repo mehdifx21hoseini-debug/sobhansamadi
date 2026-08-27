@@ -1,5 +1,6 @@
 import { mainMenuKeyboard } from "../menu.js";
 import { recordUserSource } from "../db.js";
+import { getContent } from "../content/store.js";
 
 // این متن دقیقاً از پیام خوش‌آمد فعلی بات (اسکرین‌شات تایید شده توسط
 // کاربر) گرفته شده، نه از متن پیش‌فرض workflow n8n - چون تیم آکادمی
@@ -41,10 +42,22 @@ export async function handleStart(ctx) {
     );
   }
 
-  // TODO: ویدیو/عکس معرفی که در نسخه‌ی قبلی بالای همین پیام بود هنوز
-  // اضافه نشده - چون Telegram file_id هر بات مخصوص همون بات است و
-  // نمی‌شود از بات قبلی کپی کرد. باید فایل واقعی از صاحب آکادمی دوباره
-  // به همین بات آپلود شود.
+  // عکس/ویدیوی معرفی، اگر آکادمی آن را با هشتگ #WELCOME_PHOTO در کانال
+  // پست کرده باشد. متن خوش‌آمد بلندتر از سقف کپشن تلگرام است، پس رسانه
+  // جدا می‌رود و متن پشت سرش - نه به‌عنوان کپشن.
+  //
+  // شکستش هرگز نباید جلوی پیام خوش‌آمد را بگیرد: یک عکس نیامده بهتر از
+  // کاربری است که هیچ منویی نمی‌بیند.
+  try {
+    const media = await getContent(ctx.env, "WELCOME_PHOTO");
+    if (media && media.file_id) {
+      if (media.file_type === "video") await ctx.replyWithVideo(media.file_id);
+      else if (media.file_type === "photo") await ctx.replyWithPhoto(media.file_id);
+    }
+  } catch (err) {
+    console.error("ارسال رسانه‌ی خوش‌آمد شکست خورد:", err && err.message);
+  }
+
   await ctx.reply(WELCOME_TEXT, { reply_markup: mainMenuKeyboard() });
 }
 

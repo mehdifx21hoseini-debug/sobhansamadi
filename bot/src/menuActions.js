@@ -1,4 +1,6 @@
 import { logContentRequest } from "./db.js";
+import { listContentByPrefix } from "./content/store.js";
+import { deliverContent } from "./content/deliver.js";
 
 export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/index.js";
 
@@ -21,6 +23,22 @@ const PENDING_SECTIONS = {
 export async function sendPendingSection(ctx, key) {
   const section = PENDING_SECTIONS[key];
   if (!section) return;
+
+  // ویس‌های روانشناسی کد ثابت ندارند؛ هر پست کانال یک مدخل تازه با پیشوند
+  // PSY_VOICE_ می‌سازد. پس اگر چیزی رسیده باشد، همه‌اش فرستاده می‌شود و
+  // این بخش دیگر «در حال آماده‌سازی» نیست.
+  if (key === "PSY_VOICES") {
+    const voices = await listContentByPrefix(ctx.env, "PSY_VOICE_").catch(() => []);
+    if (voices.length > 0) {
+      await ctx.reply(`${section.title}\n\n${voices.length} مورد برای شما ارسال می‌شود 👇`);
+      for (const v of voices) {
+        await deliverContent(ctx, v.content_id).catch((err) =>
+          console.error("ارسال ویس شکست خورد:", v.content_id, err && err.message)
+        );
+      }
+      return;
+    }
+  }
 
   // اگر ثبت درخواست به هر دلیلی شکست بخورد، کاربر نباید پیام خطا ببیند —
   // برای او فرقی ندارد و پیام اصلی باید در هر حالت برسد.

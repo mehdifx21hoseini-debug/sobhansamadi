@@ -30,7 +30,7 @@ const BOT_COMMANDS = [
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public-1";
+const BUILD = "econ+outbox+miniapp+faq+public+content-1";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -169,6 +169,8 @@ async function handleAdmin(request, url, env) {
     CRM_LEAD_INTAKE_URL: !!env.CRM_LEAD_INTAKE_URL,
     CRM_LEAD_INTAKE_KEY: !!env.CRM_LEAD_INTAKE_KEY,
     GEMINI_API_KEY: !!env.GEMINI_API_KEY,
+    CONTENT_CHANNEL_ID: !!env.CONTENT_CHANNEL_ID,
+    CONTENT_CHANNEL_USERNAME: !!env.CONTENT_CHANNEL_USERNAME,
     DB: !!env.DB,
   };
 
@@ -192,6 +194,8 @@ async function handleAdmin(request, url, env) {
       holidays: await count("SELECT COUNT(*) FROM econ_holidays"),
       ai_cache: await count("SELECT COUNT(*) FROM econ_ai_cache"),
       ai_kb: await count("SELECT COUNT(*) FROM ai_kb"),
+      content_files: await count("SELECT COUNT(*) FROM content_library"),
+      content_texts: await count("SELECT COUNT(*) FROM text_content"),
     },
     lead_outbox_pending: await count("SELECT COUNT(*) FROM lead_outbox"),
   });

@@ -7,6 +7,7 @@ import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menu
 import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
 import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
+import { handleChannelPost } from "./content/ingest.js";
 import { startSupport, handleQuestion } from "./support.js";
 import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
@@ -30,6 +31,17 @@ export function createBot(token, env, botInfo) {
   bot.use(async (ctx, next) => {
     ctx.env = env;
     return next();
+  });
+
+  // پست‌های کانال پیش از دروازه‌ی عضویت می‌آیند: آن‌ها کاربر ندارند و
+  // چک عضویت رویشان بی‌معنی است. اینجا هم هیچ پاسخی به کانال فرستاده
+  // نمی‌شود؛ فقط فایل در کتابخانه می‌نشیند.
+  bot.on(["channel_post", "edited_channel_post"], async (ctx) => {
+    try {
+      await handleChannelPost(ctx);
+    } catch (err) {
+      console.error("دریافت پست کانال شکست خورد:", err && err.message);
+    }
   });
 
   bot.use(membershipGate());
