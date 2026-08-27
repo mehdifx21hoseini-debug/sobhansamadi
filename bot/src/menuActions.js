@@ -1,19 +1,9 @@
 import { InlineKeyboard } from "grammy";
+import { logContentRequest } from "./db.js";
 
-const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=26";
-
-const ABOUT_TEXT = [
-  "🏛 درباره آکادمی سبحان صمدی",
-  "",
-  "من سبحان صمدی هستم؛ بیش از ۸ سال به‌صورت تخصصی در بازارهای مالی فعالیت می‌کنم و تنها کسی هستم که در ایران هر روز لایو تریدهای واقعی خودم رو با مخاطبانم به اشتراک می‌ذارم.",
-].join("\n");
-
-// TODO: این پیام موقتی است. باید یا محتوای واقعی (فایل/لینک) این بخش
-// از صاحب آکادمی گرفته شود، یا اگر قرار است پیام کاربر به تیم پشتیبانی
-// فوروارد شود، آن منطق (شبیه admin_reply_forward نسخه‌ی قبلی) ساخته شود.
-function comingSoon(topic) {
-  return `${topic}\n\nاین بخش به‌زودی با محتوای واقعی تکمیل می‌شه. 🙏`;
-}
+// نسخه‌ی این آدرس باید با آخرین تغییر econ-app.html یکی بماند، وگرنه
+// تلگرام نسخه‌ی کش‌شده‌ی قدیمی را باز می‌کند.
+const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=27";
 
 export async function sendEconCalendar(ctx) {
   await ctx.reply("📅 تقویم اقتصادی زنده رو از اینجا باز کن:", {
@@ -21,38 +11,32 @@ export async function sendEconCalendar(ctx) {
   });
 }
 
-export async function sendAbout(ctx) {
-  await ctx.reply(ABOUT_TEXT);
-}
+// بخش‌هایی که هنوز فایل واقعی‌شان از آکادمی گرفته نشده. به‌جای یک پیام
+// بن‌بست، درخواست در جدول content_requests ثبت می‌شود؛ این‌طور آکادمی در
+// CRM می‌بیند چند نفر منتظر کدام بخش‌اند و اولویت تولید محتوا روشن است.
+const PENDING_SECTIONS = {
+  PSY_VOICES: {
+    id: "PSY_VOICES",
+    title: "🎧 ویس‌های روانشناسی",
+    body: "این بخش هنوز در حال آماده‌سازیه.",
+  },
+  LIVE_TRADE: {
+    id: "LIVE_TRADE",
+    title: "📈 ویدیوهای لایو ترید",
+    body: "ویدیوهای لایو معاملات هنوز در حال آماده‌سازیه.",
+  },
+};
 
-export async function sendSupportPlaceholder(ctx) {
-  await ctx.reply("💬 پیامتون رو همین‌جا بنویسید، به‌زودی تیم پشتیبانی جواب می‌ده.");
-}
+export async function sendPendingSection(ctx, key) {
+  const section = PENDING_SECTIONS[key];
+  if (!section) return;
 
-export async function sendLibraryPlaceholder(ctx) {
-  await ctx.reply(comingSoon("🧠 کتاب‌های روانشناسی"));
-}
+  // اگر ثبت درخواست به هر دلیلی شکست بخورد، کاربر نباید پیام خطا ببیند —
+  // برای او فرقی ندارد و پیام اصلی باید در هر حالت برسد.
+  await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, section.id).catch(() => {});
 
-export async function sendFreeCoursesPlaceholder(ctx) {
-  await ctx.reply(comingSoon("🎓 دوره‌های رایگان"));
-}
-
-export async function sendPsyVoicesPlaceholder(ctx) {
-  await ctx.reply(comingSoon("🎧 ویس‌های روانشناسی"));
-}
-
-export async function sendExpertPlaceholder(ctx) {
-  await ctx.reply(comingSoon("🤖 اکسپرت مدیریت سرمایه"));
-}
-
-export async function sendLiveTradePlaceholder(ctx) {
-  await ctx.reply(comingSoon("📈 ویدیوهای لایو ترید"));
-}
-
-export async function sendConsultPlaceholder(ctx) {
-  await ctx.reply(comingSoon("🚀 شرکت در مجموعه آموزشی پیشرفته"));
-}
-
-export async function sendTrustedBrokerPlaceholder(ctx) {
-  await ctx.reply(comingSoon("🏦 بروکر معتمد"));
+  await ctx.reply(
+    `${section.title}\n\n${section.body}\n\n` +
+      "✅ درخواست شما ثبت شد؛ به‌محض آماده شدن، همین‌جا براتون می‌فرستیم. 🙏"
+  );
 }

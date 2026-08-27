@@ -421,9 +421,16 @@
 			transition: background .16s ease, color .16s ease;
 		}
 
+		/* The selected tab is the app's most important state, so it carries
+		   the same accent fill the chips and minute buttons already use —
+		   one selected-language for every control. It previously filled with
+		   var(--bg) against the track's var(--card), which is 1.1:1 contrast
+		   in light and 1.14:1 in dark: the primary control read as unselected
+		   while a secondary filter chip sat at 11:1 beside it. */
 		.seg button[aria-selected="true"] {
-			background: var(--bg);
-			color: var(--text);
+			background: var(--accent);
+			color: var(--accent-text);
+			font-weight: 700;
 		}
 
 		/* ---------- search ---------- */

@@ -3,7 +3,7 @@ import { handleStart } from "./commands/start.js";
 import { MENU_LABELS, mainMenuKeyboard } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
-import { sendEconCalendar } from "./menuActions.js";
+import { sendEconCalendar, sendPendingSection } from "./menuActions.js";
 import { sendAbout, sendTrustedBroker } from "./staticContent.js";
 import { startSupport, handleQuestion } from "./support.js";
 import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
@@ -68,11 +68,11 @@ export function createBot(token, env, botInfo) {
       case MENU_LABELS.FREE_COURSES:
         return sendFreeCoursesMenu(ctx);
       case MENU_LABELS.PSY_VOICES:
-        return ctx.reply("🎧 ویس‌های روانشناسی\n\nاین بخش به‌زودی تکمیل می‌شه. 🙏");
+        return sendPendingSection(ctx, "PSY_VOICES");
       case MENU_LABELS.EXPERT:
         return sendExpert(ctx);
       case MENU_LABELS.LIVE_TRADE:
-        return ctx.reply("📈 ویدیوهای لایو ترید\n\nبه‌زودی ویدیوهای لایو معاملات اینجا اضافه می‌شود. 🎬");
+        return sendPendingSection(ctx, "LIVE_TRADE");
       case MENU_LABELS.CONSULT:
         return startRegistrationFlow(ctx, "consultation");
       case MENU_LABELS.TRUSTED_BROKER:

@@ -43,9 +43,3 @@ export async function sendTrustedBroker(ctx) {
     reply_markup: new InlineKeyboard().url("🏦 ثبت‌نام در بروکر معتمد", "https://sobhansamadi.com/broker"),
   });
 }
-
-export async function sendTeacherChannel(ctx) {
-  await ctx.reply("برای عضویت در کانال استاد سبحان صمدی روی دکمه زیر بزنید:", {
-    reply_markup: new InlineKeyboard().url("📢 ورود به کانال استاد", "https://t.me/sobhanforex"),
-  });
-}
