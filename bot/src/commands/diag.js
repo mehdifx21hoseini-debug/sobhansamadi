@@ -93,8 +93,20 @@ export async function handleDiag(ctx, build) {
         lines.push("وضعیت عضویت بات: خطا — " + (err && err.message));
       }
     } catch (err) {
-      lines.push("❌ کانال پیدا نشد: <code>" + String(err && err.message).slice(0, 140) + "</code>");
-      lines.push("یعنی یا آیدی اشتباه است یا بات اصلاً عضو این کانال نیست.");
+      const msg = String(err && err.message);
+      lines.push("❌ کانال پیدا نشد: <code>" + msg.slice(0, 140) + "</code>");
+      // «chat not found» تقریباً همیشه یک معنی دارد: بات عضو آن کانال
+      // نیست. تلگرام به باتی که در چتی نیست، حتی وجود آن چت را هم نشان
+      // نمی‌دهد - پس این خطا با «آیدی اشتباه» یک شکل است.
+      lines.push("");
+      lines.push("محتمل‌ترین علت: این بات هنوز در آن کانال ادمین نشده.");
+      try {
+        const me = await ctx.api.getMe();
+        lines.push("کانال را باز کنید و <code>@" + me.username + "</code> را ادمین کنید.");
+      } catch {
+        lines.push("کانال را باز کنید و همین بات را ادمین کنید.");
+      }
+      lines.push("بعدش دوباره /diag بزنید.");
     }
   }
 

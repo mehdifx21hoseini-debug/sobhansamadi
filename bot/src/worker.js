@@ -30,7 +30,7 @@ const BOT_COMMANDS = [
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+content-4";
+const BUILD = "econ+outbox+miniapp+faq+public+content-5";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -272,7 +272,21 @@ export default {
           console.error("بررسی allowed_updates شکست خورد:", err && err.message)
         );
       }
-      return webhookCallback(bot, "cloudflare-mod")(request);
+      // تلگرام آپدیت‌ها را برای هر بات پشت‌سرهم می‌فرستد و اگر پاسخ ۲۰۰
+      // نگیرد، همان آپدیت را دوباره و دوباره می‌فرستد. یعنی یک آپدیتِ
+      // مسموم که همیشه خطا می‌دهد، صف را کامل می‌بندد و هیچ پیام دیگری
+      // از هیچ کاربری پردازش نمی‌شود - رباتی که کاملاً مرده به نظر
+      // می‌رسد، به‌خاطر یک پیام.
+      //
+      // پس هر خطای پیش‌بینی‌نشده اینجا گرفته می‌شود و باز ۲۰۰ برمی‌گردد:
+      // آن یک آپدیت از دست می‌رود، ولی بقیه راه می‌افتند. خطا در لاگ
+      // می‌ماند تا علتش پیدا شود.
+      try {
+        return await webhookCallback(bot, "cloudflare-mod")(request);
+      } catch (err) {
+        console.error("پردازش آپدیت شکست خورد:", err && (err.stack || err.message));
+        return new Response("ok", { status: 200 });
+      }
     }
 
     return new Response("not found", { status: 404 });
