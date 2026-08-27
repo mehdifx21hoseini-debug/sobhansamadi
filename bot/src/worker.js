@@ -17,7 +17,7 @@ let cachedBotInfo = null;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq-1";
+const BUILD = "econ+outbox+miniapp+faq-2";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -63,6 +63,51 @@ async function handleAdmin(url, env) {
       return json({ ok: true, build: BUILD, synced: result });
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
+  // آیا فید ForexFactory اصلاً عدد «واقعی» دارد؟
+  //
+  // ستون «واقعی» در جدول تقویم همیشه خالی است. طبق کامنت نود Preserve
+  // Released Actuals، این فید هرگز actual نمی‌آورد و اعداد فقط از وبهوک
+  // econ/actuals می‌آیند - ولی هیچ‌چیز آن وبهوک را صدا نمی‌زند. کدام
+  // درست است، از بیرون قابل حدس نیست و حدس زدنش یعنی ساختن یک
+  // زیرساخت کامل برای مشکلی که شاید وجود نداشته باشد.
+  //
+  // پس به‌جای حدس، از خودِ ورکر می‌پرسیم. فقط می‌خواند و می‌شمارد.
+  if (url.pathname === "/admin/ff-probe") {
+    try {
+      const res = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) return json({ ok: false, error: "فید پاسخ نداد: " + res.status }, 502);
+      const feed = await res.json();
+      const rows = Array.isArray(feed) ? feed : [];
+      const usd = rows.filter((e) => e && (e.country === "USD" || e.country === "All"));
+      const withActual = usd.filter((e) => String(e.actual == null ? "" : e.actual).trim());
+      const past = usd.filter((e) => e.date && new Date(e.date) < new Date());
+
+      return json({
+        ok: true,
+        build: BUILD,
+        total: rows.length,
+        usd_or_global: usd.length,
+        // رویدادهایی که زمانشان گذشته: این‌ها باید actual داشته باشند.
+        // اگر گذشته زیاد باشد و actual صفر، یعنی فید واقعاً نمی‌آورد.
+        already_past: past.length,
+        with_actual: withActual.length,
+        // نام فیلدها را نشان می‌دهد تا اگر actual اسم دیگری دارد لو برود.
+        sample_keys: usd.length ? Object.keys(usd[0]) : [],
+        sample_past: past.slice(0, 5).map((e) => ({
+          date: e.date,
+          title: e.title,
+          forecast: e.forecast,
+          previous: e.previous,
+          actual: e.actual,
+        })),
+      });
+    } catch (err) {
+      return json({ ok: false, error: String(err && err.message) }, 502);
     }
   }
 
@@ -120,7 +165,7 @@ export default {
     // مسیرهای تشخیص. وقتی چیزی کار نمی‌کند، بدون این‌ها باید بین «کد
     // دیپلوی نشده»، «متغیر ست نشده»، «Cron اجرا نمی‌شود» و «n8n جواب
     // نمی‌دهد» حدس زد. این‌ها همان چهار حالت را از هم جدا می‌کنند.
-    if (url.pathname === "/admin/status" || url.pathname === "/admin/sync") {
+    if (url.pathname === "/admin/status" || url.pathname === "/admin/sync" || url.pathname === "/admin/ff-probe") {
       return handleAdmin(url, env);
     }
 
