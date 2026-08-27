@@ -1,4 +1,3 @@
-import { InlineKeyboard } from "grammy";
 import {
   readEvents,
   readLabels,
@@ -41,19 +40,34 @@ export const ECON_MENU_TEXT = [
   "یکی از گزینه‌ها را انتخاب کنید:",
 ].join("\n");
 
+// ایموجی‌ها همان‌هایی است که نود Send Econ Menu (HTTP) داشت - هرکدام به
+// کارِ دکمه‌اش اشاره می‌کند، نه دایره‌ی رنگی بی‌معنی.
+//
+// style همان چیزی است که دکمه را رنگی می‌کند، مثل منوی اصلی. این فیلد در
+// تایپ‌های تلگرام مستند نیست و سازنده‌ی InlineKeyboard در grammy بی‌صدا
+// دورش می‌ریزد؛ به همین دلیل این کیبورد به‌صورت شیء خام نوشته شده. دقیقاً
+// همان اشتباهی که یک‌بار رنگ منوی اصلی را هم پراند.
 export function econMenuKeyboard() {
-  return new InlineKeyboard()
-    .webApp("🟢 تقویم و سشن‌ها", ECON_APP_URL)
-    .row()
-    .text("🔵 اخبار امروز", "ECON_TODAY")
-    .text("🔵 این هفته", "ECON_WEEK")
-    .row()
-    .text("🔵 رویداد بعدی", "ECON_NEXT_EVENT")
-    .text("🔵 توضیح AI", "ECON_EXPLAIN")
-    .row()
-    .text("🔴 تنظیمات هشدار", "ECON_ALERT_SETTINGS")
-    .row()
-    .text("⬅️ بازگشت", "MENU_MAIN");
+  return {
+    inline_keyboard: [
+      [{ text: "📊 نمای تعاملی", web_app: { url: ECON_APP_URL }, style: "success" }],
+      [
+        { text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" },
+        { text: "📆 این هفته", callback_data: "ECON_WEEK", style: "primary" },
+      ],
+      [
+        { text: "⏭ رویداد بعدی", callback_data: "ECON_NEXT_EVENT", style: "primary" },
+        { text: "🤖 توضیح AI", callback_data: "ECON_EXPLAIN", style: "primary" },
+      ],
+      [
+        { text: "🏦 تعطیلات بانکی", callback_data: "ECON_HOLIDAYS", style: "primary" },
+        { text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS", style: "primary" },
+      ],
+      // دکمه‌ی بازگشت عمداً بی‌رنگ است تا از کارهای اصلی جدا دیده شود -
+      // همان الگویی که نماهای امروز/هفته/تعطیلات دارند.
+      [{ text: "⬅️ بازگشت", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 // چیدمان زیر هر نما، عیناً از نودهای Send Today/Week/Holidays View. سبک
@@ -98,10 +112,15 @@ const VIEW_KEYBOARDS = {
   },
 };
 
-const NEXT_EVENT_KEYBOARD = new InlineKeyboard()
-  .text("🔄 بروزرسانی", "ECON_NEXT_EVENT")
-  .row()
-  .text("⬅️ منوی تقویم", "MENU_ECON_CALENDAR");
+const NEXT_EVENT_KEYBOARD = {
+  inline_keyboard: [
+    [
+      { text: "🔄 بروزرسانی", callback_data: "ECON_NEXT_EVENT", style: "primary" },
+      { text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" },
+    ],
+    [{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }],
+  ],
+};
 
 // sendRichMessage یک متد غیرمستند تلگرام است و در تایپ‌های grammy وجود
 // ندارد، پس مثل نسخه‌ی n8n مستقیم صدا زده می‌شود. همین متد است که جدول
@@ -146,7 +165,7 @@ async function emptyMirrorNotice(env) {
 }
 
 function backToEconMenu() {
-  return new InlineKeyboard().text("⬅️ منوی تقویم", "MENU_ECON_CALENDAR");
+  return { inline_keyboard: [[{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }]] };
 }
 
 export async function handleEconCallback(ctx, action) {
@@ -282,10 +301,12 @@ export async function handleEconCallback(ctx, action) {
       buildAlertSettingsText({ subscribed: false, show_low_importance: false, alert_minutes: 15 }) +
         "\n\n⚙️ برای روشن/خاموش کردن هشدار، از داخل تقویم اقدام کنید.",
       {
-        reply_markup: new InlineKeyboard()
-          .webApp("🟢 باز کردن تقویم", ECON_APP_URL)
-          .row()
-          .text("⬅️ منوی تقویم", "MENU_ECON_CALENDAR"),
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "⚙️ باز کردن تنظیمات", web_app: { url: ECON_APP_URL }, style: "success" }],
+            [{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }],
+          ],
+        },
       }
     );
     return true;
