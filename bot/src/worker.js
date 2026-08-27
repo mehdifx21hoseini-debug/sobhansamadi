@@ -1,5 +1,6 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
+import { syncFromN8n } from "./econ/store.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -38,5 +39,17 @@ export default {
     }
 
     return new Response("not found", { status: 404 });
+  },
+
+  // زمان‌بند آینه‌ی تقویم. اگر n8n قطع باشد این اجرا شکست می‌خورد و
+  // آینه‌ی قبلی دست‌نخورده می‌ماند، پس تقویم همچنان جواب می‌دهد - فقط با
+  // داده‌ی اجرای موفق قبلی. خطا را بالا نمی‌دهیم تا یک قطعی موقت n8n به
+  // خطای مکرر در لاگ ورکر تبدیل نشود؛ ثبتش برای تشخیص کافی است.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      syncFromN8n(env)
+        .then((n) => console.log("همگام‌سازی تقویم:", JSON.stringify(n)))
+        .catch((err) => console.error("همگام‌سازی تقویم شکست خورد:", err && err.message))
+    );
   },
 };

@@ -3,7 +3,7 @@ import { handleStart } from "./commands/start.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
-import { sendEconCalendar, sendPendingSection, handleEconAction } from "./menuActions.js";
+import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menuActions.js";
 import { sendAbout, sendTrustedBroker } from "./staticContent.js";
 import { startSupport, handleQuestion } from "./support.js";
 import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
@@ -151,9 +151,9 @@ export function createBot(token, env, botInfo) {
       return;
     }
 
-    // handleEconAction خودش callback را answer می‌کند.
+    // handleEconCallback خودش callback را answer می‌کند.
     if (data.startsWith("ECON_")) {
-      await handleEconAction(ctx, data);
+      await handleEconCallback(ctx, data);
       return;
     }
 
