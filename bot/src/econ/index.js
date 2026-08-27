@@ -233,10 +233,20 @@ export async function handleEconCallback(ctx, action) {
     }
 
     const stamp = row.created_at ? "\n\nℹ️ تهیه‌شده " + relativeTimeFa(row.created_at) : "";
-    await ctx.reply(row.answer + stamp, {
-      parse_mode: "HTML",
-      reply_markup: backToEconMenu(),
-    });
+
+    // متن را مدل می‌سازد و با تگ‌های HTML تلگرام می‌نویسد. اگر مدل یک تگ
+    // خارج از فهرست مجاز یا ناقص تولید کند، تلگرام کل پیام را رد می‌کند و
+    // کاربر هیچ چیز نمی‌بیند. در آن حالت همان متن بدون parse_mode فرستاده
+    // می‌شود: تگ‌ها خام دیده می‌شوند ولی تحلیل از دست نمی‌رود.
+    try {
+      await ctx.reply(row.answer + stamp, {
+        parse_mode: "HTML",
+        reply_markup: backToEconMenu(),
+      });
+    } catch (err) {
+      console.error("ارسال HTML شکست خورد، متن ساده فرستاده شد:", err && err.message);
+      await ctx.reply(row.answer + stamp, { reply_markup: backToEconMenu() });
+    }
     return true;
   }
 
