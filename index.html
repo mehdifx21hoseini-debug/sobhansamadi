@@ -12,6 +12,8 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
 	<link rel="stylesheet" href="assets/app.css?v=29">
+	<link rel="stylesheet" href="assets/skin-ember.css?v=1">
+	<script>(function(){try{if(localStorage.getItem("crmSkin")==="ember")document.documentElement.setAttribute("data-skin","ember");}catch(e){}})();</script>
 </head>
 
 <body>
@@ -43,6 +45,7 @@
 								<button class="dropdown-item" type="button" id="btnToggleTheme"><i id="themeToggleIcon"
 										class="fas fa-moon fa-sm c-main mr-2"></i><span
 										id="themeToggleLabel">حالت تاریک</span></button>
+								<button class="dropdown-item" type="button" id="btnToggleSkin"><i id="skinToggleIcon" class="fas fa-fire fa-sm c-main mr-2"></i><span id="skinToggleLabel">طرح نارنجی</span></button>
 								<div class="dropdown-divider"></div>
 								<button class="dropdown-item" type="button" id="btnLogout"><i
 										class="fas fa-sign-out-alt fa-sm c-main mr-2"></i>خروج</button>
@@ -303,6 +306,7 @@
 	</div>
 
 	<script src="js/theme.js?v=2"></script>
+	<script src="js/skin.js?v=1"></script>
 	<script src="js/data.js?v=12"></script>
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
