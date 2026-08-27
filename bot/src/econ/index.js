@@ -6,6 +6,8 @@ import {
   readAiAnswer,
   readSyncState,
   todayCacheKey,
+  askExplain,
+  EXPLAIN_QUESTION,
 } from "./store.js";
 import {
   buildTodayMarkdown,
@@ -13,6 +15,7 @@ import {
   buildHolidaysMarkdown,
   buildNextEventText,
   buildAlertSettingsText,
+  buildExplainContext,
 } from "./views.js";
 import { relativeTimeFa } from "./format.js";
 
@@ -194,20 +197,46 @@ export async function handleEconCallback(ctx, action) {
   }
 
   if (action === "ECON_EXPLAIN") {
-    // تحلیل را ایجنت هوش مصنوعی در n8n می‌سازد و در econ_ai_cache
-    // می‌نویسد؛ ورکر فقط همان پاسخ آماده را از آینه می‌خواند. تولیدش
-    // اینجا انجام نمی‌شود چون کلید و ایجنت آنجاست.
-    const row = await readAiAnswer(ctx.env, todayCacheKey());
+    // این تنها دکمه‌ای است که همچنان به n8n می‌زند، چون ایجنت و کلید
+    // Gemini آنجاست. تحلیل مثل قبل «درجا» ساخته می‌شود، نه از یک آینه‌ی
+    // خوانده‌شده - وگرنه روزهایی که کسی دکمه را نزده باشد پاسخی وجود
+    // ندارد و دکمه عملاً مرده است.
+    const cacheKey = todayCacheKey();
+    const events = await readEvents(ctx.env);
+    const context = buildExplainContext(events);
+
+    // ساختن پاسخ چند ثانیه طول می‌کشد؛ بدون این نشانه کاربر فکر می‌کند
+    // دکمه کار نکرده و دوباره می‌زند.
+    await ctx.replyWithChatAction("typing").catch(() => {});
+
+    let row = null;
+    try {
+      row = await askExplain(ctx.env, {
+        cacheKey,
+        question: EXPLAIN_QUESTION,
+        context,
+      });
+    } catch (err) {
+      console.error("تحلیل هوش مصنوعی شکست خورد:", err && err.message);
+    }
+
+    // اگر n8n قطع بود، آخرین پاسخی که در آینه نشسته بهتر از هیچ است -
+    // با برچسب زمان، تا کاربر بداند تازه نیست.
+    if (!row) row = await readAiAnswer(ctx.env, cacheKey);
+
     if (!row || !row.answer) {
       await ctx.reply(
-        "🤖 تحلیل امروز هنوز آماده نشده است.\n\nتحلیل هر روز پس از انتشار اخبار ساخته می‌شود؛ کمی بعد دوباره امتحان کنید.",
+        "🤖 تحلیل امروز در دسترس نیست.\n\nسرویس تحلیل موقتاً پاسخ نمی‌دهد؛ کمی بعد دوباره امتحان کنید.",
         { reply_markup: backToEconMenu() }
       );
       return true;
     }
 
     const stamp = row.created_at ? "\n\nℹ️ تهیه‌شده " + relativeTimeFa(row.created_at) : "";
-    await ctx.reply(row.answer + stamp, { reply_markup: backToEconMenu() });
+    await ctx.reply(row.answer + stamp, {
+      parse_mode: "HTML",
+      reply_markup: backToEconMenu(),
+    });
     return true;
   }
 

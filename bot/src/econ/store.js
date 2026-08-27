@@ -260,3 +260,35 @@ export async function syncFromN8n(env) {
     ai_cache: cacheCount,
   };
 }
+
+// تحلیل هوش مصنوعی تنها چیزی است که در n8n می‌ماند - همان‌طور که قرار
+// بود. ورکر زمینه را از آینه‌ی خودش می‌سازد و می‌فرستد؛ n8n یا پاسخ تازه‌ی
+// کش (۱۵ دقیقه) را برمی‌گرداند یا از Gemini یکی می‌گیرد و کش می‌کند.
+//
+// چرا ورکر زمینه را می‌سازد و n8n نه: تبدیل جلالی و ساعت تهران همین حالا
+// اینجا هست. اگر n8n هم نسخه‌ی خودش را نگه می‌داشت، دو پیاده‌سازی داشتیم
+// که با هم از هم دور می‌افتادند.
+export async function askExplain(env, { cacheKey, question, context }) {
+  if (!env.ECON_EXPLAIN_URL || !env.ECON_EXPORT_KEY) return null;
+
+  const res = await fetch(env.ECON_EXPLAIN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      key: env.ECON_EXPORT_KEY,
+      cache_key: cacheKey,
+      question,
+      context,
+    }),
+  });
+
+  if (!res.ok) throw new Error("پاسخ ناموفق از n8n: " + res.status);
+
+  const data = await res.json();
+  if (!data || data.success !== true || !data.answer) {
+    throw new Error("پاسخ نامعتبر از n8n: " + (data && data.error ? data.error : "نامشخص"));
+  }
+  return { answer: data.answer, created_at: data.created_at || null };
+}
+
+export const EXPLAIN_QUESTION = DEFAULT_QUESTION;

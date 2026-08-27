@@ -332,3 +332,27 @@ export function buildHolidaysMarkdown(holidays) {
   markdown += "\n⚠️ تعطیلی بانکی به معنای تعطیلی کامل بازار فارکس نیست.";
   return markdown.trim();
 }
+
+// زمینه‌ای که به ایجنت هوش مصنوعی داده می‌شود. عیناً از نود
+// Build Explain Prompt. برخلاف نماهای بالا اینجا رویدادهای کم‌اهمیت هم
+// می‌آیند - ایجنت باید کل تصویر روز را ببیند، نه فقط تیترها.
+export function buildExplainContext(events) {
+  const today = new Date().toISOString().slice(0, 10);
+  const todays = (events || []).filter((e) => e.date === today);
+
+  return (
+    "امروز: " + formatJalaliDate(today) + "\n" +
+    (todays.length === 0
+      ? "امروز رویداد مهم اقتصادی ثبت‌شده‌ای برای دلار در منبع داده وجود ندارد."
+      : todays
+          .map(
+            (e) =>
+              "- " + e.event_fa +
+              (e.time ? " | ساعت " + etTimeToTehran(e.date, e.time) + " (به‌وقت تهران)" : "") +
+              (e.actual ? " | Actual: " + e.actual : "") +
+              (e.previous ? " | Previous: " + e.previous : "") +
+              " | منبع: " + e.source
+          )
+          .join("\n"))
+  );
+}
