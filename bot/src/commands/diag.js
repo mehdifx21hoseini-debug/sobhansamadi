@@ -14,7 +14,22 @@ function yes(v) {
 }
 
 export async function handleDiag(ctx, build) {
-  if (String(ctx.from.id) !== OWNER_ID) return;
+  // برای غیرمدیر، گزارش فرستاده نمی‌شود - ولی سکوت هم نه: آیدی خودش را
+  // می‌گیرد. بدون این، کسی که نمی‌داند با کدام حساب باید پیام بدهد هیچ
+  // راهی برای فهمیدنش ندارد جز فرستادن پیام به یک ربات ناشناس.
+  // آیدی خودِ فرد برای خودش راز نیست.
+  if (String(ctx.from.id) !== OWNER_ID) {
+    await ctx.reply(
+      [
+        "این دستور فقط برای مدیر است.",
+        "",
+        "آیدی عددی شما: <code>" + ctx.from.id + "</code>",
+        "آیدی مدیر تنظیم‌شده: <code>" + OWNER_ID + "</code>",
+      ].join("\n"),
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
 
   const env = ctx.env;
   const lines = ["🔧 <b>وضعیت ربات</b>", ""];
