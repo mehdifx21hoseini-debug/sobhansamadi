@@ -7,6 +7,8 @@
 // همیشه از D1 خوانده می‌شود، پس قطعی n8n تقویم را از کار نمی‌اندازد -
 // فقط داده کمی کهنه می‌شود.
 
+import { ensureKbSchema, replaceKb } from "../ai/kb.js";
+
 const SYNC_STATE_KEY = "econ_last_sync";
 
 // جدول‌ها را خودِ همگام‌سازی می‌سازد تا راه‌اندازی به یک مسیر موقت
@@ -249,11 +251,18 @@ export async function syncFromN8n(env) {
   // نشده‌اند همین‌جا ساخته می‌شوند. اگر قبل از fetch صدا زده می‌شد، یک n8n
   // قطع باعث می‌شد هر ده دقیقه بیهوده DDL اجرا شود.
   await ensureSchema(env);
+  await ensureKbSchema(env);
 
   const eventCount = await replaceEvents(env, data.events);
   const labelCount = await replaceLabels(env, data.labels);
   const holidayCount = await replaceHolidays(env, data.holidays);
   const cacheCount = await replaceAiCache(env, data.ai_cache);
+
+  // پایگاه دانش دستیار پشتیبانی هم از همین مسیر می‌آید. تا وقتی اندپوینت
+  // export آن را نفرستد، این آرایه خالی است و جدول دست‌نخورده می‌ماند -
+  // یعنی افزودنش به خروجی n8n کافی است تا خودبه‌خود شروع به کار کند.
+  const kbCount = Array.isArray(data.kb) ? await replaceKb(env, data.kb) : null;
+
   await markSynced(env, new Date().toISOString());
 
   return {
@@ -261,6 +270,7 @@ export async function syncFromN8n(env) {
     labels: labelCount,
     holidays: holidayCount,
     ai_cache: cacheCount,
+    kb: kbCount,
   };
 }
 

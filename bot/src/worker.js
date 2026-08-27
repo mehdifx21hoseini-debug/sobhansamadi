@@ -17,7 +17,7 @@ let cachedBotInfo = null;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp-1";
+const BUILD = "econ+outbox+miniapp+faq-1";
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body, null, 2), {
@@ -74,6 +74,7 @@ async function handleAdmin(url, env) {
     ECON_EXPORT_KEY: !!env.ECON_EXPORT_KEY,
     CRM_LEAD_INTAKE_URL: !!env.CRM_LEAD_INTAKE_URL,
     CRM_LEAD_INTAKE_KEY: !!env.CRM_LEAD_INTAKE_KEY,
+    GEMINI_API_KEY: !!env.GEMINI_API_KEY,
     DB: !!env.DB,
   };
 
@@ -96,6 +97,7 @@ async function handleAdmin(url, env) {
       labels: await count("SELECT COUNT(*) FROM econ_labels"),
       holidays: await count("SELECT COUNT(*) FROM econ_holidays"),
       ai_cache: await count("SELECT COUNT(*) FROM econ_ai_cache"),
+      ai_kb: await count("SELECT COUNT(*) FROM ai_kb"),
     },
     lead_outbox_pending: await count("SELECT COUNT(*) FROM lead_outbox"),
   });
