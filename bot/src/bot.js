@@ -5,6 +5,7 @@ import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
 import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menuActions.js";
 import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
+import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { startSupport, handleQuestion } from "./support.js";
 import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
@@ -59,6 +60,17 @@ export function createBot(token, env, botInfo) {
     switch (action) {
       case "ECON_CALENDAR":
         return sendEconCalendar(ctx);
+
+      // سه دسته‌ی سطح دوم.
+      case "LEARN":
+        return sendLearnMenu(ctx);
+      case "TOOLS":
+        return sendToolsMenu(ctx);
+      case "ABOUT_US":
+        return sendAboutUsMenu(ctx);
+
+      // از اینجا به پایین، کنش‌هایی که دیگر دکمه‌ی سطح اول ندارند ولی چون
+      // کیبورد تلگرام سمت کاربر کش می‌شود هنوز از راه متن می‌رسند.
       case "ABOUT":
         return sendAbout(ctx);
       case "CONTACT":
@@ -145,6 +157,32 @@ export function createBot(token, env, botInfo) {
     if (data === "MENU_FREE_EQ") {
       await ctx.answerCallbackQuery();
       await sendFreeEq(ctx);
+      return;
+    }
+
+    // زیرمنوهای سطح دوم (آموزش‌ها / ابزارها / درباره ما). همان توابعی که
+    // قبلاً دکمه‌ی مستقیم داشتند، حالا از این مسیر صدا زده می‌شوند.
+    const SECTIONS = {
+      SEC_FREE_COURSES: sendFreeCoursesMenu,
+      SEC_LIBRARY: sendLibrary,
+      SEC_PSY_VOICES: (c) => sendPendingSection(c, "PSY_VOICES"),
+      SEC_LIVE_TRADE: (c) => sendPendingSection(c, "LIVE_TRADE"),
+      SEC_EXPERT: sendExpert,
+      SEC_BROKER: sendTrustedBroker,
+      SEC_ABOUT: sendAbout,
+      SEC_CONTACT: sendContact,
+    };
+    if (SECTIONS[data]) {
+      await ctx.answerCallbackQuery();
+      // مثل تقویم: اگر چیزی خطا داد کاربر نباید فقط سکوت ببیند.
+      try {
+        await SECTIONS[data](ctx);
+      } catch (err) {
+        console.error("خطای زیرمنو:", data, err && err.message);
+        await ctx
+          .reply("⚠️ در نمایش این بخش مشکلی پیش آمد. لطفاً دوباره امتحان کنید.")
+          .catch(() => {});
+      }
       return;
     }
 

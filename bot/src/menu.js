@@ -7,19 +7,15 @@
 // نسخه‌ی قبلی هم دقیقاً به همین دلیل به‌جای نود تلگرام از httpRequest
 // استفاده می‌کرد.
 export const MENU_LABELS = {
-  LIBRARY: "🧠 کتاب‌های روانشناسی",
-  FREE_COURSES: "🎓 دوره‌های رایگان",
-  PSY_VOICES: "🎧 ویس‌های روانشناسی",
-  EXPERT: "🤖 اکسپرت مدیریت سرمایه",
-  // این سه دکمه در نسخه‌ی واقعی هیچ ایموجی یونیکدی در متنشان ندارند؛
-  // آیکون‌شان از ایموجی پرمیوم می‌آید.
+  // این دو دکمه هیچ ایموجی یونیکدی در متنشان ندارند؛ آیکون‌شان از ایموجی
+  // پرمیوم می‌آید.
   ECON_CALENDAR: "تقویم اقتصادی",
-  LIVE_TRADE: "ویدیوهای لایو ترید",
   CONSULT: "شرکت در مجموعه آموزشی پیشرفته",
-  TRUSTED_BROKER: "🏦 بروکر معتمد",
+
+  LEARN: "🎓 آموزش‌ها",
+  TOOLS: "🧰 ابزارها",
   SUPPORT: "💬 پشتیبانی",
-  ABOUT: "🏛 درباره آکادمی",
-  CONTACT: "📞 تماس با ما",
+  ABOUT_US: "ℹ️ درباره ما",
 };
 
 // آیدی ایموجی‌های پرمیوم، از همان نود Send Main Menu.
@@ -35,18 +31,22 @@ function btn(text, style, iconId) {
   return b;
 }
 
+// سطح اول فقط سه چیز را نگه می‌دارد: چیزی که روزانه استفاده می‌شود
+// (تقویم)، چیزی که درآمد می‌سازد (ثبت‌نام)، و چیزی که فوری است
+// (پشتیبانی). بقیه پشت سه دسته رفتند. نتیجه: ۱۱ دکمه در ۶ ردیف شد ۶ دکمه
+// در ۴ ردیف، و چون کیبورد ریپلای همیشه روی صفحه است، همین یعنی دو ردیف
+// بیشتر از چت دیده می‌شود.
 export function mainMenuKeyboard() {
   return {
     keyboard: [
-      [btn(MENU_LABELS.LIBRARY, "primary"), btn(MENU_LABELS.FREE_COURSES, "primary")],
-      [btn(MENU_LABELS.PSY_VOICES, "primary"), btn(MENU_LABELS.EXPERT, "primary")],
       [
         btn(MENU_LABELS.ECON_CALENDAR, "primary", ICON.ECON_CALENDAR),
-        btn(MENU_LABELS.LIVE_TRADE, "primary", ICON.LIVE_TRADE),
+        btn(MENU_LABELS.LEARN, "primary"),
       ],
+      [btn(MENU_LABELS.TOOLS, "primary"), btn(MENU_LABELS.SUPPORT, "primary")],
+      // تنها دکمه‌ای که مستقیم درآمد می‌سازد: تنها، تمام‌عرض و سبز.
       [btn(MENU_LABELS.CONSULT, "success", ICON.CONSULT)],
-      [btn(MENU_LABELS.TRUSTED_BROKER, "primary"), btn(MENU_LABELS.SUPPORT, "primary")],
-      [btn(MENU_LABELS.ABOUT, "primary"), btn(MENU_LABELS.CONTACT, "primary")],
+      [btn(MENU_LABELS.ABOUT_US, "primary")],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -59,12 +59,21 @@ export function mainMenuKeyboard() {
 // بی‌جواب می‌ماند.
 const LEGACY_LABELS = {
   "📅 تقویم اقتصادی": "ECON_CALENDAR",
-  "📈 ویدیوهای لایو ترید": "LIVE_TRADE",
   "🚀 شرکت در مجموعه آموزشی پیشرفته": "CONSULT",
-  // نسخه‌ی 💜 که چند دقیقه روی هوا بود. کیبورد تلگرام سمت کاربر کش می‌شود،
-  // پس هرکس در همان بازه /start زده باشد هنوز همین را می‌فرستد و بدون این
-  // ردیف دکمه‌اش بی‌جواب می‌ماند.
+
+  // دکمه‌هایی که از سطح اول به زیرمنوها رفتند. کیبورد تلگرام سمت کاربر کش
+  // می‌شود، پس تا وقتی همه یک‌بار /start نزده‌اند این متن‌ها هنوز فرستاده
+  // می‌شوند و باید مثل قبل کار کنند - وگرنه ضربه‌شان بی‌جواب می‌ماند.
+  "🧠 کتاب‌های روانشناسی": "LIBRARY",
+  "🎓 دوره‌های رایگان": "FREE_COURSES",
+  "🎧 ویس‌های روانشناسی": "PSY_VOICES",
+  "🤖 اکسپرت مدیریت سرمایه": "EXPERT",
+  "ویدیوهای لایو ترید": "LIVE_TRADE",
+  "📈 ویدیوهای لایو ترید": "LIVE_TRADE",
+  "🏦 بروکر معتمد": "TRUSTED_BROKER",
+  "🏛 درباره آکادمی": "ABOUT",
   "💜 درباره آکادمی": "ABOUT",
+  "📞 تماس با ما": "CONTACT",
 };
 
 // تنها جایی که متن ورودی به کنش منو نگاشته می‌شود. هم متن فعلی و هم
