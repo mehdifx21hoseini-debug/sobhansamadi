@@ -12,7 +12,7 @@
 // ممکن بود چون یک ضربه‌ی بعدی واقعاً لغو اشتراکش می‌کرد.
 
 import { readEvents, readLabels, readHolidays, readAiAnswer, todayCacheKey } from "./store.js";
-import { makeLabelHelpers } from "./labels.js";
+import { makeLabelHelpers, numOf } from "./labels.js";
 import { etTimeToTehran, etInstantIso } from "./format.js";
 
 // مینی‌اپ از GitHub Pages سرو می‌شود، پس مبدأ درخواست با مبدأ ورکر یکی
@@ -108,8 +108,17 @@ export async function verifyInitData(initData, botToken) {
 
 // ---------- داده ----------
 
-// شکل خروجی عیناً همان چیزی است که econ-app.html انتظار دارد. اگر اینجا
-// نامی عوض شود صفحه بی‌صدا خالی می‌ماند، پس هیچ‌کدام «مرتب‌سازی» نشده‌اند.
+// شبکه‌ی ماهانه باید یک ماه کامل شمسی را بپوشاند، هر جای ماه که کاربر
+// باشد؛ ۷ روز برای آن کم است. همان عددی که نود Build MiniApp Data داشت.
+const HORIZON_DAYS = 45;
+
+// تعداد انتشارهای قبلی که برای نمودار کوچک هر شاخص فرستاده می‌شود.
+const HISTORY_LIMIT = 5;
+
+// شکل خروجی عیناً همان چیزی است که نود Build MiniApp Data در n8n
+// می‌ساخت و econ-app.html انتظار دارد. اگر نامی اینجا عوض شود صفحه بی‌صدا
+// ناقص می‌ماند - نه خطا می‌دهد، نه خالی می‌شود - پس هیچ فیلدی «مرتب‌سازی»
+// نشده است.
 export async function buildMiniappPayload(env, user) {
   const [rows, labels, holidays] = await Promise.all([
     readEvents(env),
@@ -117,42 +126,85 @@ export async function buildMiniappPayload(env, user) {
     readHolidays(env),
   ]);
 
-  const { enShort, enFull, faName } = makeLabelHelpers(labels);
+  const { labelFor, enShort, enFull, faName } = makeLabelHelpers(labels);
   const today = new Date().toISOString().slice(0, 10);
+  const horizonEnd = new Date(Date.now() + HORIZON_DAYS * 86400000).toISOString().slice(0, 10);
 
-  // فقط از امروز به بعد. صفحه هرگز گذشته را نشان نمی‌دهد و در عوض
-  // events[0] را «رویداد بعدی» فرض می‌کند - با ردیف‌های گذشته در آرایه،
-  // آن فرض می‌شکست.
+  // انتشارهای گذشته، گروه‌بندی‌شده بر اساس نام رویداد. event_id تاریخ را
+  // در خود دارد پس هر ماه عوض می‌شود؛ چیزی که ثابت می‌ماند نام است. یک‌بار
+  // اینجا ساخته می‌شود و نه به‌ازای هر رویداد، از ردیف‌هایی که همین حالا در
+  // حافظه‌اند - پس هیچ کوئری اضافه‌ای ندارد.
+  const releasedByName = new Map();
+  for (const e of rows) {
+    if (!e || e.status !== "released" || !e.actual || !e.event) continue;
+    const key = String(e.event);
+    if (!releasedByName.has(key)) releasedByName.set(key, []);
+    releasedByName.get(key).push(e);
+  }
+  for (const list of releasedByName.values()) {
+    list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  }
+
+  function historyFor(e) {
+    const past = releasedByName.get(String(e.event)) || [];
+    return past.slice(0, HISTORY_LIMIT).map((h) => {
+      const a = numOf(h.actual);
+      const f = numOf(h.forecast);
+      let beat = 0;
+      if (a !== null && f !== null) beat = a > f ? 1 : a < f ? -1 : 0;
+      return { date: h.date, actual: h.actual, forecast: h.forecast || "", value: a, beat };
+    });
+  }
+
+  // فقط از امروز تا افق. صفحه گذشته را نشان نمی‌دهد و در عوض events[0] را
+  // «رویداد بعدی» فرض می‌کند - با ردیف‌های گذشته در آرایه آن فرض می‌شکست.
   const events = rows
-    .filter((e) => e && e.date && e.date >= today)
-    .sort((a, b) => (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99")))
-    .map((e) => ({
-      event_id: e.event_id,
-      date: e.date,
-      time_tehran: e.time ? etTimeToTehran(e.date, e.time) : "",
-      at: etInstantIso(e.date, e.time),
-      title: faName(e),
-      en: enFull(e) || e.event || "",
-      short: enShort(e),
-      importance: e.importance || "low",
-      forecast: e.forecast || "",
-      previous: e.previous || "",
-      actual: e.actual || "",
-      source: e.source || "",
-    }));
+    .filter((e) => e && e.date && e.date >= today && e.date <= horizonEnd)
+    .map((e) => {
+      const hit = labelFor(e);
+      const a = numOf(e.actual);
+      const f = numOf(e.forecast);
+      // «برای دلار چه معنایی دارد» فقط وقتی گفته می‌شود که برچسب جهت
+      // داشته باشد و عدد منتشرشده واقعاً با پیش‌بینی فرق کند.
+      let read = null;
+      if (hit && hit.direction && a !== null && f !== null && a !== f) {
+        const higher = a > f;
+        read = { higher, good: hit.direction === "inverse" ? !higher : higher };
+      }
+      return {
+        event_id: e.event_id,
+        date: e.date,
+        time_tehran: e.time ? etTimeToTehran(e.date, e.time, "+1") : "",
+        at: etInstantIso(e.date, e.time),
+        // عنوان ردیف در صفحه نام انگلیسی اصلی است و برچسب فارسی با باز
+        // کردن ردیف دیده می‌شود، پس هر دو باید بروند.
+        en: enFull(e) || e.event || "",
+        short: enShort(e),
+        title: faName(e),
+        importance: e.importance || "low",
+        forecast: e.forecast || "",
+        previous: e.previous || "",
+        actual: e.actual || "",
+        status: e.status || "",
+        source: e.source || "",
+        read,
+        history: historyFor(e),
+      };
+    })
+    .sort((x, y) =>
+      (x.date + (x.time_tehran || "99:99")).localeCompare(y.date + (y.time_tehran || "99:99"))
+    );
 
   return {
     success: true,
+    user: user ? { first_name: user.first_name || "", username: user.username || "" } : null,
     today,
-    // شبکه‌ی ماهانه هرچه را که واقعاً در آینه هست نشان می‌دهد، نه یک عدد
-    // ثابت که با تغییر افق n8n از واقعیت جدا بیفتد.
-    horizon_end: events.length ? events[events.length - 1].date : today,
+    horizon_end: horizonEnd,
+    server_now: new Date().toISOString(),
     events,
-    holidays: (holidays || []).map((h) => ({
-      date: h.date,
-      name: h.name_fa || h.name || "",
-    })),
-    user: user ? { first_name: user.first_name || "" } : null,
+    holidays: (holidays || [])
+      .filter((h) => h && h.date >= today && h.date <= horizonEnd)
+      .map((h) => ({ date: h.date, name: h.name_fa || h.name || "" })),
   };
 }
 

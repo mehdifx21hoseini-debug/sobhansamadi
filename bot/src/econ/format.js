@@ -30,7 +30,11 @@ export function isDstUS(dateStr) {
   return d >= marchSecondSunday && d < novFirstSunday;
 }
 
-export function etTimeToTehran(dateStr, timeStr) {
+// `nextDaySuffix` جدا شده چون دو مصرف‌کننده دو نشانه‌ی متفاوت می‌خواهند:
+// پیام تلگرام «(+۱ روز)» فارسی و خوانا می‌نویسد، ولی مینی‌اپ در یک سلول
+// باریک کنار ساعت «+1» می‌گذارد - همان چیزی که نود Build MiniApp Data در
+// n8n می‌فرستاد. محاسبه یکی است تا دو ساعت متفاوت از یک رویداد ساخته نشود.
+export function etTimeToTehran(dateStr, timeStr, nextDaySuffix = " (+۱ روز)") {
   if (!timeStr) return "";
   const parts = String(timeStr).split(":").map(Number);
   const hh = parts[0], mm = parts[1];
@@ -40,7 +44,7 @@ export function etTimeToTehran(dateStr, timeStr) {
   while (totalMin >= 24 * 60) { totalMin -= 24 * 60; dayShift++; }
   const h2 = Math.floor(totalMin / 60);
   const m2 = totalMin % 60;
-  return String(h2).padStart(2, "0") + ":" + String(m2).padStart(2, "0") + (dayShift > 0 ? " (+۱ روز)" : "");
+  return String(h2).padStart(2, "0") + ":" + String(m2).padStart(2, "0") + (dayShift > 0 ? nextDaySuffix : "");
 }
 
 export function etMinutesUntilNow(dateStr, timeStr) {

@@ -3,6 +3,13 @@
 // می‌شوند: نام‌ها خام و طولانی می‌مانند و «خوانش برای دلار» اصلاً ساخته
 // نمی‌شود. عیناً از نودهای Build Today Text / Build Week Text.
 
+// اولین عدد داخل یک مقدار منتشرشده را بیرون می‌کشد. «۲۲۵K»، «0.3%» و
+// «1,250» همه عدد دارند ولی هیچ‌کدام Number() را راضی نمی‌کنند.
+export function numOf(v) {
+  const m = String(v == null ? "" : v).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  return m ? parseFloat(m[0]) : null;
+}
+
 export function makeLabelHelpers(labels) {
   const EVENT_LABELS = (labels || [])
     .filter((r) => r && r.active !== false && r.match_text)
@@ -62,11 +69,6 @@ export function makeLabelHelpers(labels) {
     const hit = labelFor(e);
     if (hit && hit.label_fa) return hit.label_fa;
     return String(e.event_fa || e.event || "").split(" - ")[0].trim();
-  }
-
-  function numOf(v) {
-    const m = String(v == null ? "" : v).replace(/,/g, "").match(/-?\d+(\.\d+)?/);
-    return m ? parseFloat(m[0]) : null;
   }
 
   // عدد منتشرشده را با پیش‌بینی می‌سنجد و می‌گوید معمولاً برای دلار چه
