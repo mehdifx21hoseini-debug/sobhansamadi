@@ -17,6 +17,7 @@ import {
   deactivateTextContent,
 } from "./store.js";
 import { readContentChannel, writeContentChannel } from "./channel.js";
+import { OWNER_ID } from "../owner.js";
 
 const FIXED_CONTENT_CODES = [
   "INTRO_P01","INTRO_P02","INTRO_P03","INTRO_P04_LINK","INTRO_P05","INTRO_P06","INTRO_P07",
@@ -322,8 +323,6 @@ export async function handleChannelPost(ctx) {
     })
     .catch(() => {});
 }
-
-const OWNER_ID = "6923823275";
 
 async function notifyOwner(ctx, text) {
   await ctx.api

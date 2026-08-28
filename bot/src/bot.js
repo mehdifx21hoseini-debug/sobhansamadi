@@ -8,6 +8,11 @@ import {
   sendEconCalendar,
   sendPendingSection,
   handleSectionListPage,
+  confirmContentDelete,
+  applyContentDelete,
+  startContentRename,
+  cancelContentRename,
+  handleContentRenameText,
   handleEconCallback,
 } from "./menuActions.js";
 import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
@@ -77,6 +82,12 @@ export function createBot(token, env, botInfo, build = "?") {
       }
       if (state.current_flow === "faq" && state.current_step === "ask_question") {
         await handleQuestion(ctx);
+        return;
+      }
+
+      // مدیر عنوان تازه‌ی یک ویس/ویدیو را می‌نویسد.
+      if (state.current_flow === "content_rename" && state.current_step === "ask_title") {
+        await handleContentRenameText(ctx, state);
         return;
       }
 
@@ -228,6 +239,31 @@ export function createBot(token, env, botInfo, build = "?") {
     // ساعت شنی را برمی‌دارند و کار دیگری نمی‌کنند.
     if (data === "NOOP") {
       await ctx.answerCallbackQuery();
+      return;
+    }
+
+    // کنترل‌های مدیر روی فهرست محتوا. هر کدام خودشان مدیر بودن را چک
+    // می‌کنند، پس رسیدنِ این callback از یک پیام فورواردشده بی‌خطر است.
+    if (data.startsWith("RENAME|")) {
+      const [, id, page] = data.split("|");
+      await startContentRename(ctx, id, page);
+      return;
+    }
+
+    if (data === "RENAME_CANCEL") {
+      await cancelContentRename(ctx);
+      return;
+    }
+
+    if (data.startsWith("DEL|")) {
+      const [, id, page] = data.split("|");
+      await confirmContentDelete(ctx, id, page);
+      return;
+    }
+
+    if (data.startsWith("DELOK|")) {
+      const [, id, page] = data.split("|");
+      await applyContentDelete(ctx, id, page);
       return;
     }
 

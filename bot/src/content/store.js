@@ -120,6 +120,29 @@ export async function listContentByPrefix(env, prefix) {
   }
 }
 
+// عنوان یک مدخل را عوض می‌کند بدون اینکه به فایلش دست بزند.
+//
+// همان عنوان هم روی دکمه‌ی فهرست می‌نشیند (خط اولش) و هم به‌عنوان کپشن
+// کنار خود فایل می‌رود، پس یک ویرایش هر دو را درست می‌کند.
+export async function updateContentTitle(env, contentId, title) {
+  try {
+    const res = await env.DB
+      // updated_at عمداً دست‌نخورده می‌ماند: ترتیب فهرست روی همین ستون
+      // است و اصلاح یک غلط املایی نباید یک ویس دوساله را ببرد بالای
+      // فهرست به‌عنوان «تازه‌ترین».
+      .prepare(
+        `UPDATE content_library SET title = ?
+           WHERE content_id = ? AND active = 1`
+      )
+      .bind(title, contentId)
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
 // حذف نرم: سطر می‌ماند و فقط active صفر می‌شود.
 //
 // چرا پاک نمی‌شود: اگر آکادمی اشتباهی چیزی را حذف کند، با پست دوباره‌ی

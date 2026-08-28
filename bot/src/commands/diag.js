@@ -9,9 +9,7 @@
 import { resolveAllowedChannel } from "../content/ingest.js";
 import { clearContentChannel } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
-
-// همان آیدی معاف در دروازه‌ی عضویت: مدیر اصلی آکادمی.
-const OWNER_ID = "6923823275";
+import { OWNER_ID } from "../owner.js";
 
 function yes(v) {
   return v ? "✅" : "❌";
