@@ -3,6 +3,7 @@ import { createBot } from "./bot.js";
 import { syncFromN8n, readSyncState } from "./econ/store.js";
 import { drainLeadOutbox } from "./crmSync.js";
 import { handleMiniapp } from "./econ/miniapp.js";
+import { PUBLIC_COMMANDS } from "./commands/registry.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -23,14 +24,9 @@ let cachedBotInfo = null;
 // می‌داند، پس تکرارش روی isolateهای بعدی ضرری ندارد.
 let commandsRegistered = false;
 
-const BOT_COMMANDS = [
-  { command: "start", description: "منوی اصلی" },
-  { command: "help", description: "راهنمای ربات" },
-];
-
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+editor-1";
+const BUILD = "econ+outbox+miniapp+faq+public+editor-2";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -274,7 +270,7 @@ export default {
       if (!commandsRegistered) {
         commandsRegistered = true;
         await bot.api
-          .setMyCommands(BOT_COMMANDS)
+          .setMyCommands(PUBLIC_COMMANDS)
           .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
         await ensureChannelPostsAllowed(bot).catch((err) =>
           console.error("بررسی allowed_updates شکست خورد:", err && err.message)

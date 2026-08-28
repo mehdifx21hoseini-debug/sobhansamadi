@@ -16,6 +16,8 @@ import {
 } from "./commands/editor.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
+import { isOwner } from "./owner.js";
+import { ensureAdminCommands } from "./commands/registry.js";
 import { getUserState, clearUserState } from "./db.js";
 import {
   sendEconCalendar,
@@ -70,6 +72,17 @@ export function createBot(token, env, botInfo, build = "?") {
     } catch (err) {
       console.error("دریافت پست کانال شکست خورد:", err && err.message);
     }
+  });
+
+  // میانبرهای مدیر در منوی «/» تلگرام. پیش از دروازه‌ی عضویت است چون
+  // مدیر از آن معاف است و نباید منتظر بماند.
+  bot.use(async (ctx, next) => {
+    if (isOwner(ctx)) {
+      // منتظرش نمی‌مانیم: این یک کار جانبی است و نباید پاسخ به مدیر را
+      // پشت یک درخواست دیگر به تلگرام نگه دارد.
+      ensureAdminCommands(ctx).catch(() => {});
+    }
+    return next();
   });
 
   bot.use(membershipGate());
