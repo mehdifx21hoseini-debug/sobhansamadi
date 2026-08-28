@@ -125,17 +125,23 @@ export async function sendSection(ctx, key, replyMarkup, extra = {}) {
   const opts = { ...extra };
   if (replyMarkup) opts.reply_markup = replyMarkup;
 
-  // اول فایل کانال (اگر این بخش یکی دارد و آکادمی فرستاده باشد)، بعد
-  // متن. شکستش نباید جلوی متن را بگیرد: بخشی که به‌خاطر یک ویدیو هیچ
-  // جوابی نمی‌دهد، از بخشی که ویدیو ندارد بدتر است.
-  if (section.media) {
-    await sendChannelMedia(ctx, section.media).catch((err) =>
-      console.error("ارسال فایل کانالِ بخش شکست خورد:", key, err && err.message)
-    );
-  }
+  // فایل کانال بعد از متن می‌رود، نه قبلش: متن زمینه را می‌سازد و
+  // ویدیو حرفش را تایید می‌کند. برعکسش، کاربر ویدیویی می‌بیند که هنوز
+  // نمی‌داند چیست.
+  //
+  // شکستش نباید جلوی متن را بگیرد: بخشی که به‌خاطر یک ویدیو هیچ جوابی
+  // نمی‌دهد، از بخشی که ویدیو ندارد بدتر است.
+  const afterText = async (sent) => {
+    if (section.media) {
+      await sendChannelMedia(ctx, section.media).catch((err) =>
+        console.error("ارسال فایل کانالِ بخش شکست خورد:", key, err && err.message)
+      );
+    }
+    return sent;
+  };
 
   if (!photo) {
-    return ctx.reply(text, opts);
+    return afterText(await ctx.reply(text, opts));
   }
 
   if (text.length <= CAPTION_LIMIT) {
@@ -143,17 +149,17 @@ export async function sendSection(ctx, key, replyMarkup, extra = {}) {
     // باید برود. بخشی که فقط به‌خاطر یک عکس هیچ جوابی نمی‌دهد، از
     // بخشی که عکس ندارد بدتر است.
     try {
-      return await ctx.replyWithPhoto(photo, { caption: text, ...opts });
+      return await afterText(await ctx.replyWithPhoto(photo, { caption: text, ...opts }));
     } catch (err) {
       console.error("ارسال عکس بخش شکست خورد:", key, err && err.message);
-      return ctx.reply(text, opts);
+      return afterText(await ctx.reply(text, opts));
     }
   }
 
   await ctx.replyWithPhoto(photo).catch((err) =>
     console.error("ارسال عکس بخش شکست خورد:", key, err && err.message)
   );
-  return ctx.reply(text, opts);
+  return afterText(await ctx.reply(text, opts));
 }
 
 /**
