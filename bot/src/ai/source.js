@@ -154,7 +154,6 @@ export async function removeSourceEntry(env, id) {
  */
 async function mirrorToKb(env) {
   const rows = await listSource(env);
-  const ids = rows.map((r) => r.id);
 
   await runChunked(
     env,
@@ -175,14 +174,13 @@ async function mirrorToKb(env) {
   );
 
   // مدخل‌هایی که از kb_source رفته‌اند (با /kbdel) نباید در ai_kb بمانند.
-  if (ids.length > 0) {
-    await env.DB
-      .prepare(`DELETE FROM ai_kb WHERE id NOT IN (${ids.map(() => "?").join(",")})`)
-      .bind(...ids)
-      .run();
-  } else {
-    await env.DB.prepare(`DELETE FROM ai_kb`).run();
-  }
+  //
+  // با زیرکوئری، نه با فهرست شناسه‌ها: D1 سقف ۱۰۰ پارامتر در هر کوئری
+  // دارد و ۲۵۰ شناسه‌ی جداگانه، کل همگام‌سازی را با خطا می‌خواباند.
+  // زیرکوئری صفر پارامتر دارد، پس هر تعداد مدخل هم که باشد کار می‌کند.
+  await env.DB
+    .prepare(`DELETE FROM ai_kb WHERE id NOT IN (SELECT id FROM kb_source WHERE active = 1)`)
+    .run();
 
   return rows.length;
 }
@@ -237,13 +235,29 @@ async function embedPending(env) {
  * @returns {{sources:number, mirrored:number, embedded:number, pending:number}}
  */
 export async function syncAndRebuild(env) {
-  await ensureSourceSchema(env);
-  await ensureKbSchema(env);
+  // نام هر مرحله در خطا می‌آید. بدون این، «همگام‌سازی شکست خورد» می‌تواند
+  // پنج چیز متفاوت باشد و از بیرون همه یک شکل‌اند.
+  let stage = "ساخت جدول‌ها";
+  try {
+    await ensureSourceSchema(env);
+    await ensureKbSchema(env);
 
-  const sources = await syncSources(env);
-  const mirrored = await mirrorToKb(env);
-  const embedded = await embedPending(env);
-  const pending = (await pendingRows(env)).length;
+    stage = "نوشتن منابع";
+    const sources = await syncSources(env);
 
-  return { sources, mirrored, embedded, pending };
+    stage = "کپی به پایگاه دانش";
+    const mirrored = await mirrorToKb(env);
+
+    stage = "ساخت بردارها";
+    const embedded = await embedPending(env);
+
+    stage = "شمارش نهایی";
+    const pending = (await pendingRows(env)).length;
+
+    return { sources, mirrored, embedded, pending };
+  } catch (err) {
+    const e = new Error("در مرحله‌ی «" + stage + "»: " + (err && err.message));
+    e.cause = err;
+    throw e;
+  }
 }
