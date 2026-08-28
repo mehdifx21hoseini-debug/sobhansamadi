@@ -83,7 +83,7 @@
 	}
 
 	var PAGE_SIZE = 15;
-	var state = { items: [], query: "", statusFilter: "", expanded: {}, page: 1 };
+	var state = { items: [], query: "", statusFilter: "", expanded: {}, page: 1, requestsError: "" };
 	var consultants = [];
 
 	function buildItems(requests, leads) {
@@ -286,9 +286,38 @@
 		var $body = $("#mentoringTableBody").empty();
 
 		if (state.items.length === 0) {
-			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-graduation-cap"></i><p>هنوز درخواستی از فرم منتورینگ سایت ثبت نشده است.</p></div></td></tr>');
+			var $cell = $('<td colspan="7">');
+			var $empty = $('<div class="empty-state">');
+			if (state.requestsError) {
+				// خالی بودنِ جدول اینجا یک واقعیت نیست، یک ندانستن است.
+				// گفتنِ «هنوز درخواستی نیست» در این حالت یعنی فرستادن
+				// کاربر دنبال مشکلی که وجود ندارد، در حالی که مشکل واقعی
+				// جای دیگری است.
+				$empty.append('<i class="fas fa-plug-circle-xmark"></i>');
+				$empty.append($("<p>").text("سرویس منتورینگ پاسخ نداد، پس معلوم نیست درخواستی هست یا نه."));
+				$empty.append($('<p class="text-sm text-muted mono">').text(state.requestsError));
+				$empty.append($('<p class="text-sm text-muted">').text(
+					"یعنی گردش‌کار مربوطه در n8n خاموش یا خطادار است. تا وقتی این پیام هست، درخواست‌های تازه‌ی سایت هم اینجا نمی‌آیند."
+				));
+			} else {
+				$empty.append('<i class="fas fa-graduation-cap"></i>');
+				$empty.append($("<p>").text("هنوز درخواستی از فرم منتورینگ سایت ثبت نشده است."));
+				$empty.append($('<p class="text-sm text-muted">').text(
+					"سرویس پاسخ داد و فهرستش خالی بود — یعنی فرم سایت هنوز چیزی به CRM نفرستاده."
+				));
+			}
+			$body.append($("<tr>").append($cell.append($empty)));
 			$("#mentoringPagination").addClass("d-none");
 			return;
+		}
+
+		// جدول پر است ولی سرویس خطا داده: یعنی این سطرها فقط از لیدهای
+		// قدیمی‌اند و ممکن است درخواست‌های تازه جا افتاده باشند.
+		if (state.requestsError) {
+			$body.append($("<tr>").append(
+				$('<td colspan="7" class="text-sm" style="color:#c81e4b">')
+					.text("هشدار: سرویس منتورینگ پاسخ نداد (" + state.requestsError + ") — این فهرست ممکن است ناقص باشد.")
+			));
 		}
 		if (rows.length === 0) {
 			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی با این فیلترها پیدا نشد.</p></div></td></tr>');
@@ -316,14 +345,25 @@
 		return state.items.find(function (i) { return String(i.id) === String(id); });
 	}
 
+	// «درخواستی نیست» و «نتوانستم بپرسم» دو چیزند.
+	//
+	// نسخه‌ی قبلی هر خطایی را می‌بلعید و null برمی‌گرداند، و صفحه بعدش
+	// می‌نوشت «هنوز درخواستی ثبت نشده است» - چه واقعاً نبود، چه سرویس
+	// ۴۰۴ می‌داد، چه گردش‌کار n8n خاموش بود. یعنی سه حالتِ کاملاً متفاوت
+	// از بیرون یک شکل داشتند و هیچ راهی برای تشخیص‌شان نبود.
+	//
+	// حالا خطا نگه داشته می‌شود تا صفحه بتواند بگوید کدام است.
 	function requestsPromise() {
 		if (!window.CrmData || typeof CrmData.fetchMentoringRequests !== "function") {
-			return Promise.resolve(null);
+			return Promise.resolve({ rows: null, error: "سرویس منتورینگ در این نسخه از صفحه تعریف نشده است." });
 		}
 		try {
-			return CrmData.fetchMentoringRequests().catch(function () { return null; });
+			return CrmData.fetchMentoringRequests().then(
+				function (rows) { return { rows: rows, error: "" }; },
+				function (err) { return { rows: null, error: (err && err.message) || "خطای نامشخص" }; }
+			);
 		} catch (e) {
-			return Promise.resolve(null);
+			return Promise.resolve({ rows: null, error: (e && e.message) || "خطای نامشخص" });
 		}
 	}
 
@@ -341,7 +381,8 @@
 			requestsPromise(),
 			CrmData.fetchLeads().catch(function () { return []; })
 		]).then(function (res) {
-			var requests = Array.isArray(res[0]) ? res[0] : null;
+			var requests = Array.isArray(res[0].rows) ? res[0].rows : null;
+			state.requestsError = res[0].error || "";
 			state.items = buildItems(requests, res[1]).sort(function (a, b) {
 				return new Date(b.created_at || 0) - new Date(a.created_at || 0);
 			});
