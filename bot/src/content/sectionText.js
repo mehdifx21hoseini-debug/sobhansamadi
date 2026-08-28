@@ -8,7 +8,7 @@
 // چیزهایی قابل ویرایش‌اند. اگر هر بخش متن خودش را نگه می‌داشت، هر بخش
 // تازه‌ای باید دو جا ثبت می‌شد و یکی‌شان فراموش می‌شد.
 
-import { getTextContent } from "./store.js";
+import { getTextContent, getContent } from "./store.js";
 import * as D from "./defaults.js";
 
 // کلید بخش → کد ردیف در text_content، برچسبی که مدیر می‌بیند، و متن
@@ -23,7 +23,15 @@ export const SECTIONS = {
   EQ_INTRO: { code: "EQ_INTRO_TEXT", label: "🧠 دوره هوش هیجانی", def: D.EQ_INTRO_TEXT },
   ABOUT: { code: "ABOUT_TEXT", label: "🏛 درباره آکادمی", def: D.ABOUT_TEXT },
   CONTACT: { code: "CONTACT_TEXT", label: "📞 تماس با ما", def: D.CONTACT_TEXT },
-  BROKER: { code: "TRUSTED_BROKER_TEXT", label: "🏦 بروکر معتمد", def: D.TRUSTED_BROKER_TEXT },
+  // media: فایلی که آکادمی با هشتگ #TRUSTED_BROKER در کانال گذاشته -
+  // ویدیوی معرفی بروکر. جدا از عکسِ ویرایشگر است: آن یکی از داخل تلگرام
+  // ست می‌شود و این یکی از کانال می‌آید.
+  BROKER: {
+    code: "TRUSTED_BROKER_TEXT",
+    label: "🏦 بروکر معتمد",
+    def: D.TRUSTED_BROKER_TEXT,
+    media: "TRUSTED_BROKER",
+  },
   ABOUT_US_MENU: { code: "ABOUT_US_MENU_TEXT", label: "ℹ️ منوی «درباره ما»", def: D.ABOUT_US_MENU_TEXT },
   SUPPORT: { code: "SUPPORT_INTRO_TEXT", label: "💬 پشتیبانی", def: D.SUPPORT_INTRO_TEXT },
   PSY_VOICES: { code: "PSY_VOICES_INTRO_TEXT", label: "🎧 ویس‌های روانشناسی", def: D.PSY_VOICES_INTRO_TEXT },
@@ -90,10 +98,41 @@ const CAPTION_LIMIT = 1024;
  *
  * دکمه‌ها همیشه به پیام آخر می‌چسبند، هر حالتی که باشد.
  */
+// فایلی که از کانال آمده، بدون کپشن.
+//
+// کپشن عمداً نمی‌گذارد: متن بخش بلافاصله بعدش می‌آید و گذاشتنش روی
+// خود فایل یعنی همان متن دو بار.
+const MEDIA_SENDERS = {
+  video: (ctx, id) => ctx.replyWithVideo(id),
+  photo: (ctx, id) => ctx.replyWithPhoto(id),
+  document: (ctx, id) => ctx.replyWithDocument(id),
+  audio: (ctx, id) => ctx.replyWithAudio(id),
+  voice: (ctx, id) => ctx.replyWithVoice(id),
+};
+
+async function sendChannelMedia(ctx, contentId) {
+  const row = await getContent(ctx.env, contentId).catch(() => null);
+  if (!row || !row.file_id) return false;
+  const send = MEDIA_SENDERS[row.file_type];
+  if (!send) return false;
+  await send(ctx, row.file_id);
+  return true;
+}
+
 export async function sendSection(ctx, key, replyMarkup, extra = {}) {
+  const section = SECTIONS[key] || {};
   const { text, photo } = await resolveSection(ctx.env, key);
   const opts = { ...extra };
   if (replyMarkup) opts.reply_markup = replyMarkup;
+
+  // اول فایل کانال (اگر این بخش یکی دارد و آکادمی فرستاده باشد)، بعد
+  // متن. شکستش نباید جلوی متن را بگیرد: بخشی که به‌خاطر یک ویدیو هیچ
+  // جوابی نمی‌دهد، از بخشی که ویدیو ندارد بدتر است.
+  if (section.media) {
+    await sendChannelMedia(ctx, section.media).catch((err) =>
+      console.error("ارسال فایل کانالِ بخش شکست خورد:", key, err && err.message)
+    );
+  }
 
   if (!photo) {
     return ctx.reply(text, opts);
