@@ -2,7 +2,7 @@ import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
 import { isOwner } from "./owner.js";
-import { readConfig, QUIZ_URL_KEY } from "./content/channel.js";
+import { readQuizUrl } from "./content/channel.js";
 import { sendSection, editSection, resolveSection, editWithText } from "./content/sectionText.js";
 
 // --- کتابخانه‌ی روانشناسی ---
@@ -253,13 +253,12 @@ export async function sendFreeEq(ctx) {
 
 // دو قدم بعدی در پایان دوره‌ی مقدماتی: اول خودت را بسنج، بعد ثبت‌نام.
 //
-// دکمه‌ی آزمون فقط وقتی ساخته می‌شود که آدرسش تنظیم شده باشد. دکمه‌ی
-// url بدون آدرس معتبر، کل کیبورد را از سمت تلگرام رد می‌کند - یعنی
-// کاربر هیچ دکمه‌ای نمی‌بیند، نه فقط آن یکی را. تا وقتی /setquiz زده
-// نشده، همان یک دکمه‌ی قبلی می‌ماند.
+// دکمه‌ی آزمون فقط وقتی ساخته می‌شود که آدرسی داشته باشد. دکمه‌ی url
+// بدون آدرس معتبر، کل کیبورد را از سمت تلگرام رد می‌کند - یعنی کاربر
+// هیچ دکمه‌ای نمی‌بیند، نه فقط آن یکی را.
 async function introDoneKeyboard(ctx) {
   const rows = [];
-  const quiz = await readConfig(ctx.env, QUIZ_URL_KEY).catch(() => "");
+  const quiz = await readQuizUrl(ctx.env).catch(() => "");
   if (quiz) {
     rows.push([{ text: "📝 آزمون تعیین سطح", url: quiz, style: "primary" }]);
   }

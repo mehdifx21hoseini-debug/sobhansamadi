@@ -7,7 +7,14 @@
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
 import { resolveAllowedChannel } from "../content/ingest.js";
-import { clearContentChannel, readConfig, writeConfig, QUIZ_URL_KEY } from "../content/channel.js";
+import {
+  clearContentChannel,
+  readConfig,
+  writeConfig,
+  QUIZ_URL_KEY,
+  QUIZ_OFF,
+  DEFAULT_QUIZ_URL,
+} from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
 import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
 
@@ -188,17 +195,22 @@ export async function handleSetQuiz(ctx) {
   if (!isOwner(ctx)) return;
 
   const raw = String(ctx.match || "").trim();
-  const current = await readConfig(ctx.env, QUIZ_URL_KEY).catch(() => "");
+  const stored = await readConfig(ctx.env, QUIZ_URL_KEY).catch(() => "");
 
   if (!raw) {
+    let state;
+    if (stored === QUIZ_OFF) state = "دکمه برداشته شده و نمایش داده نمی‌شود.";
+    else if (stored) state = "الان: <code>" + stored + "</code>";
+    else state = "پیش‌فرض: <code>" + DEFAULT_QUIZ_URL + "</code>";
+
     await ctx.reply(
       [
         "🔗 لینک آزمون تعیین سطح",
         "",
-        current ? "الان: <code>" + current + "</code>" : "هنوز تنظیم نشده؛ دکمه‌اش نمایش داده نمی‌شود.",
+        state,
         "",
-        "برای تنظیم:",
-        "<code>/setquiz https://sobhansamadi.com/…</code>",
+        "برای عوض کردن:",
+        "<code>/setquiz https://…</code>",
         "",
         "برای برداشتن دکمه:",
         "<code>/setquiz -</code>",
@@ -209,8 +221,10 @@ export async function handleSetQuiz(ctx) {
   }
 
   if (raw === "-") {
-    await writeConfig(ctx.env, QUIZ_URL_KEY, "");
-    await ctx.reply("🔗 لینک برداشته شد؛ دکمه‌ی آزمون دیگر نمایش داده نمی‌شود.");
+    // «off» ذخیره می‌شود نه رشته‌ی خالی: خالی یعنی «هنوز تنظیم نشده» و
+    // به پیش‌فرض برمی‌گردد، در حالی که اینجا مدیر عمداً دکمه را برداشته.
+    await writeConfig(ctx.env, QUIZ_URL_KEY, QUIZ_OFF);
+    await ctx.reply("🔗 دکمه‌ی آزمون برداشته شد.");
     return;
   }
 

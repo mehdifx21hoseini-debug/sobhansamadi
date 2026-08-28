@@ -85,3 +85,15 @@ export async function writeConfig(env, key, value) {
 }
 
 export const QUIZ_URL_KEY = "quiz_url";
+
+// آدرس آزمون تعیین سطح آکادمی. این مقدار پیش‌فرض است نه قفل: هر چیزی
+// که با /setquiz ثبت شود بر آن می‌چربد، و «off» یعنی مدیر عمداً دکمه
+// را برداشته - که با «هنوز تنظیم نشده» یکی نیست.
+export const DEFAULT_QUIZ_URL = "https://sobhansamadi.com/skill-test/";
+export const QUIZ_OFF = "off";
+
+export async function readQuizUrl(env) {
+  const stored = await readConfig(env, QUIZ_URL_KEY).catch(() => "");
+  if (stored === QUIZ_OFF) return "";
+  return stored || DEFAULT_QUIZ_URL;
+}
