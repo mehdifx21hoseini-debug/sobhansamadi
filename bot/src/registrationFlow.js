@@ -2,6 +2,7 @@ import { InlineKeyboard, Keyboard } from "grammy";
 import { getUserState, setUserState, clearUserState, createLead, readUserSource } from "./db.js";
 import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
 import { mainMenuKeyboard } from "./menu.js";
+import { sendSection, resolveSection } from "./content/sectionText.js";
 
 const COURSE_LABELS = {
   COURSE_PSY: "🧠 دوره روانشناسی",
@@ -63,17 +64,26 @@ function buildConfirmText(flow, temp) {
 }
 
 export async function startFlow(ctx, flow, promptOverride) {
-  const promptText =
-    promptOverride ||
-    (flow === "registration"
-      ? "برای ثبت‌نام، لطفاً دوره موردنظر خود را انتخاب کنید:"
-      : "🎯 برای شروع، کدام دوره یا خدمات آموزشی موردنظرتان است؟");
   await setUserState(ctx.env, ctx.from.id, {
     current_flow: flow,
     current_step: "choose_course",
     temp_data: {},
   });
-  await ctx.reply(promptText, { reply_markup: courseChoiceKeyboard() });
+
+  // مسیر ثبت‌نام متن خودش را از صداکننده می‌گیرد (دکمه‌ی «مجموعه آموزشی
+  // پیشرفته» در پایان دوره‌ی مقدماتی)؛ فقط مسیر مشاوره متن ثابت دارد و
+  // همان است که قابل ویرایش شده.
+  if (promptOverride) {
+    await ctx.reply(promptOverride, { reply_markup: courseChoiceKeyboard() });
+    return;
+  }
+  if (flow === "registration") {
+    await ctx.reply("برای ثبت‌نام، لطفاً دوره موردنظر خود را انتخاب کنید:", {
+      reply_markup: courseChoiceKeyboard(),
+    });
+    return;
+  }
+  await sendSection(ctx, "CONSULT_START", courseChoiceKeyboard());
 }
 
 export async function handleCourseChoice(ctx, cb) {
@@ -128,18 +138,14 @@ export async function handleText(ctx, state) {
   if (step === "ask_level") {
     temp.level = text;
     await setUserState(ctx.env, ctx.from.id, { current_step: "ask_topic", temp_data: temp });
-    await ctx.reply("💬 بیشتر برای چه موضوعی نیاز به مشاوره دارید؟\n\nهر چیزی که فکر می‌کنید برای شناخت بهتر شرایط شما مهم است، بنویسید.", {
-      reply_markup: cancelOnlyKeyboard(),
-    });
+    await sendSection(ctx, "CONSULT_TOPIC", cancelOnlyKeyboard());
     return;
   }
 
   if (step === "ask_topic") {
     temp.topic = text;
     await setUserState(ctx.env, ctx.from.id, { current_step: "ask_time", temp_data: temp });
-    await ctx.reply("🕐 چه زمان یا ساعاتی برای تماس مشاور با شما مناسب‌تر است؟\n\nمثلاً: «شنبه تا چهارشنبه، ساعت ۱۸ تا ۲۱»", {
-      reply_markup: cancelOnlyKeyboard(),
-    });
+    await sendSection(ctx, "CONSULT_TIME", cancelOnlyKeyboard());
     return;
   }
 
@@ -163,10 +169,7 @@ export async function handleContact(ctx) {
 
   if (state.current_flow === "consultation") {
     await setUserState(ctx.env, ctx.from.id, { current_step: "ask_level" });
-    await ctx.reply(
-      "📊 در حال حاضر سطح خودتان در معامله‌گری را چطور ارزیابی می‌کنید؟\n\nمثلاً می‌توانید درباره میزان تجربه، مدت فعالیت یا تجربه‌تان در معاملات توضیح دهید.",
-      { reply_markup: cancelOnlyKeyboard() }
-    );
+    await sendSection(ctx, "CONSULT_LEVEL", cancelOnlyKeyboard());
     return;
   }
 
@@ -209,10 +212,7 @@ export async function handleConfirm(ctx) {
   await clearUserState(ctx.env, ctx.from.id);
 
   await ctx.editMessageText("✅ اطلاعات شما تایید و ثبت شد.", { reply_markup: undefined });
-  await ctx.reply("🎉 درخواست شما با موفقیت ثبت شد!\n\nهمکاران آکادمی طی <b>۲۴ ساعت کاری</b> با شما تماس خواهند گرفت. 🙏", {
-    parse_mode: "HTML",
-    reply_markup: mainMenuKeyboard(),
-  });
+  await sendLeadDone(ctx);
 
   // بعد از اینکه کاربر پاسخش را گرفت: یک تلاش فوری تا لید در همان لحظه در
   // CRM ظاهر شود، نه ده دقیقه بعد. عمداً بعد از reply است تا اگر n8n کند
@@ -223,4 +223,11 @@ export async function handleConfirm(ctx) {
 export async function handleCancel(ctx) {
   await clearUserState(ctx.env, ctx.from.id);
   await ctx.reply("فرآیند لغو شد. به منوی اصلی برگشتید.", { reply_markup: mainMenuKeyboard() });
+}
+
+// پیام پایان، بدون parse_mode: متنش قابل ویرایش است و یک «<» در چیزی که
+// مدیر می‌نویسد کل پیام را رد می‌کند.
+async function sendLeadDone(ctx) {
+  const { text } = await resolveSection(ctx.env, "LEAD_DONE");
+  await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
 }

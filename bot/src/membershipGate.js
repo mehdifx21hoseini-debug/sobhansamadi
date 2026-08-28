@@ -1,6 +1,7 @@
 import { InlineKeyboard } from "grammy";
 import { handleStart } from "./commands/start.js";
 import { isOwner } from "./owner.js";
+import { sendSection } from "./content/sectionText.js";
 
 const CHANNEL_USERNAME = "@sobhanforex";
 const CHANNEL_JOIN_URL = "https://t.me/sobhanforex";
@@ -16,17 +17,6 @@ function joinPromptKeyboard() {
     .text("✅ بررسی مجدد", "CHECK_MEMBERSHIP");
 }
 
-const FIRST_PROMPT_TEXT = [
-  "🔒 برای استفاده از ربات آکادمی سبحان صمدی، ابتدا باید عضو کانال ما بشی.",
-  "",
-  "👇 روی دکمه پایین بزن و عضو شو، بعد از عضویت دوباره «بررسی مجدد» رو بزن.",
-].join("\n");
-
-const RETRY_PROMPT_TEXT = [
-  "❌ هنوز عضویت شما در کانال تایید نشد.",
-  "",
-  "ابتدا از طریق دکمه زیر عضو کانال بشو، سپس دوباره روی «بررسی مجدد» بزن.",
-].join("\n");
 
 async function getCachedVerification(env, userId) {
   if (!env?.DB) return null;
@@ -105,10 +95,10 @@ export function membershipGate() {
 
     if (isRetryCallback) {
       await ctx.answerCallbackQuery();
-      await ctx.reply(RETRY_PROMPT_TEXT, { reply_markup: joinPromptKeyboard() });
+      await sendSection(ctx, "JOIN_RETRY", joinPromptKeyboard());
       return;
     }
 
-    await ctx.reply(FIRST_PROMPT_TEXT, { reply_markup: joinPromptKeyboard() });
+    await sendSection(ctx, "JOIN_FIRST", joinPromptKeyboard());
   };
 }

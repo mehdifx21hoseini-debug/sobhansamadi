@@ -2,7 +2,7 @@ import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
 import { isOwner } from "./owner.js";
-import { sendSection, editSection } from "./content/sectionText.js";
+import { sendSection, editSection, resolveSection } from "./content/sectionText.js";
 
 // --- کتابخانه‌ی روانشناسی ---
 
@@ -69,8 +69,9 @@ export async function sendLibrary(ctx) {
 
 export async function handleBookSelect(ctx, bookId) {
   if (bookId === "00") {
+    const { text: bookText } = await resolveSection(ctx.env, "BOOK_00");
     await ctx.editMessageText(
-      "📕 ذهنیت ثروتمند یک معامله‌گر\n\nاین کتاب از طریق سایت آکادمی قابل خریداریه.",
+      bookText,
       {
         reply_markup: new InlineKeyboard()
           .url("🛒 سفارش از سایت", "https://sobhansamadi.com/the-rich-mind-of-a-trader/")
@@ -193,14 +194,6 @@ export async function sendFreeEq(ctx) {
 
 // --- تحویل محتوا (فعلاً بدون فایل واقعی) ---
 
-const EQ_P4_FOLLOWUP_TEXT = [
-  "🎉 آفرین! تمرین‌های هوش هیجانی رو با موفقیت گذروندی.",
-  "",
-  "حالا وقتشه بسنجی هوش هیجانی‌ت در چه سطحیه. با شرکت در تست تخصصی هوش هیجانی آکادمی، نقاط قوت و ضعفت رو دقیق‌تر بشناس.",
-  "",
-  "برای شروع، روی «تست هوش هیجانی» کلیک کن.",
-].join("\n");
-
 const INTRO_P16_FOLLOWUP_TEXT = [
   "🎉 تبریک! دوره مقدماتی رایگان فارکس رو با موفقیت به پایان رساندی.",
   "",
@@ -219,7 +212,6 @@ const INTRO_P16_FOLLOWUP_TEXT = [
   "امید روزی که از من تاییدیه‌ی حساب ریل دریافت کنی.",
 ].join("\n");
 
-const ACK_TEXT = "✅ درخواست شما ثبت شد؛ تیم آکادمی به‌زودی فایل/ویدیوی این بخش رو براتون می‌فرسته. 🙏";
 
 // دو تماس مستقل (نوشتن در D1، answer کردن callback) هم‌زمان اجرا
 // می‌شوند تا هر پیام کمتر منتظر رفت‌وبرگشت‌های پشت‌سرهم به تلگرام بماند -
@@ -246,10 +238,13 @@ export async function handleContentRequest(ctx, contentId) {
 
   // پیام تایید فقط وقتی معنی دارد که چیزی نرفته باشد؛ بعد از دریافت
   // خودِ فایل، «درخواست شما ثبت شد» گیج‌کننده است.
-  const ack = delivered > 0 ? "" : ACK_TEXT + "\n\n";
+  // هر دو متن قابل ویرایش‌اند، پس هر بار از پایگاه داده خوانده می‌شوند.
+  const ackText = (await resolveSection(ctx.env, "CONTENT_ACK")).text;
+  const ack = delivered > 0 ? "" : ackText + "\n\n";
 
   if (contentId === "EMOTIONAL_P04") {
-    await ctx.reply(ack + EQ_P4_FOLLOWUP_TEXT, {
+    const eqDone = (await resolveSection(ctx.env, "EQ_DONE")).text;
+    await ctx.reply(ack + eqDone, {
       reply_markup: new InlineKeyboard().url(
         "🎓 تست هوش هیجانی",
         encodeURI("https://sobhansamadi.com/مجموعه-آموزشی-هوش-هیجانی/")
@@ -269,5 +264,5 @@ export async function handleContentRequest(ctx, contentId) {
   // فایل رفت و دنباله‌ای هم ندارد: دیگر چیزی لازم نیست.
   if (delivered > 0) return;
 
-  await ctx.reply(ACK_TEXT);
+  await ctx.reply(ackText);
 }

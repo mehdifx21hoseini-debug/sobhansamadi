@@ -28,6 +28,26 @@ export const SECTIONS = {
   SUPPORT: { code: "SUPPORT_INTRO_TEXT", label: "💬 پشتیبانی", def: D.SUPPORT_INTRO_TEXT },
   PSY_VOICES: { code: "PSY_VOICES_INTRO_TEXT", label: "🎧 ویس‌های روانشناسی", def: D.PSY_VOICES_INTRO_TEXT },
   LIVE_TRADE: { code: "LIVE_TRADE_INTRO_TEXT", label: "📈 ویدیوهای لایو ترید", def: D.LIVE_TRADE_INTRO_TEXT },
+  ECON_MENU: { code: "ECON_MENU_TEXT", label: "📅 تقویم اقتصادی", def: D.ECON_MENU_TEXT },
+  HELP: { code: "HELP_TEXT", label: "❓ راهنما (/help)", def: D.HELP_TEXT },
+
+  // مسیر مشاوره: چهار پرسش پشت سر هم. هر کدام جدا ویرایش می‌شود چون
+  // آکادمی ممکن است فقط یکی‌شان را بخواهد عوض کند.
+  CONSULT_START: { code: "CONSULT_START_TEXT", label: "🟢 شروع مشاوره — انتخاب دوره", def: D.CONSULT_START_TEXT },
+  CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 مشاوره — پرسش سطح", def: D.CONSULT_LEVEL_TEXT },
+  CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 مشاوره — پرسش موضوع", def: D.CONSULT_TOPIC_TEXT },
+  CONSULT_TIME: { code: "CONSULT_TIME_TEXT", label: "🟢 مشاوره — پرسش زمان تماس", def: D.CONSULT_TIME_TEXT },
+  LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 پیام پایان ثبت‌نام/مشاوره", def: D.LEAD_DONE_TEXT },
+
+  // دروازه‌ی عضویت: اولین چیزی که یک کاربر تازه می‌بیند.
+  JOIN_FIRST: { code: "JOIN_FIRST_TEXT", label: "🔒 درخواست عضویت در کانال", def: D.JOIN_FIRST_TEXT },
+  JOIN_RETRY: { code: "JOIN_RETRY_TEXT", label: "🔒 عضویت تایید نشد", def: D.JOIN_RETRY_TEXT },
+
+  BOOK_00: { code: "BOOK_00_INTRO_TEXT", label: "📕 کتاب «ذهنیت ثروتمند»", def: D.BOOK_00_TEXT },
+  EQ_DONE: { code: "EQ_DONE_TEXT", label: "🎉 پایان دوره هوش هیجانی", def: D.EQ_DONE_TEXT },
+  CONTENT_ACK: { code: "CONTENT_ACK_TEXT", label: "✅ پیام «درخواست ثبت شد»", def: D.CONTENT_ACK_TEXT },
+  PENDING_PSY: { code: "PENDING_PSY_TEXT", label: "⏳ ویس روانشناسی — هنوز خالی", def: D.PENDING_PSY_TEXT },
+  PENDING_LIVE: { code: "PENDING_LIVE_TEXT", label: "⏳ لایو ترید — هنوز خالی", def: D.PENDING_LIVE_TEXT },
 };
 
 export function sectionByCode(code) {

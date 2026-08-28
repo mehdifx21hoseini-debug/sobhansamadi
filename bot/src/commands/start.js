@@ -2,7 +2,7 @@ import { mainMenuKeyboard } from "../menu.js";
 import { recordUserSource } from "../db.js";
 import { WELCOME_TEXT } from "../content/defaults.js";
 import { getContent } from "../content/store.js";
-import { resolveSection } from "../content/sectionText.js";
+import { resolveSection, sendSection } from "../content/sectionText.js";
 
 export async function handleStart(ctx) {
   // لینک عمیق: t.me/BOT?start=instagram
@@ -48,25 +48,9 @@ export async function handleStart(ctx) {
   });
 }
 
-export const HELP_TEXT = [
-  "🤖 راهنمای ربات آکادمی سبحان صمدی",
-  "",
-  "از منوی پایین صفحه می‌تونید به همه‌ی بخش‌ها برسید:",
-  "",
-  "📊 <b>تقویم اقتصادی</b> — اخبار مهم دلار به وقت تهران، ساعت سشن‌های بازار، و هشدار پیش از هر خبر مهم",
-  "🎓 <b>آموزش‌ها</b> — دوره‌های رایگان، کتاب‌ها و ویس‌های روانشناسی معامله‌گری",
-  "🧰 <b>ابزارها</b> — اکسپرت مدیریت سرمایه و بروکر معتمد",
-  "💬 <b>پشتیبانی</b> — هر سوالی دارید همین‌جا بپرسید",
-  "🚀 <b>شرکت در مجموعه آموزشی پیشرفته</b> — ثبت اطلاعات برای مشاوره و تعیین سطح",
-  "ℹ️ <b>درباره ما</b> — معرفی آکادمی و راه‌های ارتباطی",
-  "",
-  "دستورها:",
-  "/start — نمایش منوی اصلی",
-  "/help — همین راهنما",
-  "",
-  "می‌تونید سوالتون رو مستقیم همین‌جا بنویسید؛ جواب می‌گیرید.",
-].join("\n");
-
+// بدون parse_mode: متن راهنما از ویرایشگر می‌آید و اگر با HTML فرستاده
+// شود، یک «<» در چیزی که مدیر می‌نویسد کل پیام را رد می‌کند - خطایی که
+// فقط کاربر می‌بیند و مدیر هرگز.
 export async function handleHelp(ctx) {
-  await ctx.reply(HELP_TEXT, { parse_mode: "HTML", reply_markup: mainMenuKeyboard() });
+  await sendSection(ctx, "HELP", mainMenuKeyboard());
 }

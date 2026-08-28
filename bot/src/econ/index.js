@@ -19,26 +19,10 @@ import {
   buildAiHeader,
 } from "./views.js";
 import { relativeTimeFa } from "./format.js";
+import { sendSection } from "../content/sectionText.js";
 
 const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=29";
 
-// متن و چیدمان دکمه‌ها عیناً از نودهای Build Econ Menu View و
-// Send Econ Menu (HTTP) در WF-Economic-Calendar است.
-export const ECON_MENU_TEXT = [
-  "📅 تقویم اقتصادی فارکس",
-  "",
-  "در این بخش، اخبار اقتصادی مهم مربوط به USD (دلار آمریکا) را به‌صورت روزانه و بر اساس ساعت ایران مشاهده خواهید کرد.",
-  "",
-  "🔴 اهمیت بسیار بالا: اخبار مهم و اثرگذار که می‌توانند نوسانات قابل‌توجهی در بازار ایجاد کنند.",
-  "",
-  "🟡 اهمیت متوسط: اخبار با اهمیت متوسط که ممکن است روی بازار اثرگذار باشند",
-  "",
-  "⏰ تمام زمان‌های اعلام‌شده به ساعت ایران تنظیم شده‌اند",
-  "",
-  "🔔 لازم نیست هر بار سر بزنید — هشدار را روشن کنید تا پیش از هر خبر مهم به شما اطلاع دهیم.",
-  "",
-  "یکی از گزینه‌ها را انتخاب کنید:",
-].join("\n");
 
 // ایموجی‌ها همان‌هایی است که نود Send Econ Menu (HTTP) داشت - هرکدام به
 // کارِ دکمه‌اش اشاره می‌کند، نه دایره‌ی رنگی بی‌معنی.
@@ -142,7 +126,7 @@ async function sendRichMessage(ctx, markdown, replyMarkup) {
 }
 
 export async function sendEconMenu(ctx) {
-  await ctx.reply(ECON_MENU_TEXT, { reply_markup: econMenuKeyboard() });
+  await sendSection(ctx, "ECON_MENU", econMenuKeyboard());
 }
 
 // نسخه‌ی n8n پیام قبلی را پاک می‌کرد و نمای تازه را می‌فرستاد، تا چند بار

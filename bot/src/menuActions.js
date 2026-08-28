@@ -23,7 +23,7 @@ const PENDING_SECTIONS = {
   PSY_VOICES: {
     id: "PSY_VOICES",
     title: "🎧 ویس‌های روانشناسی",
-    body: "این بخش هنوز در حال آماده‌سازیه.",
+    pendingKey: "PENDING_PSY",
     prefix: PSY_VOICE_PREFIX,
     mode: "list",
     unit: "ویس",
@@ -31,7 +31,7 @@ const PENDING_SECTIONS = {
   LIVE_TRADE: {
     id: "LIVE_TRADE",
     title: "📈 ویدیوهای لایو ترید",
-    body: "ویدیوهای لایو معاملات هنوز در حال آماده‌سازیه.",
+    pendingKey: "PENDING_LIVE",
     prefix: LIVE_TRADE_PREFIX,
     mode: "list",
     unit: "ویدیو",
@@ -184,8 +184,9 @@ export async function sendPendingSection(ctx, key) {
   // برای او فرقی ندارد و پیام اصلی باید در هر حالت برسد.
   await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, section.id).catch(() => {});
 
+  const pending = await resolveSection(ctx.env, section.pendingKey).catch(() => ({ text: "" }));
   await ctx.reply(
-    `${section.title}\n\n${section.body}\n\n` +
+    `${section.title}\n\n${pending.text}\n\n` +
       "✅ درخواست شما ثبت شد؛ به‌محض آماده شدن، همین‌جا براتون می‌فرستیم. 🙏"
   );
 }
