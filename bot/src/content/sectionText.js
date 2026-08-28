@@ -98,16 +98,18 @@ const CAPTION_LIMIT = 1024;
  *
  * دکمه‌ها همیشه به پیام آخر می‌چسبند، هر حالتی که باشد.
  */
-// فایلی که از کانال آمده، بدون کپشن.
+// فایلی که از کانال آمده، با همان کپشنی که آکادمی زیرش نوشته بود.
 //
-// کپشن عمداً نمی‌گذارد: متن بخش بلافاصله بعدش می‌آید و گذاشتنش روی
-// خود فایل یعنی همان متن دو بار.
+// کپشن، متنِ بخش نیست: متن بخش بالاتر و جدا می‌رود. این یکی چیزی است
+// که آکادمی مخصوصِ خودِ فایل نوشته - مثلاً لینک ثبت‌نامی که در کپشن
+// ویدیوی بروکر گذاشته شده - و انداختنش یعنی از دست رفتن حرفی که فقط
+// آنجا زده شده.
 const MEDIA_SENDERS = {
-  video: (ctx, id) => ctx.replyWithVideo(id),
-  photo: (ctx, id) => ctx.replyWithPhoto(id),
-  document: (ctx, id) => ctx.replyWithDocument(id),
-  audio: (ctx, id) => ctx.replyWithAudio(id),
-  voice: (ctx, id) => ctx.replyWithVoice(id),
+  video: (ctx, id, o) => ctx.replyWithVideo(id, o),
+  photo: (ctx, id, o) => ctx.replyWithPhoto(id, o),
+  document: (ctx, id, o) => ctx.replyWithDocument(id, o),
+  audio: (ctx, id, o) => ctx.replyWithAudio(id, o),
+  voice: (ctx, id, o) => ctx.replyWithVoice(id, o),
 };
 
 async function sendChannelMedia(ctx, contentId) {
@@ -115,7 +117,10 @@ async function sendChannelMedia(ctx, contentId) {
   if (!row || !row.file_id) return false;
   const send = MEDIA_SENDERS[row.file_type];
   if (!send) return false;
-  await send(ctx, row.file_id);
+  // کپشن بلندتر از سقف، کل ارسال را رد می‌کند؛ بریده می‌شود نه اینکه
+  // فایل اصلاً نرسد.
+  const caption = String(row.title || "").trim();
+  await send(ctx, row.file_id, caption ? { caption: caption.slice(0, CAPTION_LIMIT) } : {});
   return true;
 }
 
@@ -127,7 +132,7 @@ export async function sendSection(ctx, key, replyMarkup, extra = {}) {
 
   // فایل کانال بعد از متن می‌رود، نه قبلش: متن زمینه را می‌سازد و
   // ویدیو حرفش را تایید می‌کند. برعکسش، کاربر ویدیویی می‌بیند که هنوز
-  // نمی‌داند چیست.
+  // نمی‌داند چیست. کپشنِ خودِ فایل هم همراهش می‌رود.
   //
   // شکستش نباید جلوی متن را بگیرد: بخشی که به‌خاطر یک ویدیو هیچ جوابی
   // نمی‌دهد، از بخشی که ویدیو ندارد بدتر است.
