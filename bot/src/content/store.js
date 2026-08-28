@@ -101,11 +101,14 @@ export async function getContentParts(env, prefix) {
   }
 }
 
+// updated_at هم برمی‌گردد چون تنها معیار زمانیِ قابل‌اعتماد است: شناسه‌ها
+// دو نسل دارند (نسل قدیم با timestamp ساخته می‌شد، نسل تازه با
+// message_id) و مرتب‌سازی متنیِ این دو با هم بی‌معنی است.
 export async function listContentByPrefix(env, prefix) {
   try {
     const { results } = await env.DB
       .prepare(
-        `SELECT content_id, title, file_id, file_type FROM content_library
+        `SELECT content_id, title, file_id, file_type, updated_at FROM content_library
            WHERE content_id LIKE ? ESCAPE '\\' AND active = 1 ORDER BY content_id`
       )
       .bind(likePrefix(prefix) + "%")

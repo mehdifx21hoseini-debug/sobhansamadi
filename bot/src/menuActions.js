@@ -1,6 +1,5 @@
 import { logContentRequest } from "./db.js";
 import { listContentByPrefix } from "./content/store.js";
-import { deliverContent } from "./content/deliver.js";
 import { PSY_VOICE_PREFIX, LIVE_TRADE_PREFIX } from "./content/ingest.js";
 
 export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/index.js";
@@ -17,18 +16,18 @@ const PENDING_SECTIONS = {
     title: "🎧 ویس‌های روانشناسی",
     body: "این بخش هنوز در حال آماده‌سازیه.",
     prefix: PSY_VOICE_PREFIX,
-    // ویس‌ها کوتاه‌اند و پشت‌سرهم گوش داده می‌شوند؛ همه با هم می‌روند.
-    mode: "send-all",
+    mode: "list",
+    unit: "ویس",
+    intro: "تازه‌ترین ویس‌ها بالا هستند. روی هرکدام بزنید تا همان یکی برایتان بیاید:",
   },
   LIVE_TRADE: {
     id: "LIVE_TRADE",
     title: "📈 ویدیوهای لایو ترید",
     body: "ویدیوهای لایو معاملات هنوز در حال آماده‌سازیه.",
     prefix: LIVE_TRADE_PREFIX,
-    // ویدیوها سنگین‌اند و کاربر معمولاً یکی را می‌خواهد، نه همه را. پس
-    // فهرست دکمه‌ای، نه ریختن پشت‌سرهم در چت.
     mode: "list",
-    intro: "ویدیوها به‌ترتیب انتشار مرتب شده‌اند. روی هرکدام بزنید تا همان یکی برایتان بیاید:",
+    unit: "ویدیو",
+    intro: "تازه‌ترین ویدیوها بالا هستند. روی هرکدام بزنید تا همان یکی برایتان بیاید:",
   },
 };
 
@@ -36,6 +35,21 @@ const PENDING_SECTIONS = {
 // (عنوان‌ها بلندند) و بیشتر از این، فهرست از ارتفاع صفحه‌ی موبایل
 // بیرون می‌زند و خودش می‌شود همان شلوغی‌ای که قرار بود حل کند.
 const PAGE_SIZE = 8;
+
+// تازه‌ترین، بالا.
+//
+// مرتب‌سازی روی updated_at است نه content_id: شناسه‌ها دو نسل دارند
+// (قدیم با timestamp، تازه با message_id) و مقایسه‌ی متنیِ این دو،
+// ویس‌های قدیمی را به بالای فهرست می‌فرستاد. content_id فقط برای
+// شکستن تساوی می‌ماند تا ترتیب بین دو رکورد هم‌زمان، پایدار بماند.
+function newestFirst(items) {
+  return items.slice().sort((a, b) => {
+    const ta = String(a.updated_at || "");
+    const tb = String(b.updated_at || "");
+    if (ta !== tb) return ta < tb ? 1 : -1;
+    return String(a.content_id) < String(b.content_id) ? 1 : -1;
+  });
+}
 
 const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 function fa(n) {
@@ -90,34 +104,27 @@ function listText(section, count) {
   return [
     section.title,
     "",
-    `${fa(count)} ویدیو موجود است.`,
+    `${fa(count)} ${section.unit} موجود است.`,
     "",
     section.intro,
   ].join("\n");
+}
+
+async function loadItems(ctx, section) {
+  const items = await listContentByPrefix(ctx.env, section.prefix).catch(() => []);
+  return newestFirst(items);
 }
 
 export async function sendPendingSection(ctx, key) {
   const section = PENDING_SECTIONS[key];
   if (!section) return;
 
-  const items = section.prefix
-    ? await listContentByPrefix(ctx.env, section.prefix).catch(() => [])
-    : [];
+  const items = section.prefix ? await loadItems(ctx, section) : [];
 
   if (items.length > 0) {
-    if (section.mode === "list") {
-      await ctx.reply(listText(section, items.length), {
-        reply_markup: buildListKeyboard(section, items, 0),
-      });
-      return;
-    }
-
-    await ctx.reply(`${section.title}\n\n${fa(items.length)} مورد برای شما ارسال می‌شود 👇`);
-    for (const item of items) {
-      await deliverContent(ctx, item.content_id).catch((err) =>
-        console.error("ارسال محتوا شکست خورد:", item.content_id, err && err.message)
-      );
-    }
+    await ctx.reply(listText(section, items.length), {
+      reply_markup: buildListKeyboard(section, items, 0),
+    });
     return;
   }
 
@@ -137,7 +144,7 @@ export async function handleSectionListPage(ctx, key, page) {
   const section = PENDING_SECTIONS[key];
   if (!section || section.mode !== "list") return;
 
-  const items = await listContentByPrefix(ctx.env, section.prefix).catch(() => []);
+  const items = await loadItems(ctx, section);
   if (items.length === 0) return;
 
   await ctx
