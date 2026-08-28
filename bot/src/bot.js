@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { handleStart, handleHelp } from "./commands/start.js";
-import { handleDiag, handleResetChannel, handleDeleteContent } from "./commands/diag.js";
+import { handleDiag, handleResetChannel, handleDeleteContent, handleSetQuiz } from "./commands/diag.js";
 import {
   handleEditCommand,
   showSectionList,
@@ -94,6 +94,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("resetchannel", handleResetChannel);
   bot.command("delete", handleDeleteContent);
   bot.command("edit", handleEditCommand);
+  bot.command("setquiz", handleSetQuiz);
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);

@@ -59,6 +59,7 @@ export const SECTIONS = {
   BOOK_03: { code: "BOOK_03_INTRO_TEXT", label: "📕 کتاب ۳ — انضباط شخصی", def: D.BOOK_03_TEXT },
   BOOK_04: { code: "BOOK_04_INTRO_TEXT", label: "📕 کتاب ۴ — پایان اهمال‌کاری", def: D.BOOK_04_TEXT },
   EQ_DONE: { code: "EQ_DONE_TEXT", label: "🎉 پایان دوره هوش هیجانی", def: D.EQ_DONE_TEXT },
+  INTRO_DONE: { code: "INTRO_DONE_TEXT", label: "🎉 پایان دوره مقدماتی", def: D.INTRO_DONE_TEXT },
   CONTENT_ACK: { code: "CONTENT_ACK_TEXT", label: "✅ پیام «درخواست ثبت شد»", def: D.CONTENT_ACK_TEXT },
   PENDING_PSY: { code: "PENDING_PSY_TEXT", label: "⏳ ویس روانشناسی — هنوز خالی", def: D.PENDING_PSY_TEXT },
   PENDING_LIVE: { code: "PENDING_LIVE_TEXT", label: "⏳ لایو ترید — هنوز خالی", def: D.PENDING_LIVE_TEXT },

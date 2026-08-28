@@ -2,6 +2,7 @@ import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
 import { isOwner } from "./owner.js";
+import { readConfig, QUIZ_URL_KEY } from "./content/channel.js";
 import { sendSection, editSection, resolveSection, editWithText } from "./content/sectionText.js";
 
 // --- کتابخانه‌ی روانشناسی ---
@@ -250,23 +251,23 @@ export async function sendFreeEq(ctx) {
 
 // --- تحویل محتوا (فعلاً بدون فایل واقعی) ---
 
-const INTRO_P16_FOLLOWUP_TEXT = [
-  "🎉 تبریک! دوره مقدماتی رایگان فارکس رو با موفقیت به پایان رساندی.",
-  "",
-  "از اینجا به بعد، برای تبدیل شدن به یک معامله‌گر واقعی، قدم بعدی تو مجموعه آموزشی پیشرفته است.",
-  "",
-  "در این مجموعه، بیش از ۵۳ ساعت آموزش تخصصی که حاصل هشت سال تجربه من است رو بهت آموزش می‌دهم؛ به‌علاوه منتورینگی که قرار دادم تا قدم‌به‌قدم حرفه‌ای پیش بیای.",
-  "",
-  "من یک معامله‌گر می‌سازم.",
-  "",
-  "📍 اما ورود به این مجموعه برای همه یکسان نیست؛ اول باید تعیین سطح بشی تا مشخص بشه در چه نقطه‌ای قرار داری و مسیر مناسب خودت رو شروع کنی.",
-  "",
-  "اگر آماده‌ای قدم بعدی رو برداری، روی دکمه زیر کلیک کن، اطلاعاتت رو پر کن تا باهات ارتباط گرفته بشه. 👇🏻",
-  "",
-  "بهت افتخار می‌کنم.",
-  "الان که این پیام رو می‌خونی، نشون‌دهنده‌ی تلاشته.",
-  "امید روزی که از من تاییدیه‌ی حساب ریل دریافت کنی.",
-].join("\n");
+// دو قدم بعدی در پایان دوره‌ی مقدماتی: اول خودت را بسنج، بعد ثبت‌نام.
+//
+// دکمه‌ی آزمون فقط وقتی ساخته می‌شود که آدرسش تنظیم شده باشد. دکمه‌ی
+// url بدون آدرس معتبر، کل کیبورد را از سمت تلگرام رد می‌کند - یعنی
+// کاربر هیچ دکمه‌ای نمی‌بیند، نه فقط آن یکی را. تا وقتی /setquiz زده
+// نشده، همان یک دکمه‌ی قبلی می‌ماند.
+async function introDoneKeyboard(ctx) {
+  const rows = [];
+  const quiz = await readConfig(ctx.env, QUIZ_URL_KEY).catch(() => "");
+  if (quiz) {
+    rows.push([{ text: "📝 آزمون تعیین سطح", url: quiz, style: "primary" }]);
+  }
+  rows.push([
+    { text: "🎓 مجموعه آموزشی پیشرفته", callback_data: "INTRO_REGISTER_ADVANCED", style: "success" },
+  ]);
+  return { inline_keyboard: rows };
+}
 
 
 // دو تماس مستقل (نوشتن در D1، answer کردن callback) هم‌زمان اجرا
@@ -310,9 +311,11 @@ export async function handleContentRequest(ctx, contentId) {
   }
 
   if (contentId === "INTRO_P16") {
-    await ctx.reply(ack + INTRO_P16_FOLLOWUP_TEXT, {
-      parse_mode: "HTML",
-      reply_markup: new InlineKeyboard().text("🎓 مجموعه آموزشی پیشرفته", "INTRO_REGISTER_ADVANCED"),
+    const introDone = (await resolveSection(ctx.env, "INTRO_DONE")).text;
+    // بدون parse_mode: این متن از /edit قابل ویرایش است و یک «<» در چیزی
+    // که مدیر می‌نویسد، کل پیام را رد می‌کند.
+    await ctx.reply(ack + introDone, {
+      reply_markup: await introDoneKeyboard(ctx),
     });
     return;
   }

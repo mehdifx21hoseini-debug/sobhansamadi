@@ -16,6 +16,7 @@ export const ADMIN_COMMANDS = [
   ...PUBLIC_COMMANDS,
   { command: "edit", description: "✏️ ویرایش متن و عکس بخش‌ها" },
   { command: "diag", description: "🔧 وضعیت ربات" },
+  { command: "setquiz", description: "🔗 لینک آزمون تعیین سطح" },
   { command: "delete", description: "🗑 حذف یک محتوا با شناسه" },
   { command: "resetchannel", description: "🔄 عوض کردن کانال محتوا" },
 ];

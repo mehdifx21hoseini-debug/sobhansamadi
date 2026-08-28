@@ -7,7 +7,7 @@
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
 import { resolveAllowedChannel } from "../content/ingest.js";
-import { clearContentChannel } from "../content/channel.js";
+import { clearContentChannel, readConfig, writeConfig, QUIZ_URL_KEY } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
 import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
 
@@ -134,6 +134,7 @@ export async function handleDiag(ctx, build) {
   lines.push("🛠 <b>دستورهای مدیر</b>");
   lines.push("/edit — ویرایش متن و عکس بخش‌ها");
   lines.push("/delete — حذف یک محتوا با شناسه");
+  lines.push("/setquiz — لینک آزمون تعیین سطح");
   lines.push("/resetchannel — عوض کردن کانال محتوا");
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
@@ -175,6 +176,53 @@ export async function handleDeleteContent(ctx) {
       : "چیزی با این شناسه پیدا نشد: <code>" + id + "</code>",
     { parse_mode: "HTML" }
   );
+}
+
+// لینک آزمون تعیین سطح سایت.
+//
+// در پایگاه داده می‌نشیند نه در کد: آدرسی که آکادمی می‌سازد و روزی
+// عوضش می‌کند، نباید هر بار یک دیپلوی بخواهد. تا وقتی تنظیم نشده،
+// دکمه‌اش اصلاً ساخته نمی‌شود - یک دکمه‌ی url با آدرس نامعتبر، کل
+// کیبورد را از سمت تلگرام رد می‌کند و کاربر هیچ دکمه‌ای نمی‌بیند.
+export async function handleSetQuiz(ctx) {
+  if (!isOwner(ctx)) return;
+
+  const raw = String(ctx.match || "").trim();
+  const current = await readConfig(ctx.env, QUIZ_URL_KEY).catch(() => "");
+
+  if (!raw) {
+    await ctx.reply(
+      [
+        "🔗 لینک آزمون تعیین سطح",
+        "",
+        current ? "الان: <code>" + current + "</code>" : "هنوز تنظیم نشده؛ دکمه‌اش نمایش داده نمی‌شود.",
+        "",
+        "برای تنظیم:",
+        "<code>/setquiz https://sobhansamadi.com/…</code>",
+        "",
+        "برای برداشتن دکمه:",
+        "<code>/setquiz -</code>",
+      ].join("\n"),
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  if (raw === "-") {
+    await writeConfig(ctx.env, QUIZ_URL_KEY, "");
+    await ctx.reply("🔗 لینک برداشته شد؛ دکمه‌ی آزمون دیگر نمایش داده نمی‌شود.");
+    return;
+  }
+
+  // تلگرام آدرس نامعتبر را با رد کردن کل کیبورد جواب می‌دهد، نه با یک
+  // خطای روشن. پس اینجا جلویش گرفته می‌شود، جایی که مدیر می‌بیندش.
+  if (!/^https?:\/\/\S+$/i.test(raw)) {
+    await ctx.reply("⚠️ آدرس باید با http:// یا https:// شروع شود و فاصله نداشته باشد.");
+    return;
+  }
+
+  await writeConfig(ctx.env, QUIZ_URL_KEY, raw);
+  await ctx.reply("✅ لینک آزمون ثبت شد:\n" + raw + "\n\nدکمه‌اش در پایان دوره‌ی مقدماتی نمایش داده می‌شود.");
 }
 
 // کانال ثبت‌شده را باز می‌کند تا کانال بعدی که پست بگذارد جایش بنشیند.
