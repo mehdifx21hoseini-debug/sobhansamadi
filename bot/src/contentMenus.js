@@ -13,12 +13,22 @@ const BOOK_TITLES = {
   "04": "📕 کتاب ۴: پایان اهمال‌کاری",
 };
 
+// شیء خام و نه سازنده‌ی InlineKeyboard: گرامی فیلد style را بی‌صدا دور
+// می‌ریزد و دکمه‌ها بی‌رنگ می‌شوند.
+//
+// «ذهنیت ثروتمند» سبز است و بقیه آبی، چون تنها کتابی است که خریدنی است
+// و مسیرش به سایت می‌رود. رنگ اینجا تزئین نیست: می‌گوید این یکی با آن
+// چهارتا فرق دارد، پیش از آنکه کاربر رویش بزند.
 function libraryKeyboard() {
-  const kb = new InlineKeyboard().text("📕 ذهنیت ثروتمند یک معامله‌گر", "BOOK_SELECT|00").row();
-  for (const [id, label] of Object.entries(BOOK_TITLES)) {
-    kb.text(label, "BOOK_SELECT|" + id).row();
-  }
-  return kb.text("🏠 منوی اصلی", "MENU_MAIN");
+  return {
+    inline_keyboard: [
+      [{ text: "📕 ذهنیت ثروتمند یک معامله‌گر", callback_data: "BOOK_SELECT|00", style: "success" }],
+      ...Object.entries(BOOK_TITLES).map(([id, label]) => [
+        { text: label, callback_data: "BOOK_SELECT|" + id, style: "primary" },
+      ]),
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 // چیدمان دکمه‌های صوتی هر کتاب، عیناً از نودهای Send Book 01..04 در
