@@ -31,10 +31,45 @@ function libraryKeyboard() {
   return kb.text("🏠 منوی اصلی", "MENU_MAIN");
 }
 
+// چیدمان دکمه‌های صوتی هر کتاب، عیناً از نودهای Send Book 01..04 در
+// WF-02. هر کتاب ساختار خودش را دارد و نمی‌شود یکسان ساختشان:
+//
+//   ۱ → یک فایل صوتی کامل
+//   ۲ → پنج پارت
+//   ۳ → ده فصل
+//   ۴ → مقدمه + هفت فصل
+//
+// یک دکمه‌ی «نسخه صوتی» که همه را یک‌جا بفرستد، برای کتاب سه یعنی ده
+// فایل پشت‌سرهم - کاربر نه می‌تواند فصل دلخواهش را پیدا کند، نه اگر
+// وسطش رها کند می‌داند کجا بود.
+const BOOK_AUDIO_PARTS = {
+  "01": [["🎧 نسخه صوتی کامل", "BOOK_01_AUDIO"]],
+  "02": [1, 2, 3, 4, 5].map((n) => [
+    "🎧 پارت " + toFa(n),
+    "BOOK_02_AUDIO_P" + String(n).padStart(2, "0"),
+  ]),
+  "03": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => [
+    "🎧 فصل " + toFa(n),
+    "BOOK_03_AUDIO_CH" + String(n).padStart(2, "0"),
+  ]),
+  "04": [["🎧 مقدمه", "BOOK_04_AUDIO_INTRO"]].concat(
+    [1, 2, 3, 4, 5, 6, 7].map((n) => [
+      "🎧 فصل " + toFa(n),
+      "BOOK_04_AUDIO_CH" + String(n).padStart(2, "0"),
+    ])
+  ),
+};
+
+function toFa(n) {
+  return String(n).replace(/[0-9]/g, (d) => "۰۱۲۳۴۵۶۷۸۹"[d]);
+}
+
 function bookPartsKeyboard(bookId) {
   const kb = new InlineKeyboard();
   kb.text("📄 نسخه PDF", `CONTENT|BOOK_${bookId}_PDF`).row();
-  kb.text("🎧 نسخه صوتی", `CONTENT|BOOK_${bookId}_AUDIO`).row();
+  for (const [label, id] of BOOK_AUDIO_PARTS[bookId] || []) {
+    kb.text(label, `CONTENT|${id}`).row();
+  }
   return kb.text("🔙 بازگشت به کتابخانه", "BOOK_LIST_BACK").row().text("🏠 منوی اصلی", "MENU_MAIN");
 }
 
