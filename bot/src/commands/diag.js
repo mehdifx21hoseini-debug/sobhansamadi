@@ -8,6 +8,7 @@
 
 import { resolveAllowedChannel } from "../content/ingest.js";
 import { clearContentChannel } from "../content/channel.js";
+import { deactivateContent, deactivateTextContent } from "../content/store.js";
 
 // همان آیدی معاف در دروازه‌ی عضویت: مدیر اصلی آکادمی.
 const OWNER_ID = "6923823275";
@@ -52,10 +53,14 @@ export async function handleDiag(ctx, build) {
   try {
     const info = await ctx.api.getWebhookInfo();
     const allowed = Array.isArray(info.allowed_updates) ? info.allowed_updates : [];
-    const sendsChannel = allowed.length === 0 || allowed.includes("channel_post");
+    // فهرست خالی یعنی «همه‌ی انواع پیش‌فرض»، که هر دو را شامل می‌شود.
+    const has = (t) => allowed.length === 0 || allowed.includes(t);
     lines.push("");
     lines.push("📡 <b>وبهوک</b>");
-    lines.push("پست کانال فرستاده می‌شود: " + yes(sendsChannel));
+    lines.push("پست کانال فرستاده می‌شود: " + yes(has("channel_post")));
+    // بدون این، ویرایش کپشن به ربات نمی‌رسد و «حذف با هشتگ #حذف» بی‌صدا
+    // کار نمی‌کند - بدون هیچ خطایی، چون تلگرام اصلاً چیزی نمی‌فرستد.
+    lines.push("ویرایش پست کانال (برای حذف): " + yes(has("edited_channel_post")));
     lines.push(
       "allowed_updates: <code>" + (allowed.length ? allowed.join(", ") : "پیش‌فرض (همه)") + "</code>"
     );
@@ -115,6 +120,44 @@ export async function handleDiag(ctx, build) {
   lines.push("کلید تقویم: " + yes(!!env.ECON_EXPORT_KEY));
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+}
+
+// راه دوم حذف، برای وقتی راه اول در دسترس نیست.
+//
+// راه اصلی، افزودن #حذف به کپشن همان پست در کانال است. ولی آن راه به
+// پستِ اصلی نیاز دارد: اگر پست پاک شده باشد - یا مدخل با نسل قدیمیِ
+// شناسه ساخته شده باشد که به شماره‌ی پیام گره نمی‌خورد - دیگر چیزی برای
+// ویرایش نمانده و بدون این دستور، آن مدخل تا ابد در ربات می‌ماند.
+//
+// شناسه در همان پیام «✅ ثبت شد: ...» که ربات در کانال داده بود هست.
+export async function handleDeleteContent(ctx) {
+  if (String(ctx.from.id) !== OWNER_ID) return;
+
+  const id = String(ctx.match || "").trim();
+  if (!id) {
+    await ctx.reply(
+      [
+        "شناسه‌ی محتوا را بعد از دستور بنویسید:",
+        "<code>/delete PSY_VOICE_000000203</code>",
+        "",
+        "شناسه، همانی است که ربات موقع ثبت در کانال جواب داده بود.",
+        "",
+        "راه ساده‌تر: کپشن همان پست در کانال را ویرایش کنید و #حذف را به آن اضافه کنید.",
+      ].join("\n"),
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  const removed =
+    (await deactivateContent(ctx.env, id)) + (await deactivateTextContent(ctx.env, id));
+
+  await ctx.reply(
+    removed > 0
+      ? "🗑 حذف شد: <code>" + id + "</code>"
+      : "چیزی با این شناسه پیدا نشد: <code>" + id + "</code>",
+    { parse_mode: "HTML" }
+  );
 }
 
 // کانال ثبت‌شده را باز می‌کند تا کانال بعدی که پست بگذارد جایش بنشیند.

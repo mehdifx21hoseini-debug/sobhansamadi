@@ -30,7 +30,7 @@ const BOT_COMMANDS = [
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+content-14";
+const BUILD = "econ+outbox+miniapp+faq+public+content-15";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -42,14 +42,22 @@ const BUILD = "econ+outbox+miniapp+faq+public+content-14";
 //
 // فهرست خالی یعنی «همه‌ی انواع پیش‌فرض» که channel_post را شامل می‌شود،
 // پس فقط فهرست‌های صریحِ ناقص اصلاح می‌شوند.
+//
+// هر دو نوع لازم‌اند، نه فقط اولی: حذف محتوا با ویرایش کپشن همان پست
+// انجام می‌شود و ویرایش، edited_channel_post است. نسخه‌ی قبلی این تابع
+// به‌محض دیدن channel_post برمی‌گشت و edited_channel_post هرگز اضافه
+// نمی‌شد - ویرایش‌ها بی‌صدا سمت تلگرام دور ریخته می‌شدند.
+export const REQUIRED_UPDATES = ["channel_post", "edited_channel_post"];
+
 async function ensureChannelPostsAllowed(bot) {
   const info = await bot.api.getWebhookInfo();
   const allowed = info && info.allowed_updates;
   if (!Array.isArray(allowed) || allowed.length === 0) return;
-  if (allowed.includes("channel_post")) return;
+  const missing = REQUIRED_UPDATES.filter((t) => !allowed.includes(t));
+  if (missing.length === 0) return;
   if (!info.url) return;
 
-  const next = [...new Set([...allowed, "channel_post", "edited_channel_post"])];
+  const next = [...new Set([...allowed, ...REQUIRED_UPDATES])];
   // همان آدرس قبلی دوباره ثبت می‌شود و فقط فهرست گسترده می‌شود.
   // drop_pending_updates عمداً false است تا پیامی در صف از بین نرود.
   await bot.api.setWebhook(info.url, { allowed_updates: next, drop_pending_updates: false });

@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
 import { handleStart, handleHelp } from "./commands/start.js";
-import { handleDiag, handleResetChannel } from "./commands/diag.js";
+import { handleDiag, handleResetChannel, handleDeleteContent } from "./commands/diag.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
@@ -57,6 +57,7 @@ export function createBot(token, env, botInfo, build = "?") {
   // فقط مدیر پاسخ می‌گیرد؛ برای بقیه انگار وجود ندارد.
   bot.command("diag", (ctx) => handleDiag(ctx, build));
   bot.command("resetchannel", handleResetChannel);
+  bot.command("delete", handleDeleteContent);
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);
