@@ -144,20 +144,24 @@ function buildListKeyboard(section, items, page, admin = false) {
 //
 // شمارش با «•» به عنوان چسبیده و خط جدا نگرفته: یک عدد، یک جمله نیست
 // و وقتی خط خودش را می‌گیرد، از خبر مهم‌تر به نظر می‌رسد.
+// نکته‌ی حالت مدیر جای متن را نمی‌گیرد، زیرش می‌نشیند.
+//
+// نسخه‌ی قبلی یکی را به‌جای دیگری می‌گذاشت، و نتیجه‌اش این بود که مدیر
+// متنی را که خودش تازه نوشته بود هرگز نمی‌دید - یعنی از دید او ویرایش
+// «کار نمی‌کرد»، در حالی که برای همه‌ی کاربران درست کار می‌کرد.
+const ADMIN_HINT =
+  "⚙️ حالت مدیر: کنار هر مورد دکمه‌ی مدیریت هست. این خط و آن دکمه را فقط شما می‌بینید.";
+
 function listText(section, count, admin = false, intro = "") {
-  return [
-    section.title,
-    section.count(count),
-    "",
-    admin
-      ? "حالت مدیر: ⚙️ کنار هر مورد، صفحه‌ی مدیریت همان مورد را باز می‌کند. این دکمه را فقط شما می‌بینید."
-      : intro,
-  ].join("\n");
+  const lines = [section.title, section.count(count)];
+  if (intro) lines.push("", intro);
+  if (admin) lines.push("", ADMIN_HINT);
+  return lines.join("\n");
 }
 
-async function introFor(ctx, section) {
+async function sectionIntro(ctx, section) {
   const resolved = await resolveSection(ctx.env, section.id).catch(() => null);
-  return (resolved && resolved.text) || "";
+  return { text: (resolved && resolved.text) || "", photo: (resolved && resolved.photo) || "" };
 }
 
 // مدیر موردهای مخفی را هم می‌بیند (با نشان 🚫)، کاربر نه. اگر این دو
@@ -177,7 +181,18 @@ export async function sendPendingSection(ctx, key) {
   const items = section.prefix ? await loadItems(ctx, section, admin) : [];
 
   if (items.length > 0) {
-    await ctx.reply(listText(section, items.length, admin, await introFor(ctx, section)), {
+    const { text: intro, photo } = await sectionIntro(ctx, section);
+
+    // عکس - اگر مدیر برای این بخش یکی گذاشته باشد - پیام جدای خودش را
+    // می‌گیرد. اگر با فهرست یکی می‌شد، ورق زدن باید کپشن را ویرایش
+    // می‌کرد و هر صفحه یک بار عکس را دوباره جلوی چشم می‌آورد.
+    if (photo) {
+      await ctx
+        .replyWithPhoto(photo)
+        .catch((err) => console.error("عکس فهرست:", section.id, err && err.message));
+    }
+
+    await ctx.reply(listText(section, items.length, admin, intro), {
       reply_markup: buildListKeyboard(section, items, 0, admin),
     });
     return;
@@ -204,7 +219,7 @@ export async function handleSectionListPage(ctx, key, page) {
   const items = await loadItems(ctx, section, admin);
   if (items.length === 0) return;
   await ctx
-    .editMessageText(listText(section, items.length, admin, await introFor(ctx, section)), {
+    .editMessageText(listText(section, items.length, admin, (await sectionIntro(ctx, section)).text), {
       reply_markup: buildListKeyboard(section, items, page, admin),
     })
     // اگر کاربر روی همان صفحه دوباره بزند تلگرام «message is not modified»
