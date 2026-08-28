@@ -2,6 +2,7 @@ import { getUserState, setUserState, clearUserState, createSupportTicket } from 
 import { mainMenuKeyboard } from "./menu.js";
 import { askFaq } from "./ai/faq.js";
 import { recordKbUsage } from "./ai/kb.js";
+import { logAnswer, answerKeyboard } from "./ai/log.js";
 import { sendSection } from "./content/sectionText.js";
 
 export async function startSupport(ctx) {
@@ -16,9 +17,7 @@ export async function startSupport(ctx) {
 // وقتی دستیار خودش پاسخ داده، گفتگو باز می‌ماند تا کاربر بتواند ادامه
 // بدهد؛ این دکمه راه خروج است. زدن هر دکمه‌ی منوی اصلی هم کار می‌کند،
 // چون مسیریاب اول کنش منو را تشخیص می‌دهد.
-const KEEP_ASKING_KEYBOARD = {
-  inline_keyboard: [[{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }]],
-};
+const MAIN_MENU_ROW = [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }];
 
 async function escalate(ctx, text, replyText) {
   await createSupportTicket(ctx.env, {
@@ -63,6 +62,19 @@ export async function handleQuestion(ctx) {
     return;
   }
 
+  // هر پاسخ ثبت می‌شود، چه به کاربر رسیده باشد چه به پشتیبانی رفته
+  // باشد - چون همان ارجاع‌ها هستند که می‌گویند پایگاه دانش کجا خالی است.
+  const logId = await logAnswer(ctx.env, {
+    userId: ctx.from.id,
+    question: text,
+    answer: result.answer,
+    needsHuman: result.needsHuman,
+    reason: result.reason,
+    intent: result.intent,
+    confidence: result.confidence,
+    matchedKbIds: result.matchedKbIds,
+  });
+
   // دستیار خودش تشخیص داد که این سوال باید به انسان برسد - مسائل مالی،
   // شکایت، یا هر چیزی که در پایگاه دانش جوابی ندارد.
   if (result.needsHuman) {
@@ -78,7 +90,9 @@ export async function handleQuestion(ctx) {
     temp_data: { ...(state?.temp_data || {}), ai_history: result.history.ai_history },
   });
 
-  await ctx.reply(result.answer, { reply_markup: KEEP_ASKING_KEYBOARD });
+  await ctx.reply(result.answer, {
+    reply_markup: answerKeyboard(logId, [MAIN_MENU_ROW]),
+  });
 
   // بعد از اینکه کاربر پاسخش را گرفت: آماری است، نه پاسخ - پس نه منتظرش
   // می‌مانیم و نه خطایش را به کاربر نشان می‌دهیم.

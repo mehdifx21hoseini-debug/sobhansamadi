@@ -10,6 +10,7 @@ import { createSupportTicket, setUserState } from "./db.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { askFaq } from "./ai/faq.js";
 import { recordKbUsage } from "./ai/kb.js";
+import { logAnswer, answerKeyboard } from "./ai/log.js";
 
 // وقتی دستیار در دسترس نیست. عمداً تیکت ساخته نمی‌شود.
 //
@@ -50,6 +51,17 @@ export async function handleFreeText(ctx, state) {
     return;
   }
 
+  const logId = await logAnswer(ctx.env, {
+    userId: ctx.from.id,
+    question: text,
+    answer: result.answer,
+    needsHuman: result.needsHuman,
+    reason: result.reason,
+    intent: result.intent,
+    confidence: result.confidence,
+    matchedKbIds: result.matchedKbIds,
+  });
+
   // دستیار خودش تشخیص داد این به انسان نیاز دارد - مسائل مالی، شکایت،
   // یا هر چیزی که در پایگاه دانش جوابی ندارد. اینجا تیکت درست است، چون
   // یک تصمیم است نه یک بن‌بست.
@@ -65,7 +77,7 @@ export async function handleFreeText(ctx, state) {
     return;
   }
 
-  await ctx.reply(result.answer);
+  await ctx.reply(result.answer, { reply_markup: answerKeyboard(logId) });
 
   // تاریخچه را نگه می‌داریم تا سوال بعدی ادامه‌ی همین مکالمه باشد و
   // دستیار دوباره سلام نکند. اگر کاربر وسط یک فرآیند بود، فرآیندش

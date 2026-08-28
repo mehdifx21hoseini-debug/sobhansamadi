@@ -20,6 +20,8 @@ import {
   handleKbAdd,
   handleKbDel,
 } from "./commands/kb.js";
+import { handleAiStats } from "./commands/aistats.js";
+import { VOTE_PREFIX, recordVote } from "./ai/log.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { isOwner } from "./owner.js";
@@ -105,6 +107,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("kblist", handleKbList);
   bot.command("kbadd", handleKbAdd);
   bot.command("kbdel", handleKbDel);
+  bot.command("aistats", handleAiStats);
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);
@@ -214,6 +217,32 @@ export function createBot(token, env, botInfo, build = "?") {
 
   bot.on("callback_query:data", async (ctx) => {
     const data = ctx.callbackQuery.data;
+
+    if (data.startsWith(VOTE_PREFIX)) {
+      const [, logId, vote] = data.split("|");
+      const saved = await recordVote(ctx.env, logId, ctx.from.id, vote === "1");
+      // پیام کوتاه روی خود دکمه، نه یک پیام تازه: کاربر رأی داد، نه
+      // اینکه گفتگوی جدیدی شروع کرد.
+      await ctx.answerCallbackQuery(
+        saved
+          ? vote === "1"
+            ? "ممنون! 🙏"
+            : "ممنون از بازخوردتون؛ بهترش می‌کنیم."
+          : "این بازخورد قبلاً ثبت شده."
+      );
+      // فقط ردیف رأی برداشته می‌شود تا دوباره نشود رأی داد؛ بقیه‌ی
+      // دکمه‌ها (مثل «منوی اصلی») سر جایشان می‌مانند. شکستش مهم نیست -
+      // رأی از قبل ذخیره شده.
+      const rows = (ctx.callbackQuery.message?.reply_markup?.inline_keyboard || []).filter(
+        (row) => !row.some((b) => String(b.callback_data || "").startsWith(VOTE_PREFIX))
+      );
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: rows.length > 0 ? { inline_keyboard: rows } : undefined,
+        })
+        .catch(() => {});
+      return;
+    }
 
     if (data === "MENU_MAIN") {
       await clearUserState(ctx.env, ctx.from.id);
