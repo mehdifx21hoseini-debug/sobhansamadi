@@ -115,17 +115,24 @@ export async function embedBatch(env, texts) {
   return out.map((e) => (e && Array.isArray(e.values) ? e.values : null));
 }
 
-export async function generateAnswer(env, systemPrompt, question) {
+/**
+ * پاسخ ساختاریافته با یک شمای دلخواه.
+ *
+ * جدا از generateAnswer است چون کارهای دیگری هم به همین مسیر نیاز
+ * دارند (مثل پیشنهاد مدخل پایگاه دانش) و تنها فرقشان شماست - کپی کردن
+ * این تابع یعنی دو جا که باید هم‌زمان درست بمانند.
+ */
+export async function generateStructured(env, systemPrompt, userText, schema, temperature) {
   const data = await callGemini(
     env,
     `/${CHAT_MODEL}:generateContent`,
     {
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: String(question) }] }],
+      contents: [{ role: "user", parts: [{ text: String(userText) }] }],
       generationConfig: {
-        temperature: TEMPERATURE,
+        temperature: typeof temperature === "number" ? temperature : TEMPERATURE,
         responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA,
+        responseSchema: schema,
       },
     },
     25000
@@ -152,4 +159,8 @@ export async function generateAnswer(env, systemPrompt, question) {
   } catch {
     throw new Error("پاسخ Gemini JSON معتبر نبود");
   }
+}
+
+export function generateAnswer(env, systemPrompt, question) {
+  return generateStructured(env, systemPrompt, question, RESPONSE_SCHEMA);
 }

@@ -32,6 +32,28 @@
 		return wordOverlapDetail(a, b).ratio;
 	}
 
+	// از کجا آمده. برای مدیر مهم است چون سرنوشت مدخل فرق می‌کند: مدخلی
+	// که از متن بخش‌های ربات می‌آید تا وقتی دست‌نخورده است با /edit در
+	// تلگرام عوض می‌شود، و ویرایشش از اینجا آن پیوند را می‌بُرد.
+	var SOURCE_LABEL = {
+		manual: { text: "دستی", cls: "kb-src-manual" },
+		section: { text: "متن ربات", cls: "kb-src-section" },
+		seed: { text: "پایه", cls: "kb-src-seed" }
+	};
+
+	function sourceBadge(row) {
+		var info = SOURCE_LABEL[row.source];
+		if (!info) return $();
+		var $chip = $('<span class="kb-source-chip">').addClass(info.cls).text(info.text);
+		if (row.pinned) {
+			$chip = $chip.add(
+				$('<span class="kb-source-chip kb-src-pinned" title="این متن را شما نوشته‌اید و همگام‌سازی رویش نمی‌نویسد">')
+					.html('<i class="fas fa-thumbtack"></i>')
+			);
+		}
+		return $chip;
+	}
+
 	function statusBadge(row) {
 		if (row.needs_completion) {
 			return '<span class="status-badge badge-ticket-open"><i class="fas fa-triangle-exclamation"></i>نیاز به تکمیل</span>';
@@ -184,7 +206,7 @@
 		}
 		rows.forEach(function (r) {
 			var $tr = $("<tr>").toggleClass("kb-row-inactive", r.active === false);
-			$tr.append($("<td>").append(categoryChip(r.category)));
+			$tr.append($("<td>").append(categoryChip(r.category)).append(sourceBadge(r)));
 			$tr.append($("<td>").append($('<span class="kb-question-text">').text(r.question || "—")));
 			var $answer = r.answer
 				? $('<span class="kb-answer-preview">').text(r.answer)
@@ -199,7 +221,7 @@
 			var $deleteBtn = $('<button class="btn btn-sm btn-outline-danger" title="حذف"><i class="fas fa-trash"></i></button>');
 			$deleteBtn.on("click", function () {
 				if (!confirm('مدخل «' + (r.question || "") + '» از پایگاه دانش حذف بشه؟')) return;
-				CrmData.deleteAiKnowledge(r.id).then(loadKb).catch(function (err) {
+				CrmAi.deleteKnowledge(r.id).then(loadKb).catch(function (err) {
 					alert("خطا در حذف: " + (err.message || "خطای نامشخص"));
 				});
 			});
@@ -283,7 +305,7 @@
 		}
 		if (!confirm("کل پایگاه دانش (" + kbRows.length + " مدخل فعلی) با این متن (" + entries.length + " مدخل) جایگزین می‌شه. مطمئنی؟")) return;
 		var $btn = $("#btnSaveKbText").prop("disabled", true);
-		CrmData.bulkSaveAiKnowledge(entries)
+		CrmAi.bulkSaveKnowledge(entries)
 			.then(function () {
 				$("#kbBulkSaveResult").removeClass("d-none text-danger").addClass("text-success").text("ذخیره شد (" + entries.length + " مدخل).");
 				loadKb().then(function () { fillKbTextFromRows(); });
@@ -297,7 +319,7 @@
 
 	function loadKb() {
 		renderKbSkeleton();
-		return CrmData.fetchAiKnowledge()
+		return CrmAi.fetchKnowledge()
 			.then(function (res) {
 				kbRows = Array.isArray(res) ? res : [];
 				kbPageIndex = 0;
@@ -307,21 +329,31 @@
 				// so count locally rather than adding a round-trip.
 				$("#ai-kb-unused").text(kbRows.filter(function (r) { return !r.usage_count; }).length);
 			})
-			.catch(function () {
-				$("#kbTableBody").html('<tr><td colspan="6" class="text-center text-danger py-4">خطا در بارگذاری.</td></tr>');
+			.catch(function (err) {
+				// انصراف از پنجره‌ی کلید خطا نیست؛ نشان دادن «خطا در
+				// بارگذاری» فقط کاربر را دنبال مشکلی می‌فرستاد که نیست.
+				var msg = CrmAi.isCancelled(err)
+					? "برای دیدن پایگاه دانش، کلید دسترسی لازم است. صفحه را دوباره باز کنید."
+					: "خطا در بارگذاری: " + (err.message || "خطای نامشخص");
+				$("#kbTableBody").html($("<tr>").append(
+					$('<td colspan="6" class="text-center text-danger py-4">').text(msg)
+				));
 			});
 	}
 
 	function loadOverview() {
-		if (typeof CrmData.fetchAiOverview !== "function") return;
-		CrmData.fetchAiOverview()
+		if (typeof CrmAi.fetchOverview !== "function") return;
+		CrmAi.fetchOverview()
 			.then(function (res) {
-				$("#ai-kb-total").text(res.kb_total || 0);
-				$("#ai-kb-active").text(res.kb_active || 0);
-				$("#ai-kb-needs").text(res.kb_needs_completion || 0);
-				$("#ai-escalations-week").text(res.escalations_week || 0);
+				// «کل» و «فعال» از یک عدد می‌آیند: در این پایگاه دانش،
+				// مدخل غیرفعال اصلاً برگردانده نمی‌شود — حذف یعنی حذف.
+				$("#ai-kb-total").text(res.kb.total || 0);
+				$("#ai-kb-active").text(res.kb.total || 0);
+				$("#ai-kb-needs").text(kbRows.filter(function (r) { return r.needs_completion; }).length);
+				$("#ai-escalations-week").text(res.stats.escalated || 0);
 			})
 			.catch(function (err) {
+				if (CrmAi.isCancelled(err)) return;
 				console.error("خطا در بارگذاری آمار هوش مصنوعی:", err);
 			});
 	}
@@ -352,7 +384,7 @@
 			active: $("#kbActive").is(":checked")
 		};
 		var $btn = $("#btnSaveKb").prop("disabled", true);
-		CrmData.saveAiKnowledge(payload)
+		CrmAi.saveKnowledge(payload)
 			.then(function () {
 				$("#kbSaveResult").removeClass("d-none text-danger").addClass("text-success").text("ذخیره شد.");
 				loadKb();
@@ -586,7 +618,7 @@
 			var originalHtml = $btn.html();
 			$btn.html('<i class="fas fa-spinner fa-spin mr-1"></i>در حال تحلیل...');
 			$("#kbCuratorResult").addClass("d-none");
-			CrmData.suggestAiKnowledge(rawText)
+			CrmAi.suggestKnowledge(rawText)
 				.then(function (suggestion) {
 					renderCuratorSuggestion(suggestion || {});
 				})
@@ -613,6 +645,13 @@
 			$("#kbCuratorResult").addClass("d-none");
 			$("#kbCuratorInput").val("");
 		});
+
+		// بخش «کارکرد دستیار» از این دو استفاده می‌کند: از روی یک سوالِ
+		// بی‌جواب، همین فرم را باز می‌کند، و بعد از همگام‌سازی جدول را
+		// تازه می‌کند. جدا نگه داشتنشان بهتر از این است که آن فایل دستش
+		// را داخل جزئیات این یکی ببرد.
+		window.__kbOpenModal = openKbModal;
+		window.__kbReload = function () { loadKb(); loadOverview(); };
 
 		window.__kbCuratorClear = function () {
 			curatorSuggestion = null;

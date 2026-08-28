@@ -269,45 +269,12 @@
 		});
 	}
 
-	function fetchAiOverview() {
-		return request("/crm/ai-overview", { method: "GET" });
-	}
-
-	function fetchAiKnowledge() {
-		return request("/crm/ai-knowledge", { method: "GET" });
-	}
-
-	function saveAiKnowledge(payload) {
-		return request("/crm/ai-knowledge/save", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload)
-		});
-	}
-
-	function deleteAiKnowledge(id) {
-		return request("/crm/ai-knowledge/delete", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ id: id })
-		});
-	}
-
-	function bulkSaveAiKnowledge(entries) {
-		return request("/crm/ai-knowledge/bulk-save", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ entries: entries })
-		});
-	}
-
-	function suggestAiKnowledge(rawText) {
-		return request("/crm/ai/kb-suggest", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ raw_text: rawText })
-		});
-	}
+	// مسیرهای هوش مصنوعی از اینجا برداشته شدند.
+	//
+	// پایگاه دانشی که ربات از آن جواب می‌دهد در D1 نشسته، نه در n8n.
+	// این توابع نسخه‌ی n8n را ویرایش می‌کردند و ربات هرگز آن تغییرها را
+	// نمی‌دید - یعنی صفحه کار می‌کرد، ذخیره می‌شد، و هیچ اثری نداشت.
+	// جای‌شان js/ai-worker.js است که مستقیم با ورکر حرف می‌زند.
 
 	function changePassword(currentPassword, newPassword) {
 		return request("/crm/auth/change-password", {
@@ -584,12 +551,6 @@
 		fetchConsultantPerformance: fetchConsultantPerformance,
 		fetchSalesFunnel: fetchSalesFunnel,
 		fetchSourcePerformance: fetchSourcePerformance,
-		fetchAiOverview: fetchAiOverview,
-		fetchAiKnowledge: fetchAiKnowledge,
-		saveAiKnowledge: saveAiKnowledge,
-		deleteAiKnowledge: deleteAiKnowledge,
-		bulkSaveAiKnowledge: bulkSaveAiKnowledge,
-		suggestAiKnowledge: suggestAiKnowledge,
 		changePassword: changePassword,
 		updateDisplayName: updateDisplayName,
 		updateUsername: updateUsername,

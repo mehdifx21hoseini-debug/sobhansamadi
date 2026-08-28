@@ -120,6 +120,58 @@ export function answerKeyboard(logId, extraRows = []) {
 }
 
 /**
+ * گفتگوهای اخیر، برای صفحه‌ی CRM.
+ *
+ * فیلترها همان سه چیزی‌اند که آدم واقعاً دنبالشان می‌گردد: همه، آن‌هایی
+ * که به پشتیبانی رفتند، و آن‌هایی که کاربر ردشان کرد.
+ *
+ * @param {{filter?:string, limit?:number, offset?:number, q?:string}} opts
+ */
+export async function listLog(env, opts = {}) {
+  await ensureLogSchema(env);
+
+  const where = [];
+  const args = [];
+  if (opts.filter === "escalated") where.push("needs_human = 1");
+  else if (opts.filter === "down") where.push("vote = -1");
+  else if (opts.filter === "up") where.push("vote = 1");
+  if (opts.q) {
+    where.push("(question LIKE ? ESCAPE '\\' OR answer LIKE ? ESCAPE '\\')");
+    // \ و _ و % در متن سوال معنی خاص دارند و بدون فرار دادن، جستجوی
+    // «۵۰٪» همه‌ی سطرها را برمی‌گرداند.
+    const like = "%" + String(opts.q).replace(/[\\%_]/g, (c) => "\\" + c) + "%";
+    args.push(like, like);
+  }
+
+  const clause = where.length ? " WHERE " + where.join(" AND ") : "";
+  const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
+  const offset = Math.max(Number(opts.offset) || 0, 0);
+
+  const total = await env.DB
+    .prepare(`SELECT COUNT(*) AS n FROM ai_log${clause}`)
+    .bind(...args)
+    .first();
+
+  const { results } = await env.DB
+    .prepare(
+      `SELECT id, telegram_user_id, question, answer, needs_human, reason,
+              intent, confidence, matched_kb_ids, vote, created_at
+         FROM ai_log${clause} ORDER BY id DESC LIMIT ? OFFSET ?`
+    )
+    .bind(...args, limit, offset)
+    .all();
+
+  return {
+    total: (total && total.n) || 0,
+    rows: (results || []).map((r) => ({
+      ...r,
+      needs_human: r.needs_human === 1,
+      matched_kb_ids: JSON.parse(r.matched_kb_ids || "[]"),
+    })),
+  };
+}
+
+/**
  * خلاصه‌ی کارکرد دستیار در ۳۰ روز گذشته.
  *
  * @returns {Promise<{total, answered, escalated, up, down, reasons, unanswered, weak}>}

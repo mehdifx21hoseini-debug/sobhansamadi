@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=29">
+	<link rel="stylesheet" href="assets/app.css?v=30">
 	<link rel="stylesheet" href="assets/skin-ember.css?v=1">
 	<script>(function(){try{if(localStorage.getItem("crmSkin")==="ember")document.documentElement.setAttribute("data-skin","ember");}catch(e){}})();</script>
 </head>
@@ -104,7 +104,7 @@
 								<div class="col-lg-8">
 									<div class="page-header-title text-left-rtl">
 										<h3 class="lite-text">مدیریت هوش مصنوعی</h3>
-										<span class="lite-text text-gray">پایگاه دانشی که دستیار هوش مصنوعی ربات برای پاسخ به سوالات کاربران ازش استفاده می‌کنه — بدون نیاز به دست‌زدن به n8n</span>
+										<span class="lite-text text-gray">همان پایگاه دانشی که ربات واقعاً از آن جواب می‌دهد، به‌علاوه‌ی گزارش اینکه به چه سوالی چه جوابی داده و کجا کم آورده</span>
 									</div>
 								</div>
 							</div>
@@ -135,6 +135,79 @@
 								<div class="stat-card-value" id="ai-kb-unused">0</div>
 								<div class="stat-card-label">استفاده‌نشده</div>
 							</button>
+						</div>
+					</div>
+				</div>
+
+				<div class="row m-1">
+					<div class="col-12 p-2">
+						<div class="card shade chart-card animate-in">
+							<div class="card-body">
+								<div class="d-flex justify-content-between align-items-start flex-wrap">
+									<div>
+										<h5 class="card-title mb-1"><span class="card-icon-badge mr-2"><i class="fas fa-comments"></i></span>کارکرد دستیار</h5>
+										<p class="text-muted text-sm mb-0">۳۰ روز گذشته — چه پرسیدند، چه گرفتند، و کجا کم آورد.</p>
+									</div>
+									<div class="text-left">
+										<button class="btn btn-sm btn-outline-secondary" id="btnAiLogRefresh"><i class="fas fa-rotate mr-1"></i>تازه‌سازی</button>
+										<button class="btn btn-sm btn-brand" id="btnAiSync" title="پایگاه دانش را دوباره می‌سازد تا ربات تغییرها را ببیند"><i class="fas fa-wand-sparkles mr-1"></i>همگام‌سازی با ربات</button>
+									</div>
+								</div>
+								<div id="aiSyncResult" class="text-sm mt-2 d-none"></div>
+								<hr>
+
+								<div class="ai-log-stats">
+									<div class="ai-log-stat">
+										<span class="ai-log-stat-value" id="ai-log-total">۰</span>
+										<span class="ai-log-stat-label">سوال کاربران</span>
+									</div>
+									<div class="ai-log-stat tone-ok">
+										<span class="ai-log-stat-value" id="ai-log-answered">۰</span>
+										<span class="ai-log-stat-label">خودش جواب داد — <span id="ai-log-answered-pct">—</span></span>
+									</div>
+									<div class="ai-log-stat tone-warn">
+										<span class="ai-log-stat-value" id="ai-log-escalated">۰</span>
+										<span class="ai-log-stat-label">به پشتیبانی رفت — <span id="ai-log-escalated-pct">—</span></span>
+									</div>
+									<div class="ai-log-stat">
+										<span class="ai-log-stat-value" id="ai-log-votes">—</span>
+										<span class="ai-log-stat-label">👍 / 👎 — <span id="ai-log-votes-pct">—</span></span>
+									</div>
+								</div>
+
+								<div class="ai-reason-row" id="ai-log-reasons"></div>
+
+								<div class="d-flex justify-content-between align-items-center flex-wrap mt-3 ai-kb-toolbar">
+									<div class="filter-tabs" id="aiLogTabs">
+										<button class="filter-tab active" data-filter="all">همه</button>
+										<button class="filter-tab" data-filter="escalated">به پشتیبانی رفته</button>
+										<button class="filter-tab" data-filter="down">👎 کاربر رد کرده</button>
+										<button class="filter-tab" data-filter="up">👍 پسندیده</button>
+									</div>
+									<input type="text" id="aiLogSearch" class="form-control form-control-sm mono-search" placeholder="جستجو در سوال یا پاسخ...">
+								</div>
+
+								<div class="table-responsive mt-2">
+									<table class="table table-striped table-hover">
+										<thead>
+											<tr>
+												<th>زمان</th>
+												<th>سوال کاربر</th>
+												<th>پاسخ دستیار</th>
+												<th>وضعیت</th>
+											</tr>
+										</thead>
+										<tbody id="aiLogBody"></tbody>
+									</table>
+								</div>
+								<div class="kb-pagination">
+									<span class="kb-pagination-info" id="aiLogPaginationInfo"></span>
+									<div class="kb-pagination-btns">
+										<button type="button" class="btn btn-sm btn-outline-secondary" id="btnAiLogPrev"><i class="fas fa-chevron-right"></i></button>
+										<button type="button" class="btn btn-sm btn-outline-secondary" id="btnAiLogNext"><i class="fas fa-chevron-left"></i></button>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -407,11 +480,13 @@
 
 	<script src="js/theme.js?v=2"></script>
 	<script src="js/skin.js?v=1"></script>
-	<script src="js/data.js?v=12"></script>
+	<script src="js/data.js?v=13"></script>
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/ai.js?v=7"></script>
+	<script src="js/ai-worker.js?v=1"></script>
+	<script src="js/ai.js?v=8"></script>
+	<script src="js/ai-insights.js?v=1"></script>
 </body>
 
 </html>

@@ -4,6 +4,7 @@ import { syncFromN8n, readSyncState } from "./econ/store.js";
 import { drainLeadOutbox } from "./crmSync.js";
 import { handleMiniapp } from "./econ/miniapp.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
+import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -26,7 +27,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-5-feedback";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-6-crm";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -68,6 +69,10 @@ function json(body, status = 200) {
       // بدون این، پاسخ می‌تواند کش شود و ساعت‌ها همان خطای قدیمی را نشان
       // بدهد در حالی که مشکل حل شده - دقیقاً چیزی که تشخیص را گمراه می‌کند.
       "Cache-Control": "no-store, max-age=0",
+      // صفحه‌ی CRM روی دامنه‌ی دیگری است. بدون این هدر روی پاسخِ ۴۰۱ هم،
+      // مرورگر متن خطا را دور می‌ریزد و صفحه فقط «خطای شبکه» می‌بیند -
+      // یعنی «کلید غلط است» و «ورکر خوابیده» از هم جدا نمی‌شوند.
+      "Access-Control-Allow-Origin": "*",
     },
   });
 }
@@ -131,6 +136,10 @@ async function handleAdmin(request, url, env) {
       },
       401
     );
+  }
+
+  if (url.pathname.startsWith("/admin/ai/")) {
+    return handleAiApi(request, url, env);
   }
 
   if (url.pathname === "/admin/sync") {
@@ -247,6 +256,16 @@ export default {
     // دیپلوی نشده»، «متغیر ست نشده»، «Cron اجرا نمی‌شود» و «n8n جواب
     // نمی‌دهد» حدس زد. این‌ها همان چهار حالت را از هم جدا می‌کنند.
     if (url.pathname === "/admin/status" || url.pathname === "/admin/sync" || url.pathname === "/admin/ff-probe") {
+      return handleAdmin(request, url, env);
+    }
+
+    // صفحه‌ی «هوش مصنوعی» در CRM. روی دامنه‌ی دیگری است، پس مرورگر اول
+    // یک درخواست OPTIONS می‌فرستد - و آن درخواست هدر کلید را ندارد،
+    // چون مرورگر عمداً نمی‌فرستدش. پس باید پیش از احراز هویت جواب بگیرد،
+    // وگرنه هر درخواستی از صفحه پشت یک ۴۰۱ گیر می‌کند که در کنسول حتی
+    // معلوم نیست از کجاست.
+    if (url.pathname.startsWith("/admin/ai/")) {
+      if (request.method === "OPTIONS") return corsPreflight();
       return handleAdmin(request, url, env);
     }
 
