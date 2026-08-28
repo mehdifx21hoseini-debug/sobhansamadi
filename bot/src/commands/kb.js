@@ -9,6 +9,7 @@ import { syncAndRebuild, listSource, addSourceEntry, removeSourceEntry } from ".
 
 const FA = "۰۱۲۳۴۵۶۷۸۹";
 const fa = (n) => String(n).replace(/\d/g, (d) => FA[Number(d)]);
+const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const HELP = [
   "🧠 <b>پایگاه دانش دستیار</b>",
@@ -34,18 +35,18 @@ export async function handleKbSync(ctx) {
   await ctx.reply("⏳ در حال ساختن پایگاه دانش…");
 
   try {
-    const { sections, total, embedded } = await syncAndRebuild(ctx.env);
+    const { mirrored, embedded, pending } = await syncAndRebuild(ctx.env);
     await ctx.reply(
       [
         "✅ پایگاه دانش ساخته شد.",
         "",
-        "از متن بخش‌ها: " + fa(sections) + " مدخل",
-        "کل مدخل‌ها: " + fa(total),
-        "با بردار معنایی: " + fa(embedded),
+        "کل مدخل‌ها: " + fa(mirrored),
+        "بردار تازه ساخته شد: " + fa(embedded),
+        pending > 0 ? "بدون بردار: " + fa(pending) : "همه با بردار معنایی ✓",
         "",
-        embedded === total
-          ? "دستیار حالا فعال است؛ سوال‌های کاربران را همین‌جا جواب می‌دهد."
-          : "چند مدخل بردار نگرفتند؛ باز هم استفاده می‌شوند ولی دقت رتبه‌بندی‌شان کمتر است.",
+        pending === 0
+          ? "دستیار فعال است؛ سوال‌های کاربران را همین‌جا جواب می‌دهد."
+          : "چند مدخل بردار نگرفتند - احتمالاً خطای موقت سرویس. یک‌بار دیگر /kbsync بزنید تا همان‌ها دوباره تلاش شوند.",
       ].join("\n")
     );
   } catch (err) {
@@ -65,15 +66,32 @@ export async function handleKbList(ctx) {
     return;
   }
 
-  // فقط سرِ هر مدخل. فهرست کامل با جواب‌هایش از سقف پیام تلگرام رد
-  // می‌شود و آنچه مدیر لازم دارد، شماره و موضوع است.
-  const lines = ["🧠 <b>مدخل‌های پایگاه دانش</b> (" + fa(rows.length) + ")", ""];
+  // ۲۵۰ سطر در یک پیام نه جا می‌شود نه خوانده. پس شمارش هر دسته، و
+  // فهرست کاملِ فقط آن‌هایی که مدیر خودش اضافه کرده - چون همان‌ها
+  // شماره‌شان لازم می‌شود تا بشود برشان داشت.
+  const byCategory = new Map();
+  const manual = [];
   for (const r of rows) {
-    const q = String(r.question || "").replace(/[<>&]/g, "");
-    lines.push(fa(r.id) + ". " + q + (r.category === "دستی" ? " ✍️" : ""));
+    const cat = r.category || "بدون دسته";
+    byCategory.set(cat, (byCategory.get(cat) || 0) + 1);
+    if (cat === "دستی") manual.push(r);
   }
-  lines.push("");
-  lines.push("✍️ یعنی دستی اضافه شده. برای برداشتن: <code>/kbdel شماره</code>");
+
+  const lines = ["🧠 <b>پایگاه دانش دستیار</b> — " + fa(rows.length) + " مدخل", ""];
+  for (const [cat, n] of [...byCategory].sort((a, b) => b[1] - a[1])) {
+    lines.push("• " + esc(cat) + ": " + fa(n));
+  }
+
+  if (manual.length > 0) {
+    lines.push("");
+    lines.push("✍️ <b>مدخل‌های دستی</b>");
+    for (const r of manual) lines.push(fa(r.id) + ". " + esc(r.question));
+    lines.push("");
+    lines.push("برای برداشتن: <code>/kbdel شماره</code>");
+  } else {
+    lines.push("");
+    lines.push("هنوز مدخل دستی اضافه نشده. <code>/kbadd سوال | جواب</code>");
+  }
 
   await ctx.reply(lines.join("\n").slice(0, 4000), { parse_mode: "HTML" });
 }

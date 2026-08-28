@@ -73,6 +73,44 @@ export async function embedQuestion(env, question) {
   return Array.isArray(values) ? values : null;
 }
 
+// چند متن در یک درخواست.
+//
+// چرا لازم است: پایگاه دانش ۲۲۳ مدخل دارد و یکی‌یکی یعنی ۲۲۳ درخواست
+// بیرونی در یک اجرا - چند برابر سقفی که Cloudflare Workers اجازه
+// می‌دهد. با این مسیر همان کار سه‌چهار درخواست می‌شود.
+//
+// خروجی هم‌ترتیب با ورودی است؛ اگر نبود، هر بردار به مدخل اشتباه
+// می‌چسبید و رتبه‌بندی معنایی بی‌سروته می‌شد - پس طول خروجی چک می‌شود.
+export const EMBED_BATCH_MAX = 50;
+
+export async function embedBatch(env, texts) {
+  const list = (texts || []).map((t) => String(t == null ? "" : t));
+  if (list.length === 0) return [];
+  if (list.length > EMBED_BATCH_MAX) {
+    throw new Error("دسته بزرگ‌تر از سقف " + EMBED_BATCH_MAX + " است");
+  }
+
+  const data = await callGemini(
+    env,
+    `/${EMBED_MODEL}:batchEmbedContents`,
+    {
+      requests: list.map((text) => ({
+        model: "models/" + EMBED_MODEL,
+        content: { parts: [{ text }] },
+        outputDimensionality: EMBED_DIMS,
+      })),
+    },
+    // ۵۰ متن در یک درخواست، پس مهلتش هم باید بزرگ‌تر از تک‌متن باشد.
+    30000
+  );
+
+  const out = (data && data.embeddings) || [];
+  if (out.length !== list.length) {
+    throw new Error("تعداد بردارها با تعداد متن‌ها نمی‌خواند: " + out.length + " ≠ " + list.length);
+  }
+  return out.map((e) => (e && Array.isArray(e.values) ? e.values : null));
+}
+
 export async function generateAnswer(env, systemPrompt, question) {
   const data = await callGemini(
     env,
