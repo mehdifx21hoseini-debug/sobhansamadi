@@ -4,7 +4,12 @@ import { handleDiag, handleResetChannel } from "./commands/diag.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
-import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menuActions.js";
+import {
+  sendEconCalendar,
+  sendPendingSection,
+  handleSectionListPage,
+  handleEconCallback,
+} from "./menuActions.js";
 import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
 import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
@@ -215,6 +220,20 @@ export function createBot(token, env, botInfo, build = "?") {
           .reply("⚠️ در نمایش این بخش مشکلی پیش آمد. لطفاً دوباره امتحان کنید.")
           .catch(() => {});
       }
+      return;
+    }
+
+    // دکمه‌های تزئینی ردیف صفحه‌بندی (شماره‌ی صفحه و جای خالی). فقط
+    // ساعت شنی را برمی‌دارند و کار دیگری نمی‌کنند.
+    if (data === "NOOP") {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
+    if (data.startsWith("LIST|")) {
+      const [, key, page] = data.split("|");
+      await ctx.answerCallbackQuery();
+      await handleSectionListPage(ctx, key, Number(page) || 0);
       return;
     }
 
