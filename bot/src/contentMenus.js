@@ -118,13 +118,15 @@ export async function handleExpertPlatform(ctx, platform) {
   const name = platform === "MT4" ? "MetaTrader 4" : "MetaTrader 5";
   await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, `EXPERT_${platform}_FILE`);
 
-  // اکسپرت دو تکه دارد: خود فایل و ویدیوی آموزش نصبش. فایل بدون ویدیو
-  // برای کسی که تا حالا اکسپرت نصب نکرده تقریباً بی‌فایده است، پس هر دو
-  // فرستاده می‌شوند.
+  // اکسپرت دو تکه دارد: ویدیوی آموزش نصب، و خود فایل.
+  //
+  // ویدیو اول می‌رود: کسی که تا حالا اکسپرت نصب نکرده، با دیدن فایل
+  // تنها نمی‌داند با آن چه کند. اول یاد می‌گیرد، بعد چیزی را می‌گیرد که
+  // نصبش را بلد است - و فایل، آخرین پیام و در دسترس می‌ماند.
   let delivered = 0;
   try {
     await ctx.replyWithChatAction("upload_document").catch(() => {});
-    for (const id of [`EXPERT_${platform}_FILE`, `EXPERT_${platform}_VIDEO`]) {
+    for (const id of [`EXPERT_${platform}_VIDEO`, `EXPERT_${platform}_FILE`]) {
       delivered += await deliverContent(ctx, id);
     }
   } catch (err) {
