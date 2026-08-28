@@ -14,6 +14,12 @@ import {
   handleSectionText,
   handleSectionPhoto,
 } from "./commands/editor.js";
+import {
+  handleKbSync,
+  handleKbList,
+  handleKbAdd,
+  handleKbDel,
+} from "./commands/kb.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { isOwner } from "./owner.js";
@@ -95,6 +101,10 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("delete", handleDeleteContent);
   bot.command("edit", handleEditCommand);
   bot.command("setquiz", handleSetQuiz);
+  bot.command("kbsync", handleKbSync);
+  bot.command("kblist", handleKbList);
+  bot.command("kbadd", handleKbAdd);
+  bot.command("kbdel", handleKbDel);
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);

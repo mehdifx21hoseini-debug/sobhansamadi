@@ -17,6 +17,9 @@ export const ADMIN_COMMANDS = [
   { command: "edit", description: "✏️ ویرایش متن و عکس بخش‌ها" },
   { command: "diag", description: "🔧 وضعیت ربات" },
   { command: "setquiz", description: "🔗 لینک آزمون تعیین سطح" },
+  { command: "kbsync", description: "🧠 ساختن پایگاه دانش دستیار" },
+  { command: "kblist", description: "🧠 مدخل‌های پایگاه دانش" },
+  { command: "kbadd", description: "🧠 افزودن پرسش و پاسخ" },
   { command: "delete", description: "🗑 حذف یک محتوا با شناسه" },
   { command: "resetchannel", description: "🔄 عوض کردن کانال محتوا" },
 ];

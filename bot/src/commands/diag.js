@@ -142,6 +142,7 @@ export async function handleDiag(ctx, build) {
   lines.push("/edit — ویرایش متن و عکس بخش‌ها");
   lines.push("/delete — حذف یک محتوا با شناسه");
   lines.push("/setquiz — لینک آزمون تعیین سطح");
+  lines.push("/kbsync — ساختن پایگاه دانش دستیار");
   lines.push("/resetchannel — عوض کردن کانال محتوا");
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
