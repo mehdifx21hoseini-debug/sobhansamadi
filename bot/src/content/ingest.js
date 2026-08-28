@@ -9,7 +9,13 @@
 // یکی از این‌ها عوض شود، پست‌هایی که آکادمی سال‌هاست به همان شکل می‌فرستد
 // دیگر شناخته نمی‌شوند.
 
-import { upsertContent, upsertTextContent } from "./store.js";
+import {
+  upsertContent,
+  upsertTextContent,
+  deactivateContent,
+  deactivateContentBySuffix,
+  deactivateTextContent,
+} from "./store.js";
 import { readContentChannel, writeContentChannel } from "./channel.js";
 
 const FIXED_CONTENT_CODES = [
@@ -77,9 +83,61 @@ export function extractFile(post) {
   return { fileId: "", fileType: "" };
 }
 
+// هشتگ‌ها از عنوان پاک می‌شوند - هم هشتگ فرمان (#ویس_روانشناسی) و هم
+// برچسب‌های آزاد (#طلا) - ولی خط‌های کپشن دست‌نخورده می‌مانند.
+//
+// چرا خط‌ها مهم‌اند: خط اول روی دکمه می‌نشیند و بقیه زیر خود فایل
+// می‌آید. اگر همه‌ی کپشن به یک خط تبدیل شود، آکادمی راهی ندارد بگوید
+// «این تکه عنوان است و آن تکه توضیح».
+export function stripTags(text) {
+  return String(text || "")
+    .replace(/#[^\s#]+/g, " ")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// هشتگ حذف. روی همان پست گذاشته می‌شود (کپشن ویرایش می‌شود) و همان
+// مدخل را از دسترس کاربر بیرون می‌برد.
+const DELETE_HASHTAGS = ["#حذف", "#DELETE"];
+
+function hasDeleteTag(caption) {
+  const upper = String(caption).toUpperCase();
+  return DELETE_HASHTAGS.some((h) => {
+    const idx = upper.indexOf(h.toUpperCase());
+    if (idx === -1) return false;
+    // «#حذف» نباید داخل «#حذف_شده» یا #DELETED هم بگیرد.
+    return !/[A-Z0-9_؀-ۿ]/.test(upper.charAt(idx + h.length));
+  });
+}
+
 // تصمیم می‌گیرد این پست کانال چه چیزی است. هیچ عارضه‌ای ندارد تا بشود
 // جداگانه تستش کرد.
+//
+// حذف یک حالت جدا نیست، یک پرچم روی همان تشخیص است: کپشن ویرایش‌شده‌ی
+// یک پست هنوز همان پست است، پس اول معلوم می‌شود «کدام مدخل» و بعد
+// اینکه «ثبت یا حذف».
 export function classifyPost(post) {
+  const res = classifyCore(post);
+  if (!hasDeleteTag(post.caption || post.text || "")) return res;
+
+  if (res.kind === "file" || res.kind === "text") {
+    return { kind: "delete", contentId: res.contentId, scope: res.kind };
+  }
+
+  // هشتگ محتوا از کپشن پاک شده و فقط #حذف مانده. هنوز می‌شود از روی
+  // شماره‌ی پیام، مدخلِ ساخته‌شده از همین پست را پیدا کرد - وگرنه
+  // آکادمی باید هشتگ اصلی را یادش بماند تا بتواند حذف کند.
+  if (post.message_id) {
+    return { kind: "delete", contentId: "", messageId: post.message_id, scope: "file" };
+  }
+
+  return { kind: "none" };
+}
+
+function classifyCore(post) {
   const caption = post.caption || post.text || "";
   const { fileId, fileType } = extractFile(post);
   const hasMedia = !!fileId;
@@ -122,7 +180,7 @@ export function classifyPost(post) {
     for (const h of tags) title = title.split(h).join("");
     // بقیه‌ی هشتگ‌های کپشن (مثل #طلا) هم از عنوان پاک می‌شوند تا عنوانی
     // که به کاربر نشان داده می‌شود، جمله باشد نه دنباله‌ای از برچسب.
-    title = title.replace(/#[^\s#]+/g, " ").replace(/\s+/g, " ").trim();
+    title = stripTags(title);
     return {
       kind: "file",
       // این دو خانواده کد ثابت ندارند؛ هر پست یک مدخل تازه است.
@@ -206,6 +264,33 @@ export async function handleChannelPost(ctx) {
           "",
           "آیدی این کانال: " + here,
         ].join("\n")
+      )
+      .catch(() => {});
+    return;
+  }
+
+  if (c.kind === "delete") {
+    let removed = 0;
+    if (c.contentId) {
+      removed =
+        c.scope === "text"
+          ? await deactivateTextContent(ctx.env, c.contentId)
+          : await deactivateContent(ctx.env, c.contentId);
+    } else if (c.messageId) {
+      removed = await deactivateContentBySuffix(
+        ctx.env,
+        String(c.messageId).padStart(9, "0")
+      );
+    }
+
+    console.log("حذف محتوا:", c.contentId || c.messageId, removed);
+    await ctx.api
+      .sendMessage(
+        post.chat.id,
+        removed > 0
+          ? "🗑 حذف شد: " + (c.contentId || "این مورد") + "\nدیگر در ربات نمایش داده نمی‌شود."
+          : "⚠️ چیزی برای حذف پیدا نشد.\nشاید از قبل حذف شده یا هرگز ثبت نشده بود.",
+        { reply_to_message_id: post.message_id }
       )
       .catch(() => {});
     return;

@@ -120,6 +120,55 @@ export async function listContentByPrefix(env, prefix) {
   }
 }
 
+// حذف نرم: سطر می‌ماند و فقط active صفر می‌شود.
+//
+// چرا پاک نمی‌شود: اگر آکادمی اشتباهی چیزی را حذف کند، با پست دوباره‌ی
+// همان فایل (که upsert است و active را برمی‌گرداند) همه‌چیز سر جایش
+// می‌آید. و log درخواست‌های قبلی هم به سطری اشاره می‌کند که هنوز هست.
+export async function deactivateContent(env, contentId) {
+  try {
+    const res = await env.DB
+      .prepare(`UPDATE content_library SET active = 0 WHERE content_id = ? AND active = 1`)
+      .bind(contentId)
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
+// حذف بر اساس شماره‌ی پیام کانال، وقتی هشتگ اصلی از کپشن پاک شده.
+// شناسه‌ی نسل تازه دقیقاً به همین شماره ختم می‌شود.
+export async function deactivateContentBySuffix(env, suffix) {
+  try {
+    const res = await env.DB
+      .prepare(
+        `UPDATE content_library SET active = 0
+           WHERE content_id LIKE ? ESCAPE '\\' AND active = 1`
+      )
+      .bind("%\\_" + likePrefix(suffix))
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
+export async function deactivateTextContent(env, contentId) {
+  try {
+    const res = await env.DB
+      .prepare(`UPDATE text_content SET active = 0 WHERE content_id = ? AND active = 1`)
+      .bind(contentId)
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
 export async function getTextContent(env, contentId) {
   try {
     const row = await env.DB

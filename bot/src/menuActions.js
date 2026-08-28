@@ -56,11 +56,18 @@ function fa(n) {
   return String(n).replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
 }
 
-// متن دکمه سقف دارد و عنوان بلند، دکمه را در موبایل چندخطی و بدقواره
-// می‌کند. شماره همیشه می‌ماند؛ فقط دنباله‌ی عنوان کوتاه می‌شود.
+// فقط خط اولِ کپشن روی دکمه می‌نشیند.
+//
+// کپشن یک ویس معمولاً یک عنوان کوتاه دارد و زیرش چند خط توضیح؛ ریختن
+// همه‌ی آن در متن دکمه، دکمه را در موبایل بدقواره می‌کند. متن کامل از
+// بین نمی‌رود - موقع ارسال، زیر خود فایل می‌آید.
 function buttonLabel(index, title) {
-  const clean = String(title || "").replace(/\s+/g, " ").trim() || "بدون عنوان";
-  const short = clean.length > 34 ? clean.slice(0, 33).trim() + "…" : clean;
+  const firstLine =
+    String(title || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length > 0) || "بدون عنوان";
+  const short = firstLine.length > 34 ? firstLine.slice(0, 33).trim() + "…" : firstLine;
   return fa(index) + ". " + short;
 }
 
