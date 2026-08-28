@@ -16,8 +16,8 @@
 // نمی‌شکند.
 
 import { SECTIONS, resolveSection } from "../content/sectionText.js";
-import { embedBatch, EMBED_BATCH_MAX } from "./gemini.js";
-import { ensureKbSchema } from "./kb.js";
+import { embedBatch, EMBED_BATCH_MAX, EMBED_DIMS } from "./gemini.js";
+import { ensureKbSchema, invalidateKbCache } from "./kb.js";
 import { SEED } from "./seed.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS kb_source (
@@ -77,9 +77,14 @@ async function sectionEntries(env) {
 // D1 روی هر batch سقف دارد و ۲۲۳ دستور در یک فراخوانی، آن را می‌شکند.
 const DB_CHUNK = 40;
 
-async function runChunked(env, statements) {
-  for (let i = 0; i < statements.length; i += DB_CHUNK) {
-    await env.DB.batch(statements.slice(i, i + DB_CHUNK));
+// نوشتن بردارها استثناست: هر بردار ۷۶۸ عددِ اعشاری است، یعنی حدود ۱۵
+// کیلوبایت متن. چهل‌تا در یک batch نزدیک به یک مگابایت درخواست می‌شود و
+// D1 پسش می‌زند - محدودیت اینجا حجم است نه تعداد.
+const DB_CHUNK_HEAVY = 10;
+
+async function runChunked(env, statements, size = DB_CHUNK) {
+  for (let i = 0; i < statements.length; i += size) {
+    await env.DB.batch(statements.slice(i, i + size));
   }
 }
 
@@ -185,6 +190,30 @@ async function mirrorToKb(env) {
   return rows.length;
 }
 
+/**
+ * بردارهایی که با ابعاد دیگری ساخته شده‌اند را دور می‌ریزد.
+ *
+ * لازم است چون بردار قدیمی هیچ نشانه‌ای از خراب بودن ندارد: کسینوسِ دو
+ * بردار با طول متفاوت صفر برمی‌گردد، یعنی آن مدخل بی‌صدا از رتبه‌بندی
+ * معنایی حذف می‌شود بدون اینکه خطایی جایی ثبت شود. با NULL شدن، همان
+ * همگام‌سازی دوباره می‌سازدشان.
+ */
+async function dropStaleVectors(env) {
+  const sql = `UPDATE ai_kb SET embedding = NULL
+                 WHERE embedding IS NOT NULL AND json_array_length(embedding) != ?`;
+  try {
+    const res = await env.DB.prepare(sql).bind(EMBED_DIMS).run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    // اگر توابع JSON در دسترس نبودند، محتاطانه همه را دور می‌ریزیم:
+    // ساختن دوباره‌ی همه‌ی بردارها پنج درخواست است، ولی ماندنِ یک بردار
+    // با ابعاد اشتباه یعنی رتبه‌بندیِ خراب تا ابد.
+    console.error("سنجش ابعاد بردار ممکن نشد، همه دوباره ساخته می‌شوند:", err && err.message);
+    const res = await env.DB.prepare(`UPDATE ai_kb SET embedding = NULL`).run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  }
+}
+
 async function pendingRows(env) {
   const { results } = await env.DB
     .prepare(`SELECT id, question, answer FROM ai_kb WHERE embedding IS NULL AND active = 1`)
@@ -223,7 +252,7 @@ async function embedPending(env) {
         env.DB.prepare(`UPDATE ai_kb SET embedding = ? WHERE id = ?`).bind(JSON.stringify(vec), r.id)
       );
     });
-    await runChunked(env, updates);
+    await runChunked(env, updates, DB_CHUNK_HEAVY);
     done += updates.length;
   }
 
@@ -248,13 +277,20 @@ export async function syncAndRebuild(env) {
     stage = "کپی به پایگاه دانش";
     const mirrored = await mirrorToKb(env);
 
+    stage = "پاک‌سازی بردارهای قدیمی";
+    const stale = await dropStaleVectors(env);
+
     stage = "ساخت بردارها";
     const embedded = await embedPending(env);
 
     stage = "شمارش نهایی";
     const pending = (await pendingRows(env)).length;
 
-    return { sources, mirrored, embedded, pending };
+    // هر isolate کش خودش را دارد؛ این فقط همینجا را تازه می‌کند و بقیه
+    // با پایان عمر کش هم‌تراز می‌شوند.
+    invalidateKbCache();
+
+    return { sources, mirrored, embedded, pending, stale };
   } catch (err) {
     const e = new Error("در مرحله‌ی «" + stage + "»: " + (err && err.message));
     e.cause = err;

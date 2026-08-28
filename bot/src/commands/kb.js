@@ -35,19 +35,24 @@ export async function handleKbSync(ctx) {
   await ctx.reply("⏳ در حال ساختن پایگاه دانش…");
 
   try {
-    const { mirrored, embedded, pending } = await syncAndRebuild(ctx.env);
+    const { mirrored, embedded, pending, stale } = await syncAndRebuild(ctx.env);
     await ctx.reply(
       [
         "✅ پایگاه دانش ساخته شد.",
         "",
         "کل مدخل‌ها: " + fa(mirrored),
+        stale > 0 ? "بردار قدیمی بازسازی شد: " + fa(stale) : null,
         "بردار تازه ساخته شد: " + fa(embedded),
         pending > 0 ? "بدون بردار: " + fa(pending) : "همه با بردار معنایی ✓",
         "",
         pending === 0
           ? "دستیار فعال است؛ سوال‌های کاربران را همین‌جا جواب می‌دهد."
           : "چند مدخل بردار نگرفتند - احتمالاً خطای موقت سرویس. یک‌بار دیگر /kbsync بزنید تا همان‌ها دوباره تلاش شوند.",
-      ].join("\n")
+      ]
+        // خط null یعنی «چیزی برای گفتن نبود»؛ بدون این فیلتر، join
+        // کلمه‌ی «null» را وسط گزارش می‌نویسد.
+        .filter((line) => line !== null)
+        .join("\n")
     );
   } catch (err) {
     console.error("ساخت پایگاه دانش شکست خورد:", err && (err.stack || err.message));

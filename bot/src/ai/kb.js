@@ -7,6 +7,8 @@
 // تقویم را همگام می‌کند این را هم می‌کشد و پاسخ به کاربر از D1 خوانده
 // می‌شود.
 
+import { buildIndex } from "./retrieval.js";
+
 const DDL = [
   `CREATE TABLE IF NOT EXISTS ai_kb (
      id INTEGER PRIMARY KEY, category TEXT, question TEXT, answer TEXT,
@@ -62,6 +64,7 @@ export async function replaceKb(env, entries) {
     );
   }
   await env.DB.batch(statements);
+  invalidateKbCache();
   return rows.length;
 }
 
@@ -91,49 +94,61 @@ export async function recordKbUsage(env, kbIds) {
   return ids.length;
 }
 
-// --- رتبه‌بندی معنایی ---
+// --- پایگاه دانشِ آماده‌ی جست‌وجو ---
 //
-// عیناً همان چیزی که نود Rank By Similarity انجام می‌داد، با همان دو عدد.
-// اگر این‌ها عوض شوند، پاسخ‌ها با نسخه‌ی n8n فرق می‌کنند بدون اینکه کسی
-// متوجه شود چرا.
-const TOP_K = 15;
-const MIN_SIMILARITY = 0.3;
+// هر سوال کاربر تا امروز کل جدول را می‌خواند و هر ۲۵۰ بردار را دوباره
+// JSON.parse می‌کرد. با ۷۶۸ بُعد، هر بردار حدود ۱۵ کیلوبایت متن است -
+// یعنی چند مگابایت خواندن از D1 و چند مگابایت parse، برای هر پیام.
+//
+// پس یک‌بار خوانده می‌شود و در همان isolate می‌ماند: ردیف‌ها، بردارهای
+// آماده، و نمایه‌ی کلیدواژه‌ای که ساختنش هم ارزان نیست.
+//
+// عمر کش کوتاه است چون مدیر بعد از /kbsync یا ویرایش یک بخش، انتظار
+// دارد تغییر را ببیند - و isolateهای دیگر خبر ندارند که کش اینجا باطل
+// شده، پس فقط گذر زمان است که همه را هم‌تراز می‌کند.
+const CACHE_TTL_MS = 120_000;
 
-function cosineSim(a, b) {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length && i < b.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  const denom = Math.sqrt(na) * Math.sqrt(nb);
-  return denom ? dot / denom : 0;
+let cache = null;
+
+/** کش را دور می‌ریزد. بعد از هر تغییر در پایگاه دانش صدا زده می‌شود. */
+export function invalidateKbCache() {
+  cache = null;
 }
 
-// اگر بردار سوال ساخته نشده باشد (خطای سرویس embedding)، همه‌ی ردیف‌ها
-// برمی‌گردند: پاسخ کمی عمومی‌تر می‌شود ولی پشتیبانی از کار نمی‌افتد.
-export function rankBySimilarity(rows, queryVec) {
-  if (!queryVec || !queryVec.length) return rows;
-
-  const scored = [];
+function parseVectors(rows) {
+  const vectors = new Map();
   for (const r of rows) {
     if (!r.embedding) continue;
-    let vec;
     try {
-      vec = JSON.parse(r.embedding);
+      const vec = JSON.parse(r.embedding);
+      if (Array.isArray(vec) && vec.length > 0) vectors.set(r.id, vec);
     } catch {
-      continue;
+      // بردار خراب یعنی این مدخل فقط با کلیدواژه پیدا می‌شود، نه اینکه
+      // کل پایگاه دانش از کار بیفتد.
     }
-    if (!Array.isArray(vec)) continue;
-    scored.push({ row: r, score: cosineSim(queryVec, vec) });
   }
-  scored.sort((a, b) => b.score - a.score);
+  return vectors;
+}
 
-  // اگر هیچ ردیفی به آستانه نرسید، بهترین‌ها فرستاده می‌شوند نه هیچ‌چیز -
-  // تصمیمِ «این سوال جواب ندارد» با مدل است، نه با یک عدد آستانه.
-  let selected = scored.filter((s) => s.score >= MIN_SIMILARITY).slice(0, TOP_K);
-  if (selected.length === 0) selected = scored.slice(0, TOP_K);
-  if (selected.length === 0) return rows;
+/**
+ * @returns {Promise<{rows:Array, vectors:Map<number,number[]>, index:Object}>}
+ */
+export async function loadKb(env) {
+  const now = Date.now();
+  if (cache && now - cache.at < CACHE_TTL_MS) return cache.kb;
 
-  return selected.map((s) => s.row);
+  const rows = await readKb(env);
+  // ستون embedding بعد از تبدیل به بردار لازم نیست و فقط حافظه‌ی کش را
+  // دو برابر می‌کند؛ ضمن اینکه بعداً به پرامپت هم می‌رود.
+  const vectors = parseVectors(rows);
+  const light = rows.map((r) => ({
+    id: r.id,
+    category: r.category,
+    question: r.question,
+    answer: r.answer,
+  }));
+
+  const kb = { rows: light, vectors, index: buildIndex(light) };
+  cache = { at: now, kb };
+  return kb;
 }

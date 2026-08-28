@@ -8,7 +8,8 @@
 // یا Gemini جواب ندهد، تابع null برمی‌گرداند و صداکننده به همان مسیر
 // تیکت انسانی برمی‌گردد - یعنی بدترین حالتِ ممکن، رفتار قبلی ربات است.
 
-import { readKb, rankBySimilarity } from "./kb.js";
+import { loadKb } from "./kb.js";
+import { rank } from "./retrieval.js";
 import { embedQuestion, generateAnswer } from "./gemini.js";
 import { buildSystemPrompt } from "./prompt.js";
 
@@ -63,22 +64,22 @@ function decide(parsed) {
 export async function askFaq(env, { question, user, history, currentFlow, currentStep }) {
   if (!env.GEMINI_API_KEY) return null;
 
-  const rows = await readKb(env);
+  const kb = await loadKb(env);
   // بدون پایگاه دانش، مدل چیزی برای استناد ندارد و قانون ۲ پرامپت
   // می‌گوید حدس نزند. پس اصلاً صدایش نمی‌زنیم.
-  if (rows.length === 0) return null;
+  if (kb.rows.length === 0) return null;
 
-  // بردار سوال اختیاری است: اگر نیامد، رتبه‌بندی کل پایگاه دانش را
-  // برمی‌گرداند و پاسخ کمی عمومی‌تر می‌شود - همان رفتار Embed Failed
-  // Fallback در n8n.
+  // بردار سوال اختیاری است: اگر نیامد، رتبه‌بندی فقط با کلیدواژه انجام
+  // می‌شود. پاسخ کمی خام‌تر است ولی پشتیبانی سرِ پا می‌ماند - و برخلاف
+  // نسخه‌ی قبلی، دیگر کل پایگاه دانش به پرامپت ریخته نمی‌شود.
   let queryVec = null;
   try {
     queryVec = await embedQuestion(env, question);
   } catch (err) {
-    console.error("بردار سوال ساخته نشد، کل پایگاه دانش فرستاده می‌شود:", err && err.message);
+    console.error("بردار سوال ساخته نشد، رتبه‌بندی فقط کلیدواژه‌ای است:", err && err.message);
   }
 
-  const selected = rankBySimilarity(rows, queryVec);
+  const selected = rank(kb, queryVec, question);
 
   const { systemPrompt, recentHistory } = buildSystemPrompt({
     upd: {
