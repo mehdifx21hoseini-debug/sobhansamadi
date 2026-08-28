@@ -26,7 +26,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+editor-18";
+const BUILD = "econ+outbox+miniapp+faq+public+editor-19";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -260,22 +260,6 @@ export default {
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن
     // درخواست جعلی به این آدرس بفرستد.
     if (url.pathname === `/webhook/${env.BOT_TOKEN}`) {
-      const bot = createBot(env.BOT_TOKEN, env, cachedBotInfo, BUILD);
-      if (!cachedBotInfo) {
-        await bot.init();
-        cachedBotInfo = bot.botInfo;
-      }
-      // شکستش نباید جلوی پردازش پیام را بگیرد: یک فهرست دستور، به‌اندازه‌ی
-      // پاسخ ندادن به کاربر مهم نیست.
-      if (!commandsRegistered) {
-        commandsRegistered = true;
-        await bot.api
-          .setMyCommands(PUBLIC_COMMANDS)
-          .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
-        await ensureChannelPostsAllowed(bot).catch((err) =>
-          console.error("بررسی allowed_updates شکست خورد:", err && err.message)
-        );
-      }
       // تلگرام آپدیت‌ها را برای هر بات پشت‌سرهم می‌فرستد و اگر پاسخ ۲۰۰
       // نگیرد، همان آپدیت را دوباره و دوباره می‌فرستد. یعنی یک آپدیتِ
       // مسموم که همیشه خطا می‌دهد، صف را کامل می‌بندد و هیچ پیام دیگری
@@ -285,7 +269,28 @@ export default {
       // پس هر خطای پیش‌بینی‌نشده اینجا گرفته می‌شود و باز ۲۰۰ برمی‌گردد:
       // آن یک آپدیت از دست می‌رود، ولی بقیه راه می‌افتند. خطا در لاگ
       // می‌ماند تا علتش پیدا شود.
+      //
+      // مهم: این حفاظ کلِ شاخه را می‌گیرد، نه فقط پردازش آپدیت را.
+      // نسخه‌ی قبلی فقط دور webhookCallback بود و bot.init() بیرونش
+      // می‌ماند - یک getMe که به تلگرام نمی‌رسید، ورکر را ۵۰۰ می‌کرد و
+      // همان صف را می‌بست که این حفاظ قرار بود باز نگه دارد.
       try {
+        const bot = createBot(env.BOT_TOKEN, env, cachedBotInfo, BUILD);
+        if (!cachedBotInfo) {
+          await bot.init();
+          cachedBotInfo = bot.botInfo;
+        }
+        // شکستش نباید جلوی پردازش پیام را بگیرد: یک فهرست دستور،
+        // به‌اندازه‌ی پاسخ ندادن به کاربر مهم نیست.
+        if (!commandsRegistered) {
+          commandsRegistered = true;
+          await bot.api
+            .setMyCommands(PUBLIC_COMMANDS)
+            .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
+          await ensureChannelPostsAllowed(bot).catch((err) =>
+            console.error("بررسی allowed_updates شکست خورد:", err && err.message)
+          );
+        }
         return await webhookCallback(bot, "cloudflare-mod")(request);
       } catch (err) {
         console.error("پردازش آپدیت شکست خورد:", err && (err.stack || err.message));
