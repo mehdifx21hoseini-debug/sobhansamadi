@@ -21,8 +21,9 @@ export const MENU_LABELS = {
   CONSULT: "شرکت در مجموعه آموزشی پیشرفته",
   TRUSTED_BROKER: "🏦 بروکر معتمد",
   SUPPORT: "💬 پشتیبانی",
-  ABOUT: "🏛 درباره آکادمی",
-  CONTACT: "📞 تماس با ما",
+  // «درباره آکادمی» و «تماس با ما» یک دکمه‌اند: هر دو یک سوال را جواب
+  // می‌دهند و دو دکمه برای یک قصد، فقط جا می‌گرفت.
+  ABOUT_US: "ℹ️ درباره ما",
 };
 
 // آیدی ایموجی‌های پرمیوم، از همان نود Send Main Menu.
@@ -62,8 +63,13 @@ export function mainMenuKeyboard() {
         btn(MENU_LABELS.LIVE_TRADE, "primary", ICON.LIVE_TRADE),
       ],
       [btn(MENU_LABELS.CONSULT, "success", ICON.CONSULT)],
-      [btn(MENU_LABELS.TRUSTED_BROKER, "primary"), btn(MENU_LABELS.SUPPORT, "primary")],
-      [btn(MENU_LABELS.ABOUT, "primary"), btn(MENU_LABELS.CONTACT, "primary")],
+      // سه دکمه در یک ردیف چون هر سه برچسب کوتاه‌اند - و این‌طور کیبورد
+      // یک ردیف کمتر می‌شود، یعنی یک ردیف بیشتر از خودِ گفتگو دیده می‌شود.
+      [
+        btn(MENU_LABELS.TRUSTED_BROKER, "primary"),
+        btn(MENU_LABELS.SUPPORT, "primary"),
+        btn(MENU_LABELS.ABOUT_US, "primary"),
+      ],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -81,12 +87,13 @@ const LEGACY_LABELS = {
   "🚀 شرکت در مجموعه آموزشی پیشرفته": "CONSULT",
   "📈 ویدیوهای لایو ترید": "LIVE_TRADE",
   "💜 درباره آکادمی": "ABOUT",
+  "🏛 درباره آکادمی": "ABOUT",
+  "📞 تماس با ما": "CONTACT",
 
   // دکمه‌های نسخه‌ی زیرمنودار. زیرمنوها هنوز کار می‌کنند تا کاربری که
   // کیبورد آن نسخه را دارد به بن‌بست نخورد.
   "🎓 آموزش‌ها": "LEARN",
   "🧰 ابزارها": "TOOLS",
-  "ℹ️ درباره ما": "ABOUT_US",
 };
 
 // تنها جایی که متن ورودی به کنش منو نگاشته می‌شود. هم متن فعلی و هم

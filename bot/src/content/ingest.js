@@ -32,7 +32,20 @@ const TEXT_CONTENT_CODES = [
   "BOOK_00_INTRO_TEXT","BOOK_01_INTRO_TEXT","BOOK_02_INTRO_TEXT","BOOK_03_INTRO_TEXT","BOOK_04_INTRO_TEXT",
 ];
 
+// دو خانواده‌ی محتوا کد شماره‌دار ندارند و هرگز هم نباید داشته باشند:
+// تعدادشان از پیش معلوم نیست و مدام اضافه می‌شود. هر پست تازه یک مدخل
+// تازه است، نه جای‌گزین قبلی. برای همین شناسه‌شان با زمان ساخته می‌شود.
+//
+// هر دو شکل نیم‌فاصله و زیرخط پذیرفته می‌شود، چون کیبورد فارسی روی
+// گوشی‌های مختلف یکی از این دو را می‌دهد و آکادمی نباید مجبور باشد
+// حواسش به تفاوتی باشد که چشم نمی‌بیندش.
 const PSY_VOICE_HASHTAGS = ["#ویس‌روانشناسی", "#ویس_روانشناسی"];
+const LIVE_TRADE_HASHTAGS = ["#لایو‌ترید", "#لایو_ترید", "#لایوترید"];
+
+// پیشوند شناسه‌ها. جای دیگری (menuActions) با همین پیشوند فهرست می‌گیرد،
+// پس اینجا صادر می‌شوند تا دو رشته‌ی جدا از هم دور نیفتند.
+export const PSY_VOICE_PREFIX = "PSY_VOICE_";
+export const LIVE_TRADE_PREFIX = "LIVE_TRADE_VIDEO_";
 
 // چرا تطبیق ساده‌ی «شامل بودن» کافی نیست: #BOOK_01_PDF داخل
 // #BOOK_01_PDF_OLD هم هست. کاراکتر بعدی باید پایان کلمه باشد، وگرنه کد
@@ -83,8 +96,10 @@ export function classifyPost(post) {
     }
   }
 
-  const isPsyVoice =
-    !code && !textCode && hasMedia && PSY_VOICE_HASHTAGS.some((h) => caption.indexOf(h) !== -1);
+  const free = !code && !textCode && hasMedia;
+  const isPsyVoice = free && PSY_VOICE_HASHTAGS.some((h) => caption.indexOf(h) !== -1);
+  const isLiveTrade =
+    free && !isPsyVoice && LIVE_TRADE_HASHTAGS.some((h) => caption.indexOf(h) !== -1);
 
   if (textCode) {
     return {
@@ -101,14 +116,25 @@ export function classifyPost(post) {
     return { kind: "file", contentId: code, title: title.trim(), fileId, fileType };
   }
 
-  if (isPsyVoice) {
+  if (isPsyVoice || isLiveTrade) {
+    const tags = isPsyVoice ? PSY_VOICE_HASHTAGS : LIVE_TRADE_HASHTAGS;
     let title = caption;
-    for (const h of PSY_VOICE_HASHTAGS) title = title.split(h).join("");
+    for (const h of tags) title = title.split(h).join("");
+    // بقیه‌ی هشتگ‌های کپشن (مثل #طلا) هم از عنوان پاک می‌شوند تا عنوانی
+    // که به کاربر نشان داده می‌شود، جمله باشد نه دنباله‌ای از برچسب.
+    title = title.replace(/#[^\s#]+/g, " ").replace(/\s+/g, " ").trim();
     return {
       kind: "file",
-      // ویس‌ها کد ثابت ندارند؛ هر پست یک مدخل تازه است.
-      contentId: "PSY_VOICE_" + Date.now(),
-      title: title.trim() || "ویس روانشناسی بدون عنوان",
+      // این دو خانواده کد ثابت ندارند؛ هر پست یک مدخل تازه است.
+      //
+      // شناسه از message_id ساخته می‌شود نه از زمان: اگر آکادمی کپشن یک
+      // پست را اصلاح کند، همان سطر به‌روز می‌شود و نسخه‌ی دومی ساخته
+      // نمی‌شود. صفرهای ابتدایی برای این است که مرتب‌سازی متنی هم به
+      // ترتیب انتشار بماند.
+      contentId:
+        (isPsyVoice ? PSY_VOICE_PREFIX : LIVE_TRADE_PREFIX) +
+        String(post.message_id || Date.now()).padStart(9, "0"),
+      title: title || (isPsyVoice ? "ویس روانشناسی بدون عنوان" : "لایو ترید بدون عنوان"),
       fileId,
       fileType,
     };

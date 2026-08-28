@@ -1,6 +1,7 @@
 import { logContentRequest } from "./db.js";
 import { listContentByPrefix } from "./content/store.js";
 import { deliverContent } from "./content/deliver.js";
+import { PSY_VOICE_PREFIX, LIVE_TRADE_PREFIX } from "./content/ingest.js";
 
 export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/index.js";
 
@@ -12,11 +13,13 @@ const PENDING_SECTIONS = {
     id: "PSY_VOICES",
     title: "🎧 ویس‌های روانشناسی",
     body: "این بخش هنوز در حال آماده‌سازیه.",
+    prefix: PSY_VOICE_PREFIX,
   },
   LIVE_TRADE: {
     id: "LIVE_TRADE",
     title: "📈 ویدیوهای لایو ترید",
     body: "ویدیوهای لایو معاملات هنوز در حال آماده‌سازیه.",
+    prefix: LIVE_TRADE_PREFIX,
   },
 };
 
@@ -24,16 +27,17 @@ export async function sendPendingSection(ctx, key) {
   const section = PENDING_SECTIONS[key];
   if (!section) return;
 
-  // ویس‌های روانشناسی کد ثابت ندارند؛ هر پست کانال یک مدخل تازه با پیشوند
-  // PSY_VOICE_ می‌سازد. پس اگر چیزی رسیده باشد، همه‌اش فرستاده می‌شود و
-  // این بخش دیگر «در حال آماده‌سازی» نیست.
-  if (key === "PSY_VOICES") {
-    const voices = await listContentByPrefix(ctx.env, "PSY_VOICE_").catch(() => []);
-    if (voices.length > 0) {
-      await ctx.reply(`${section.title}\n\n${voices.length} مورد برای شما ارسال می‌شود 👇`);
-      for (const v of voices) {
-        await deliverContent(ctx, v.content_id).catch((err) =>
-          console.error("ارسال ویس شکست خورد:", v.content_id, err && err.message)
+  // این دو بخش کد ثابت ندارند؛ هر پست کانال یک مدخل تازه با پیشوند خودش
+  // می‌سازد. پس اگر چیزی رسیده باشد، همه‌اش به‌ترتیب انتشار فرستاده
+  // می‌شود و این بخش دیگر «در حال آماده‌سازی» نیست. هیچ‌جا لازم نیست
+  // دستی روشن شود - رسیدن اولین فایل خودش سوییچ است.
+  if (section.prefix) {
+    const items = await listContentByPrefix(ctx.env, section.prefix).catch(() => []);
+    if (items.length > 0) {
+      await ctx.reply(`${section.title}\n\n${items.length} مورد برای شما ارسال می‌شود 👇`);
+      for (const item of items) {
+        await deliverContent(ctx, item.content_id).catch((err) =>
+          console.error("ارسال محتوا شکست خورد:", item.content_id, err && err.message)
         );
       }
       return;
