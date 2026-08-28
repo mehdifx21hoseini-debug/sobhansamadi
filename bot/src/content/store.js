@@ -8,14 +8,36 @@
 const DDL = [
   `CREATE TABLE IF NOT EXISTS content_library (
      content_id TEXT PRIMARY KEY, title TEXT, file_id TEXT, file_type TEXT,
-     active INTEGER DEFAULT 1, updated_at TEXT)`,
+     active INTEGER DEFAULT 1, hidden INTEGER DEFAULT 0, updated_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS text_content (
      content_id TEXT PRIMARY KEY, body TEXT, photo_file_id TEXT,
      active INTEGER DEFAULT 1, updated_at TEXT)`,
 ];
 
+// active و hidden دو چیز جدا هستند و عمداً در یک ستون جمع نشده‌اند:
+//
+//   active = 0  یعنی «حذف شده» - از فهرست مدیر هم می‌رود.
+//   hidden = 1  یعنی «فعلاً نه» - مدیر می‌بیندش، کاربر نه.
+//
+// اگر یکی بودند، مخفی کردن یک ویس برای «هنوز آماده نیست» با حذفش یک
+// شکل می‌شد و مدیر راهی نداشت پیدایش کند تا برش گرداند.
+let schemaReady = false;
+
 export async function ensureContentSchema(env) {
+  if (schemaReady) return;
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+  // ستون hidden بعداً اضافه شد؛ جدول‌هایی که از قبل ساخته شده‌اند آن را
+  // ندارند و CREATE TABLE IF NOT EXISTS هم چیزی به آن‌ها اضافه نمی‌کند.
+  // خطای «ستون تکراری» یعنی کار از قبل انجام شده - همان چیزی که
+  // می‌خواستیم.
+  try {
+    await env.DB.prepare(`ALTER TABLE content_library ADD COLUMN hidden INTEGER DEFAULT 0`).run();
+  } catch (err) {
+    if (!/duplicate column/i.test(String(err && err.message))) {
+      console.error("افزودن ستون hidden:", err && err.message);
+    }
+  }
+  schemaReady = true;
 }
 
 // upsert است نه insert: پست دوباره‌ی همان هشتگ در کانال یعنی «این را
@@ -63,12 +85,18 @@ function likePrefix(s) {
   return String(s).replace(/[\\%_]/g, (c) => "\\" + c);
 }
 
-export async function getContent(env, contentId) {
+export async function getContent(env, contentId, { includeHidden = false } = {}) {
+  // ستون hidden ممکن است در جدولِ از قبل ساخته‌شده نباشد؛ بدون این
+  // فراخوانی، کوئری زیر با «no such column» می‌شکند تا وقتی که یک پست
+  // تازه از کانال برسد.
+  await ensureContentSchema(env).catch(() => {});
   try {
     const row = await env.DB
       .prepare(
-        `SELECT content_id, title, file_id, file_type FROM content_library
-           WHERE content_id = ? AND active = 1`
+        `SELECT content_id, title, file_id, file_type, COALESCE(hidden, 0) AS hidden
+           FROM content_library
+           WHERE content_id = ? AND active = 1
+             ${includeHidden ? "" : "AND COALESCE(hidden, 0) = 0"}`
       )
       .bind(contentId)
       .first();
@@ -85,12 +113,18 @@ export async function getContent(env, contentId) {
 // پس در حالت عادی تطبیق دقیق جواب می‌دهد و این مسیر اجرا نمی‌شود. ولی
 // اگر روزی کدی بدون شماره درخواست شود، به‌جای «چیزی پیدا نشد» همه‌ی
 // پارت‌هایش به‌ترتیب می‌روند.
-export async function getContentParts(env, prefix) {
+export async function getContentParts(env, prefix, { includeHidden = false } = {}) {
+  // ستون hidden ممکن است در جدولِ از قبل ساخته‌شده نباشد؛ بدون این
+  // فراخوانی، کوئری زیر با «no such column» می‌شکند تا وقتی که یک پست
+  // تازه از کانال برسد.
+  await ensureContentSchema(env).catch(() => {});
   try {
     const { results } = await env.DB
       .prepare(
         `SELECT content_id, title, file_id, file_type FROM content_library
-           WHERE content_id LIKE ? ESCAPE '\\' AND active = 1 ORDER BY content_id`
+           WHERE content_id LIKE ? ESCAPE '\\' AND active = 1
+             ${includeHidden ? "" : "AND COALESCE(hidden, 0) = 0"}
+           ORDER BY content_id`
       )
       .bind(likePrefix(prefix) + "\\_%")
       .all();
@@ -104,12 +138,20 @@ export async function getContentParts(env, prefix) {
 // updated_at هم برمی‌گردد چون تنها معیار زمانیِ قابل‌اعتماد است: شناسه‌ها
 // دو نسل دارند (نسل قدیم با timestamp ساخته می‌شد، نسل تازه با
 // message_id) و مرتب‌سازی متنیِ این دو با هم بی‌معنی است.
-export async function listContentByPrefix(env, prefix) {
+export async function listContentByPrefix(env, prefix, { includeHidden = false } = {}) {
+  // ستون hidden ممکن است در جدولِ از قبل ساخته‌شده نباشد؛ بدون این
+  // فراخوانی، کوئری زیر با «no such column» می‌شکند تا وقتی که یک پست
+  // تازه از کانال برسد.
+  await ensureContentSchema(env).catch(() => {});
   try {
     const { results } = await env.DB
       .prepare(
-        `SELECT content_id, title, file_id, file_type, updated_at FROM content_library
-           WHERE content_id LIKE ? ESCAPE '\\' AND active = 1 ORDER BY content_id`
+        `SELECT content_id, title, file_id, file_type, updated_at,
+                COALESCE(hidden, 0) AS hidden
+           FROM content_library
+           WHERE content_id LIKE ? ESCAPE '\\' AND active = 1
+             ${includeHidden ? "" : "AND COALESCE(hidden, 0) = 0"}
+           ORDER BY content_id`
       )
       .bind(likePrefix(prefix) + "%")
       .all();
@@ -164,6 +206,48 @@ export async function updateContentFile(env, contentId, fileId, fileType) {
   } catch (err) {
     emptyIfNoTable(err);
     return 0;
+  }
+}
+
+// «فعلاً نه» - مدخل می‌ماند و در فهرست مدیر دیده می‌شود، ولی از دید
+// کاربر بیرون است. برای چیزی که هنوز آماده نیست یا موقتاً نباید برود.
+export async function setContentHidden(env, contentId, hidden) {
+  await ensureContentSchema(env);
+  try {
+    const res = await env.DB
+      .prepare(`UPDATE content_library SET hidden = ? WHERE content_id = ? AND active = 1`)
+      .bind(hidden ? 1 : 0, contentId)
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
+// چند نفر این مورد را گرفته‌اند و آخرین بار کِی.
+//
+// جدول content_requests از اول هر درخواست را ثبت می‌کرده ولی هیچ‌جا
+// خوانده نمی‌شد. همین یک کوئری، «کدام ویس را کسی نمی‌خواهد» را از حدس
+// به عدد تبدیل می‌کند.
+export async function contentStats(env, contentId) {
+  try {
+    const row = await env.DB
+      .prepare(
+        `SELECT COUNT(*) AS total, COUNT(DISTINCT telegram_user_id) AS people,
+                MAX(created_at) AS last_at
+           FROM content_requests WHERE content_id = ?`
+      )
+      .bind(contentId)
+      .first();
+    return {
+      total: (row && row.total) || 0,
+      people: (row && row.people) || 0,
+      lastAt: (row && row.last_at) || "",
+    };
+  } catch {
+    // جدول هنوز ساخته نشده یعنی هیچ درخواستی ثبت نشده.
+    return { total: 0, people: 0, lastAt: "" };
   }
 }
 

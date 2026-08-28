@@ -9,6 +9,7 @@ import {
   sendPendingSection,
   handleSectionListPage,
   openItemPanel,
+  toggleContentHidden,
   confirmContentDelete,
   applyContentDelete,
   startContentRename,
@@ -265,6 +266,12 @@ export function createBot(token, env, botInfo, build = "?") {
     if (data.startsWith("ITEM|")) {
       const [, id, page] = data.split("|");
       await openItemPanel(ctx, id, page);
+      return;
+    }
+
+    if (data.startsWith("HIDE|")) {
+      const [, id, page] = data.split("|");
+      await toggleContentHidden(ctx, id, page);
       return;
     }
 

@@ -33,18 +33,20 @@ async function sendOne(ctx, row) {
 
 /**
  * تلاش برای فرستادن یک محتوا.
+ * @param {{includeHidden?: boolean}} [opts] مدیر موردهای مخفی را هم
+ *   می‌بیند؛ برای کاربر عادی مخفی یعنی وجود ندارد.
  * @returns {Promise<number>} تعداد فایل‌هایی که واقعاً رفت. صفر یعنی
  *   چیزی در کتابخانه نبود و صداکننده باید به مسیر «ثبت درخواست» برگردد.
  */
-export async function deliverContent(ctx, contentId) {
-  const exact = await getContent(ctx.env, contentId);
+export async function deliverContent(ctx, contentId, opts = {}) {
+  const exact = await getContent(ctx.env, contentId, opts);
   if (exact && exact.file_id) {
     await sendOne(ctx, exact);
     return 1;
   }
 
   // تطبیق دقیق نبود: شاید چندپارتی است (BOOK_02_AUDIO → ..._P01 تا _P05).
-  const parts = await getContentParts(ctx.env, contentId);
+  const parts = await getContentParts(ctx.env, contentId, opts);
   if (parts.length === 0) return 0;
 
   // ترتیب مهم است - پارت ۳ قبل از ۲ یعنی کتاب به‌هم‌ریخته. مرتب‌سازی در

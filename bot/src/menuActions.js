@@ -4,6 +4,8 @@ import {
   updateContentTitle,
   updateContentFile,
   deactivateContent,
+  setContentHidden,
+  contentStats,
 } from "./content/store.js";
 import { PSY_VOICE_PREFIX, LIVE_TRADE_PREFIX, extractFile } from "./content/ingest.js";
 import { isOwner } from "./owner.js";
@@ -67,14 +69,16 @@ function fa(n) {
 // کپشن یک ویس معمولاً یک عنوان کوتاه دارد و زیرش چند خط توضیح؛ ریختن
 // همه‌ی آن در متن دکمه، دکمه را در موبایل بدقواره می‌کند. متن کامل از
 // بین نمی‌رود - موقع ارسال، زیر خود فایل می‌آید.
-function buttonLabel(index, title) {
+function buttonLabel(index, title, hidden = false) {
   const firstLine =
     String(title || "")
       .split("\n")
       .map((l) => l.trim())
       .find((l) => l.length > 0) || "بدون عنوان";
   const short = firstLine.length > 34 ? firstLine.slice(0, 33).trim() + "…" : firstLine;
-  return fa(index) + ". " + short;
+  // 🚫 یعنی «کاربر این را نمی‌بیند». بدون یک نشان، فهرست مدیر و فهرست
+  // کاربر یک شکل‌اند و مدیر نمی‌فهمد چه چیزی روی هواست و چه چیزی نه.
+  return (hidden ? "🚫 " : "") + fa(index) + ". " + short;
 }
 
 function clampPage(page, count) {
@@ -98,7 +102,7 @@ function buildListKeyboard(section, items, page, admin = false) {
 
   const rows = slice.map((item, i) => {
     const main = {
-      text: buttonLabel(start + i + 1, item.title),
+      text: buttonLabel(start + i + 1, item.title, admin && item.hidden),
       callback_data: "CONTENT|" + item.content_id,
       style: "primary",
     };
@@ -146,8 +150,12 @@ function listText(section, count, admin = false) {
   ].join("\n");
 }
 
-async function loadItems(ctx, section) {
-  const items = await listContentByPrefix(ctx.env, section.prefix).catch(() => []);
+// مدیر موردهای مخفی را هم می‌بیند (با نشان 🚫)، کاربر نه. اگر این دو
+// نما یکی بودند، مخفی کردن چیزی یعنی گم کردنش.
+async function loadItems(ctx, section, admin = false) {
+  const items = await listContentByPrefix(ctx.env, section.prefix, {
+    includeHidden: admin,
+  }).catch(() => []);
   return newestFirst(items);
 }
 
@@ -155,10 +163,10 @@ export async function sendPendingSection(ctx, key) {
   const section = PENDING_SECTIONS[key];
   if (!section) return;
 
-  const items = section.prefix ? await loadItems(ctx, section) : [];
+  const admin = isOwner(ctx);
+  const items = section.prefix ? await loadItems(ctx, section, admin) : [];
 
   if (items.length > 0) {
-    const admin = isOwner(ctx);
     await ctx.reply(listText(section, items.length, admin), {
       reply_markup: buildListKeyboard(section, items, 0, admin),
     });
@@ -181,10 +189,9 @@ export async function handleSectionListPage(ctx, key, page) {
   const section = PENDING_SECTIONS[key];
   if (!section || section.mode !== "list") return;
 
-  const items = await loadItems(ctx, section);
-  if (items.length === 0) return;
-
   const admin = isOwner(ctx);
+  const items = await loadItems(ctx, section, admin);
+  if (items.length === 0) return;
   await ctx
     .editMessageText(listText(section, items.length, admin), {
       reply_markup: buildListKeyboard(section, items, page, admin),
@@ -228,12 +235,39 @@ const FILE_TYPE_LABEL = {
 async function findItem(ctx, contentId) {
   const section = sectionForContentId(contentId);
   if (!section) return {};
-  const items = await loadItems(ctx, section);
+  const items = await loadItems(ctx, section, true);
   const index = items.findIndex((i) => i.content_id === contentId);
   return { section, items, item: index === -1 ? null : items[index], index };
 }
 
-function itemPanel(item, index, contentId, page, section) {
+// «۳ روز پیش» به‌جای تاریخ خام: مدیر می‌خواهد بداند این مورد هنوز
+// زنده است یا مرده، نه اینکه دقیقاً چه ساعتی گرفته شده.
+function timeAgo(iso) {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const days = Math.floor(ms / 86400000);
+  if (days === 0) return "امروز";
+  if (days === 1) return "دیروز";
+  if (days < 30) return fa(days) + " روز پیش";
+  const months = Math.floor(days / 30);
+  return months < 12 ? fa(months) + " ماه پیش" : fa(Math.floor(months / 12)) + " سال پیش";
+}
+
+function statsLine(stats) {
+  if (stats.total === 0) return "📊 هنوز کسی نگرفته.";
+  const when = timeAgo(stats.lastAt);
+  return (
+    "📊 " +
+    fa(stats.total) +
+    " بار دریافت شده" +
+    (stats.people !== stats.total ? " توسط " + fa(stats.people) + " نفر" : "") +
+    (when ? " · آخرین بار " + when : "")
+  );
+}
+
+function itemPanel(item, index, contentId, page, section, stats) {
+  const hidden = !!item.hidden;
   const text = [
     "⚙️ مدیریت مورد " + fa(index + 1),
     "",
@@ -241,6 +275,8 @@ function itemPanel(item, index, contentId, page, section) {
     item.title ? item.title : "(بدون عنوان)",
     "",
     "نوع: " + (FILE_TYPE_LABEL[item.file_type] || item.file_type || "?"),
+    "وضعیت: " + (hidden ? "🚫 مخفی - کاربران نمی‌بینند" : "✅ روی هوا"),
+    statsLine(stats),
     "شناسه: " + contentId,
   ].join("\n");
 
@@ -253,10 +289,16 @@ function itemPanel(item, index, contentId, page, section) {
           { text: "📎 جای‌گزینی فایل", callback_data: `REFILE|${contentId}|${page}` },
         ],
         [
-          { text: "👁 دیدن خود فایل", callback_data: `CONTENT|${contentId}` },
-          { text: "🗑 حذف", callback_data: `DEL|${contentId}|${page}`, style: "danger" },
+          {
+            text: hidden ? "👁 نمایش به کاربران" : "🚫 مخفی کن",
+            callback_data: `HIDE|${contentId}|${page}`,
+          },
+          { text: "👁‍🗨 دیدن خود فایل", callback_data: `CONTENT|${contentId}` },
         ],
-        [{ text: "◀️ بازگشت به فهرست", callback_data: `LIST|${section.id}|${page}` }],
+        [
+          { text: "🗑 حذف", callback_data: `DEL|${contentId}|${page}`, style: "danger" },
+          { text: "◀️ بازگشت به فهرست", callback_data: `LIST|${section.id}|${page}` },
+        ],
       ],
     },
   };
@@ -271,11 +313,34 @@ export async function openItemPanel(ctx, contentId, page) {
     return;
   }
 
-  const panel = itemPanel(item, index, contentId, page, section);
+  const stats = await contentStats(ctx.env, contentId);
+  const panel = itemPanel(item, index, contentId, page, section, stats);
   await ctx.answerCallbackQuery();
   await ctx
     .editMessageText(panel.text, { reply_markup: panel.reply_markup })
     .catch((err) => console.error("صفحه‌ی مدیریت:", err && err.message));
+}
+
+// مخفی/نمایش. برخلاف حذف، تایید ندارد: خودِ همین دکمه برگشتش است و
+// نتیجه‌اش بلافاصله در همان صفحه دیده می‌شود.
+export async function toggleContentHidden(ctx, contentId, page) {
+  if (!(await requireOwner(ctx))) return;
+  const { section, item, index } = await findItem(ctx, contentId);
+  if (!section) return;
+  if (!item) {
+    await ctx.answerCallbackQuery({ text: "این مورد دیگر وجود ندارد.", show_alert: true });
+    return;
+  }
+
+  const next = item.hidden ? 0 : 1;
+  await setContentHidden(ctx.env, contentId, next);
+  await ctx.answerCallbackQuery({ text: next ? "مخفی شد" : "روی هوا رفت" });
+
+  const stats = await contentStats(ctx.env, contentId);
+  const panel = itemPanel({ ...item, hidden: next }, index, contentId, page, section, stats);
+  await ctx
+    .editMessageText(panel.text, { reply_markup: panel.reply_markup })
+    .catch((err) => console.error("تغییر وضعیت نمایش:", err && err.message));
 }
 
 // تایید لازم است چون حذف از دید کاربران فوری است و راه برگشتش - پست
@@ -327,7 +392,7 @@ export async function applyContentDelete(ctx, contentId, page) {
 }
 
 async function renderList(ctx, section, page, send) {
-  const items = await loadItems(ctx, section);
+  const items = await loadItems(ctx, section, true);
   if (items.length === 0) {
     await send(`${section.title}\n\nدیگر موردی باقی نمانده.`, {}).catch(() => {});
     return;

@@ -1,6 +1,7 @@
 import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
+import { isOwner } from "./owner.js";
 
 // --- کتابخانه‌ی روانشناسی ---
 
@@ -268,7 +269,9 @@ export async function handleContentRequest(ctx, contentId) {
   let delivered = 0;
   try {
     await ctx.replyWithChatAction("upload_document").catch(() => {});
-    delivered = await deliverContent(ctx, contentId);
+    // مدیر باید بتواند موردِ مخفی را هم ببیند - وگرنه پیش از نمایش به
+    // کاربران راهی برای بررسی‌اش ندارد.
+    delivered = await deliverContent(ctx, contentId, { includeHidden: isOwner(ctx) });
   } catch (err) {
     console.error("ارسال محتوا شکست خورد:", contentId, err && err.message);
   }
