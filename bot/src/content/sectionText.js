@@ -51,7 +51,13 @@ export const SECTIONS = {
   JOIN_FIRST: { code: "JOIN_FIRST_TEXT", label: "🔒 درخواست عضویت در کانال", def: D.JOIN_FIRST_TEXT },
   JOIN_RETRY: { code: "JOIN_RETRY_TEXT", label: "🔒 عضویت تایید نشد", def: D.JOIN_RETRY_TEXT },
 
+  // هر کتاب توضیح و عکس خودش را دارد. عکس روی جلد است و توضیح، همان
+  // چیزی که کاربر پیش از دانلود می‌خواند.
   BOOK_00: { code: "BOOK_00_INTRO_TEXT", label: "📕 کتاب «ذهنیت ثروتمند»", def: D.BOOK_00_TEXT },
+  BOOK_01: { code: "BOOK_01_INTRO_TEXT", label: "📕 کتاب ۱ — موفقیت در معامله‌گری", def: D.BOOK_01_TEXT },
+  BOOK_02: { code: "BOOK_02_INTRO_TEXT", label: "📕 کتاب ۲ — بازی روانی معامله‌گری", def: D.BOOK_02_TEXT },
+  BOOK_03: { code: "BOOK_03_INTRO_TEXT", label: "📕 کتاب ۳ — انضباط شخصی", def: D.BOOK_03_TEXT },
+  BOOK_04: { code: "BOOK_04_INTRO_TEXT", label: "📕 کتاب ۴ — پایان اهمال‌کاری", def: D.BOOK_04_TEXT },
   EQ_DONE: { code: "EQ_DONE_TEXT", label: "🎉 پایان دوره هوش هیجانی", def: D.EQ_DONE_TEXT },
   CONTENT_ACK: { code: "CONTENT_ACK_TEXT", label: "✅ پیام «درخواست ثبت شد»", def: D.CONTENT_ACK_TEXT },
   PENDING_PSY: { code: "PENDING_PSY_TEXT", label: "⏳ ویس روانشناسی — هنوز خالی", def: D.PENDING_PSY_TEXT },

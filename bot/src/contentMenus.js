@@ -2,7 +2,7 @@ import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
 import { isOwner } from "./owner.js";
-import { sendSection, editSection, resolveSection } from "./content/sectionText.js";
+import { sendSection, editSection, resolveSection, editWithText } from "./content/sectionText.js";
 
 // --- کتابخانه‌ی روانشناسی ---
 
@@ -77,24 +77,53 @@ export async function sendLibrary(ctx) {
   await sendSection(ctx, "LIBRARY", libraryKeyboard());
 }
 
+// «ذهنیت ثروتمند» تنها کتابی است که فایل ندارد و از سایت خریده می‌شود،
+// پس دکمه‌هایش هم فرق دارند.
+function book00Keyboard() {
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: "🛒 سفارش از سایت",
+          url: "https://sobhansamadi.com/the-rich-mind-of-a-trader/",
+          style: "success",
+        },
+      ],
+      [{ text: "🔙 بازگشت به کتابخانه", callback_data: "BOOK_LIST_BACK" }],
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
+}
+
+const CAPTION_LIMIT = 1024;
+
 export async function handleBookSelect(ctx, bookId) {
-  if (bookId === "00") {
-    const { text: bookText } = await resolveSection(ctx.env, "BOOK_00");
-    await ctx.editMessageText(
-      bookText,
-      {
-        reply_markup: new InlineKeyboard()
-          .url("🛒 سفارش از سایت", "https://sobhansamadi.com/the-rich-mind-of-a-trader/")
-          .row()
-          .text("🔙 بازگشت به کتابخانه", "BOOK_LIST_BACK")
-          .row()
-          .text("🏠 منوی اصلی", "MENU_MAIN"),
-      }
-    );
+  const keyboard = bookId === "00" ? book00Keyboard() : bookPartsKeyboard(bookId);
+  const { text, photo } = await resolveSection(ctx.env, "BOOK_" + bookId);
+  const body = text || `${BOOK_TITLES[bookId] || bookId}\nنسخه موردنظر را انتخاب کنید:`;
+
+  // بدون عکس، همان پیام فهرست ویرایش می‌شود و چت شلوغ نمی‌شود.
+  if (!photo) {
+    await editWithText(ctx, body, keyboard);
     return;
   }
-  const title = BOOK_TITLES[bookId] || bookId;
-  await ctx.editMessageText(`${title}\nنسخه موردنظر را انتخاب کنید:`, { reply_markup: bookPartsKeyboard(bookId) });
+
+  // با عکس اما چاره‌ای جز پیام تازه نیست: تلگرام اجازه نمی‌دهد به یک
+  // پیام متنی عکس اضافه شود. جلد کتاب ارزش یک پیام اضافه را دارد.
+  try {
+    if (body.length <= CAPTION_LIMIT) {
+      await ctx.replyWithPhoto(photo, { caption: body, reply_markup: keyboard });
+    } else {
+      await ctx.replyWithPhoto(photo);
+      await ctx.reply(body, { reply_markup: keyboard });
+    }
+  } catch (err) {
+    // عکس خراب نباید کتاب را غیرقابل‌دسترس کند.
+    console.error("ارسال جلد کتاب شکست خورد:", bookId, err && err.message);
+    await editWithText(ctx, body, keyboard).catch(() =>
+      ctx.reply(body, { reply_markup: keyboard })
+    );
+  }
 }
 
 export async function handleLibraryBack(ctx) {
