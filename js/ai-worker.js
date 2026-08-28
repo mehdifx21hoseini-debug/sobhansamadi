@@ -6,72 +6,38 @@
 // نسخه‌ی n8n را ویرایش می‌کرد و ربات هرگز آن تغییرها را نمی‌دید؛ حالا
 // همان جایی را ویرایش می‌کند که ربات از آن می‌خواند.
 //
-// کلید در این فایل نوشته نشده و نباید بشود: میزبانی CRM ایستاست، پس هر
-// چیزی که اینجا بنویسیم با View Source خوانده می‌شود. صفحه یک‌بار از
-// مدیر می‌پرسد و در sessionStorage نگه می‌دارد — با بستن تب می‌رود.
+// ورود جدا ندارد: همان توکنی که موقع ورود به CRM گرفته شده در هدر
+// Authorization می‌رود و ورکر از n8n می‌پرسد معتبر است یا نه. یعنی هر
+// کسی که به CRM دسترسی دارد، به این صفحه هم دارد - نه بیشتر، نه کمتر.
+//
+// کلیدی در این فایل نوشته نشده و نباید بشود: میزبانی CRM ایستاست، پس
+// هر چه اینجا بنویسیم با View Source خوانده می‌شود.
 (function (global) {
 	"use strict";
 
 	var WORKER = "https://sobhansamadi.mehdifx21hoseini.workers.dev";
-	var KEY_STORAGE = "crmAiKey";
 
-	function storedKey() {
-		try { return sessionStorage.getItem(KEY_STORAGE) || ""; } catch (e) { return ""; }
-	}
-
-	function rememberKey(key) {
-		try { sessionStorage.setItem(KEY_STORAGE, key); } catch (e) { /* حالت خصوصی مرورگر */ }
-	}
-
-	function forgetKey() {
-		try { sessionStorage.removeItem(KEY_STORAGE); } catch (e) { /* بی‌اهمیت */ }
-	}
-
-	// وقتی کلید نداریم یا کلید رد شد. برگرداندن رشته‌ی خالی یعنی مدیر
-	// انصراف داد و صفحه نباید بی‌نهایت دوباره بپرسد.
-	function askForKey(message) {
-		var key = global.prompt(
-			message ||
-			"کلید دسترسی بخش هوش مصنوعی (ADMIN_KEY ورکر) را وارد کنید.\nفقط یک‌بار در هر نشست پرسیده می‌شود.",
-			""
-		);
-		key = (key || "").trim();
-		if (key) rememberKey(key);
-		return key;
-	}
-
-	var CANCELLED = "AI_KEY_CANCELLED";
-
-	function call(path, options, retried) {
+	function call(path, options) {
 		options = options || {};
-		var key = storedKey();
-		if (!key) {
-			key = askForKey();
-			if (!key) return Promise.reject(new Error(CANCELLED));
+		var token = sessionStorage.getItem("crmToken");
+		if (!token) {
+			// auth.js پیش از این باید به صفحه‌ی ورود فرستاده باشد؛ اگر
+			// نفرستاده، بهتر است اینجا صریح بگوییم تا کاربر دنبال خطای
+			// شبکه‌ای بگردد که وجود ندارد.
+			return Promise.reject(new Error("نشست شما منقضی شده؛ دوباره وارد شوید."));
 		}
 
-		var headers = Object.assign({}, options.headers, { "x-admin-key": key });
+		var headers = Object.assign({}, options.headers, { "Authorization": "Bearer " + token });
 		return fetch(WORKER + "/admin/ai/" + path, {
 			method: options.method || "GET",
 			headers: headers,
 			body: options.body
 		}).then(function (res) {
 			if (res.status === 401 || res.status === 403) {
-				// شاید درخواست دیگری که هم‌زمان رفته بود، همین حالا کلید
-				// تازه گرفته باشد. بدون این چک، چند درخواست موازیِ ۴۰۱
-				// چند پنجره‌ی prompt پشت سر هم باز می‌کردند.
-				if (storedKey() && storedKey() !== key) return call(path, options, retried);
-
-				forgetKey();
-				// یک‌بار دوباره می‌پرسد، نه بیشتر: بدون این شرط، کلید غلط
-				// یک حلقه‌ی بی‌پایان از پنجره‌ی prompt می‌ساخت.
-				if (retried) throw new Error("کلید دسترسی درست نیست.");
-				var again = askForKey("کلید قبلی پذیرفته نشد. کلید درست را وارد کنید:");
-				if (!again) throw new Error(CANCELLED);
-				return call(path, options, true);
+				throw new Error("دسترسی شما به این بخش تایید نشد. اگر تازه وارد شده‌اید، یک‌بار خارج و دوباره وارد شوید.");
 			}
 			return res.json().catch(function () {
-				throw new Error("پاسخ ورکر خوانده نشد (" + res.status + ")");
+				throw new Error("پاسخ سرور خوانده نشد (" + res.status + ")");
 			}).then(function (bodyJson) {
 				if (!res.ok || bodyJson.ok === false) {
 					throw new Error(bodyJson.error || ("درخواست ناموفق بود (" + res.status + ")"));
@@ -112,9 +78,9 @@
 	}
 
 	var API = {
-		hasKey: function () { return !!storedKey(); },
-		forgetKey: forgetKey,
-		isCancelled: function (err) { return err && err.message === CANCELLED; },
+		// صفحه هنوز این را صدا می‌زند تا «انصراف کاربر» را از «خطای
+		// واقعی» جدا کند. حالا انصرافی در کار نیست، پس همیشه false.
+		isCancelled: function () { return false; },
 
 		fetchOverview: function () {
 			return call("overview");

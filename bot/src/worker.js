@@ -5,6 +5,7 @@ import { drainLeadOutbox } from "./crmSync.js";
 import { handleMiniapp } from "./econ/miniapp.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
+import { isValidCrmSession } from "./admin/crmAuth.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -27,7 +28,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-6-crm";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-7-crmauth";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -78,6 +79,20 @@ function json(body, status = 200) {
 }
 
 async function handleAdmin(request, url, env) {
+  // صفحه‌ی هوش مصنوعی CRM رمز جدا نمی‌خواهد.
+  //
+  // مدیر یک‌بار وارد CRM شده و توکن دارد؛ همان توکن را می‌فرستد و ورکر
+  // از n8n می‌پرسد معتبر است یا نه. کلید مدیر همچنان کار می‌کند و
+  // پایین‌تر بررسی می‌شود - هم برای مسیرهای تشخیصی، هم به‌عنوان راه
+  // ورود وقتی n8n خوابیده و توکن قابل بررسی نیست.
+  if (url.pathname.startsWith("/admin/ai/")) {
+    const auth = request.headers.get("authorization") || "";
+    const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
+    if (token && (await isValidCrmSession(env, token))) {
+      return handleAiApi(request, url, env);
+    }
+  }
+
   // ADMIN_KEY کلید مخصوص همین مسیرهای تشخیصی است و اگر نبود، به کلید
   // تقویم برمی‌گردد.
   //

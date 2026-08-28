@@ -5,10 +5,12 @@
 // آن‌ها به n8n یعنی همان وابستگی‌ای که قرار بود کم شود - و صفحه‌ای که
 // دقیقاً وقتی لازم است (وقتی دستیار درست جواب نمی‌دهد) از کار بیفتد.
 //
-// احراز هویت همان ADMIN_KEY است که مسیرهای تشخیصی ورکر دارند. کلید در
-// خودِ صفحه نوشته نمی‌شود - صفحه یک‌بار از مدیر می‌پرسد و در نشست
-// مرورگر نگه می‌دارد. اگر داخل js/ai.js می‌نشست، هر کسی که صفحه‌ی CRM
-// را باز می‌کرد آن را در سورس می‌دید، چون آن‌جا میزبانی ایستا است.
+// احراز هویت با همان توکنی است که مدیر موقع ورود به CRM گرفته: صفحه
+// آن را در هدر Authorization می‌فرستد و ورکر از n8n می‌پرسد معتبر است
+// یا نه (bot/src/admin/crmAuth.js). پس رمز دومی در کار نیست.
+//
+// کلیدی هم در این فایل‌ها نوشته نمی‌شود و نباید بشود: میزبانی CRM
+// ایستاست، یعنی هر چه در js/ بنویسیم با View Source خوانده می‌شود.
 
 import { aiStats, listLog } from "../ai/log.js";
 import {
@@ -28,7 +30,7 @@ import { suggestEntry } from "../ai/curator.js";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, x-admin-key",
+  "Access-Control-Allow-Headers": "Content-Type, x-admin-key, Authorization",
   "Access-Control-Max-Age": "86400",
 };
 
