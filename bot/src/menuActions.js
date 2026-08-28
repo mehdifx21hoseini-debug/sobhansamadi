@@ -2,9 +2,10 @@ import { logContentRequest, setUserState, clearUserState } from "./db.js";
 import {
   listContentByPrefix,
   updateContentTitle,
+  updateContentFile,
   deactivateContent,
 } from "./content/store.js";
-import { PSY_VOICE_PREFIX, LIVE_TRADE_PREFIX } from "./content/ingest.js";
+import { PSY_VOICE_PREFIX, LIVE_TRADE_PREFIX, extractFile } from "./content/ingest.js";
 import { isOwner } from "./owner.js";
 
 export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/index.js";
@@ -102,11 +103,13 @@ function buildListKeyboard(section, items, page, admin = false) {
       style: "primary",
     };
     if (!admin) return [main];
-    return [
-      main,
-      { text: "✏️", callback_data: `RENAME|${item.content_id}|${current}` },
-      { text: "🗑", callback_data: `DEL|${item.content_id}|${current}` },
-    ];
+    // فقط یک دکمه‌ی مدیریت، نه سه‌تا کنار هم.
+    //
+    // نسخه‌ی اول ✏️ و 🗑 را مستقیم در ردیف گذاشته بود؛ با اضافه شدن
+    // «جای‌گزینی فایل» می‌شد چهار دکمه در یک ردیف، که هم دکمه‌ی عنوان
+    // را باریک می‌کرد هم ضربه‌ی اشتباه را زیاد. حالا ⚙️ یک صفحه‌ی
+    // مدیریت برای همان مورد باز می‌کند که هرچقدر لازم شد جا دارد.
+    return [main, { text: "⚙️", callback_data: `ITEM|${item.content_id}|${current}` }];
   });
 
   // ردیف صفحه‌بندی فقط وقتی می‌آید که واقعاً بیش از یک صفحه باشد.
@@ -138,7 +141,7 @@ function listText(section, count, admin = false) {
     `${fa(count)} ${section.unit} موجود است.`,
     "",
     admin
-      ? "حالت مدیر: ✏️ برای عوض کردن عنوان، 🗑 برای حذف. این دو دکمه را فقط شما می‌بینید."
+      ? "حالت مدیر: ⚙️ کنار هر مورد، صفحه‌ی مدیریت همان مورد را باز می‌کند. این دکمه را فقط شما می‌بینید."
       : section.intro,
   ].join("\n");
 }
@@ -210,17 +213,77 @@ function sectionForContentId(contentId) {
   );
 }
 
-// همان پیام فهرست را به یک پرسش تبدیل می‌کند.
+// صفحه‌ی مدیریت یک مورد.
 //
-// تایید لازم است چون ✏️ و 🗑 کنار هم و کوچک‌اند و روی موبایل، ضربه‌ی
-// اشتباه واقعاً اتفاق می‌افتد. «انصراف» به همان صفحه‌ی فهرست برمی‌گردد.
+// همه‌ی کارهای مدیر روی یک مدخل از اینجا شروع می‌شود. جای اضافه کردن
+// کار بعدی هم همین‌جاست، بدون اینکه ردیف فهرست شلوغ‌تر شود.
+const FILE_TYPE_LABEL = {
+  voice: "ویس",
+  audio: "صوت",
+  video: "ویدیو",
+  document: "فایل",
+  photo: "عکس",
+};
+
+async function findItem(ctx, contentId) {
+  const section = sectionForContentId(contentId);
+  if (!section) return {};
+  const items = await loadItems(ctx, section);
+  const index = items.findIndex((i) => i.content_id === contentId);
+  return { section, items, item: index === -1 ? null : items[index], index };
+}
+
+function itemPanel(item, index, contentId, page, section) {
+  const text = [
+    "⚙️ مدیریت مورد " + fa(index + 1),
+    "",
+    "عنوان:",
+    item.title ? item.title : "(بدون عنوان)",
+    "",
+    "نوع: " + (FILE_TYPE_LABEL[item.file_type] || item.file_type || "?"),
+    "شناسه: " + contentId,
+  ].join("\n");
+
+  return {
+    text,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "✏️ عنوان", callback_data: `RENAME|${contentId}|${page}` },
+          { text: "📎 جای‌گزینی فایل", callback_data: `REFILE|${contentId}|${page}` },
+        ],
+        [
+          { text: "👁 دیدن خود فایل", callback_data: `CONTENT|${contentId}` },
+          { text: "🗑 حذف", callback_data: `DEL|${contentId}|${page}`, style: "danger" },
+        ],
+        [{ text: "◀️ بازگشت به فهرست", callback_data: `LIST|${section.id}|${page}` }],
+      ],
+    },
+  };
+}
+
+export async function openItemPanel(ctx, contentId, page) {
+  if (!(await requireOwner(ctx))) return;
+  const { section, item, index } = await findItem(ctx, contentId);
+  if (!section) return;
+  if (!item) {
+    await ctx.answerCallbackQuery({ text: "این مورد دیگر وجود ندارد.", show_alert: true });
+    return;
+  }
+
+  const panel = itemPanel(item, index, contentId, page, section);
+  await ctx.answerCallbackQuery();
+  await ctx
+    .editMessageText(panel.text, { reply_markup: panel.reply_markup })
+    .catch((err) => console.error("صفحه‌ی مدیریت:", err && err.message));
+}
+
+// تایید لازم است چون حذف از دید کاربران فوری است و راه برگشتش - پست
+// دوباره‌ی فایل در کانال - چند دقیقه کار می‌برد.
 export async function confirmContentDelete(ctx, contentId, page) {
   if (!(await requireOwner(ctx))) return;
-  const section = sectionForContentId(contentId);
+  const { section, item, index } = await findItem(ctx, contentId);
   if (!section) return;
-
-  const items = await loadItems(ctx, section);
-  const item = items.find((i) => i.content_id === contentId);
   if (!item) {
     await ctx.answerCallbackQuery({ text: "این مورد دیگر وجود ندارد.", show_alert: true });
     return;
@@ -232,7 +295,7 @@ export async function confirmContentDelete(ctx, contentId, page) {
       [
         "🗑 حذف شود؟",
         "",
-        buttonLabel(items.indexOf(item) + 1, item.title),
+        buttonLabel(index + 1, item.title),
         "",
         "از دید کاربران برداشته می‌شود. فایل پاک نمی‌شود و با پست دوباره‌ی همان فایل در کانال برمی‌گردد.",
       ].join("\n"),
@@ -241,7 +304,7 @@ export async function confirmContentDelete(ctx, contentId, page) {
           inline_keyboard: [
             [
               { text: "✅ بله، حذف کن", callback_data: `DELOK|${contentId}|${page}`, style: "danger" },
-              { text: "انصراف", callback_data: `LIST|${section.id}|${page}` },
+              { text: "انصراف", callback_data: `ITEM|${contentId}|${page}` },
             ],
           ],
         },
@@ -260,99 +323,143 @@ export async function applyContentDelete(ctx, contentId, page) {
 
   // برگشت به همان فهرست، تا مدیر نتیجه‌ی کارش را ببیند نه یک پیام
   // مرده‌ی «حذف شد» که باید از آن راه برگشت پیدا کند.
-  await renderList(ctx, section, page);
+  await renderList(ctx, section, page, (t, o) => ctx.editMessageText(t, o));
 }
 
-async function renderList(ctx, section, page) {
+async function renderList(ctx, section, page, send) {
   const items = await loadItems(ctx, section);
   if (items.length === 0) {
-    await ctx
-      .editMessageText(`${section.title}\n\nدیگر موردی باقی نمانده.`)
-      .catch(() => {});
+    await send(`${section.title}\n\nدیگر موردی باقی نمانده.`, {}).catch(() => {});
     return;
   }
   const { current } = clampPage(page, items.length);
-  await ctx
-    .editMessageText(listText(section, items.length, true), {
-      reply_markup: buildListKeyboard(section, items, current, true),
-    })
-    .catch((err) => console.error("نمایش دوباره‌ی فهرست:", err && err.message));
+  await send(listText(section, items.length, true), {
+    reply_markup: buildListKeyboard(section, items, current, true),
+  }).catch((err) => console.error("نمایش دوباره‌ی فهرست:", err && err.message));
 }
 
-// عوض کردن عنوان: مدیر عنوان تازه را در همین گفتگو می‌نویسد.
+// ─── ویرایش عنوان و جای‌گزینی فایل ────────────────────────────────
 //
-// شناسه در temp_data می‌نشیند نه در متن پیام، چون متن پیام همان چیزی
-// است که مدیر تایپ می‌کند و نباید مجبور باشد شناسه را هم کنارش بیاورد.
-export async function startContentRename(ctx, contentId, page) {
-  if (!(await requireOwner(ctx))) return;
-  const section = sectionForContentId(contentId);
-  if (!section) return;
+// هر دو یک شکل‌اند: مدیر دکمه را می‌زند، ربات منتظر پیام بعدی‌اش
+// می‌ماند، و همان پیام کار را تمام می‌کند. شناسه در temp_data می‌نشیند
+// نه در متن پیام، چون متن پیام همان چیزی است که مدیر می‌نویسد.
+const EDIT_PROMPTS = {
+  ask_title: {
+    prompt: (item) =>
+      [
+        "✏️ عنوان تازه را بنویسید:",
+        "",
+        "عنوان فعلی:",
+        item.title ? item.title : "(بدون عنوان)",
+        "",
+        "خط اول روی دکمه می‌نشیند و خط‌های بعدی زیر خود فایل می‌آید.",
+      ].join("\n"),
+  },
+  ask_file: {
+    prompt: () =>
+      [
+        "📎 فایل تازه را همین‌جا بفرستید:",
+        "",
+        "عنوان و جایگاه این مورد در فهرست دست‌نخورده می‌ماند؛ فقط خود فایل عوض می‌شود.",
+        "",
+        "ویس، صوت، ویدیو، فایل یا عکس - هر کدام که باشد پذیرفته می‌شود.",
+      ].join("\n"),
+  },
+};
 
-  const items = await loadItems(ctx, section);
-  const item = items.find((i) => i.content_id === contentId);
+async function startItemEdit(ctx, contentId, page, step) {
+  if (!(await requireOwner(ctx))) return;
+  const { section, item } = await findItem(ctx, contentId);
+  if (!section) return;
   if (!item) {
     await ctx.answerCallbackQuery({ text: "این مورد دیگر وجود ندارد.", show_alert: true });
     return;
   }
 
   await setUserState(ctx.env, ctx.from.id, {
-    current_flow: "content_rename",
-    current_step: "ask_title",
+    current_flow: "content_edit",
+    current_step: step,
     temp_data: { content_id: contentId, section: section.id, page: Number(page) || 0 },
   });
 
   await ctx.answerCallbackQuery();
-  await ctx.reply(
-    [
-      "✏️ عنوان تازه را بنویسید:",
-      "",
-      "عنوان فعلی:",
-      item.title ? item.title : "(بدون عنوان)",
-      "",
-      "خط اول روی دکمه می‌نشیند و خط‌های بعدی زیر خود فایل می‌آید.",
-    ].join("\n"),
-    {
-      reply_markup: {
-        inline_keyboard: [[{ text: "انصراف", callback_data: "RENAME_CANCEL" }]],
-      },
-    }
-  );
+  await ctx.reply(EDIT_PROMPTS[step].prompt(item), {
+    reply_markup: {
+      inline_keyboard: [[{ text: "انصراف", callback_data: "EDIT_CANCEL" }]],
+    },
+  });
 }
 
-export async function cancelContentRename(ctx) {
+export const startContentRename = (ctx, contentId, page) =>
+  startItemEdit(ctx, contentId, page, "ask_title");
+
+export const startContentRefile = (ctx, contentId, page) =>
+  startItemEdit(ctx, contentId, page, "ask_file");
+
+export async function cancelContentEdit(ctx) {
   await clearUserState(ctx.env, ctx.from.id);
   await ctx.answerCallbackQuery();
-  await ctx.editMessageText("انصراف داده شد؛ عنوان دست‌نخورده ماند.").catch(() => {});
+  await ctx.editMessageText("انصراف داده شد؛ چیزی عوض نشد.").catch(() => {});
 }
 
-// متنی که مدیر بعد از زدن ✏️ می‌نویسد.
+// بعد از هر ویرایش، فهرست تازه فرستاده می‌شود نه ویرایش‌شده: پیام
+// فهرست چند پیام بالاتر مانده و مدیر باید نتیجه را همین پایین ببیند.
+async function finishEdit(ctx, section, page, note) {
+  await ctx.reply(note);
+  await renderList(ctx, section, page, (t, o) => ctx.reply(t, o));
+}
+
+// متنی که مدیر بعد از زدن «✏️ عنوان» می‌نویسد.
 export async function handleContentRenameText(ctx, state) {
   if (!isOwner(ctx)) return;
 
   const data = state?.temp_data || {};
-  const contentId = data.content_id;
   const section = PENDING_SECTIONS[data.section];
   const title = String(ctx.message.text || "").trim();
-
   await clearUserState(ctx.env, ctx.from.id);
 
-  if (!contentId || !section) {
-    await ctx.reply("⚠️ این ویرایش دیگر معتبر نیست. دوباره از فهرست ✏️ را بزنید.");
+  if (!data.content_id || !section) {
+    await ctx.reply("⚠️ این ویرایش دیگر معتبر نیست. دوباره از فهرست ⚙️ را بزنید.");
     return;
   }
 
-  const changed = await updateContentTitle(ctx.env, contentId, title);
+  const changed = await updateContentTitle(ctx.env, data.content_id, title);
   if (changed === 0) {
     await ctx.reply("⚠️ این مورد پیدا نشد؛ شاید بین این دو مرحله حذف شده باشد.");
     return;
   }
 
-  // فهرست تازه فرستاده می‌شود نه ویرایش‌شده: پیام فهرست چند پیام
-  // بالاتر است و مدیر باید نتیجه را همین‌جا ببیند.
-  const items = await loadItems(ctx, section);
-  const { current } = clampPage(data.page, items.length);
-  await ctx.reply("✅ عنوان عوض شد.");
-  await ctx.reply(listText(section, items.length, true), {
-    reply_markup: buildListKeyboard(section, items, current, true),
-  });
+  await finishEdit(ctx, section, data.page, "✅ عنوان عوض شد.");
+}
+
+// فایلی که مدیر بعد از زدن «📎 جای‌گزینی فایل» می‌فرستد.
+export async function handleContentRefile(ctx, state) {
+  if (!isOwner(ctx)) return;
+
+  const data = state?.temp_data || {};
+  const section = PENDING_SECTIONS[data.section];
+  // همان تابعی که پست‌های کانال را می‌خواند؛ ساختار پیام یکی است.
+  const { fileId, fileType } = extractFile(ctx.message);
+
+  if (!fileId) {
+    // حالت فعال باقی می‌ماند: مدیر همین حالا می‌تواند فایل درست را
+    // بفرستد، بدون اینکه دوباره از فهرست شروع کند.
+    await ctx.reply("⚠️ در این پیام فایلی نبود. یک ویس، ویدیو، فایل یا عکس بفرستید.");
+    return;
+  }
+
+  await clearUserState(ctx.env, ctx.from.id);
+
+  if (!data.content_id || !section) {
+    await ctx.reply("⚠️ این ویرایش دیگر معتبر نیست. دوباره از فهرست ⚙️ را بزنید.");
+    return;
+  }
+
+  const changed = await updateContentFile(ctx.env, data.content_id, fileId, fileType);
+  if (changed === 0) {
+    await ctx.reply("⚠️ این مورد پیدا نشد؛ شاید بین این دو مرحله حذف شده باشد.");
+    return;
+  }
+
+  await finishEdit(ctx, section, data.page, "✅ فایل جای‌گزین شد.");
 }

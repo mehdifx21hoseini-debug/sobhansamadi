@@ -8,11 +8,14 @@ import {
   sendEconCalendar,
   sendPendingSection,
   handleSectionListPage,
+  openItemPanel,
   confirmContentDelete,
   applyContentDelete,
   startContentRename,
-  cancelContentRename,
+  startContentRefile,
+  cancelContentEdit,
   handleContentRenameText,
+  handleContentRefile,
   handleEconCallback,
 } from "./menuActions.js";
 import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
@@ -68,6 +71,21 @@ export function createBot(token, env, botInfo, build = "?") {
     await handleContact(ctx);
   });
 
+  // فایلی که مدیر برای جای‌گزینی می‌فرستد.
+  //
+  // این تنها جایی است که ربات از کاربر فایل می‌گیرد، پس بدون یک حالت
+  // فعالِ جای‌گزینی هیچ کاری نمی‌کند - فایلی که کاربری همین‌طوری
+  // بفرستد نادیده گرفته می‌شود، نه اینکه جایی بنشیند.
+  bot.on(
+    ["message:voice", "message:audio", "message:video", "message:document", "message:photo"],
+    async (ctx) => {
+      const state = await getUserState(ctx.env, ctx.from.id);
+      if (state?.current_flow === "content_edit" && state.current_step === "ask_file") {
+        await handleContentRefile(ctx, state);
+      }
+    }
+  );
+
   bot.on("message:text", async (ctx) => {
     const text = ctx.message.text;
     const state = await getUserState(ctx.env, ctx.from.id);
@@ -86,7 +104,7 @@ export function createBot(token, env, botInfo, build = "?") {
       }
 
       // مدیر عنوان تازه‌ی یک ویس/ویدیو را می‌نویسد.
-      if (state.current_flow === "content_rename" && state.current_step === "ask_title") {
+      if (state.current_flow === "content_edit" && state.current_step === "ask_title") {
         await handleContentRenameText(ctx, state);
         return;
       }
@@ -244,14 +262,26 @@ export function createBot(token, env, botInfo, build = "?") {
 
     // کنترل‌های مدیر روی فهرست محتوا. هر کدام خودشان مدیر بودن را چک
     // می‌کنند، پس رسیدنِ این callback از یک پیام فورواردشده بی‌خطر است.
+    if (data.startsWith("ITEM|")) {
+      const [, id, page] = data.split("|");
+      await openItemPanel(ctx, id, page);
+      return;
+    }
+
+    if (data.startsWith("REFILE|")) {
+      const [, id, page] = data.split("|");
+      await startContentRefile(ctx, id, page);
+      return;
+    }
+
     if (data.startsWith("RENAME|")) {
       const [, id, page] = data.split("|");
       await startContentRename(ctx, id, page);
       return;
     }
 
-    if (data === "RENAME_CANCEL") {
-      await cancelContentRename(ctx);
+    if (data === "EDIT_CANCEL") {
+      await cancelContentEdit(ctx);
       return;
     }
 

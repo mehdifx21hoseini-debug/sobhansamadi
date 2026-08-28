@@ -143,6 +143,30 @@ export async function updateContentTitle(env, contentId, title) {
   }
 }
 
+// جای‌گزینی خود فایل، با نگه داشتن عنوان و جایگاه مدخل.
+//
+// چرا لازم است: تا پیش از این تنها راهِ عوض کردن یک فایل اشتباه، حذف
+// مدخل و پست دوباره در کانال بود - که یعنی شناسه‌ی تازه، ته فهرست، و
+// از دست رفتن عنوانی که دستی نوشته شده بود.
+//
+// updated_at اینجا هم دست‌نخورده می‌ماند: این «همان مورد، فایل درست»
+// است، نه یک انتشار تازه.
+export async function updateContentFile(env, contentId, fileId, fileType) {
+  try {
+    const res = await env.DB
+      .prepare(
+        `UPDATE content_library SET file_id = ?, file_type = ?
+           WHERE content_id = ? AND active = 1`
+      )
+      .bind(fileId, fileType, contentId)
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
 // حذف نرم: سطر می‌ماند و فقط active صفر می‌شود.
 //
 // چرا پاک نمی‌شود: اگر آکادمی اشتباهی چیزی را حذف کند، با پست دوباره‌ی
