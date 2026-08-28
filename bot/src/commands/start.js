@@ -1,33 +1,8 @@
 import { mainMenuKeyboard } from "../menu.js";
 import { recordUserSource } from "../db.js";
+import { WELCOME_TEXT } from "../content/defaults.js";
 import { getContent } from "../content/store.js";
-
-// این متن دقیقاً از پیام خوش‌آمد فعلی بات (اسکرین‌شات تایید شده توسط
-// کاربر) گرفته شده، نه از متن پیش‌فرض workflow n8n - چون تیم آکادمی
-// این متن رو از طریق پنل تغییر داده بودن.
-const WELCOME_TEXT = [
-  "👋 سلام، به آکادمی سبحان صمدی خوش اومدی.",
-  "",
-  "من سبحان صمدی هستم؛ بیش از ۸ سال به‌صورت تخصصی در بازارهای مالی فعالیت می‌کنم و با قاطعیت می‌تونم بگم تنها کسی هستم که در ایران هر روز لایو تریدهای واقعی خودم رو با مخاطبانم به اشتراک می‌ذارم.",
-  "",
-  "اینجا همه‌چیزی که برای رشد در بازارهای مالی لازم داری، دسته‌بندی‌شده در دسترسته:",
-  "",
-  "🎁 رایگان:",
-  "🎓 دوره مقدماتی فارکس + دوره هوش هیجانی",
-  "📈 لایو تریدهای روزانه",
-  "📅 تقویم اقتصادی",
-  "🤖 اکسپرت مدیریت سرمایه SSProX",
-  "🧠 کتاب‌ها و ویس‌های روانشناسی معامله‌گری (از جمله «ذهن ثروتمند یک تریدر»)",
-  "📝 آزمون فارکس - خودت رو بسنج",
-  "🏦 معرفی بروکر معتمد",
-  "",
-  "🚀 برای ادامه مسیر:",
-  "مجموعه آموزشی پیشرفته به همراه منتورینگ",
-  "",
-  "❓ هر سوالی داشتی همین‌جا از ما بپرس - تیم پشتیبانی آکادمی کنارته تا بهترین مسیر رو بهت نشون بده.",
-  "",
-  "👇 از منوی پایین شروع کن.",
-].join("\n");
+import { resolveSection } from "../content/sectionText.js";
 
 export async function handleStart(ctx) {
   // لینک عمیق: t.me/BOT?start=instagram
@@ -42,23 +17,35 @@ export async function handleStart(ctx) {
     );
   }
 
-  // عکس/ویدیوی معرفی، اگر آکادمی آن را با هشتگ #WELCOME_PHOTO در کانال
-  // پست کرده باشد. متن خوش‌آمد بلندتر از سقف کپشن تلگرام است، پس رسانه
-  // جدا می‌رود و متن پشت سرش - نه به‌عنوان کپشن.
+  // عکس/ویدیوی معرفی. متن خوش‌آمد بلندتر از سقف کپشن تلگرام است، پس
+  // رسانه جدا می‌رود و متن پشت سرش - نه به‌عنوان کپشن.
   //
   // شکستش هرگز نباید جلوی پیام خوش‌آمد را بگیرد: یک عکس نیامده بهتر از
   // کاربری است که هیچ منویی نمی‌بیند.
+  //
+  // دو منبع، به همین ترتیب: عکسی که مدیر از داخل ویرایشگر گذاشته، وگرنه
+  // فایلی که با هشتگ #WELCOME_PHOTO در کانال پست شده. مسیر دوم می‌تواند
+  // ویدیو هم باشد، که ویرایشگر پشتیبانی نمی‌کند.
+  const section = await resolveSection(ctx.env, "WELCOME").catch(() => null);
+
   try {
-    const media = await getContent(ctx.env, "WELCOME_PHOTO");
-    if (media && media.file_id) {
-      if (media.file_type === "video") await ctx.replyWithVideo(media.file_id);
-      else if (media.file_type === "photo") await ctx.replyWithPhoto(media.file_id);
+    if (section && section.photo) {
+      await ctx.replyWithPhoto(section.photo);
+    } else {
+      const media = await getContent(ctx.env, "WELCOME_PHOTO");
+      if (media && media.file_id) {
+        if (media.file_type === "video") await ctx.replyWithVideo(media.file_id);
+        else if (media.file_type === "photo") await ctx.replyWithPhoto(media.file_id);
+      }
     }
   } catch (err) {
     console.error("ارسال رسانه‌ی خوش‌آمد شکست خورد:", err && err.message);
   }
 
-  await ctx.reply(WELCOME_TEXT, { reply_markup: mainMenuKeyboard() });
+  // کیبورد اصلی همیشه باید برسد، حتی اگر خواندن متن شکسته باشد.
+  await ctx.reply((section && section.text) || WELCOME_TEXT, {
+    reply_markup: mainMenuKeyboard(),
+  });
 }
 
 export const HELP_TEXT = [

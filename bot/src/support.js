@@ -2,9 +2,7 @@ import { getUserState, setUserState, clearUserState, createSupportTicket } from 
 import { mainMenuKeyboard } from "./menu.js";
 import { askFaq } from "./ai/faq.js";
 import { recordKbUsage } from "./ai/kb.js";
-
-const INTRO_TEXT =
-  "هر سوالی دارید بفرمایید تیم آکادمی ما در لحظه پاسخگوی شما عزیز خواهد بود\nاگر سوالتون نیاز به بررسی دقیق‌تر داشت تیم پشتیبانی آکادمی مستقیم پیگیری خواهد کرد";
+import { sendSection } from "./content/sectionText.js";
 
 export async function startSupport(ctx) {
   await setUserState(ctx.env, ctx.from.id, {
@@ -12,7 +10,7 @@ export async function startSupport(ctx) {
     current_step: "ask_question",
     temp_data: {},
   });
-  await ctx.reply(INTRO_TEXT);
+  await sendSection(ctx, "SUPPORT");
 }
 
 // وقتی دستیار خودش پاسخ داده، گفتگو باز می‌ماند تا کاربر بتواند ادامه

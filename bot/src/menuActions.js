@@ -9,6 +9,7 @@ import {
 } from "./content/store.js";
 import { PSY_VOICE_PREFIX, LIVE_TRADE_PREFIX, extractFile } from "./content/ingest.js";
 import { isOwner } from "./owner.js";
+import { resolveSection } from "./content/sectionText.js";
 
 export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/index.js";
 
@@ -26,7 +27,6 @@ const PENDING_SECTIONS = {
     prefix: PSY_VOICE_PREFIX,
     mode: "list",
     unit: "ویس",
-    intro: "تازه‌ترین ویس‌ها بالا هستند. روی هرکدام بزنید تا همان یکی برایتان بیاید:",
   },
   LIVE_TRADE: {
     id: "LIVE_TRADE",
@@ -35,7 +35,6 @@ const PENDING_SECTIONS = {
     prefix: LIVE_TRADE_PREFIX,
     mode: "list",
     unit: "ویدیو",
-    intro: "تازه‌ترین ویدیوها بالا هستند. روی هرکدام بزنید تا همان یکی برایتان بیاید:",
   },
 };
 
@@ -138,7 +137,10 @@ function buildListKeyboard(section, items, page, admin = false) {
   return { inline_keyboard: rows };
 }
 
-function listText(section, count, admin = false) {
+// متن راهنمای زیر عنوان از ویرایشگر می‌آید، پس مدیر می‌تواند عوضش کند.
+// شمارش و عنوان اما ساخته می‌شوند و ویرایش‌شدنی نیستند - عددی که با
+// واقعیت نخواند بدتر از نبودنش است.
+function listText(section, count, admin = false, intro = "") {
   return [
     section.title,
     "",
@@ -146,8 +148,13 @@ function listText(section, count, admin = false) {
     "",
     admin
       ? "حالت مدیر: ⚙️ کنار هر مورد، صفحه‌ی مدیریت همان مورد را باز می‌کند. این دکمه را فقط شما می‌بینید."
-      : section.intro,
+      : intro,
   ].join("\n");
+}
+
+async function introFor(ctx, section) {
+  const resolved = await resolveSection(ctx.env, section.id).catch(() => null);
+  return (resolved && resolved.text) || "";
 }
 
 // مدیر موردهای مخفی را هم می‌بیند (با نشان 🚫)، کاربر نه. اگر این دو
@@ -167,7 +174,7 @@ export async function sendPendingSection(ctx, key) {
   const items = section.prefix ? await loadItems(ctx, section, admin) : [];
 
   if (items.length > 0) {
-    await ctx.reply(listText(section, items.length, admin), {
+    await ctx.reply(listText(section, items.length, admin, await introFor(ctx, section)), {
       reply_markup: buildListKeyboard(section, items, 0, admin),
     });
     return;
@@ -193,7 +200,7 @@ export async function handleSectionListPage(ctx, key, page) {
   const items = await loadItems(ctx, section, admin);
   if (items.length === 0) return;
   await ctx
-    .editMessageText(listText(section, items.length, admin), {
+    .editMessageText(listText(section, items.length, admin, await introFor(ctx, section)), {
       reply_markup: buildListKeyboard(section, items, page, admin),
     })
     // اگر کاربر روی همان صفحه دوباره بزند تلگرام «message is not modified»

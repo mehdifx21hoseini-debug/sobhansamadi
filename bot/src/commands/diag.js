@@ -130,6 +130,12 @@ export async function handleDiag(ctx, build) {
   lines.push("Gemini: " + yes(!!env.GEMINI_API_KEY));
   lines.push("کلید تقویم: " + yes(!!env.ECON_EXPORT_KEY));
 
+  lines.push("");
+  lines.push("🛠 <b>دستورهای مدیر</b>");
+  lines.push("/edit — ویرایش متن و عکس بخش‌ها");
+  lines.push("/delete — حذف یک محتوا با شناسه");
+  lines.push("/resetchannel — عوض کردن کانال محتوا");
+
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
 }
 

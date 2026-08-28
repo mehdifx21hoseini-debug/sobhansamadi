@@ -209,6 +209,55 @@ export async function updateContentFile(env, contentId, fileId, fileType) {
   }
 }
 
+// ─── ویرایش متن بخش‌ها از داخل تلگرام ─────────────────────────────
+
+// فقط متن. عکس همان‌جا می‌ماند - اگر پاک می‌شد، هر اصلاح یک غلط املایی
+// عکس بخش را هم می‌برد.
+export async function setSectionBody(env, code, body) {
+  await ensureContentSchema(env);
+  await env.DB
+    .prepare(
+      `INSERT INTO text_content (content_id, body, photo_file_id, active, updated_at)
+       VALUES (?, ?, '', 1, ?)
+       ON CONFLICT(content_id) DO UPDATE SET
+         body = excluded.body, active = 1, updated_at = excluded.updated_at`
+    )
+    .bind(code, body, new Date().toISOString())
+    .run();
+}
+
+// فقط عکس. رشته‌ی خالی یعنی «عکس را بردار».
+export async function setSectionPhoto(env, code, fileId) {
+  await ensureContentSchema(env);
+  await env.DB
+    .prepare(
+      `INSERT INTO text_content (content_id, body, photo_file_id, active, updated_at)
+       VALUES (?, '', ?, 1, ?)
+       ON CONFLICT(content_id) DO UPDATE SET
+         photo_file_id = excluded.photo_file_id, active = 1, updated_at = excluded.updated_at`
+    )
+    .bind(code, fileId || "", new Date().toISOString())
+    .run();
+}
+
+// بازگشت به پیش‌فرض: سطر کاملاً پاک می‌شود، نه خالی.
+//
+// چرا حذف و نه خالی کردن: خالی یعنی «مدیر عمداً متن را خالی گذاشته» و
+// نبودنِ سطر یعنی «هرگز دست نخورده». فقط حالت دوم باید به پیش‌فرض
+// برگردد، وگرنه راهی برای برگشت نمی‌ماند.
+export async function resetSection(env, code) {
+  try {
+    const res = await env.DB
+      .prepare(`DELETE FROM text_content WHERE content_id = ?`)
+      .bind(code)
+      .run();
+    return res.meta ? res.meta.changes || 0 : 0;
+  } catch (err) {
+    emptyIfNoTable(err);
+    return 0;
+  }
+}
+
 // «فعلاً نه» - مدخل می‌ماند و در فهرست مدیر دیده می‌شود، ولی از دید
 // کاربر بیرون است. برای چیزی که هنوز آماده نیست یا موقتاً نباید برود.
 export async function setContentHidden(env, contentId, hidden) {

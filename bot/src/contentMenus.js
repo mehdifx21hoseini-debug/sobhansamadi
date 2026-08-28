@@ -2,20 +2,9 @@ import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
 import { isOwner } from "./owner.js";
+import { sendSection, editSection } from "./content/sectionText.js";
 
 // --- کتابخانه‌ی روانشناسی ---
-
-const LIBRARY_INTRO_TEXT = [
-  "📚 کتابخانه تخصصی روانشناسی معامله‌گری",
-  "",
-  "در سال‌های فعالیت حرفه‌ای‌ام، همواره یکی از بزرگ‌ترین چالش‌ها، دسترسی به منابع معتبر و به‌روز روانشناسی معامله‌گری به زبان فارسی بوده است.",
-  "",
-  "به همین دلیل، با سرمایه‌گذاری شخصی، مجموعه‌ای از کتاب‌های مطرح و به‌روز دنیا در حوزه روانشناسی معامله‌گری را انتخاب، ترجمه و با دریافت مجوز، در اختیار جامعه معامله‌گران فارسی‌زبان قرار داده‌ایم.",
-  "",
-  "هر کتاب علاوه بر نسخه PDF، به‌صورت پادکست صوتی نیز تهیه شده تا بتوانی در هر زمان و هر مکان از آن استفاده کنی.",
-  "",
-  "📖 از فهرست زیر، کتاب موردنظر خودت را انتخاب کن.",
-].join("\n");
 
 const BOOK_TITLES = {
   "01": "📕 کتاب ۱: موفقیت در معامله‌گری",
@@ -75,7 +64,7 @@ function bookPartsKeyboard(bookId) {
 }
 
 export async function sendLibrary(ctx) {
-  await ctx.reply(LIBRARY_INTRO_TEXT, { reply_markup: libraryKeyboard() });
+  await sendSection(ctx, "LIBRARY", libraryKeyboard());
 }
 
 export async function handleBookSelect(ctx, bookId) {
@@ -98,13 +87,10 @@ export async function handleBookSelect(ctx, bookId) {
 }
 
 export async function handleLibraryBack(ctx) {
-  await ctx.editMessageText(LIBRARY_INTRO_TEXT, { reply_markup: libraryKeyboard() });
+  await editSection(ctx, "LIBRARY", libraryKeyboard());
 }
 
 // --- اکسپرت مدیریت سرمایه ---
-
-const EXPERT_INTRO_TEXT =
-  "🤖 اکسپرت هوشمند SsProX\n\nپلتفرم معاملاتی خود را انتخاب کنید تا فایل و ویدیوی آموزشی مخصوص همون نسخه براتون ارسال بشه:";
 
 function expertKeyboard() {
   return new InlineKeyboard()
@@ -116,7 +102,7 @@ function expertKeyboard() {
 }
 
 export async function sendExpert(ctx) {
-  await ctx.reply(EXPERT_INTRO_TEXT, { reply_markup: expertKeyboard() });
+  await sendSection(ctx, "EXPERT", expertKeyboard());
 }
 
 export async function handleExpertPlatform(ctx, platform) {
@@ -156,18 +142,8 @@ function freeCoursesKeyboard() {
 }
 
 export async function sendFreeCoursesMenu(ctx) {
-  await ctx.reply("📚 دوره‌های رایگان\nیکی از گزینه‌ها را انتخاب کنید:", { reply_markup: freeCoursesKeyboard() });
+  await sendSection(ctx, "FREE_MENU", freeCoursesKeyboard());
 }
-
-const INTRO_COURSE_TEXT = [
-  "📚 دوره رایگان مقدماتی فارکس",
-  "",
-  "خوش اومدی 👋",
-  "",
-  "مدت این دوره حدود ۸ ساعته. اگه تازه‌واردی، از جلسهٔ اول شروع کن.",
-  "",
-  "برای شروع، روی جلسهٔ اول کلیک کن 👇",
-].join("\n");
 
 const INTRO_SESSIONS = [
   ["مقدمه و مسیر پیش رو", "INTRO_P01"],
@@ -195,16 +171,8 @@ function introSessionsKeyboard() {
 }
 
 export async function sendFreeIntro(ctx) {
-  await ctx.reply(INTRO_COURSE_TEXT, { reply_markup: introSessionsKeyboard() });
+  await sendSection(ctx, "INTRO_COURSE", introSessionsKeyboard());
 }
-
-const EQ_INTRO_TEXT = [
-  "بسیاری از معامله‌گران، استراتژی مناسبی دارند؛ اما هنگام اجرای آن شکست می‌خورند.",
-  "",
-  "دلیل این اتفاق، نداشتن دانش نیست؛ ناتوانی در مدیریت احساسات و تصمیم‌گیری در لحظه است — یعنی هوش هیجانی (EQ).",
-  "",
-  "پیشنهاد می‌کنم ویدیوها را به ترتیب مشاهده کنی.",
-].join("\n");
 
 function eqSessionsKeyboard() {
   return new InlineKeyboard()
@@ -220,7 +188,7 @@ function eqSessionsKeyboard() {
 }
 
 export async function sendFreeEq(ctx) {
-  await ctx.reply(EQ_INTRO_TEXT, { reply_markup: eqSessionsKeyboard() });
+  await sendSection(ctx, "EQ_INTRO", eqSessionsKeyboard());
 }
 
 // --- تحویل محتوا (فعلاً بدون فایل واقعی) ---

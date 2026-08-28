@@ -18,6 +18,7 @@ import {
 } from "./store.js";
 import { readContentChannel, writeContentChannel } from "./channel.js";
 import { OWNER_ID } from "../owner.js";
+import { SECTIONS } from "./sectionText.js";
 
 const FIXED_CONTENT_CODES = [
   "INTRO_P01","INTRO_P02","INTRO_P03","INTRO_P04_LINK","INTRO_P05","INTRO_P06","INTRO_P07",
@@ -33,9 +34,13 @@ const FIXED_CONTENT_CODES = [
   "WELCOME_PHOTO",
 ];
 
+// کدهای متنی از همان فهرستی می‌آیند که ویرایشگر داخل تلگرام دارد، به
+// اضافه‌ی چند کد قدیمی که هنوز از کانال فرستاده می‌شوند. اگر این فهرست
+// دستی نگه داشته می‌شد، هر بخش تازه‌ای فقط از یکی از دو راه قابل تغییر
+// می‌ماند و کسی نمی‌فهمید چرا.
 const TEXT_CONTENT_CODES = [
-  "WELCOME_TEXT","COURSES_MENU_TEXT","FREE_MENU_TEXT","ABOUT_TEXT","EXPERT_INTRO_TEXT",
-  "LIBRARY_INTRO_TEXT","TRUSTED_BROKER_TEXT","EQ_INTRO_TEXT","INTRO_COURSE_TEXT",
+  ...Object.values(SECTIONS).map((s) => s.code),
+  "COURSES_MENU_TEXT",
   "BOOK_00_INTRO_TEXT","BOOK_01_INTRO_TEXT","BOOK_02_INTRO_TEXT","BOOK_03_INTRO_TEXT","BOOK_04_INTRO_TEXT",
 ];
 

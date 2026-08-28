@@ -1,6 +1,19 @@
 import { Bot } from "grammy";
 import { handleStart, handleHelp } from "./commands/start.js";
 import { handleDiag, handleResetChannel, handleDeleteContent } from "./commands/diag.js";
+import {
+  handleEditCommand,
+  showSectionList,
+  openSectionPanel,
+  startSectionText,
+  startSectionPhoto,
+  removeSectionPhoto,
+  resetSectionToDefault,
+  previewSection,
+  cancelSectionEdit,
+  handleSectionText,
+  handleSectionPhoto,
+} from "./commands/editor.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
@@ -67,6 +80,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("diag", (ctx) => handleDiag(ctx, build));
   bot.command("resetchannel", handleResetChannel);
   bot.command("delete", handleDeleteContent);
+  bot.command("edit", handleEditCommand);
 
   bot.on("message:contact", async (ctx) => {
     await handleContact(ctx);
@@ -83,6 +97,10 @@ export function createBot(token, env, botInfo, build = "?") {
       const state = await getUserState(ctx.env, ctx.from.id);
       if (state?.current_flow === "content_edit" && state.current_step === "ask_file") {
         await handleContentRefile(ctx, state);
+        return;
+      }
+      if (state?.current_flow === "section_edit" && state.current_step === "ask_photo") {
+        await handleSectionPhoto(ctx, state);
       }
     }
   );
@@ -107,6 +125,12 @@ export function createBot(token, env, botInfo, build = "?") {
       // مدیر عنوان تازه‌ی یک ویس/ویدیو را می‌نویسد.
       if (state.current_flow === "content_edit" && state.current_step === "ask_title") {
         await handleContentRenameText(ctx, state);
+        return;
+      }
+
+      // مدیر متن تازه‌ی یک بخش را می‌نویسد.
+      if (state.current_flow === "section_edit" && state.current_step === "ask_text") {
+        await handleSectionText(ctx, state);
         return;
       }
 
@@ -263,6 +287,31 @@ export function createBot(token, env, botInfo, build = "?") {
 
     // کنترل‌های مدیر روی فهرست محتوا. هر کدام خودشان مدیر بودن را چک
     // می‌کنند، پس رسیدنِ این callback از یک پیام فورواردشده بی‌خطر است.
+    // ─── ویرایشگر متن بخش‌ها ───
+    if (data.startsWith("SECLIST|")) {
+      await showSectionList(ctx, data.split("|")[1]);
+      return;
+    }
+    if (data === "SECCANCEL") {
+      await cancelSectionEdit(ctx);
+      return;
+    }
+    if (data.startsWith("SEC") && data.includes("|")) {
+      const [tag, key, page] = data.split("|");
+      const EDITOR = {
+        SECED: openSectionPanel,
+        SECTXT: startSectionText,
+        SECPIC: startSectionPhoto,
+        SECNOPIC: removeSectionPhoto,
+        SECRESET: resetSectionToDefault,
+        SECPREV: previewSection,
+      };
+      if (EDITOR[tag]) {
+        await EDITOR[tag](ctx, key, page);
+        return;
+      }
+    }
+
     if (data.startsWith("ITEM|")) {
       const [, id, page] = data.split("|");
       await openItemPanel(ctx, id, page);

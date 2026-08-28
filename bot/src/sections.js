@@ -1,3 +1,5 @@
+import { sendSection } from "./content/sectionText.js";
+
 // زیرمنوهای سطح دوم.
 //
 // منوی اصلی به ۱۱ دکمه در ۶ ردیف رسیده بود و چون کیبورد ریپلای همیشه روی
@@ -18,12 +20,6 @@ const TOOLS_TEXT = [
   "🧰 ابزارها",
   "",
   "ابزارهایی که در مسیر معامله‌گری کنارتان هستند:",
-].join("\n");
-
-const ABOUT_US_TEXT = [
-  "ℹ️ درباره ما",
-  "",
-  "برای شناخت بیشتر آکادمی یا ارتباط مستقیم با ما:",
 ].join("\n");
 
 export async function sendLearnMenu(ctx) {
@@ -55,14 +51,12 @@ export async function sendToolsMenu(ctx) {
 }
 
 export async function sendAboutUsMenu(ctx) {
-  await ctx.reply(ABOUT_US_TEXT, {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "🏛 درباره آکادمی", callback_data: "SEC_ABOUT", style: "primary" },
-          { text: "📞 تماس با ما", callback_data: "SEC_CONTACT", style: "primary" },
-        ],
+  await sendSection(ctx, "ABOUT_US_MENU", {
+    inline_keyboard: [
+      [
+        { text: "🏛 درباره آکادمی", callback_data: "SEC_ABOUT", style: "primary" },
+        { text: "📞 تماس با ما", callback_data: "SEC_CONTACT", style: "primary" },
       ],
-    },
+    ],
   });
 }
