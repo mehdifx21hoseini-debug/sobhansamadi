@@ -9,7 +9,7 @@
 import { resolveAllowedChannel } from "../content/ingest.js";
 import { clearContentChannel } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
-import { OWNER_ID } from "../owner.js";
+import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
 
 function yes(v) {
   return v ? "✅" : "❌";
@@ -20,13 +20,13 @@ export async function handleDiag(ctx, build) {
   // می‌گیرد. بدون این، کسی که نمی‌داند با کدام حساب باید پیام بدهد هیچ
   // راهی برای فهمیدنش ندارد جز فرستادن پیام به یک ربات ناشناس.
   // آیدی خودِ فرد برای خودش راز نیست.
-  if (String(ctx.from.id) !== OWNER_ID) {
+  if (!isOwner(ctx)) {
     await ctx.reply(
       [
         "این دستور فقط برای مدیر است.",
         "",
         "آیدی عددی شما: <code>" + ctx.from.id + "</code>",
-        "آیدی مدیر تنظیم‌شده: <code>" + OWNER_ID + "</code>",
+        "نام کاربری شما: <code>" + (ctx.from.username ? "@" + ctx.from.username : "ندارد") + "</code>",
       ].join("\n"),
       { parse_mode: "HTML" }
     );
@@ -111,7 +111,20 @@ export async function handleDiag(ctx, build) {
     }
   }
 
-  // ۵) کلیدها - فقط بودن یا نبودن، هرگز مقدارشان.
+  // ۵) چه کسانی مدیرند - و مهم‌تر، عددِ خودِ کسی که الان دستور را زده.
+  //
+  // دسترسی با نام کاربری موقتی است و باید به عدد تبدیل شود؛ بدون دیدن
+  // این عدد، هیچ راهی برای انجام آن تبدیل نیست.
+  lines.push("");
+  lines.push("👤 <b>مدیران</b>");
+  lines.push("شما: <code>" + ctx.from.id + "</code>" + (ctx.from.username ? " (@" + ctx.from.username + ")" : ""));
+  lines.push("با آیدی عددی: <code>" + OWNER_IDS.join(", ") + "</code>");
+  if (OWNER_USERNAMES.length) {
+    lines.push("با نام کاربری: <code>@" + OWNER_USERNAMES.join(", @") + "</code>");
+    lines.push("<i>دسترسی با نام کاربری موقتی است - عدد بالا را بدهید تا ثابت شود.</i>");
+  }
+
+  // ۶) کلیدها - فقط بودن یا نبودن، هرگز مقدارشان.
   lines.push("");
   lines.push("🔑 <b>کلیدها</b>");
   lines.push("Gemini: " + yes(!!env.GEMINI_API_KEY));
@@ -129,7 +142,7 @@ export async function handleDiag(ctx, build) {
 //
 // شناسه در همان پیام «✅ ثبت شد: ...» که ربات در کانال داده بود هست.
 export async function handleDeleteContent(ctx) {
-  if (String(ctx.from.id) !== OWNER_ID) return;
+  if (!isOwner(ctx)) return;
 
   const id = String(ctx.match || "").trim();
   if (!id) {
@@ -160,7 +173,7 @@ export async function handleDeleteContent(ctx) {
 
 // کانال ثبت‌شده را باز می‌کند تا کانال بعدی که پست بگذارد جایش بنشیند.
 export async function handleResetChannel(ctx) {
-  if (String(ctx.from.id) !== OWNER_ID) return;
+  if (!isOwner(ctx)) return;
   await clearContentChannel(ctx.env);
   await ctx.reply(
     [

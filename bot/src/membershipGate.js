@@ -1,10 +1,9 @@
 import { InlineKeyboard } from "grammy";
 import { handleStart } from "./commands/start.js";
+import { isOwner } from "./owner.js";
 
 const CHANNEL_USERNAME = "@sobhanforex";
 const CHANNEL_JOIN_URL = "https://t.me/sobhanforex";
-// این آیدی (صاحب/ادمین اصلی) در نسخه‌ی قبلی از چک عضویت معاف بود.
-const EXEMPT_TELEGRAM_ID = "6923823275";
 // چک واقعی از API تلگرام فقط یک‌بار در این بازه برای هر کاربر انجام
 // می‌شود، نه روی هر تک تعامل - هم سریع‌تر است هم روی مقیاس چند هزار
 // کاربر همزمان به تلگرام فشار کمتری وارد می‌کند.
@@ -76,7 +75,9 @@ export function membershipGate() {
     const userId = ctx.from?.id;
     if (!userId) return next();
 
-    if (String(userId) === EXEMPT_TELEGRAM_ID) {
+    // مدیران از چک عضویت معافند - همان‌طور که در نسخه‌ی قبلی هم بودند.
+    // بدون این، مدیری که هنوز عضو کانال نشده پشت دروازه‌ی خودش می‌ماند.
+    if (isOwner(ctx)) {
       return next();
     }
 
