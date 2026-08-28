@@ -10,19 +10,25 @@ const COURSE_LABELS = {
   COURSE_BOTH: "📘 هر دو دوره",
 };
 
+// شیء خام و نه سازنده‌ی InlineKeyboard: گرامی فیلد style را بی‌صدا دور
+// می‌ریزد و دکمه‌ها بی‌رنگ می‌شوند.
+//
+// «هر دو دوره» سبز است و آن دو آبی: سه گزینه‌ی هم‌رنگ یعنی سه گزینه‌ی
+// هم‌ارزش، در حالی که این یکی کامل‌ترین مسیر است و باید در یک نگاه
+// معلوم باشد.
 function courseChoiceKeyboard() {
-  return new InlineKeyboard()
-    .text("🧠 دوره روانشناسی", "COURSE_PSY")
-    .row()
-    .text("📚 مجموعه آموزشی پیشرفته", "COURSE_TECH")
-    .row()
-    .text("📘 هر دو دوره", "COURSE_BOTH")
-    .row()
-    .text("🏠 منوی اصلی", "MENU_MAIN");
+  return {
+    inline_keyboard: [
+      [{ text: "🧠 دوره روانشناسی", callback_data: "COURSE_PSY", style: "primary" }],
+      [{ text: "📚 مجموعه آموزشی پیشرفته", callback_data: "COURSE_TECH", style: "primary" }],
+      [{ text: "📘 هر دو دوره", callback_data: "COURSE_BOTH", style: "success" }],
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 function cancelOnlyKeyboard() {
-  return new InlineKeyboard().text("❌ لغو فرآیند", "FLOW_CANCEL");
+  return { inline_keyboard: [[{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]] };
 }
 
 function requestContactKeyboard() {
@@ -33,11 +39,15 @@ function requestContactKeyboard() {
     .resized();
 }
 
+// تایید سبز و انصراف قرمز: در مرحله‌ی آخر یک ثبت‌نام، ضربه‌ی اشتباه
+// گران‌ترین جای کل مسیر است.
 function confirmCancelKeyboard() {
-  return new InlineKeyboard()
-    .text("✅ تایید نهایی", "CONFIRM_YES")
-    .row()
-    .text("❌ انصراف", "FLOW_CANCEL");
+  return {
+    inline_keyboard: [
+      [{ text: "✅ تایید نهایی", callback_data: "CONFIRM_YES", style: "success" }],
+      [{ text: "❌ انصراف", callback_data: "FLOW_CANCEL", style: "danger" }],
+    ],
+  };
 }
 
 function normalizePhone(raw) {

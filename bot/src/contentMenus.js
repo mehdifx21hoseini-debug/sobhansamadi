@@ -222,27 +222,38 @@ const INTRO_SESSIONS = [
   ["مسیر پیش رو", "INTRO_P16"],
 ];
 
+// جلسه‌ی آخر سبز، بقیه آبی.
+//
+// در فهرستی که همه‌ی دکمه‌هایش یک رنگ‌اند، رنگ هیچ چیزی نمی‌گوید. اینجا
+// سبز یعنی «خط پایان» - همان جلسه‌ای که بعدش قدم بعدی پیشنهاد می‌شود.
 function introSessionsKeyboard() {
-  const kb = new InlineKeyboard();
-  INTRO_SESSIONS.forEach(([label, id]) => kb.text(label, `CONTENT|${id}`).row());
-  return kb.text("🏠 منوی اصلی", "MENU_MAIN");
+  const last = INTRO_SESSIONS.length - 1;
+  return {
+    inline_keyboard: [
+      ...INTRO_SESSIONS.map(([label, id], i) => [
+        { text: label, callback_data: `CONTENT|${id}`, style: i === last ? "success" : "primary" },
+      ]),
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 export async function sendFreeIntro(ctx) {
   await sendSection(ctx, "INTRO_COURSE", introSessionsKeyboard());
 }
 
+// همان قاعده‌ی دوره‌ی مقدماتی: قسمت آخر سبز، چون بعدش تست هوش هیجانی
+// پیشنهاد می‌شود.
 function eqSessionsKeyboard() {
-  return new InlineKeyboard()
-    .text("قسمت ۱", "CONTENT|EMOTIONAL_P01")
-    .row()
-    .text("قسمت ۲", "CONTENT|EMOTIONAL_P02")
-    .row()
-    .text("قسمت ۳", "CONTENT|EMOTIONAL_P03")
-    .row()
-    .text("قسمت ۴", "CONTENT|EMOTIONAL_P04")
-    .row()
-    .text("🏠 منوی اصلی", "MENU_MAIN");
+  return {
+    inline_keyboard: [
+      [{ text: "قسمت ۱", callback_data: "CONTENT|EMOTIONAL_P01", style: "primary" }],
+      [{ text: "قسمت ۲", callback_data: "CONTENT|EMOTIONAL_P02", style: "primary" }],
+      [{ text: "قسمت ۳", callback_data: "CONTENT|EMOTIONAL_P03", style: "primary" }],
+      [{ text: "قسمت ۴", callback_data: "CONTENT|EMOTIONAL_P04", style: "success" }],
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 export async function sendFreeEq(ctx) {
