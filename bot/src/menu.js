@@ -21,8 +21,9 @@ export const MENU_LABELS = {
   CONSULT: "شرکت در مجموعه آموزشی پیشرفته",
   TRUSTED_BROKER: "🏦 بروکر معتمد",
   SUPPORT: "💬 پشتیبانی",
-  // «درباره آکادمی» و «تماس با ما» یک دکمه‌اند: هر دو یک سوال را جواب
-  // می‌دهند و دو دکمه برای یک قصد، فقط جا می‌گرفت.
+  // یک دکمه در منوی اصلی، و پشتش دو گزینه‌ی inline: «درباره آکادمی» و
+  // «تماس با ما». منوی اصلی یک ردیف کمتر می‌شود بدون اینکه هیچ‌کدام از
+  // آن دو گم شوند.
   ABOUT_US: "ℹ️ درباره ما",
 };
 
@@ -45,7 +46,7 @@ function btn(text, style, iconId) {
 //   ۲ - جفت روانشناسی: کتاب و ویس، یک خانواده‌ی محتوایی
 //   ۳ - ابزار و ویدیو
 //   ۴ - تنها مسیری که مستقیم درآمد می‌سازد: تنها، تمام‌عرض، سبز
-//   ۵ - جایی که کاربر برای کمک می‌رود
+//   ۵ - بروکر و پشتیبانی: هر دو «کمک بیرون از آموزش»
 //   ۶ - اطلاعات، که کمترین مراجعه را دارد و پایین‌ترین جاست
 //
 // در کیبورد راست‌به‌چپ، دکمه‌ی اولِ هر ردیف سمت راست می‌نشیند و اول
@@ -63,13 +64,10 @@ export function mainMenuKeyboard() {
         btn(MENU_LABELS.LIVE_TRADE, "primary", ICON.LIVE_TRADE),
       ],
       [btn(MENU_LABELS.CONSULT, "success", ICON.CONSULT)],
-      // سه دکمه در یک ردیف چون هر سه برچسب کوتاه‌اند - و این‌طور کیبورد
-      // یک ردیف کمتر می‌شود، یعنی یک ردیف بیشتر از خودِ گفتگو دیده می‌شود.
-      [
-        btn(MENU_LABELS.TRUSTED_BROKER, "primary"),
-        btn(MENU_LABELS.SUPPORT, "primary"),
-        btn(MENU_LABELS.ABOUT_US, "primary"),
-      ],
+      [btn(MENU_LABELS.TRUSTED_BROKER, "primary"), btn(MENU_LABELS.SUPPORT, "primary")],
+      // تمام‌عرض و آخر: کم‌مراجعه‌ترین بخش است، ولی وقتی کسی دنبالش
+      // می‌گردد باید بدون جست‌وجو پیدایش کند.
+      [btn(MENU_LABELS.ABOUT_US, "primary")],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,

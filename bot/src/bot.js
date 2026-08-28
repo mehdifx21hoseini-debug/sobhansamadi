@@ -5,8 +5,8 @@ import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { getUserState, clearUserState } from "./db.js";
 import { sendEconCalendar, sendPendingSection, handleEconCallback } from "./menuActions.js";
-import { sendAbout, sendTrustedBroker, sendContact, sendAboutUs } from "./staticContent.js";
-import { sendLearnMenu, sendToolsMenu } from "./sections.js";
+import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
+import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
 import { handleChannelPost } from "./content/ingest.js";
 import { startSupport, handleQuestion } from "./support.js";
@@ -88,10 +88,10 @@ export function createBot(token, env, botInfo, build = "?") {
       case "ECON_CALENDAR":
         return sendEconCalendar(ctx);
 
-      // «درباره ما» حالا یک دکمه‌ی سطح اول است و مستقیم معرفی + راه‌های
-      // تماس را می‌فرستد، نه زیرمنو.
+      // یک دکمه در منوی اصلی که دو گزینه‌ی inline باز می‌کند: معرفی
+      // آکادمی، و راه‌های تماس.
       case "ABOUT_US":
-        return sendAboutUs(ctx);
+        return sendAboutUsMenu(ctx);
 
       // دو دسته‌ی سطح دوم که فقط برای کیبوردهای کش‌شده مانده‌اند.
       case "LEARN":
