@@ -22,19 +22,20 @@ export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/ind
 const PENDING_SECTIONS = {
   PSY_VOICES: {
     id: "PSY_VOICES",
-    title: "🎧 ویس‌های روانشناسی",
+    title: "🎧 ویس‌های روانشناسی معامله‌گری",
     pendingKey: "PENDING_PSY",
     prefix: PSY_VOICE_PREFIX,
     mode: "list",
-    unit: "ویس",
+    // «۱ ویس موجود است» فارسی نیست. یک، عدد نمی‌خواهد.
+    count: (n) => (n === 1 ? "یک ویس منتشر شده" : `${fa(n)} ویس منتشر شده`),
   },
   LIVE_TRADE: {
     id: "LIVE_TRADE",
-    title: "📈 ویدیوهای لایو ترید",
+    title: "📈 آرشیو لایو تریدهای واقعی",
     pendingKey: "PENDING_LIVE",
     prefix: LIVE_TRADE_PREFIX,
     mode: "list",
-    unit: "ویدیو",
+    count: (n) => (n === 1 ? "یک جلسه در آرشیو" : `${fa(n)} جلسه در آرشیو`),
   },
 };
 
@@ -140,11 +141,13 @@ function buildListKeyboard(section, items, page, admin = false) {
 // متن راهنمای زیر عنوان از ویرایشگر می‌آید، پس مدیر می‌تواند عوضش کند.
 // شمارش و عنوان اما ساخته می‌شوند و ویرایش‌شدنی نیستند - عددی که با
 // واقعیت نخواند بدتر از نبودنش است.
+//
+// شمارش با «•» به عنوان چسبیده و خط جدا نگرفته: یک عدد، یک جمله نیست
+// و وقتی خط خودش را می‌گیرد، از خبر مهم‌تر به نظر می‌رسد.
 function listText(section, count, admin = false, intro = "") {
   return [
     section.title,
-    "",
-    `${fa(count)} ${section.unit} موجود است.`,
+    section.count(count),
     "",
     admin
       ? "حالت مدیر: ⚙️ کنار هر مورد، صفحه‌ی مدیریت همان مورد را باز می‌کند. این دکمه را فقط شما می‌بینید."
