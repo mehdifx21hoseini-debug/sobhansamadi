@@ -93,13 +93,21 @@ export async function handleLibraryBack(ctx) {
 
 // --- اکسپرت مدیریت سرمایه ---
 
+// شیء خام و نه سازنده‌ی InlineKeyboard: گرامی فیلد style را نمی‌شناسد و
+// بی‌صدا دور می‌ریزد، پس دکمه‌ها بی‌رنگ می‌شوند. نسخه‌ی n8n هم دقیقاً به
+// همین دلیل به‌جای نود تلگرام از httpRequest استفاده می‌کرد.
+//
+// دو رنگ برای دو پلتفرم، هم‌رنگ همان مربع‌های ایموجی که کنارشان است.
+// «منوی اصلی» عمداً بی‌رنگ می‌ماند: دکمه‌ی حرکت است نه انتخاب، و اگر آن
+// هم رنگی شود، رنگ دیگر چیزی را از هم جدا نمی‌کند.
 function expertKeyboard() {
-  return new InlineKeyboard()
-    .text("🟦 MetaTrader 4", "EXPERT_MT4")
-    .row()
-    .text("🟩 MetaTrader 5", "EXPERT_MT5")
-    .row()
-    .text("🏠 منوی اصلی", "MENU_MAIN");
+  return {
+    inline_keyboard: [
+      [{ text: "🟦 MetaTrader 4", callback_data: "EXPERT_MT4", style: "primary" }],
+      [{ text: "🟩 MetaTrader 5", callback_data: "EXPERT_MT5", style: "success" }],
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 export async function sendExpert(ctx) {
