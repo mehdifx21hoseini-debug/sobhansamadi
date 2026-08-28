@@ -17,35 +17,58 @@ export async function handleStart(ctx) {
     );
   }
 
-  // عکس/ویدیوی معرفی. متن خوش‌آمد بلندتر از سقف کپشن تلگرام است، پس
-  // رسانه جدا می‌رود و متن پشت سرش - نه به‌عنوان کپشن.
-  //
-  // شکستش هرگز نباید جلوی پیام خوش‌آمد را بگیرد: یک عکس نیامده بهتر از
-  // کاربری است که هیچ منویی نمی‌بیند.
-  //
-  // دو منبع، به همین ترتیب: عکسی که مدیر از داخل ویرایشگر گذاشته، وگرنه
-  // فایلی که با هشتگ #WELCOME_PHOTO در کانال پست شده. مسیر دوم می‌تواند
-  // ویدیو هم باشد، که ویرایشگر پشتیبانی نمی‌کند.
+  // رسانه‌ی معرفی از دو منبع می‌آید، به همین ترتیب: عکسی که مدیر از
+  // ویرایشگر گذاشته، وگرنه فایلی که با هشتگ #WELCOME_PHOTO در کانال پست
+  // شده. مسیر دوم می‌تواند ویدیو هم باشد؛ ویرایشگر فقط عکس می‌گیرد.
   const section = await resolveSection(ctx.env, "WELCOME").catch(() => null);
+  const text = (section && section.text) || WELCOME_TEXT;
+  const media = await resolveWelcomeMedia(ctx, section);
 
-  try {
-    if (section && section.photo) {
-      await ctx.replyWithPhoto(section.photo);
-    } else {
-      const media = await getContent(ctx.env, "WELCOME_PHOTO");
-      if (media && media.file_id) {
-        if (media.file_type === "video") await ctx.replyWithVideo(media.file_id);
-        else if (media.file_type === "photo") await ctx.replyWithPhoto(media.file_id);
-      }
+  // عکس و متن یک پیام‌اند، نه دو تا: پیام اول ربات، اولین برداشت کاربر
+  // است و دو حباب جدا آن را تکه‌تکه می‌کند.
+  //
+  // فقط وقتی متن از سقف کپشن تلگرام رد شود چاره‌ای جز جدا کردن نیست -
+  // کپشن بلندتر، کل ارسال را رد می‌کند و آن‌وقت نه عکس می‌رسد نه متن.
+  const opts = { caption: text, reply_markup: mainMenuKeyboard() };
+
+  if (media && text.length <= CAPTION_LIMIT) {
+    try {
+      if (media.type === "video") await ctx.replyWithVideo(media.fileId, opts);
+      else await ctx.replyWithPhoto(media.fileId, opts);
+      return;
+    } catch (err) {
+      // file_id باطل، عکس پاک‌شده، هر چیزی: می‌افتد به مسیر متنی پایین.
+      console.error("ارسال رسانه‌ی خوش‌آمد شکست خورد:", err && err.message);
     }
-  } catch (err) {
-    console.error("ارسال رسانه‌ی خوش‌آمد شکست خورد:", err && err.message);
+  } else if (media) {
+    const send =
+      media.type === "video"
+        ? ctx.replyWithVideo(media.fileId)
+        : ctx.replyWithPhoto(media.fileId);
+    await send.catch((err) =>
+      console.error("ارسال رسانه‌ی خوش‌آمد شکست خورد:", err && err.message)
+    );
   }
 
-  // کیبورد اصلی همیشه باید برسد، حتی اگر خواندن متن شکسته باشد.
-  await ctx.reply((section && section.text) || WELCOME_TEXT, {
-    reply_markup: mainMenuKeyboard(),
-  });
+  // کیبورد اصلی همیشه باید برسد، حتی اگر رسانه نرسیده باشد: کاربری که
+  // هیچ منویی نمی‌بیند، رباتِ خراب می‌بیند.
+  await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
+}
+
+// سقف کپشن تلگرام.
+const CAPTION_LIMIT = 1024;
+
+async function resolveWelcomeMedia(ctx, section) {
+  if (section && section.photo) return { type: "photo", fileId: section.photo };
+  try {
+    const row = await getContent(ctx.env, "WELCOME_PHOTO");
+    if (row && row.file_id && (row.file_type === "photo" || row.file_type === "video")) {
+      return { type: row.file_type, fileId: row.file_id };
+    }
+  } catch (err) {
+    console.error("خواندن رسانه‌ی خوش‌آمد شکست خورد:", err && err.message);
+  }
+  return null;
 }
 
 // بدون parse_mode: متن راهنما از ویرایشگر می‌آید و اگر با HTML فرستاده
