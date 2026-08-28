@@ -143,13 +143,20 @@ export async function handleExpertPlatform(ctx, platform) {
 
 // --- دوره‌های رایگان (زیرمنو) ---
 
+// شیء خام و نه سازنده‌ی InlineKeyboard: گرامی فیلد style را بی‌صدا دور
+// می‌ریزد و دکمه‌ها بی‌رنگ می‌شوند.
+//
+// «آموزش رایگان» از هر دو برچسب برداشته شد: کاربر تازه از دکمه‌ی
+// «دوره‌های رایگان» آمده و رایگان بودن را می‌داند؛ تکرارش فقط نام دوره
+// را عقب می‌راند.
 function freeCoursesKeyboard() {
-  return new InlineKeyboard()
-    .text("📚 آموزش رایگان دوره مقدماتی", "MENU_FREE_INTRO")
-    .row()
-    .text("🧠 آموزش رایگان هوش هیجانی", "MENU_FREE_EQ")
-    .row()
-    .text("🏠 منوی اصلی", "MENU_MAIN");
+  return {
+    inline_keyboard: [
+      [{ text: "📚 دوره مقدماتی", callback_data: "MENU_FREE_INTRO", style: "primary" }],
+      [{ text: "🧠 دوره هوش هیجانی", callback_data: "MENU_FREE_EQ", style: "primary" }],
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
 }
 
 export async function sendFreeCoursesMenu(ctx) {
