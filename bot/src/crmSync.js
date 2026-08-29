@@ -1,19 +1,23 @@
-// رساندن لیدهای ربات به CRM.
+// صندوق خروجی: هر چیزی که باید به CRM برسد.
 //
-// چرا اصلاً لازم است: ورکر لید را در D1 می‌نویسد، ولی CRM لیدها را از
-// جدول‌های n8n می‌خواند. تا وقتی این دو وصل نشوند، هر ثبت‌نامی که از ربات
-// می‌آید در CRM دیده نمی‌شود و مشاور هیچ‌وقت با آن مشتری تماس نمی‌گیرد.
+// چرا اصلاً لازم است: داده در D1 نوشته می‌شود، ولی CRM از جدول‌های n8n
+// می‌خواند. تا وقتی این دو وصل نشوند، هر ثبت‌نامی در CRM دیده نمی‌شود و
+// مشاور هیچ‌وقت با آن مشتری تماس نمی‌گیرد.
 //
-// چرا صندوق خروجی (outbox) و نه یک فراخوانی ساده: n8n مرتب قطع می‌شود.
-// اگر لید را فقط در لحظه‌ی ثبت می‌فرستادیم، هر قطعی یعنی یک مشتریِ
-// از‌دست‌رفته. به‌جای آن نوشتن در D1 و فرستادن به n8n از هم جدا شده‌اند:
+// چرا صندوق و نه یک فراخوانی ساده: n8n مرتب قطع می‌شود. اگر در لحظه‌ی
+// ثبت می‌فرستادیم، هر قطعی یعنی یک مشتریِ از‌دست‌رفته. به‌جای آن نوشتن و
+// فرستادن از هم جدا شده‌اند:
 //
-//   ۱. لید در D1 نوشته می‌شود - این رکورد دائمی است و هرگز گم نمی‌شود
-//   ۲. یک ردیف هم در lead_outbox می‌نشیند
-//   ۳. بلافاصله یک‌بار تلاش می‌شود بفرستیم (کاربر معطل نمی‌ماند)
+//   ۱. داده در D1 نوشته می‌شود - رکورد دائمی، هرگز گم نمی‌شود
+//   ۲. یک ردیف هم در صندوق می‌نشیند
+//   ۳. بلافاصله یک‌بار تلاش می‌شود (فرستنده معطل نمی‌ماند)
 //   ۴. اگر نشد، زمان‌بندِ هر ده دقیقه دوباره تلاش می‌کند تا موفق شود
 //
 // یعنی قطعی n8n فقط باعث تاخیر می‌شود، نه از دست رفتن داده.
+//
+// نام جدول هنوز lead_outbox است. عوض نشد چون ردیف‌های زنده داخلش هست و
+// تغییر نامِ یک جدولِ در حال کار، برای زیباتر شدن یک اسم، ریسکی است که
+// چیزی برنمی‌گرداند. ستون kind می‌گوید هر ردیف کجا باید برود.
 
 import { OWNER_ID } from "./owner.js";
 
@@ -26,39 +30,88 @@ const DDL = [
      last_error TEXT)`,
 ];
 
-// «برای این ردیف هشدار داده شد» - تا هر ده دقیقه همان هشدار تکرار نشود.
-const DDL_ALERTED = `ALTER TABLE lead_outbox ADD COLUMN alerted_at TEXT`;
+// دو ستونی که بعداً اضافه شدند. مقدار پیش‌فرضِ kind عمداً 'lead' است تا
+// ردیف‌هایی که از قبل در صندوق مانده‌اند همان‌طور که بودند فرستاده شوند.
+const MIGRATIONS = [
+  // «برای این ردیف هشدار داده شد» - تا هر ده دقیقه همان هشدار تکرار نشود.
+  `ALTER TABLE lead_outbox ADD COLUMN alerted_at TEXT`,
+  `ALTER TABLE lead_outbox ADD COLUMN kind TEXT NOT NULL DEFAULT 'lead'`,
+];
 
 export async function ensureOutbox(env) {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
-  try {
-    await env.DB.prepare(DDL_ALERTED).run();
-  } catch (err) {
-    // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
-    if (!/duplicate column/i.test(String(err && err.message))) throw err;
+  for (const sql of MIGRATIONS) {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch (err) {
+      // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
+      if (!/duplicate column/i.test(String(err && err.message))) throw err;
+    }
   }
 }
 
-// هر لید موقع ساخته شدن اینجا هم ثبت می‌شود. اگر این نوشتن شکست بخورد
-// نباید جلوی پاسخ دادن به کاربر را بگیرد - لید در جدول leads هست و
-// می‌شود بعداً دستی هم بازیابی‌اش کرد.
-export async function queueLead(env, lead) {
+/**
+ * گذاشتن یک چیز در صف، برای رسیدن به CRM.
+ *
+ * اگر این نوشتن شکست بخورد نباید جلوی پاسخ دادن به فرستنده را بگیرد -
+ * خودِ داده جای دیگری ذخیره شده و می‌شود بعداً دستی بازیابی‌اش کرد.
+ *
+ * @param {"lead"|"mentoring"} kind کدام مقصد.
+ */
+export async function queueOutbound(env, kind, payload) {
   await ensureOutbox(env);
   await env.DB.prepare(
-    `INSERT INTO lead_outbox (payload, created_at) VALUES (?, ?)`
+    `INSERT INTO lead_outbox (kind, payload, created_at) VALUES (?, ?, ?)`
   )
-    .bind(JSON.stringify(lead), new Date().toISOString())
+    .bind(kind, JSON.stringify(payload), new Date().toISOString())
     .run();
 }
 
-async function postLead(env, lead) {
-  // بدون مهلت، یک n8nِ معلق (نه قطع، فقط بی‌جواب) کل پاسخ‌دهی به کاربر را
-  // گروگان می‌گیرد. با مهلت، لید در صف می‌ماند و دفعه‌ی بعد فرستاده می‌شود.
-  const res = await fetch(env.CRM_LEAD_INTAKE_URL, {
+export function queueLead(env, lead) {
+  return queueOutbound(env, "lead", lead);
+}
+
+// هر نوع، یک مقصد.
+//
+// جدا نگه داشتن این‌ها از حلقه‌ی ارسال یعنی اضافه کردن مقصد بعدی (پرداخت،
+// تیکت پشتیبانی) فقط یک ورودی در این جدول است، نه یک شاخه‌ی تازه در
+// منطق تلاش‌مجدد و هشدار - همان منطقی که تازه درستش کرده‌ایم.
+const TARGETS = {
+  lead: {
+    url: (env) => env.CRM_LEAD_INTAKE_URL,
+    ready: (env) => !!(env.CRM_LEAD_INTAKE_URL && env.CRM_LEAD_INTAKE_KEY),
+    // این وبهوک کلید را داخل بدنه می‌خواهد، نه در هدر.
+    request: (env, payload) => ({
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: env.CRM_LEAD_INTAKE_KEY, ...payload }),
+    }),
+    describe: (p) => (p.full_name || "بدون نام") + " — " + (p.phone || "بدون شماره"),
+  },
+  mentoring: {
+    url: (env) => env.CRM_MENTORING_INTAKE_URL,
+    ready: (env) => !!(env.CRM_MENTORING_INTAKE_URL && env.MENTORING_INTAKE_KEY),
+    // و این یکی در هدر. تفاوتشان تاریخی است، نه طراحی.
+    request: (env, payload) => ({
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": env.MENTORING_INTAKE_KEY,
+      },
+      body: JSON.stringify(payload),
+    }),
+    describe: (p) => (p.full_name || "بدون نام") + " — " + (p.phone || "بدون شماره") + " (منتورینگ)",
+  },
+};
+
+async function postOutbound(env, kind, payload) {
+  const target = TARGETS[kind];
+  if (!target) throw new Error("نوع ناشناخته در صندوق: " + kind);
+
+  // بدون مهلت، یک n8nِ معلق (نه قطع، فقط بی‌جواب) کل پاسخ‌دهی را گروگان
+  // می‌گیرد. با مهلت، ردیف در صف می‌ماند و دفعه‌ی بعد فرستاده می‌شود.
+  const res = await fetch(target.url(env), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     signal: AbortSignal.timeout(15000),
-    body: JSON.stringify({ key: env.CRM_LEAD_INTAKE_KEY, ...lead }),
+    ...target.request(env, payload),
   });
 
   if (!res.ok) throw new Error("پاسخ ناموفق از n8n: " + res.status);
@@ -73,22 +126,28 @@ async function postLead(env, lead) {
 // صندوق را خالی می‌کند. هر ردیف مستقل است: شکست یکی بقیه را متوقف نمی‌کند،
 // فقط شمارنده‌ی تلاشش بالا می‌رود تا در لاگ پیدا باشد.
 export async function drainLeadOutbox(env, limit = 20) {
-  if (!env.CRM_LEAD_INTAKE_URL || !env.CRM_LEAD_INTAKE_KEY) return { sent: 0, failed: 0, skipped: true };
+  const ready = Object.keys(TARGETS).filter((k) => TARGETS[k].ready(env));
+  // هیچ مقصدی تنظیم نشده: کاری از دست‌مان برنمی‌آید و ردیف‌ها سر جایشان
+  // می‌مانند تا تنظیم شود.
+  if (ready.length === 0) return { sent: 0, failed: 0, skipped: true };
 
   await ensureOutbox(env);
+  // فقط انواعی که مقصدشان تنظیم شده برداشته می‌شوند. وگرنه یک نوعِ
+  // تنظیم‌نشده هر بار شمارنده‌اش بالا می‌رفت و بی‌خود هشدار می‌داد.
   const { results } = await env.DB.prepare(
-    `SELECT id, payload, attempts FROM lead_outbox ORDER BY id LIMIT ?`
+    `SELECT id, kind, payload, attempts FROM lead_outbox
+       WHERE kind IN (${ready.map(() => "?").join(", ")}) ORDER BY id LIMIT ?`
   )
-    .bind(limit)
+    .bind(...ready, limit)
     .all();
 
   let sent = 0;
   let failed = 0;
 
   for (const row of results || []) {
-    let lead;
+    let payload;
     try {
-      lead = JSON.parse(row.payload);
+      payload = JSON.parse(row.payload);
     } catch (err) {
       // محتوای خراب هرگز موفق نمی‌شود؛ نگه داشتنش فقط صندوق را برای همیشه
       // مسدود می‌کند.
@@ -97,7 +156,7 @@ export async function drainLeadOutbox(env, limit = 20) {
     }
 
     try {
-      await postLead(env, lead);
+      await postOutbound(env, row.kind || "lead", payload);
       await env.DB.prepare(`DELETE FROM lead_outbox WHERE id = ?`).bind(row.id).run();
       sent++;
     } catch (err) {
@@ -127,7 +186,7 @@ async function alertOnStuckLeads(env) {
 
   const { results } = await env.DB
     .prepare(
-      `SELECT id, payload, attempts, last_error, created_at FROM lead_outbox
+      `SELECT id, kind, payload, attempts, last_error, created_at FROM lead_outbox
          WHERE attempts >= ? AND alerted_at IS NULL ORDER BY id LIMIT 10`
     )
     .bind(ALERT_AFTER_ATTEMPTS)
@@ -146,10 +205,10 @@ async function alertOnStuckLeads(env) {
   ];
 
   for (const row of stuck) {
-    let who = "لید " + row.id;
+    let who = "ردیف " + row.id;
     try {
-      const lead = JSON.parse(row.payload);
-      who = (lead.full_name || "بدون نام") + " — " + (lead.phone || "بدون شماره");
+      const target = TARGETS[row.kind || "lead"];
+      who = target ? target.describe(JSON.parse(row.payload)) : who;
     } catch {
       // محتوای خراب: شناسه‌اش را می‌گوییم، که برای پیدا کردنش کافی است.
     }

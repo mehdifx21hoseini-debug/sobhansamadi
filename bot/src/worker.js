@@ -6,6 +6,7 @@ import { handleMiniapp } from "./econ/miniapp.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
+import { handleMentoringIntake } from "./intake/mentoringForm.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -28,7 +29,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-8-alerts";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-9-intake";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -282,6 +283,15 @@ export default {
     if (url.pathname.startsWith("/admin/ai/")) {
       if (request.method === "OPTIONS") return corsPreflight();
       return handleAdmin(request, url, env);
+    }
+
+    // فرم منتورینگ سایت.
+    //
+    // پیش از این مستقیم به n8n می‌زد و هر رد شدن یعنی یک مشتریِ
+    // از‌دست‌رفته، چون وردپرس تلاش مجدد ندارد. حالا ورکر می‌گیرد، همان
+    // لحظه در D1 می‌نویسد، و رساندنش به CRM کار صندوق خروجی است.
+    if (url.pathname === "/intake/mentoring") {
+      return handleMentoringIntake(request, env);
     }
 
     // مینی‌اپ تقویم. تا پیش از این مستقیم به n8n می‌زد و با هر قطعی آن

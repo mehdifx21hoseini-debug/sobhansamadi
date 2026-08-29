@@ -20,12 +20,17 @@ database_id = "6cf5fd65-8247-4688-9f17-f8c9887c87bd"
 #
 #   ECON_EXPORT_KEY      کلید مشترک WF-Econ-Export و WF-Econ-Explain
 #   CRM_LEAD_INTAKE_KEY  کلید WF-Bot-Lead-Intake
+#   MENTORING_INTAKE_KEY کلید فرم منتورینگ سایت - همان مقداری که همین
+#                        حالا در bot_secrets n8n هست، تا سایت لازم نباشد
+#                        کلیدش را عوض کند و فقط آدرس را عوض کند
 [vars]
 ECON_EXPORT_URL = "https://96825.7host.cloud/webhook/econ/export"
 ECON_EXPLAIN_URL = "https://96825.7host.cloud/webhook/econ/explain"
 # فقط برای تنظیمات هشدار استفاده می‌شود؛ داده‌ی تقویم از آینه‌ی D1 می‌آید.
 ECON_MINIAPP_URL = "https://96825.7host.cloud/webhook/econ/miniapp"
 CRM_LEAD_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/bot-intake"
+# مقصدِ درخواست‌های فرم منتورینگ، بعد از اینکه ورکر ذخیره‌شان کرد.
+CRM_MENTORING_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/mentoring-intake"
 
 # آینه‌ی تقویم را هر ۱۰ دقیقه تازه می‌کند. زمان‌بندهای خود n8n داده را
 # کندتر از این جمع می‌کنند، پس فاصله‌ی کوتاه‌تر چیزی به تازگی داده اضافه
