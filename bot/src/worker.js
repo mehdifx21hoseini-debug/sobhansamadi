@@ -7,6 +7,8 @@ import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
+import { syncCrmMirror } from "./crm/mirror.js";
+import { handleMirrorApi, mirrorPreflight } from "./crm/api.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -29,7 +31,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-9-intake";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-10-mirror";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -285,6 +287,18 @@ export default {
       return handleAdmin(request, url, env);
     }
 
+    // آینه‌ی خواندنی CRM. صفحه فقط وقتی سراغش می‌آید که n8n جواب نداده
+    // باشد، پس در حالت سالم هیچ باری اینجا نمی‌آید.
+    if (url.pathname.startsWith("/crm-mirror/")) {
+      if (request.method === "OPTIONS") return mirrorPreflight();
+      const auth = request.headers.get("authorization") || "";
+      const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
+      if (!token || !(await isValidCrmSession(env, token))) {
+        return json({ ok: false, error: "unauthorized" }, 401);
+      }
+      return handleMirrorApi(request, url, env);
+    }
+
     // فرم منتورینگ سایت.
     //
     // پیش از این مستقیم به n8n می‌زد و هر رد شدن یعنی یک مشتریِ
@@ -367,6 +381,17 @@ export default {
           }
         })
         .catch((err) => console.error("ارسال لیدهای معلق شکست خورد:", err && err.message))
+    );
+
+    // آینه‌ی CRM. اگر n8n خواب باشد این هم شکست می‌خورد - که اشکالی
+    // ندارد: آینه‌ی قبلی سر جایش می‌ماند و همان است که صفحه را زنده
+    // نگه می‌دارد.
+    ctx.waitUntil(
+      syncCrmMirror(env)
+        .then((n) => {
+          if (n && !n.skipped) console.log("آینه‌ی CRM:", JSON.stringify(n.written));
+        })
+        .catch((err) => console.error("آینه‌ی CRM همگام نشد:", err && err.message))
     );
   },
 };

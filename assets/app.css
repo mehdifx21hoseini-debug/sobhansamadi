@@ -4084,3 +4084,28 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 .ai-vote { font-size: 0.85rem; line-height: 1; }
 .ai-log-when { white-space: nowrap; font-size: 0.72rem; color: #7c7c93; }
 .dark .ai-log-when { color: #9a9ab0; }
+
+/* ── نوار «داده از نسخه‌ی پشتیبان است» ─────────────────────────────
+   وقتی n8n جواب نمی‌دهد، صفحه از آینه‌ی ورکر می‌خواند. کاربر باید
+   بداند - وگرنه یک فهرست چند دقیقه کهنه را زنده فرض می‌کند و نمی‌فهمد
+   چرا لیدی که همین حالا ثبت شده در آن نیست. */
+.crm-stale-banner {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 2000;
+	padding: 10px 16px;
+	font-size: 0.8rem;
+	line-height: 1.7;
+	text-align: center;
+	background: #fdf0e2;
+	color: #7a4d0a;
+	border-top: 2px solid #c98a14;
+}
+
+.dark .crm-stale-banner {
+	background: #46341c;
+	color: #e2b672;
+	border-top-color: #e2b672;
+}

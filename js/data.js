@@ -14,6 +14,72 @@
 		{ id: "special_offer", label: "پیشنهاد ویژه", text: "سلام {نام} عزیز 🌷\nیه پیشنهاد ویژه براتون در نظر گرفتیم که محدود به زمانه.\nاگه مایل بودید بیشتر توضیح بدم 🙏" }
 	];
 
+	// آینه‌ی خواندنی روی ورکر.
+	//
+	// هر بار که n8n می‌خوابد، کل پنل خالی می‌شود: نه لیدی، نه پیگیری‌ای.
+	// تیم فروش دقیقاً در ساعتی که باید کار کند هیچ نمی‌بیند. این نگاشت
+	// می‌گوید کدام مسیرها نسخه‌ی پشتیبان دارند.
+	//
+	// فقط خواندنی‌ها. نوشتن (تغییر وضعیت، یادداشت) نسخه‌ی پشتیبان ندارد و
+	// نباید داشته باشد: نوشتنی که به مقصد نرسیده، اگر «موفق» اعلام شود از
+	// خطا دادن بدتر است.
+	var MIRROR_BASE = "https://sobhansamadi.mehdifx21hoseini.workers.dev/crm-mirror";
+	var MIRRORED_PATHS = {
+		"/crm/leads": "leads",
+		"/crm/calls": "calls",
+		"/crm/products": "products",
+		"/crm/admins": "admins",
+		"/crm/consultants": "consultants",
+		"/crm/mentoring-requests": "mentoring-requests",
+		"/crm/support-tickets": "support-tickets"
+	};
+
+	// آخرین باری که از آینه خوانده شد. صفحه‌ها می‌توانند از این بفهمند که
+	// چیزی که نشان می‌دهند تازه نیست.
+	var lastMirrorInfo = null;
+	function mirrorInfo() { return lastMirrorInfo; }
+
+	function fromMirror(path) {
+		var name = MIRRORED_PATHS[path];
+		if (!name) return Promise.reject(new Error("no mirror"));
+		var token = sessionStorage.getItem("crmToken");
+		if (!token) return Promise.reject(new Error("no session"));
+
+		return fetch(MIRROR_BASE + "/" + name, {
+			headers: { "Authorization": "Bearer " + token }
+		}).then(function (res) {
+			if (!res.ok) throw new Error("mirror " + res.status);
+			return res.json().then(function (rows) {
+				lastMirrorInfo = {
+					at: res.headers.get("X-Mirror-Synced-At") || "",
+					path: path
+				};
+				showStaleBanner(lastMirrorInfo.at);
+				return rows;
+			});
+		});
+	}
+
+	// وقتی داده از آینه می‌آید، کاربر باید بداند.
+	//
+	// بدون این، مشاور یک فهرست چند دقیقه کهنه می‌بیند و فکر می‌کند زنده
+	// است - و مثلاً لیدی را که همین حالا ثبت شده نمی‌بیند و نمی‌فهمد چرا.
+	// نوار یک‌بار ساخته می‌شود و با هر مسیر دیگری تکرار نمی‌شود.
+	function showStaleBanner(at) {
+		if (document.getElementById("crmStaleBanner")) return;
+		var when = "";
+		var d = new Date(at);
+		if (at && !isNaN(d.getTime())) {
+			when = " (آخرین به‌روزرسانی: " + d.toLocaleString("fa-IR", { dateStyle: "short", timeStyle: "short" }) + ")";
+		}
+		var el = document.createElement("div");
+		el.id = "crmStaleBanner";
+		el.className = "crm-stale-banner";
+		el.textContent = "⚠️ ارتباط با سرور CRM برقرار نشد؛ این اطلاعات از نسخه‌ی پشتیبان است" + when +
+			" — تغییرات جدید ممکن است دیده نشوند و ثبت تغییر هم فعلاً کار نمی‌کند.";
+		if (document.body) document.body.appendChild(el);
+	}
+
 	function request(path, options) {
 		options = options || {};
 		var token = sessionStorage.getItem("crmToken");
@@ -34,6 +100,16 @@
 				});
 			}
 			return res.json();
+		}).catch(function (err) {
+			// ۴۰۱ از قبل کاربر را به صفحه‌ی ورود فرستاده؛ سراغ آینه رفتن
+			// در آن حالت فقط یک درخواست بی‌فایده است.
+			var isAuth = /نشست منقضی/.test(err.message || "");
+			if (isAuth || !MIRRORED_PATHS[path]) throw err;
+			return fromMirror(path).catch(function () {
+				// آینه هم نبود: خطای اصلی مهم‌تر است، چون همان می‌گوید
+				// مشکل از کجاست.
+				throw err;
+			});
 		});
 	}
 
@@ -514,6 +590,7 @@
 		setLeadSource: setLeadSource,
 		setLeadFollowup: setLeadFollowup,
 		leadFollowupAt: leadFollowupAt,
+		mirrorInfo: mirrorInfo,
 		fetchLeads: fetchLeads,
 		invalidateLeadsCache: invalidateLeadsCache,
 		fetchMentoringRequests: fetchMentoringRequests,

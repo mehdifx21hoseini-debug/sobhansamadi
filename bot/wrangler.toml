@@ -31,6 +31,10 @@ ECON_MINIAPP_URL = "https://96825.7host.cloud/webhook/econ/miniapp"
 CRM_LEAD_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/bot-intake"
 # مقصدِ درخواست‌های فرم منتورینگ، بعد از اینکه ورکر ذخیره‌شان کرد.
 CRM_MENTORING_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/mentoring-intake"
+# خروجی فقط-خواندنی جدول‌های CRM، برای آینه‌ای که صفحه‌ها را با قطعی n8n
+# خالی نمی‌گذارد. با همان ECON_EXPORT_KEY احراز هویت می‌شود تا کلید تازه‌ای
+# لازم نباشد - هر دو یک مرز اعتمادند: ورکر که فقط می‌خواند.
+CRM_EXPORT_URL = "https://96825.7host.cloud/webhook/crm/export"
 
 # آینه‌ی تقویم را هر ۱۰ دقیقه تازه می‌کند. زمان‌بندهای خود n8n داده را
 # کندتر از این جمع می‌کنند، پس فاصله‌ی کوتاه‌تر چیزی به تازگی داده اضافه
