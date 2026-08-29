@@ -15,6 +15,8 @@
 //
 // یعنی قطعی n8n فقط باعث تاخیر می‌شود، نه از دست رفتن داده.
 
+import { OWNER_ID } from "./owner.js";
+
 const DDL = [
   `CREATE TABLE IF NOT EXISTS lead_outbox (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,8 +26,17 @@ const DDL = [
      last_error TEXT)`,
 ];
 
+// «برای این ردیف هشدار داده شد» - تا هر ده دقیقه همان هشدار تکرار نشود.
+const DDL_ALERTED = `ALTER TABLE lead_outbox ADD COLUMN alerted_at TEXT`;
+
 export async function ensureOutbox(env) {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+  try {
+    await env.DB.prepare(DDL_ALERTED).run();
+  } catch (err) {
+    // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
+    if (!/duplicate column/i.test(String(err && err.message))) throw err;
+  }
 }
 
 // هر لید موقع ساخته شدن اینجا هم ثبت می‌شود. اگر این نوشتن شکست بخورد
@@ -99,7 +110,78 @@ export async function drainLeadOutbox(env, limit = 20) {
     }
   }
 
-  return { sent, failed, pending: (results || []).length - sent };
+  const alerted = await alertOnStuckLeads(env);
+  return { sent, failed, pending: (results || []).length - sent, alerted };
+}
+
+// بعد از چند تلاش ناموفق، دیگر «تاخیر» نیست.
+//
+// صندوق تا ابد تلاش می‌کند، که درست است - ولی اگر لیدی برای همیشه شکست
+// بخورد، تنها نشانه‌اش یک عددِ attempts است که هیچ‌کس نگاهش نمی‌کند.
+// یعنی یک مشتری واقعی که هیچ‌وقت با او تماس گرفته نمی‌شود و هیچ‌کس
+// نمی‌فهمد. دقیقاً همان چیزی که سر فرم منتورینگ سه هفته طول کشید.
+const ALERT_AFTER_ATTEMPTS = 3;
+
+async function alertOnStuckLeads(env) {
+  if (!env.BOT_TOKEN) return 0;
+
+  const { results } = await env.DB
+    .prepare(
+      `SELECT id, payload, attempts, last_error, created_at FROM lead_outbox
+         WHERE attempts >= ? AND alerted_at IS NULL ORDER BY id LIMIT 10`
+    )
+    .bind(ALERT_AFTER_ATTEMPTS)
+    .all();
+
+  const stuck = results || [];
+  if (stuck.length === 0) return 0;
+
+  const lines = [
+    "⚠️ چند لید به CRM نرسیده‌اند",
+    "",
+    "این‌ها در ربات ثبت شده‌اند و از بین نرفته‌اند، ولی " +
+      ALERT_AFTER_ATTEMPTS +
+      " بار تلاش برای فرستادنشان به CRM شکست خورده. یعنی در فهرست لیدهای مشاورها دیده نمی‌شوند.",
+    "",
+  ];
+
+  for (const row of stuck) {
+    let who = "لید " + row.id;
+    try {
+      const lead = JSON.parse(row.payload);
+      who = (lead.full_name || "بدون نام") + " — " + (lead.phone || "بدون شماره");
+    } catch {
+      // محتوای خراب: شناسه‌اش را می‌گوییم، که برای پیدا کردنش کافی است.
+    }
+    lines.push("• " + who);
+    if (row.last_error) lines.push("   " + String(row.last_error).slice(0, 120));
+  }
+
+  lines.push("");
+  lines.push("معمولاً یعنی n8n قطع است. وقتی برگردد، خودشان فرستاده می‌شوند.");
+
+  try {
+    const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({ chat_id: OWNER_ID, text: lines.join("\n") }),
+    });
+    if (!res.ok) throw new Error("تلگرام پاسخ نداد: " + res.status);
+  } catch (err) {
+    // هشدار نرفت. عمداً alerted_at ست نمی‌شود تا اجرای بعدی دوباره
+    // تلاش کند - وگرنه هشداری که یک‌بار نرسید، هرگز نمی‌رسید.
+    console.error("هشدار لیدهای گیرکرده فرستاده نشد:", err && err.message);
+    return 0;
+  }
+
+  const now = new Date().toISOString();
+  await env.DB.batch(
+    stuck.map((row) =>
+      env.DB.prepare(`UPDATE lead_outbox SET alerted_at = ? WHERE id = ?`).bind(now, row.id)
+    )
+  );
+  return stuck.length;
 }
 
 // تلاش فوری، بعد از اینکه پاسخ کاربر رفته. اگر شکست بخورد چیزی خراب

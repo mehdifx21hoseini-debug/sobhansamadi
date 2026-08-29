@@ -28,7 +28,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-7-crmauth";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-8-alerts";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
