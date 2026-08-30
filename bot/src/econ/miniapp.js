@@ -5,15 +5,17 @@
 // خالی می‌شدند، در حالی که همان لحظه خودِ ربات درست کار می‌کرد چون از
 // آینه‌ی D1 می‌خواند. این ماژول همان آینه را به مینی‌اپ هم می‌دهد.
 //
-// آنچه هنوز به n8n نیاز دارد فقط تنظیمات هشدار است، چون جدول مشترکین
-// هنوز آنجاست و زمان‌بندِ ارسال هشدار هم آنجا اجرا می‌شود. اگر n8n در
-// دسترس نباشد، به‌جای نشان دادن وضعیت اشتباهِ کلیدها، بخش هشدار پنهان
-// می‌شود - نمایش «خاموش» برای کسی که واقعاً مشترک است، بدترین حالت
-// ممکن بود چون یک ضربه‌ی بعدی واقعاً لغو اشتراکش می‌کرد.
+// حالا دیگر هیچ‌چیزِ این فایل به n8n وابسته نیست.
+//
+// آخرین قطعه، تنظیمات هشدار بود: جدول مشترکین در n8n می‌ماند و صفحه
+// برای خواندنش منتظر می‌شد. هر بار n8n می‌خوابید کارت هشدار ناپدید
+// می‌شد و کاربر فکر می‌کرد این قابلیت وجود ندارد. آن جدول به D1 آمد و
+// خواندن و نوشتنش هر دو همین‌جا انجام می‌شود.
 
 import { readEvents, readLabels, readHolidays, readAiAnswer, todayCacheKey } from "./store.js";
 import { makeLabelHelpers, numOf } from "./labels.js";
 import { etTimeToTehran, etInstantIso } from "./format.js";
+import { readSubscription, saveSubscription, defaultSubscription } from "./subscribers.js";
 
 // مینی‌اپ از GitHub Pages سرو می‌شود، پس مبدأ درخواست با مبدأ ورکر یکی
 // نیست و بدون این هدرها مرورگر پاسخ را به صفحه نمی‌دهد.
@@ -223,41 +225,14 @@ export async function buildMiniappPayload(env, user) {
 
 // ---------- بخش‌هایی که هنوز از n8n می‌آیند ----------
 
-// درخواست را دست‌نخورده به همان وبهوکی می‌فرستد که مینی‌اپ قبلاً
-// مستقیم صدا می‌زد. قرارداد عوض نشده، فقط یک واسطه اضافه شده - پس
-// خواندن/نوشتن اشتراک دقیقاً مثل قبل کار می‌کند.
-// قطع‌کننده‌ی مدار.
+// دیگر هیچ تماسی با n8n از این فایل نمی‌رود.
 //
-// اگر n8n پایین باشد، بدون این هر بار باز کردن مینی‌اپ تا سقف مهلت منتظر
-// می‌ماند - تقویم در چند صدم ثانیه از D1 آماده است ولی پاسخ پشت انتظاری
-// گیر می‌کند که جوابش از قبل معلوم است. بعد از یک شکست، تماس‌های بعدی
-// برای چند دقیقه اصلاً برقرار نمی‌شوند.
+// تا امروز اینجا یک کلاینت n8n با قطع‌کننده‌ی مدار بود، فقط برای یک
+// چیز: خواندن و نوشتن اشتراک هشدار. حالا آن یک چیز هم در D1 است، پس
+// کل آن ساختار - مهلت، قطع‌کننده، حالتِ درون‌حافظه‌ای - حذف شد.
 //
-// در حافظه‌ی isolate نگه داشته می‌شود نه D1: این فقط یک بهینه‌سازی است،
-// پس ارزش یک نوشتن در پایگاه داده به‌ازای هر درخواست را ندارد. اگر
-// isolate تازه باشد، بدترین حالت یک تماس اضافه است.
-const BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
-let n8nDownUntil = 0;
-
-async function callN8n(env, payload, timeoutMs) {
-  if (!env.ECON_MINIAPP_URL) throw new Error("ECON_MINIAPP_URL تنظیم نشده است");
-  if (Date.now() < n8nDownUntil) throw new Error("n8n اخیراً پاسخ نداد؛ تماس رد شد");
-  const res = await fetch(env.ECON_MINIAPP_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(timeoutMs),
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("پاسخ ناموفق از n8n: " + res.status);
-  n8nDownUntil = 0;
-  return res.json();
-}
-
-// هر شکستی مدار را باز می‌کند - چه مهلت تمام شود، چه اتصال بمیرد، چه
-// ۵۰۲ برگردد. هر سه یک معنی دارند: الان نپرس.
-function tripBreaker() {
-  n8nDownUntil = Date.now() + BREAKER_COOLDOWN_MS;
-}
+// نتیجه‌اش برای کاربر: مینی‌اپ در هیچ حالتی منتظر n8n نمی‌ماند و کارت
+// هشدار دیگر با خواب رفتن n8n ناپدید نمی‌شود.
 
 // ---------- مسیریابی ----------
 
@@ -282,19 +257,17 @@ export async function handleMiniapp(request, env) {
   if (action === "data") {
     const payload = await buildMiniappPayload(env, user);
 
-    // اشتراک تنها چیزی است که هنوز فقط در n8n هست. اگر نرسید، صفحه بدون
-    // بخش هشدار بالا می‌آید - که بی‌نهایت بهتر از خالی ماندن کل تقویم
-    // است، و همان چیزی است که این تغییر برای حلش نوشته شد.
-    payload.subscription = null;
-    try {
-      // مهلت کوتاه: این فقط یک بخش فرعی صفحه است و کاربر نباید برای
-      // آن منتظر بماند. اگر نرسید، کارت هشدار پنهان می‌شود.
-      const upstream = await callN8n(env, { action: "data", initData: body.initData }, 3000);
-      if (upstream && upstream.subscription) payload.subscription = upstream.subscription;
-    } catch (err) {
-      tripBreaker();
-      console.error("اشتراک مینی‌اپ از n8n نیامد:", err && err.message);
-    }
+    // اشتراک از D1 می‌آید، نه از n8n.
+    //
+    // پیش‌تر اینجا یک درخواست به n8n با مهلت سه ثانیه بود و هر بار که
+    // n8n خواب بود، کارت هشدار از صفحه ناپدید می‌شد - کاربر فکر می‌کرد
+    // این قابلیت اصلاً وجود ندارد. حالا همان جایی خوانده می‌شود که
+    // نوشته شده.
+    //
+    // کاربری که هرگز چیزی ثبت نکرده هم کارت را می‌بیند، با پیش‌فرض
+    // خاموش: «هنوز تنظیم نکرده‌ای» با «نمی‌شود تنظیم کرد» یکی نیست.
+    payload.subscription =
+      (await readSubscription(env, user.id)) || defaultSubscription();
 
     return reply(payload);
   }
@@ -308,24 +281,22 @@ export async function handleMiniapp(request, env) {
   }
 
   if (action === "subscribe") {
-    // نوشتن است، پس بی‌صدا شکست خوردن ممنوع: اگر n8n نبود، صفحه باید
+    // نوشتن است، پس بی‌صدا شکست خوردن ممنوع: اگر ذخیره نشد، صفحه باید
     // خطا بگیرد و کلیدها را برگرداند سر جایشان.
     try {
-      const upstream = await callN8n(
-        env,
-        {
-          action: "subscribe",
-          initData: body.initData,
-          subscribed: body.subscribed,
-          alert_minutes: body.alert_minutes,
-          show_low_importance: body.show_low_importance,
-        },
-        10000
-      );
-      return reply(upstream && upstream.success === false ? upstream : { success: true });
+      const saved = await saveSubscription(env, user.id, {
+        chat_id: user.id,
+        subscribed: body.subscribed,
+        alert_minutes: body.alert_minutes,
+        show_low_importance: body.show_low_importance,
+      });
+      // خودِ مقدار ذخیره‌شده برمی‌گردد نه چیزی که فرستاده شده: اگر
+      // دقیقه به نزدیک‌ترین مقدار مجاز گرد شده باشد، صفحه باید همان را
+      // نشان دهد نه عددی که هرگز ذخیره نشد.
+      return reply({ success: true, subscription: saved });
     } catch (err) {
-      tripBreaker();
-      return reply({ success: false, error: String(err && err.message) }, 502);
+      console.error("ذخیره‌ی اشتراک تقویم شکست خورد:", err && err.message);
+      return reply({ success: false, error: String(err && err.message) }, 500);
     }
   }
 

@@ -20,6 +20,12 @@ import {
 } from "./views.js";
 import { relativeTimeFa } from "./format.js";
 import { sendSection } from "../content/sectionText.js";
+import {
+  readSubscription,
+  saveSubscription,
+  defaultSubscription,
+  ALLOWED_MINUTES,
+} from "./subscribers.js";
 
 const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=29";
 
@@ -152,7 +158,13 @@ function backToEconMenu() {
 }
 
 export async function handleEconCallback(ctx, action) {
-  await ctx.answerCallbackQuery().catch(() => {});
+  // ECON_SUB خودش پاسخ می‌دهد، آن هم با متن. تلگرام هر callback را فقط
+  // یک بار می‌پذیرد، پس پاسخِ خالیِ اینجا آن یکی را می‌سوزاند - و بدترین
+  // جایش حالت خطاست: کاربر کلید را می‌زند، ذخیره نمی‌شود، و هیچ هشداری
+  // هم نمی‌بیند.
+  if (!action.startsWith("ECON_SUB|")) {
+    await ctx.answerCallbackQuery().catch(() => {});
+  }
 
   if (action === "ECON_MENU" || action === "MENU_ECON_CALENDAR") {
     await replaceCallbackMessage(ctx);
@@ -276,24 +288,95 @@ export async function handleEconCallback(ctx, action) {
   }
 
   if (action === "ECON_ALERT_SETTINGS") {
-    // اشتراک هشدار را زمان‌بند n8n می‌خواند تا پیام بفرستد، پس نوشتنش
-    // باید در n8n بماند؛ آینه‌کردنش فقط باعث می‌شد کاربر تنظیمی ببیند که
-    // فرستنده‌ی هشدار هرگز از آن خبردار نمی‌شود. تا وقتی مسیر نوشتن ساخته
-    // شود، تنظیمات از داخل مینی‌اپ انجام می‌شود که همین حالا کار می‌کند.
-    await ctx.reply(
-      buildAlertSettingsText({ subscribed: false, show_low_importance: false, alert_minutes: 15 }) +
-        "\n\n⚙️ برای روشن/خاموش کردن هشدار، از داخل تقویم اقدام کنید.",
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "⚙️ باز کردن تنظیمات", web_app: { url: ECON_APP_URL }, style: "success" }],
-            [{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }],
-          ],
-        },
-      }
-    );
+    await sendAlertSettings(ctx);
+    return true;
+  }
+
+  // تغییر یک تنظیم و نمایش دوباره‌ی همان صفحه.
+  //
+  // پیام ویرایش می‌شود نه اینکه تازه بفرستد: کاربر دارد سه کلید را
+  // پشت سر هم می‌زند و هر ضربه یک پیام تازه، چت را پر می‌کند.
+  if (action.startsWith("ECON_SUB|")) {
+    const [, field, value] = action.split("|");
+    const patch = { chat_id: ctx.from.id };
+    if (field === "ON") patch.subscribed = value === "1";
+    else if (field === "LOW") patch.show_low_importance = value === "1";
+    else if (field === "MIN") patch.alert_minutes = Number(value);
+
+    try {
+      await saveSubscription(ctx.env, ctx.from.id, patch);
+      await ctx.answerCallbackQuery({ text: "ذخیره شد" });
+    } catch (err) {
+      console.error("ذخیره‌ی تنظیم هشدار شکست خورد:", err && err.message);
+      // بی‌صدا شکست نخورد: کاربر باید بداند کلیدی که زد ثبت نشده،
+      // وگرنه با خیال راحت می‌رود و هشداری که منتظرش است نمی‌آید.
+      await ctx.answerCallbackQuery({
+        text: "ذخیره نشد؛ دوباره امتحان کنید.",
+        show_alert: true,
+      });
+      return true;
+    }
+
+    await sendAlertSettings(ctx, true);
     return true;
   }
 
   return false;
+}
+
+// صفحه‌ی تنظیم هشدار، با دکمه‌های واقعی.
+//
+// پیش‌تر اینجا فقط یک متن بود و یک دکمه که کاربر را به مینی‌اپ می‌فرستاد،
+// چون مسیر نوشتن در ورکر وجود نداشت و جدول مشترکین در n8n بود. حالا هر
+// دو اینجاست، پس تنظیم همان‌جایی انجام می‌شود که کاربر ایستاده.
+async function sendAlertSettings(ctx, edit = false) {
+  const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+
+  const check = (on) => (on ? "✅" : "▫️");
+  const rows = [
+    [
+      {
+        text: (sub.subscribed ? "🔕 خاموش کردن هشدار" : "🔔 روشن کردن هشدار"),
+        callback_data: "ECON_SUB|ON|" + (sub.subscribed ? "0" : "1"),
+        style: sub.subscribed ? "danger" : "success",
+      },
+    ],
+  ];
+
+  // گزینه‌های ریز فقط وقتی معنی دارند که هشدار روشن باشد؛ نشان دادنشان
+  // در حالت خاموش یعنی کاربر چیزی را تنظیم می‌کند که هرگز نمی‌رسد.
+  if (sub.subscribed) {
+    rows.push(
+      ALLOWED_MINUTES.map((m) => ({
+        text: (m === sub.alert_minutes ? "🔘 " : "") + toFa(m) + " دقیقه",
+        callback_data: "ECON_SUB|MIN|" + m,
+        style: "primary",
+      }))
+    );
+    rows.push([
+      {
+        text: check(sub.show_low_importance) + " اخبار با اهمیت متوسط",
+        callback_data: "ECON_SUB|LOW|" + (sub.show_low_importance ? "0" : "1"),
+        style: "primary",
+      },
+    ]);
+  }
+
+  rows.push([{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }]);
+
+  const text = buildAlertSettingsText(sub);
+  const markup = { inline_keyboard: rows };
+
+  if (edit) {
+    // «message is not modified» خطا نیست: کاربر همان مقدار فعلی را
+    // دوباره زده.
+    await ctx.editMessageText(text, { reply_markup: markup }).catch(() => {});
+    return;
+  }
+  await ctx.reply(text, { reply_markup: markup });
+}
+
+const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+function toFa(n) {
+  return String(n).replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
 }

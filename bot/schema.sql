@@ -64,3 +64,18 @@ CREATE TABLE IF NOT EXISTS phone_book (
 );
 CREATE INDEX IF NOT EXISTS idx_phone_book_phone ON phone_book(phone);
 CREATE INDEX IF NOT EXISTS idx_phone_book_created ON phone_book(created_at);
+
+-- مشترکین هشدار تقویم اقتصادی. تا پیش از این فقط در جدول‌های n8n بود و
+-- هر بار n8n می‌خوابید، کارت هشدار از مینی‌اپ ناپدید می‌شد و پیام صبح
+-- نمی‌رفت. حالا منبع اصلی همین است و هر دو راهِ نوشتن (دکمه‌های ربات و
+-- مینی‌اپ) به همین‌جا می‌رسند.
+CREATE TABLE IF NOT EXISTS econ_subscriber (
+  telegram_user_id TEXT PRIMARY KEY,
+  chat_id TEXT NOT NULL,
+  subscribed INTEGER NOT NULL DEFAULT 0,
+  alert_minutes INTEGER NOT NULL DEFAULT 15,   -- فقط ۵/۱۵/۳۰/۶۰
+  show_low_importance INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_econ_sub_active ON econ_subscriber(subscribed);

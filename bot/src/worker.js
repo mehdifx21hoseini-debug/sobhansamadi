@@ -33,7 +33,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-28-faqeverywhere";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-29-econsubs";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -254,6 +254,7 @@ async function handleAdmin(request, url, env) {
       content_files: await count("SELECT COUNT(*) FROM content_library"),
       content_texts: await count("SELECT COUNT(*) FROM text_content"),
       phone_book: await count("SELECT COUNT(*) FROM phone_book"),
+      econ_subscribers: await count("SELECT COUNT(*) FROM econ_subscriber WHERE subscribed = 1"),
     },
     lead_outbox_pending: await count("SELECT COUNT(*) FROM lead_outbox"),
   });
