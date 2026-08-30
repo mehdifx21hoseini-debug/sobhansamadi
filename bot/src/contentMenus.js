@@ -193,7 +193,7 @@ function expertFileRow() {
 function expertKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "🎬 آموزش نصب (متاتریدر ۴ و ۵)", callback_data: "EXPERT_VIDEOS", style: "primary" }],
+      [{ text: "🎬 رونمایی و آموزش نصب", callback_data: "EXPERT_VIDEOS", style: "primary" }],
       expertFileRow(),
       // زیر بقیه و بالای منوی اصلی: این کیبورد بعد از ارسال فایل هم
       // دوباره نشان داده می‌شود - دقیقاً همان لحظه‌ای که سوال‌ها پیش
@@ -211,9 +211,33 @@ function expertKeyboard() {
 // یکی‌شان کافی باشد - آکادمی می‌خواهد مخاطب هر دو را ببیند. پس انتخاب
 // از روی آموزش برداشته شد و فقط روی فایل ماند، جایی که واقعاً انتخاب
 // است: کسی که متاتریدر ۴ دارد نباید فایل ۵ را بگیرد.
+// این دو ویدیو هم‌وزن نیستند و کپشنشان هم نباید باشد: اولی رونمایی
+// است و نصب متاتریدر ۴، دومی فقط نصب متاتریدر ۵. شماره‌گذاری همین را
+// می‌گوید - کسی که قسمت ۲ را جدا ببیند می‌فهمد معرفی را در قسمت ۱ جا
+// گذاشته.
+//
+// کپشن از اینجا می‌آید نه از عنوانِ پست کانال: این دو ویدیو در فهرست
+// ⚙️ مدیر نیستند (آن فهرست فقط ویس‌های روانشناسی و لایو تریدهاست)، پس
+// تنها راه عوض کردن عنوانشان پست دوباره در کانال بود.
 const EXPERT_VIDEOS = [
-  ["متاتریدر ۴", "EXPERT_MT4_VIDEO"],
-  ["متاتریدر ۵", "EXPERT_MT5_VIDEO"],
+  {
+    id: "EXPERT_MT4_VIDEO",
+    label: "رونمایی و نصب متاتریدر ۴",
+    caption: [
+      "🎬 قسمت ۱ — رونمایی از اکسپرت SsProX و نصب روی متاتریدر ۴",
+      "",
+      "اول اکسپرت را معرفی می‌کنم و بعد قدم‌به‌قدم نصبش را روی متاتریدر ۴ نشان می‌دهم.",
+    ].join("\n"),
+  },
+  {
+    id: "EXPERT_MT5_VIDEO",
+    label: "نصب متاتریدر ۵",
+    caption: [
+      "🎬 قسمت ۲ — نصب روی متاتریدر ۵",
+      "",
+      "اگر متاتریدر ۵ استفاده می‌کنی، نصب روی همین نسخه را اینجا ببین. معرفی خودِ اکسپرت در قسمت ۱ گفته شده.",
+    ].join("\n"),
+  },
 ];
 
 export async function sendExpertVideos(ctx) {
@@ -225,9 +249,13 @@ export async function sendExpertVideos(ctx) {
   const missing = [];
   try {
     await ctx.replyWithChatAction("upload_video").catch(() => {});
-    for (const [label, id] of EXPERT_VIDEOS) {
-      const n = await deliverContent(ctx, id).catch(() => 0);
-      (n > 0 ? sent : missing).push(label);
+    for (const video of EXPERT_VIDEOS) {
+      // کپشن اینجا جای عنوانِ ردیف کتابخانه را می‌گیرد. سقف کپشن تلگرام
+      // ۱۰۲۴ کاراکتر است و متن بلندتر کل ارسال را رد می‌کند.
+      const n = await deliverContent(ctx, video.id, {
+        extra: { caption: video.caption.slice(0, 1000) },
+      }).catch(() => 0);
+      (n > 0 ? sent : missing).push(video.label);
     }
   } catch (err) {
     console.error("ارسال ویدیوهای اکسپرت شکست خورد:", err && err.message);
@@ -237,7 +265,7 @@ export async function sendExpertVideos(ctx) {
   // شد» وقتی یکی‌شان نرفته، کاربر را دنبال چیزی می‌فرستد که نیست.
   let text;
   if (missing.length === 0) {
-    text = "👆 آموزش نصب برای هر دو پلتفرم ارسال شد.\n\nحالا فایل اکسپرت پلتفرم خودتان را بگیرید:";
+    text = "👆 هر دو قسمت ارسال شد.\n\nحالا فایل اکسپرت پلتفرم خودتان را بگیرید:";
   } else if (sent.length > 0) {
     text =
       "👆 آموزش نصب " + sent.join(" و ") + " ارسال شد.\n\nویدیوی " + missing.join(" و ") +
