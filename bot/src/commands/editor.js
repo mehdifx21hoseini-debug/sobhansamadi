@@ -9,7 +9,7 @@
 // در دسترس است - پس هیچ ویرایشی بن‌بست نیست.
 
 import { isOwner } from "../owner.js";
-import { SECTIONS, resolveSection, editWithText } from "../content/sectionText.js";
+import { SECTIONS, resolveSection, editWithText, PHOTO_OFF } from "../content/sectionText.js";
 import { setSectionBody, setSectionPhoto, resetSection } from "../content/store.js";
 import { setUserState, clearUserState } from "../db.js";
 
@@ -97,14 +97,14 @@ function escapeHtml(s) {
 
 async function panelFor(env, key, page) {
   const section = SECTIONS[key];
-  const { text, photo, custom } = await resolveSection(env, key);
+  const { text, photo, custom, defaultPhoto } = await resolveSection(env, key);
   const shown = text.length > PREVIEW_LIMIT ? text.slice(0, PREVIEW_LIMIT) + " …" : text;
 
   const body = [
     "📝 <b>" + escapeHtml(section.label) + "</b>",
     "",
     "وضعیت متن: " + (custom ? "✏️ ویرایش‌شده" : "متن پیش‌فرض"),
-    "عکس: " + (photo ? "🖼 دارد" : "ندارد"),
+    "عکس: " + (photo ? (defaultPhoto ? "🖼 جلد پیش‌فرض" : "🖼 دارد") : "ندارد"),
     "",
     "<b>متن فعلی:</b>",
     escapeHtml(shown),
@@ -192,7 +192,10 @@ export async function cancelSectionEdit(ctx) {
 export async function removeSectionPhoto(ctx, key, page) {
   if (!(await requireOwner(ctx))) return;
   if (!SECTIONS[key]) return;
-  await setSectionPhoto(ctx.env, SECTIONS[key].code, "");
+  // PHOTO_OFF و نه رشته‌ی خالی: برای بخشی که جلد پیش‌فرض دارد، خالی یعنی
+  // «چیزی ثبت نشده» و همان جلد دوباره برمی‌گشت. «♻️ بازگشت به حالت
+  // اولیه» راه برگرداندنش است، چون کل ردیف را پاک می‌کند.
+  await setSectionPhoto(ctx.env, SECTIONS[key].code, PHOTO_OFF);
   await ctx.answerCallbackQuery({ text: "عکس برداشته شد" });
   await refreshPanel(ctx, key, page, (t, o) => ctx.editMessageText(t, o));
 }

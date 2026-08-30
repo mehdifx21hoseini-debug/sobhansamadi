@@ -11,6 +11,10 @@
 import { getTextContent, getContent } from "./store.js";
 import * as D from "./defaults.js";
 
+// مقداری که در ستون عکس می‌نشیند وقتی مدیر عکس را برمی‌دارد. یک file_id
+// واقعی هرگز این شکلی نیست، پس با عکس اشتباه گرفته نمی‌شود.
+export const PHOTO_OFF = "off";
+
 // کلید بخش → کد ردیف در text_content، برچسبی که مدیر می‌بیند، و متن
 // پیش‌فرض. کدها همان‌هایی هستند که هشتگ کانال هم می‌پذیرد، پس یک متن
 // را می‌شود هم از کانال فرستاد هم از ویرایشگر عوض کرد.
@@ -56,7 +60,18 @@ export const SECTIONS = {
 
   // هر کتاب توضیح و عکس خودش را دارد. عکس روی جلد است و توضیح، همان
   // چیزی که کاربر پیش از دانلود می‌خواند.
-  BOOK_00: { code: "BOOK_00_INTRO_TEXT", label: "📕 کتاب من — ذهن ثروتمند", def: D.BOOK_00_TEXT },
+  // defPhoto: جلد پیش‌فرض، یک آدرس اینترنتی به‌جای file_id تلگرام.
+  //
+  // تلگرام هر دو را در یک جا می‌پذیرد، پس این یعنی یک بخش می‌تواند از
+  // همان روز اول عکس داشته باشد بدون اینکه کسی /edit را بزند. اگر مدیر
+  // بعداً عکسی ثبت کند، آن عکس بر این می‌چربد - این فقط جای خالی را پر
+  // می‌کند، جلوی ویرایش را نمی‌گیرد.
+  BOOK_00: {
+    code: "BOOK_00_INTRO_TEXT",
+    label: "📕 کتاب من — ذهن ثروتمند",
+    def: D.BOOK_00_TEXT,
+    defPhoto: "https://sobhansamadi.com/wp-content/uploads/2024/12/S-001.webp",
+  },
   BOOK_01: { code: "BOOK_01_INTRO_TEXT", label: "📕 کتاب ۱ — موفقیت در معامله‌گری", def: D.BOOK_01_TEXT },
   BOOK_02: { code: "BOOK_02_INTRO_TEXT", label: "📕 کتاب ۲ — بازی روانی معامله‌گری", def: D.BOOK_02_TEXT },
   BOOK_03: { code: "BOOK_03_INTRO_TEXT", label: "📕 کتاب ۳ — انضباط شخصی", def: D.BOOK_03_TEXT },
@@ -86,9 +101,20 @@ export async function resolveSection(env, key) {
 
   const row = await getTextContent(env, section.code).catch(() => null);
   const body = row && String(row.body || "").trim();
+  const storedPhoto = row ? String(row.photo_file_id || "") : "";
+
   return {
     text: body || section.def,
-    photo: (row && row.photo_file_id) || "",
+    // عکسِ ثبت‌شده‌ی مدیر، وگرنه جلد پیش‌فرضِ کد.
+    //
+    // PHOTO_OFF یعنی مدیر عمداً عکس را برداشته - که با «هرگز عکسی ثبت
+    // نشده» یکی نیست. بدون این تفاوت، دکمه‌ی «حذف عکس» روی بخشی که جلد
+    // پیش‌فرض دارد هیچ کاری نمی‌کرد: مقدار خالی ذخیره می‌شد و بلافاصله
+    // همان جلد دوباره برمی‌گشت.
+    photo: storedPhoto === PHOTO_OFF ? "" : storedPhoto || section.defPhoto || "",
+    // آیا آنچه نشان داده می‌شود جلد پیش‌فرض است یا عکس خود مدیر - برای
+    // اینکه صفحه‌ی ویرایش بتواند این دو را از هم جدا بگوید.
+    defaultPhoto: !storedPhoto && !!section.defPhoto,
     // برای ویرایشگر: آیا این متن دست‌کاری شده یا هنوز پیش‌فرض است.
     custom: !!body,
   };
