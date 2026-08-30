@@ -241,8 +241,17 @@ const EXPERT_VIDEOS = [
 ];
 
 export async function sendExpertVideos(ctx) {
+  // «سوالات پرتکرار» زیر ویدیوها هم می‌آید، نه فقط سر در بخش.
+  //
+  // درست بعد از دیدن آموزش نصب است که سوال‌ها پیش می‌آید - «اکسپرت در
+  // Navigator نیست»، «چرا معامله باز نمی‌کند» - و اگر کاربر برای پیدا
+  // کردن جوابش باید به صفحه‌ی قبل برگردد، به‌جایش پشتیبانی را می‌زند.
   const next = {
-    inline_keyboard: [expertFileRow(), [{ text: "🔙 بازگشت", callback_data: "SEC_EXPERT" }]],
+    inline_keyboard: [
+      expertFileRow(),
+      [{ text: "❓ سوالات پرتکرار", url: EXPERT_FAQ_URL }],
+      [{ text: "🔙 بازگشت", callback_data: "SEC_EXPERT" }],
+    ],
   };
 
   const sent = [];
