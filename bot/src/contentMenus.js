@@ -23,7 +23,7 @@ const BOOK_TITLES = {
 // جایش هم پایینِ فهرست است نه بالایش: چهار کتاب بالایی رایگان‌اند و
 // همین حالا دانلود می‌شوند؛ کتابِ خریدنی بعد از آن‌ها می‌آید، وقتی
 // کاربر دیده آکادمی چه چیزی مجانی داده.
-export const OWN_BOOK_LABEL = "📕 کتاب من: ذهنیت ثروتمند یک معامله‌گر";
+export const OWN_BOOK_LABEL = "📕 کتاب من: ذهن ثروتمند یک معامله‌گر";
 
 function libraryKeyboard() {
   return {
@@ -83,7 +83,7 @@ export async function sendLibrary(ctx) {
   await sendSection(ctx, "LIBRARY", libraryKeyboard());
 }
 
-// «ذهنیت ثروتمند» تنها کتابی است که فایل ندارد و از سایت خریده می‌شود،
+// «ذهن ثروتمند» تنها کتابی است که فایل ندارد و از سایت خریده می‌شود،
 // پس دکمه‌هایش هم فرق دارند.
 function book00Keyboard() {
   return {
