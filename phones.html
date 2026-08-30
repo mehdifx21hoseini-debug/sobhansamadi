@@ -5,7 +5,7 @@
 	<meta charset="utf-8">
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<script src="js/auth.js?v=2"></script>
-	<title>مشترکین تقویم اقتصادی — CRM آکادمی</title>
+	<title>شماره‌های ثبت‌شده — CRM آکادمی</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
@@ -87,9 +87,9 @@
 									class="fas fa-robot mr-2"></i>هوش مصنوعی</a></li>
 						<li class="side-item"><a href="broadcast.html"><i
 									class="fas fa-bullhorn mr-2"></i>پیام همگانی</a></li>
-						<li class="side-item selected"><a href="econ-subscribers.html"><i
+						<li class="side-item"><a href="econ-subscribers.html"><i
 									class="fas fa-calendar-days mr-2"></i>مشترکین تقویم اقتصادی</a></li>
-						<li class="side-item"><a href="phones.html"><i
+						<li class="side-item selected"><a href="phones.html"><i
 									class="fas fa-address-book mr-2"></i>شماره‌های ثبت‌شده</a></li>
 						<li class="side-item"><a href="admins.html"><i
 									class="fas fa-user-shield mr-2"></i>مدیریت ادمین‌ها</a></li>
@@ -107,9 +107,9 @@
 							<div class="row align-items-end">
 								<div class="col-lg-8">
 									<div class="page-header-title text-left-rtl">
-										<h3 class="lite-text">مشترکین تقویم اقتصادی</h3>
-										<span class="lite-text text-gray">کسانی که هشدارهای اخبار اقتصادی ربات را
-											فعال کرده‌اند</span>
+										<h3 class="lite-text">شماره‌های ثبت‌شده</h3>
+										<span class="lite-text text-gray">شماره‌ی هر کسی که برای دوره مقدماتی،
+											اکسپرت یا فرم‌های ربات شماره‌اش را داده است</span>
 									</div>
 								</div>
 							</div>
@@ -120,23 +120,23 @@
 				<div class="row m-1 mb-2">
 					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-bell b-first" aria-hidden="true"></i>
-							<span class="c-first">مشترک فعال</span>
-							<span id="econ-active-count">0</span>
+							<i class="fas fa-address-book b-first" aria-hidden="true"></i>
+							<span class="c-first">کل شماره‌ها</span>
+							<span id="phones-total">0</span>
 						</div>
 					</div>
 					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-bell-slash b-second" aria-hidden="true"></i>
-							<span class="c-second">لغو عضویت‌شده</span>
-							<span id="econ-inactive-count">0</span>
+							<i class="fas fa-user-plus b-second" aria-hidden="true"></i>
+							<span class="c-second">۷ روز اخیر</span>
+							<span id="phones-week">0</span>
 						</div>
 					</div>
 					<div class="col-xl-4 col-md-6 col-sm-6 p-2">
 						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-users b-third" aria-hidden="true"></i>
-							<span class="c-third">کل</span>
-							<span id="econ-total-count">0</span>
+							<i class="fas fa-graduation-cap b-third" aria-hidden="true"></i>
+							<span class="c-third">از دوره مقدماتی</span>
+							<span id="phones-intro">0</span>
 						</div>
 					</div>
 				</div>
@@ -145,21 +145,28 @@
 					<div class="col-12 p-2">
 						<div class="card shade animate-in">
 							<div class="card-body">
+								<div class="d-flex align-items-center mb-3">
+									<input type="search" id="phoneSearch" class="form-control" style="margin-inline-end:.75rem"
+										placeholder="جست‌وجو در شماره، نام یا نام کاربری…" autocomplete="off">
+									<button class="btn btn-brand btn-sm flex-shrink-0" id="btnExportPhones">
+										<i class="fas fa-file-csv mr-1"></i>خروجی اکسل
+									</button>
+								</div>
 								<div class="table-responsive">
 									<table class="table table-striped table-hover">
 										<thead>
 											<tr>
-												<th>شناسه تلگرام</th>
-												<th>زمان‌بندی هشدار</th>
-												<th>اخبار متوسط هم بده</th>
-												<th>وضعیت</th>
-												<th>آخرین به‌روزرسانی</th>
-												<th></th>
+												<th>شماره موبایل</th>
+												<th>نام</th>
+												<th>نام کاربری</th>
+												<th>منبع</th>
+												<th>تاریخ ثبت</th>
 											</tr>
 										</thead>
-										<tbody id="econSubsTableBody"></tbody>
+										<tbody id="phonesTableBody"></tbody>
 									</table>
 								</div>
+								<p class="text-sm text-gray mt-2 mb-0" id="phonesFooter"></p>
 							</div>
 						</div>
 					</div>
@@ -271,7 +278,7 @@
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/econ-subscribers.js?v=2"></script>
+	<script src="js/phones.js?v=1"></script>
 </body>
 
 </html>

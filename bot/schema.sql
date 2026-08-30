@@ -48,3 +48,19 @@ CREATE TABLE IF NOT EXISTS content_requests (
   created_at TEXT NOT NULL,
   delivered INTEGER DEFAULT 0  -- تا وقتی ارسال فایل واقعی خودکار نشده، دستی چک می‌شود
 );
+
+-- دفترچه‌ی شماره‌ها: شماره‌ی هر کسی که برای دوره‌ی مقدماتی، اکسپرت یا
+-- فرم‌های ثبت‌نام/مشاوره شماره‌اش را داده. یک ردیف برای هر کاربر؛
+-- منبع‌ها روی هم جمع می‌شوند. جدا از leads است چون لید یعنی کسی که
+-- باید پیگیری شود، و این یعنی کسی که فقط شماره‌اش را داریم.
+CREATE TABLE IF NOT EXISTS phone_book (
+  telegram_user_id TEXT PRIMARY KEY,
+  phone TEXT NOT NULL,
+  name TEXT,
+  username TEXT,
+  sources TEXT NOT NULL DEFAULT '[]',   -- JSON: ["دوره مقدماتی", ...]
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_phone_book_phone ON phone_book(phone);
+CREATE INDEX IF NOT EXISTS idx_phone_book_created ON phone_book(created_at);

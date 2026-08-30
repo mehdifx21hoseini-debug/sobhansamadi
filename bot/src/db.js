@@ -11,13 +11,26 @@ export async function getUserState(env, telegramUserId) {
 
 export async function setUserState(env, telegramUserId, patch) {
   const existing = await getUserState(env, telegramUserId);
+
+  // «کلید در patch هست» با «مقدارش پر است» فرق دارد.
+  //
+  // پیش‌تر اینجا ?? بود، و ?? یک nullِ صریح را هم نادیده می‌گیرد و به
+  // مقدار قبلی برمی‌گردد. یعنی clearUserState - که دقیقاً null می‌فرستد
+  // تا فرآیند را پاک کند - هیچ‌وقت واقعاً پاکش نمی‌کرد: فرآیند و قدمِ
+  // قبلی سر جایشان می‌ماندند و کاربر برای همیشه «وسط یک فرم» می‌ماند.
+  const pick = (key, fallback = null) => {
+    if (key in patch) return patch[key] === undefined ? fallback : patch[key];
+    if (existing && existing[key] !== undefined && existing[key] !== null) return existing[key];
+    return fallback;
+  };
+
   const merged = {
     telegram_user_id: String(telegramUserId),
-    current_flow: patch.current_flow ?? existing?.current_flow ?? null,
-    current_step: patch.current_step ?? existing?.current_step ?? null,
+    current_flow: pick("current_flow"),
+    current_step: pick("current_step"),
     temp_data: patch.temp_data !== undefined ? patch.temp_data : existing?.temp_data ?? {},
-    phone: patch.phone ?? existing?.phone ?? null,
-    intro_progress: patch.intro_progress ?? existing?.intro_progress ?? 0,
+    phone: pick("phone"),
+    intro_progress: pick("intro_progress", 0),
     source_first_seen: existing?.source_first_seen ?? patch.source_first_seen ?? new Date().toISOString(),
     last_interaction_at: new Date().toISOString(),
   };

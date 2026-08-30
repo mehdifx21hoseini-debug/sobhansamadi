@@ -3,6 +3,7 @@ import { getUserState, setUserState, clearUserState, createLead, readUserSource 
 import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendSection, resolveSection } from "./content/sectionText.js";
+import { savePhone } from "./phones.js";
 
 const COURSE_LABELS = {
   COURSE_PSY: "🧠 دوره روانشناسی",
@@ -197,6 +198,20 @@ export async function handleContact(ctx) {
   const phone = normalizePhone(ctx.message.contact.phone_number);
   const temp = { ...state.temp_data, phone };
   await setUserState(ctx.env, ctx.from.id, { phone, temp_data: temp });
+
+  // همان شماره در دفترچه هم می‌نشیند.
+  //
+  // دو دلیل: خروجی شماره‌ها باید همه‌ی شماره‌هایی را داشته باشد که
+  // داریم، نه فقط آن‌هایی که از دروازه‌ی دوره‌ها آمده‌اند؛ و کسی که
+  // اینجا شماره داده نباید چند دقیقه بعد سر دوره‌ی مقدماتی دوباره
+  // پرسیده شود. شکستش نباید جلوی ثبت‌نام را بگیرد - رکورد اصلی لید است.
+  await savePhone(ctx.env, {
+    telegramUserId: ctx.from.id,
+    phone,
+    name: temp.name || ctx.from.first_name || "",
+    username: ctx.from.username || "",
+    source: state.current_flow === "registration" ? "ثبت‌نام" : "مشاوره",
+  }).catch((err) => console.error("ثبت شماره در دفترچه شکست خورد:", err && err.message));
 
   await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: { remove_keyboard: true } });
 

@@ -10,6 +10,7 @@ import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce } from "./content/cleanup.js";
 import { handleMirrorApi, mirrorPreflight } from "./crm/api.js";
+import { handlePhonesApi, phonesPreflight } from "./crm/phonesApi.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -32,7 +33,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-20-expertcolors";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-21-phonebook";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -252,6 +253,7 @@ async function handleAdmin(request, url, env) {
       ai_kb: await count("SELECT COUNT(*) FROM ai_kb"),
       content_files: await count("SELECT COUNT(*) FROM content_library"),
       content_texts: await count("SELECT COUNT(*) FROM text_content"),
+      phone_book: await count("SELECT COUNT(*) FROM phone_book"),
     },
     lead_outbox_pending: await count("SELECT COUNT(*) FROM lead_outbox"),
   });
@@ -298,6 +300,22 @@ export default {
         return json({ ok: false, error: "unauthorized" }, 401);
       }
       return handleMirrorApi(request, url, env);
+    }
+
+    // دفترچه‌ی شماره‌ها. برخلاف /crm-mirror اینجا آینه نیست - منبع
+    // اصلی همین D1 است، چون شماره‌ها را خود ربات می‌گیرد.
+    if (url.pathname.startsWith("/crm/phones")) {
+      if (request.method === "OPTIONS") return phonesPreflight();
+      const auth = request.headers.get("authorization") || "";
+      let token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
+      // دانلود CSV با یک <a download> انجام می‌شود و مرورگر روی آن
+      // درخواست هدر نمی‌گذارد؛ برای همین مسیر خروجی توکن را از کوئری هم
+      // می‌پذیرد. توکن همان توکن نشست است و عمر کوتاهی دارد.
+      if (!token) token = url.searchParams.get("token") || "";
+      if (!token || !(await isValidCrmSession(env, token))) {
+        return json({ ok: false, error: "unauthorized" }, 401);
+      }
+      return handlePhonesApi(request, url, env);
     }
 
     // فرم منتورینگ سایت.

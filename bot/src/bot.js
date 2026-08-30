@@ -59,6 +59,7 @@ import {
   sendFreeEq,
   handleContentRequest,
 } from "./contentMenus.js";
+import { requirePhone, handleGateContact, handleGateText, GATE_FLOW } from "./phoneGate.js";
 
 // یک‌جا ساخته می‌شود تا هم روی Cloudflare Workers و هم (در صورت نیاز) در
 // یک محیط دیگر قابل استفاده باشد. `env` (شامل env.DB) روی ctx.env قرار
@@ -109,6 +110,14 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("aistats", handleAiStats);
 
   bot.on("message:contact", async (ctx) => {
+    // دروازه‌ی شماره پیش از مسیر ثبت‌نام چک می‌شود: هر دو با همان
+    // دکمه‌ی «ارسال شماره موبایل» کار می‌کنند و بدون این تفکیک،
+    // شماره‌ای که برای باز کردن دوره فرستاده شده به فرم ثبت‌نام می‌رفت.
+    const state = await getUserState(ctx.env, ctx.from.id);
+    if (state?.current_flow === GATE_FLOW) {
+      await handleGateContact(ctx, state);
+      return;
+    }
     await handleContact(ctx);
   });
 
@@ -139,6 +148,12 @@ export function createBot(token, env, botInfo, build = "?") {
     // و این پیام یه دکمه‌ی منوی اصلی نیست، آن را به همون فرآیند بده.
     const action = resolveMenuAction(text);
     if (state?.current_flow && !action) {
+      // دروازه‌ی شماره پیش از مسیر ثبت‌نام: هر دو قدمی به نام ask_phone
+      // دارند و بدون این ترتیب، متنِ کاربر به فرم اشتباه می‌رفت.
+      if (state.current_flow === GATE_FLOW) {
+        await handleGateText(ctx, state);
+        return;
+      }
       if (["ask_name", "ask_phone", "ask_level", "ask_topic", "ask_time"].includes(state.current_step)) {
         await handleFlowText(ctx, state);
         return;
@@ -200,7 +215,8 @@ export function createBot(token, env, botInfo, build = "?") {
       case "PSY_VOICES":
         return sendPendingSection(ctx, "PSY_VOICES");
       case "EXPERT":
-        return sendExpert(ctx);
+        if (await requirePhone(ctx, "EXPERT")) await sendExpert(ctx);
+        return;
       case "LIVE_TRADE":
         return sendPendingSection(ctx, "LIVE_TRADE");
       case "CONSULT":
@@ -287,6 +303,11 @@ export function createBot(token, env, botInfo, build = "?") {
     }
 
     if (data === "EXPERT_MT4" || data === "EXPERT_MT5") {
+      // دروازه اینجا هم چک می‌شود، نه فقط سر در بخش: پیام‌های قدیمیِ
+      // پیش از این تغییر هنوز در چت کاربران هست و دکمه‌هایشان کار
+      // می‌کند - بدون این، هر کسی با اسکرول به بالا فایل را بی‌شماره
+      // می‌گرفت.
+      if (!(await requirePhone(ctx, "EXPERT"))) return;
       await ctx.answerCallbackQuery();
       await handleExpertPlatform(ctx, data === "EXPERT_MT4" ? "MT4" : "MT5");
       return;
@@ -294,7 +315,7 @@ export function createBot(token, env, botInfo, build = "?") {
 
     if (data === "MENU_FREE_INTRO") {
       await ctx.answerCallbackQuery();
-      await sendFreeIntro(ctx);
+      if (await requirePhone(ctx, "INTRO_COURSE")) await sendFreeIntro(ctx);
       return;
     }
 
@@ -311,7 +332,9 @@ export function createBot(token, env, botInfo, build = "?") {
       SEC_LIBRARY: sendLibrary,
       SEC_PSY_VOICES: (c) => sendPendingSection(c, "PSY_VOICES"),
       SEC_LIVE_TRADE: (c) => sendPendingSection(c, "LIVE_TRADE"),
-      SEC_EXPERT: sendExpert,
+      SEC_EXPERT: async (c) => {
+        if (await requirePhone(c, "EXPERT")) await sendExpert(c);
+      },
       SEC_BROKER: sendTrustedBroker,
       SEC_ABOUT: sendAbout,
       SEC_CONTACT: sendContact,
@@ -413,7 +436,14 @@ export function createBot(token, env, botInfo, build = "?") {
     }
 
     if (data.startsWith("CONTENT|")) {
-      await handleContentRequest(ctx, data.split("|")[1]);
+      const contentId = data.split("|")[1];
+      // جلسه‌های دوره‌ی مقدماتی هم پشت همان دروازه‌اند - به همان دلیلِ
+      // پیام‌های قدیمی. بقیه‌ی محتواها (کتاب‌ها، ویس‌ها، لایو تریدها)
+      // آزادند.
+      if (contentId.startsWith("INTRO_P") && !(await requirePhone(ctx, "INTRO_COURSE"))) {
+        return;
+      }
+      await handleContentRequest(ctx, contentId);
       return;
     }
 
