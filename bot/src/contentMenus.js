@@ -114,8 +114,13 @@ export async function handleBookSelect(ctx, bookId) {
     return;
   }
 
-  // با عکس اما چاره‌ای جز پیام تازه نیست: تلگرام اجازه نمی‌دهد به یک
-  // پیام متنی عکس اضافه شود. جلد کتاب ارزش یک پیام اضافه را دارد.
+  // با عکس چاره‌ای جز پیام تازه نیست: تلگرام اجازه نمی‌دهد به یک پیام
+  // متنی عکس اضافه شود.
+  //
+  // پس پیام فهرست بعدش پاک می‌شود تا به‌جای دو پیام روی هم، یکی جای
+  // دیگری را بگیرد - همان حسی که ویرایشِ درجا می‌داد. اول ارسال، بعد
+  // حذف: اگر ترتیب برعکس بود و ارسال شکست می‌خورد، کاربر با یک چت خالی
+  // می‌ماند.
   try {
     if (body.length <= CAPTION_LIMIT) {
       await ctx.replyWithPhoto(photo, { caption: body, reply_markup: keyboard });
@@ -123,6 +128,9 @@ export async function handleBookSelect(ctx, bookId) {
       await ctx.replyWithPhoto(photo);
       await ctx.reply(body, { reply_markup: keyboard });
     }
+    // تلگرام حذف پیام‌های قدیمی‌تر از ۴۸ ساعت را رد می‌کند؛ آن‌وقت فهرست
+    // سر جایش می‌ماند که بدترین حالتش کمی شلوغی است، نه خرابی.
+    await ctx.deleteMessage().catch(() => {});
   } catch (err) {
     // عکس خراب نباید کتاب را غیرقابل‌دسترس کند.
     console.error("ارسال جلد کتاب شکست خورد:", bookId, err && err.message);
@@ -133,6 +141,18 @@ export async function handleBookSelect(ctx, bookId) {
 }
 
 export async function handleLibraryBack(ctx) {
+  // برگشت از کتابی که جلد دارد.
+  //
+  // editWithText روی پیام عکس‌دار فقط کپشن را عوض می‌کند، یعنی فهرست
+  // کتابخانه زیر جلدِ یک کتاب می‌نشست - عکسی که دیگر به هیچ‌کدام از
+  // دکمه‌های زیرش ربط ندارد. اینجا پیام عکس‌دار پاک و فهرست تازه فرستاده
+  // می‌شود.
+  const msg = ctx.callbackQuery && ctx.callbackQuery.message;
+  if (msg && (msg.photo || msg.video || msg.animation)) {
+    await sendLibrary(ctx);
+    await ctx.deleteMessage().catch(() => {});
+    return;
+  }
   await editSection(ctx, "LIBRARY", libraryKeyboard());
 }
 
