@@ -2,7 +2,6 @@ import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
 import { isOwner } from "./owner.js";
-import { readQuizUrl } from "./content/channel.js";
 import { sendSection, editSection, resolveSection, editWithText } from "./content/sectionText.js";
 
 // --- کتابخانه‌ی روانشناسی ---
@@ -254,15 +253,15 @@ export async function sendFreeIntro(ctx) {
   await sendSection(ctx, "INTRO_COURSE", introSessionsKeyboard());
 }
 
-// همان قاعده‌ی دوره‌ی مقدماتی: قسمت آخر سبز، چون بعدش تست هوش هیجانی
-// پیشنهاد می‌شود.
+// قسمت ۳ سبز است و نه قسمت آخر: تست هوش هیجانی همراه همین قسمت می‌رود،
+// و برچسبش هم همین را می‌گوید تا کاربر پیش از زدن بداند چه می‌گیرد.
 function eqSessionsKeyboard() {
   return {
     inline_keyboard: [
       [{ text: "قسمت ۱", callback_data: "CONTENT|EMOTIONAL_P01", style: "primary" }],
       [{ text: "قسمت ۲", callback_data: "CONTENT|EMOTIONAL_P02", style: "primary" }],
-      [{ text: "قسمت ۳", callback_data: "CONTENT|EMOTIONAL_P03", style: "primary" }],
-      [{ text: "قسمت ۴", callback_data: "CONTENT|EMOTIONAL_P04", style: "success" }],
+      [{ text: "قسمت ۳ (همراه با تست)", callback_data: "CONTENT|EMOTIONAL_P03", style: "success" }],
+      [{ text: "قسمت ۴", callback_data: "CONTENT|EMOTIONAL_P04", style: "primary" }],
       [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
     ],
   };
@@ -274,21 +273,18 @@ export async function sendFreeEq(ctx) {
 
 // --- تحویل محتوا (فعلاً بدون فایل واقعی) ---
 
-// دو قدم بعدی در پایان دوره‌ی مقدماتی: اول خودت را بسنج، بعد ثبت‌نام.
+// یک قدم بعدی در پایان دوره‌ی مقدماتی، نه دو تا.
 //
-// دکمه‌ی آزمون فقط وقتی ساخته می‌شود که آدرسی داشته باشد. دکمه‌ی url
-// بدون آدرس معتبر، کل کیبورد را از سمت تلگرام رد می‌کند - یعنی کاربر
-// هیچ دکمه‌ای نمی‌بیند، نه فقط آن یکی را.
-async function introDoneKeyboard(ctx) {
-  const rows = [];
-  const quiz = await readQuizUrl(ctx.env).catch(() => "");
-  if (quiz) {
-    rows.push([{ text: "📝 آزمون تعیین سطح", url: quiz, style: "primary" }]);
-  }
-  rows.push([
-    { text: "🎓 مجموعه آموزشی پیشرفته", callback_data: "INTRO_REGISTER_ADVANCED", style: "success" },
-  ]);
-  return { inline_keyboard: rows };
+// پیش‌تر دکمه‌ی «آزمون تعیین سطح» هم اینجا بود و کاربری که تازه شانزده
+// جلسه را تمام کرده - آماده‌ترین لحظه‌ی کل مسیر - بین دو راه می‌ماند و
+// اغلب سراغ آزمون می‌رفت و برنمی‌گشت. حالا فقط یک دکمه هست و ابهامی
+// نیست.
+function introDoneKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "🎓 مجموعه آموزشی پیشرفته", callback_data: "INTRO_REGISTER_ADVANCED", style: "success" }],
+    ],
+  };
 }
 
 
@@ -321,7 +317,10 @@ export async function handleContentRequest(ctx, contentId) {
   const ackText = (await resolveSection(ctx.env, "CONTENT_ACK")).text;
   const ack = delivered > 0 ? "" : ackText + "\n\n";
 
-  if (contentId === "EMOTIONAL_P04") {
+  // تست، همراه قسمت ۳ می‌رود نه قسمت آخر: تا آن‌جا کاربر مفاهیم را
+  // دیده و سنجیدن خودش معنی دارد، و قسمت ۴ بعدش با همان دیدِ تازه
+  // خوانده می‌شود.
+  if (contentId === "EMOTIONAL_P03") {
     const eqDone = (await resolveSection(ctx.env, "EQ_DONE")).text;
     await ctx.reply(ack + eqDone, {
       reply_markup: new InlineKeyboard().url(
@@ -337,7 +336,7 @@ export async function handleContentRequest(ctx, contentId) {
     // بدون parse_mode: این متن از /edit قابل ویرایش است و یک «<» در چیزی
     // که مدیر می‌نویسد، کل پیام را رد می‌کند.
     await ctx.reply(ack + introDone, {
-      reply_markup: await introDoneKeyboard(ctx),
+      reply_markup: introDoneKeyboard(),
     });
     return;
   }

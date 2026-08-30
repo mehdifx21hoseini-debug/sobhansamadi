@@ -7,14 +7,7 @@
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
 import { resolveAllowedChannel } from "../content/ingest.js";
-import {
-  clearContentChannel,
-  readConfig,
-  writeConfig,
-  QUIZ_URL_KEY,
-  QUIZ_OFF,
-  DEFAULT_QUIZ_URL,
-} from "../content/channel.js";
+import { clearContentChannel } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
 import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
 
@@ -141,7 +134,6 @@ export async function handleDiag(ctx, build) {
   lines.push("🛠 <b>دستورهای مدیر</b>");
   lines.push("/edit — ویرایش متن و عکس بخش‌ها");
   lines.push("/delete — حذف یک محتوا با شناسه");
-  lines.push("/setquiz — لینک آزمون تعیین سطح");
   lines.push("/kbsync — ساختن پایگاه دانش دستیار");
   lines.push("/resetchannel — عوض کردن کانال محتوا");
 
@@ -186,59 +178,14 @@ export async function handleDeleteContent(ctx) {
   );
 }
 
-// لینک آزمون تعیین سطح سایت.
+// «/setquiz» اینجا بود و برداشته شد.
 //
-// در پایگاه داده می‌نشیند نه در کد: آدرسی که آکادمی می‌سازد و روزی
-// عوضش می‌کند، نباید هر بار یک دیپلوی بخواهد. تا وقتی تنظیم نشده،
-// دکمه‌اش اصلاً ساخته نمی‌شود - یک دکمه‌ی url با آدرس نامعتبر، کل
-// کیبورد را از سمت تلگرام رد می‌کند و کاربر هیچ دکمه‌ای نمی‌بیند.
-export async function handleSetQuiz(ctx) {
-  if (!isOwner(ctx)) return;
-
-  const raw = String(ctx.match || "").trim();
-  const stored = await readConfig(ctx.env, QUIZ_URL_KEY).catch(() => "");
-
-  if (!raw) {
-    let state;
-    if (stored === QUIZ_OFF) state = "دکمه برداشته شده و نمایش داده نمی‌شود.";
-    else if (stored) state = "الان: <code>" + stored + "</code>";
-    else state = "پیش‌فرض: <code>" + DEFAULT_QUIZ_URL + "</code>";
-
-    await ctx.reply(
-      [
-        "🔗 لینک آزمون تعیین سطح",
-        "",
-        state,
-        "",
-        "برای عوض کردن:",
-        "<code>/setquiz https://…</code>",
-        "",
-        "برای برداشتن دکمه:",
-        "<code>/setquiz -</code>",
-      ].join("\n"),
-      { parse_mode: "HTML" }
-    );
-    return;
-  }
-
-  if (raw === "-") {
-    // «off» ذخیره می‌شود نه رشته‌ی خالی: خالی یعنی «هنوز تنظیم نشده» و
-    // به پیش‌فرض برمی‌گردد، در حالی که اینجا مدیر عمداً دکمه را برداشته.
-    await writeConfig(ctx.env, QUIZ_URL_KEY, QUIZ_OFF);
-    await ctx.reply("🔗 دکمه‌ی آزمون برداشته شد.");
-    return;
-  }
-
-  // تلگرام آدرس نامعتبر را با رد کردن کل کیبورد جواب می‌دهد، نه با یک
-  // خطای روشن. پس اینجا جلویش گرفته می‌شود، جایی که مدیر می‌بیندش.
-  if (!/^https?:\/\/\S+$/i.test(raw)) {
-    await ctx.reply("⚠️ آدرس باید با http:// یا https:// شروع شود و فاصله نداشته باشد.");
-    return;
-  }
-
-  await writeConfig(ctx.env, QUIZ_URL_KEY, raw);
-  await ctx.reply("✅ لینک آزمون ثبت شد:\n" + raw + "\n\nدکمه‌اش در پایان دوره‌ی مقدماتی نمایش داده می‌شود.");
-}
+// تنها دکمه‌ای که آن آدرس را نشان می‌داد، «آزمون تعیین سطح» در پایان
+// دوره‌ی مقدماتی بود و آن دکمه حذف شده. یک دستور مدیر که وعده‌ی عوض
+// کردن دکمه‌ای را می‌دهد که دیگر وجود ندارد، بدتر از نبودنش است: مدیر
+// آدرس را ثبت می‌کند، پیام «✅ ثبت شد» می‌گیرد و هیچ‌جا چیزی عوض
+// نمی‌شود. خواننده‌ی آدرس (readQuizUrl در content/channel.js) سر جایش
+// مانده تا اگر روزی دکمه برگشت، همه‌چیز یک import فاصله داشته باشد.
 
 // کانال ثبت‌شده را باز می‌کند تا کانال بعدی که پست بگذارد جایش بنشیند.
 export async function handleResetChannel(ctx) {

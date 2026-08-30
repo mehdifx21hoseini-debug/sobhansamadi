@@ -16,11 +16,15 @@ const COURSE_LABELS = {
 // «هر دو دوره» سبز است و آن دو آبی: سه گزینه‌ی هم‌رنگ یعنی سه گزینه‌ی
 // هم‌ارزش، در حالی که این یکی کامل‌ترین مسیر است و باید در یک نگاه
 // معلوم باشد.
+//
+// ترتیب هم تصادفی نیست: «مجموعه آموزشی پیشرفته» اول می‌آید چون کاربر
+// معمولاً از دکمه‌ی هم‌نامِ منو یا پایان دوره‌ی مقدماتی به اینجا رسیده و
+// باید همان چیزی را که رویش زده، اول ببیند.
 function courseChoiceKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "🧠 دوره روانشناسی", callback_data: "COURSE_PSY", style: "primary" }],
       [{ text: "📚 مجموعه آموزشی پیشرفته", callback_data: "COURSE_TECH", style: "primary" }],
+      [{ text: "🧠 دوره روانشناسی", callback_data: "COURSE_PSY", style: "primary" }],
       [{ text: "📘 هر دو دوره", callback_data: "COURSE_BOTH", style: "success" }],
       [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
     ],
@@ -79,7 +83,6 @@ function buildConfirmText(flow, temp) {
     ["🎯 دوره موردنظر", temp.course],
     ["📊 سطح معامله‌گری", temp.level],
     ["💬 موضوع", temp.topic],
-    ["🕐 زمان مناسب تماس", temp.preferred_time],
   ];
   for (const [label, value] of fields) {
     if (value) lines.push(label + ": " + value);
@@ -169,15 +172,15 @@ export async function handleText(ctx, state) {
     return;
   }
 
-  if (step === "ask_topic") {
-    temp.topic = text;
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_time", temp_data: temp });
-    await sendSection(ctx, "CONSULT_TIME", cancelOnlyKeyboard());
-    return;
-  }
-
-  if (step === "ask_time") {
-    temp.preferred_time = text;
+  // موضوع، آخرین پرسش است. پیش‌تر یک پرسش «زمان مناسب تماس» هم بعدش
+  // بود؛ برداشته شد چون تیم فروش در هر ساعتی که برسد زنگ می‌زند و آن
+  // پاسخ عملاً استفاده نمی‌شد - یک مرحله‌ی اضافه در انتهای فرم، درست
+  // همان‌جایی که بیشترین ریزش را دارد.
+  //
+  // «ask_time» هنوز پذیرفته می‌شود: کاربری که لحظه‌ی انتشار وسط همین
+  // مرحله بود، وگرنه به یک بن‌بستِ بی‌پاسخ می‌خورد.
+  if (step === "ask_topic" || step === "ask_time") {
+    if (step === "ask_topic") temp.topic = text;
     await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: temp });
     // بدون parse_mode: متن هیچ تگی ندارد و نام کاربر مستقیم داخلش
     // می‌نشیند. با HTML، نامی که یک < داشته باشد کل پیام را از سمت
@@ -223,7 +226,10 @@ export async function handleConfirm(ctx) {
     course: temp.course,
     level: temp.level,
     topic: temp.topic,
-    preferred_time: temp.preferred_time,
+    // دیگر پرسیده نمی‌شود، ولی کلید می‌ماند: JSON.stringify کلیدِ
+    // undefined را حذف می‌کند و آن‌طرف در n8n ستونِ غایب با ستونِ خالی
+    // یکی نیست.
+    preferred_time: temp.preferred_time || "",
     confirmed: "true",
     // اگر کاربر از یک لینک عمیق آمده بود، همان کمپین روی لید می‌نشیند -
     // این‌طور در CRM معلوم است هر مشتری از کجا آمده، نه فقط «تلگرام».

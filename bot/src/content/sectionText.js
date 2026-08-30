@@ -39,12 +39,15 @@ export const SECTIONS = {
   ECON_MENU: { code: "ECON_MENU_TEXT", label: "📅 تقویم اقتصادی", def: D.ECON_MENU_TEXT },
   HELP: { code: "HELP_TEXT", label: "❓ راهنما (/help)", def: D.HELP_TEXT },
 
-  // مسیر مشاوره: چهار پرسش پشت سر هم. هر کدام جدا ویرایش می‌شود چون
+  // مسیر مشاوره: سه پرسش پشت سر هم. هر کدام جدا ویرایش می‌شود چون
   // آکادمی ممکن است فقط یکی‌شان را بخواهد عوض کند.
+  //
+  // «پرسش زمان تماس» اینجا بود و برداشته شد چون دیگر پرسیده نمی‌شود؛
+  // متنی که در /edit دیده شود ولی هرگز به کاربر نرود، مدیر را به این
+  // باور می‌رساند که چیزی را عوض کرده که عوض نشده.
   CONSULT_START: { code: "CONSULT_START_TEXT", label: "🟢 شروع مشاوره — انتخاب دوره", def: D.CONSULT_START_TEXT },
   CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 مشاوره — پرسش سطح", def: D.CONSULT_LEVEL_TEXT },
   CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 مشاوره — پرسش موضوع", def: D.CONSULT_TOPIC_TEXT },
-  CONSULT_TIME: { code: "CONSULT_TIME_TEXT", label: "🟢 مشاوره — پرسش زمان تماس", def: D.CONSULT_TIME_TEXT },
   LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 پیام پایان ثبت‌نام/مشاوره", def: D.LEAD_DONE_TEXT },
 
   // دروازه‌ی عضویت: اولین چیزی که یک کاربر تازه می‌بیند.
