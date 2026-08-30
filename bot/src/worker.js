@@ -8,6 +8,7 @@ import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
+import { stripInstagramHandleOnce } from "./content/cleanup.js";
 import { handleMirrorApi, mirrorPreflight } from "./crm/api.js";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
@@ -31,7 +32,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-13-shortflow";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-14-iglink";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -392,6 +393,16 @@ export default {
           if (n && !n.skipped) console.log("آینه‌ی CRM:", JSON.stringify(n.written));
         })
         .catch((err) => console.error("آینه‌ی CRM همگام نشد:", err && err.message))
+    );
+
+    // پاک‌سازی یک‌باره؛ بعد از اولین اجرا فقط یک خواندن از bot_config
+    // است و برمی‌گردد.
+    ctx.waitUntil(
+      stripInstagramHandleOnce(env)
+        .then((n) => {
+          if (n && n.changed) console.log("آیدی اینستاگرام از متن لایو ترید برداشته شد.");
+        })
+        .catch((err) => console.error("پاک‌سازی متن لایو ترید شکست خورد:", err && err.message))
     );
   },
 };

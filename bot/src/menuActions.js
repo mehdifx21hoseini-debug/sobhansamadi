@@ -19,6 +19,12 @@ export { sendEconMenu as sendEconCalendar, handleEconCallback } from "./econ/ind
 // تا وقتی هیچ فایلی نرسیده، درخواست کاربر در جدول content_requests ثبت
 // می‌شود؛ این‌طور آکادمی در CRM می‌بیند چند نفر منتظر کدام بخش‌اند. با
 // رسیدن اولین فایل، بخش خودبه‌خود از این حالت بیرون می‌آید.
+// آدرس کامل و نه فقط آیدی: تلگرام دکمه‌ی url با آدرس نامعتبر را با رد
+// کردن کل کیبورد جواب می‌دهد - یعنی کاربر هیچ دکمه‌ای نمی‌بیند، نه فقط
+// این یکی.
+export const INSTAGRAM_URL = "https://www.instagram.com/sobhansamaddi/";
+const INSTAGRAM_BUTTON = { text: "📸 پیج اینستاگرام سبحان صمدی", url: INSTAGRAM_URL };
+
 const PENDING_SECTIONS = {
   PSY_VOICES: {
     id: "PSY_VOICES",
@@ -33,6 +39,9 @@ const PENDING_SECTIONS = {
     pendingKey: "PENDING_LIVE",
     prefix: LIVE_TRADE_PREFIX,
     mode: "list",
+    // پیش‌تر آیدی اینستاگرام داخل متن نوشته شده بود و کاربر باید
+    // کپی‌اش می‌کرد. حالا همان مقصد یک دکمه است.
+    link: INSTAGRAM_BUTTON,
   },
 };
 
@@ -132,6 +141,10 @@ function buildListKeyboard(section, items, page, admin = false) {
     rows.push(nav);
   }
 
+  // پایین‌ترین ردیف، بعد از صفحه‌بندی: یک لینک بیرونی نباید بین
+  // موردهای فهرست و دکمه‌های ورق زدن بنشیند و مسیر خواندن را بشکند.
+  if (section.link) rows.push([{ ...section.link }]);
+
   return { inline_keyboard: rows };
 }
 
@@ -209,9 +222,13 @@ export async function sendPendingSection(ctx, key) {
   await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, section.id).catch(() => {});
 
   const pending = await resolveSection(ctx.env, section.pendingKey).catch(() => ({ text: "" }));
+  // دکمه اینجا هم می‌آید: تا وقتی آرشیو خالی است، همین لینک تنها جایی
+  // است که کاربر می‌تواند چیزی ببیند - و دقیقاً همان‌جا بیشترین کاربرد
+  // را دارد.
   await ctx.reply(
     `${section.title}\n\n${pending.text}\n\n` +
-      "✅ درخواست شما ثبت شد؛ به‌محض آماده شدن، همین‌جا براتون می‌فرستیم. 🙏"
+      "✅ درخواست شما ثبت شد؛ به‌محض آماده شدن، همین‌جا براتون می‌فرستیم. 🙏",
+    section.link ? { reply_markup: { inline_keyboard: [[{ ...section.link }]] } } : {}
   );
 }
 
