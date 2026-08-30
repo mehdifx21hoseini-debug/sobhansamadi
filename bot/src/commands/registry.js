@@ -20,6 +20,7 @@ export const ADMIN_COMMANDS = [
   { command: "kblist", description: "🧠 مدخل‌های پایگاه دانش" },
   { command: "kbadd", description: "🧠 افزودن پرسش و پاسخ" },
   { command: "aistats", description: "📊 کارکرد دستیار و سوال‌های بی‌جواب" },
+  { command: "econsender", description: "🔔 کلید ارسال تقویم از ورکر" },
   { command: "delete", description: "🗑 حذف یک محتوا با شناسه" },
   { command: "resetchannel", description: "🔄 عوض کردن کانال محتوا" },
 ];

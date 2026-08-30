@@ -11,6 +11,19 @@ import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce } from "./content/cleanup.js";
 import { handleMirrorApi, mirrorPreflight } from "./crm/api.js";
 import { handlePhonesApi, phonesPreflight } from "./crm/phonesApi.js";
+import {
+  runDailyDigest,
+  runAlertSweep,
+  runResultSweep,
+  pruneSentLog,
+  senderStatus,
+} from "./econ/sender.js";
+
+// همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
+// آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
+// نوشته شده‌اند تا در یک نگاه با هم مقایسه شوند.
+const DIGEST_CRON = "30 4 * * *";
+const ALERT_CRON = "*/5 * * * *";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -33,7 +46,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-29-econsubs";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-30-sender";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -257,6 +270,9 @@ async function handleAdmin(request, url, env) {
       econ_subscribers: await count("SELECT COUNT(*) FROM econ_subscriber WHERE subscribed = 1"),
     },
     lead_outbox_pending: await count("SELECT COUNT(*) FROM lead_outbox"),
+    // تا وقتی enabled برابر false است، ارسال با n8n است و ورکر ساکت.
+    // این تنها راه دیدنِ آن وضعیت از بیرون است.
+    econ_sender: await senderStatus(env),
   });
 }
 
@@ -384,6 +400,55 @@ export default {
   // داده‌ی اجرای موفق قبلی. خطا را بالا نمی‌دهیم تا یک قطعی موقت n8n به
   // خطای مکرر در لاگ ورکر تبدیل نشود؛ ثبتش برای تشخیص کافی است.
   async scheduled(event, env, ctx) {
+    // سه کران وجود دارد و هرکدام کار خودش را می‌کند. تفکیک با
+    // `event.cron` انجام می‌شود، نه با ساعتِ لحظه‌ی اجرا: کلادفلر برای هر
+    // الگو یک رویداد جدا می‌فرستد، و خواندنِ الگو تنها راهی است که با
+    // همپوشانیِ زمانی (مثلاً دقیقه‌ی صفر که هم `*/5` و هم `*/10` را
+    // برمی‌انگیزد) اشتباه نمی‌شود.
+    const cron = event && event.cron ? event.cron : "";
+
+    // خلاصه‌ی ۸ صبح تهران. کران کلادفلر همیشه UTC است، پس ۴:۳۰ UTC
+    // دقیقاً ۸:۰۰ تهران است - و چون ایران تغییر ساعت تابستانی ندارد،
+    // این تساوی تمام سال برقرار می‌ماند.
+    if (cron === DIGEST_CRON) {
+      ctx.waitUntil(
+        runDailyDigest(env)
+          .then((n) => console.log("خلاصه‌ی روزانه:", JSON.stringify(n)))
+          .catch((err) => console.error("خلاصه‌ی روزانه شکست خورد:", err && err.message))
+      );
+      ctx.waitUntil(
+        pruneSentLog(env).catch((err) =>
+          console.error("پاک‌سازی دفتر ارسال شکست خورد:", err && err.message)
+        )
+      );
+      return;
+    }
+
+    // هشدار قبل از خبر و اعلام نتیجه. هر پنج دقیقه: کوتاه‌ترین فاصله‌ای
+    // که کاربر می‌تواند انتخاب کند پنج دقیقه است، و دفترِ ارسال جلوی
+    // تکرار را می‌گیرد، پس فاصله‌ی کوتاه‌تر فقط بارِ بی‌مورد است.
+    if (cron === ALERT_CRON) {
+      ctx.waitUntil(
+        runAlertSweep(env)
+          .then((n) => {
+            if (n && !n.skipped && (n.sent || n.failed)) {
+              console.log("هشدار قبل از خبر:", JSON.stringify(n));
+            }
+          })
+          .catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
+      );
+      ctx.waitUntil(
+        runResultSweep(env)
+          .then((n) => {
+            if (n && !n.skipped && (n.sent || n.failed)) {
+              console.log("اعلام نتیجه:", JSON.stringify(n));
+            }
+          })
+          .catch((err) => console.error("اعلام نتیجه شکست خورد:", err && err.message))
+      );
+      return;
+    }
+
     ctx.waitUntil(
       syncFromN8n(env)
         .then((n) => console.log("همگام‌سازی تقویم:", JSON.stringify(n)))

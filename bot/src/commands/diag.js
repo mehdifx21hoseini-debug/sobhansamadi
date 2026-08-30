@@ -7,9 +7,10 @@
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
 import { resolveAllowedChannel } from "../content/ingest.js";
-import { clearContentChannel } from "../content/channel.js";
+import { clearContentChannel, writeConfig } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
 import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
+import { SENDER_FLAG, senderStatus } from "../econ/sender.js";
 
 function yes(v) {
   return v ? "✅" : "❌";
@@ -197,5 +198,47 @@ export async function handleResetChannel(ctx) {
       "",
       "حالا در کانال درست یک فایل با هشتگ بگذارید؛ همان کانال ثبت می‌شود.",
     ].join("\n")
+  );
+}
+
+// /econsender - کلید ارسال تقویم از ورکر.
+//
+// این تنها چیزی است که در لحظه‌ی انتقال باید تغییر کند، و عمداً یک
+// دستور است نه یک متغیر محیطی: انتقال باید بدون دیپلوی انجام شود، چون
+// اگر پیامی دو بار رفت یا اصلاً نرفت، برگرداندنش باید چند ثانیه طول
+// بکشد نه چند دقیقه.
+//
+// ترتیب درست: اول شاخه‌های ارسالِ n8n خاموش، بعد این روشن. عکسِ آن یعنی
+// همه‌ی مشترکین هر پیام را دو بار می‌گیرند.
+export async function handleEconSender(ctx) {
+  if (!isOwner(ctx)) return;
+
+  const arg = String(ctx.match || "").trim().toLowerCase();
+  const status = await senderStatus(ctx.env);
+
+  if (arg !== "on" && arg !== "off") {
+    await ctx.reply(
+      [
+        "🔔 ارسال تقویم از ورکر",
+        "",
+        "وضعیت: " + (status.enabled ? "✅ روشن" : "⛔️ خاموش"),
+        "پیام‌های ۲۴ ساعت گذشته: " + status.sent_24h,
+        "",
+        "روشن کردن: <code>/econsender on</code>",
+        "خاموش کردن: <code>/econsender off</code>",
+        "",
+        "تا وقتی خاموش است، ارسال با n8n است. پیش از روشن کردن، شاخه‌های",
+        "ارسال n8n را خاموش کنید وگرنه هر پیام دو بار می‌رود.",
+      ].join("\n"),
+      { parse_mode: "HTML" }
+    );
+    return;
+  }
+
+  await writeConfig(ctx.env, SENDER_FLAG, arg);
+  await ctx.reply(
+    arg === "on"
+      ? "✅ ارسال تقویم از ورکر روشن شد.\n\nخلاصه‌ی روزانه ساعت ۸ صبح تهران می‌رود؛ هشدارها هر پنج دقیقه بررسی می‌شوند."
+      : "⛔️ ارسال تقویم از ورکر خاموش شد."
   );
 }

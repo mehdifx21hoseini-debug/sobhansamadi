@@ -1,6 +1,11 @@
 import { Bot } from "grammy";
 import { handleStart, handleHelp } from "./commands/start.js";
-import { handleDiag, handleResetChannel, handleDeleteContent } from "./commands/diag.js";
+import {
+  handleDiag,
+  handleResetChannel,
+  handleDeleteContent,
+  handleEconSender,
+} from "./commands/diag.js";
 import {
   handleEditCommand,
   showSectionList,
@@ -109,6 +114,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("kbadd", handleKbAdd);
   bot.command("kbdel", handleKbDel);
   bot.command("aistats", handleAiStats);
+  bot.command("econsender", handleEconSender);
 
   bot.on("message:contact", async (ctx) => {
     // دروازه‌ی شماره پیش از مسیر ثبت‌نام چک می‌شود: هر دو با همان
