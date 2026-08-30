@@ -165,11 +165,23 @@ export async function handleLibraryBack(ctx) {
 // دو رنگ برای دو پلتفرم، هم‌رنگ همان مربع‌های ایموجی که کنارشان است.
 // «منوی اصلی» عمداً بی‌رنگ می‌ماند: دکمه‌ی حرکت است نه انتخاب، و اگر آن
 // هم رنگی شود، رنگ دیگر چیزی را از هم جدا نمی‌کند.
+// صفحه‌ی سوالات پرتکرار اکسپرت روی سایت.
+//
+// آدرس از پیش درصدکدشده است و باید همین‌طور بماند: encodeURI روی این
+// رشته % را دوباره کد می‌کند و آدرس را خراب. دکمه‌ی url با آدرس
+// نامعتبر هم کل کیبورد را از سمت تلگرام رد می‌کند، نه فقط خودش را.
+const EXPERT_FAQ_URL =
+  "https://sobhansamadi.com/%D9%85%D8%AF%DB%8C%D8%B1%DB%8C%D8%AA-%D8%AD%D8%B1%D9%81%D9%87-%D8%A7%DB%8C-%D9%85%D8%B9%D8%A7%D9%85%D9%84%D8%A7%D8%AA-%D8%AF%D8%B1-ssprox/";
+
 function expertKeyboard() {
   return {
     inline_keyboard: [
       [{ text: "🟦 MetaTrader 4", callback_data: "EXPERT_MT4", style: "primary" }],
       [{ text: "🟩 MetaTrader 5", callback_data: "EXPERT_MT5", style: "success" }],
+      // زیر دو پلتفرم و بالای منوی اصلی: این کیبورد بعد از ارسال فایل
+      // هم دوباره نشان داده می‌شود - دقیقاً همان لحظه‌ای که سوال‌ها
+      // پیش می‌آید.
+      [{ text: "❓ سوالات پرتکرار", url: EXPERT_FAQ_URL }],
       [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
     ],
   };
