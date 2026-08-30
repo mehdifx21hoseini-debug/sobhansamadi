@@ -222,16 +222,28 @@ const INTRO_SESSIONS = [
   ["مسیر پیش رو", "INTRO_P16"],
 ];
 
+const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+const fa = (n) => String(n).replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
+
 // جلسه‌ی آخر سبز، بقیه آبی.
 //
 // در فهرستی که همه‌ی دکمه‌هایش یک رنگ‌اند، رنگ هیچ چیزی نمی‌گوید. اینجا
 // سبز یعنی «خط پایان» - همان جلسه‌ای که بعدش قدم بعدی پیشنهاد می‌شود.
+//
+// شماره از جای جلسه در فهرست ساخته می‌شود، نه از عددی که داخل عنوان
+// نوشته شده باشد. اگر روزی جلسه‌ای اضافه یا جابه‌جا شود، شماره‌ها خودشان
+// درست می‌مانند - وگرنه فهرستی می‌ماند که شماره‌هایش با ترتیب واقعی
+// نمی‌خواند و کاربر فکر می‌کند جلسه‌ای را جا انداخته.
 function introSessionsKeyboard() {
   const last = INTRO_SESSIONS.length - 1;
   return {
     inline_keyboard: [
       ...INTRO_SESSIONS.map(([label, id], i) => [
-        { text: label, callback_data: `CONTENT|${id}`, style: i === last ? "success" : "primary" },
+        {
+          text: fa(i + 1) + ". " + label,
+          callback_data: `CONTENT|${id}`,
+          style: i === last ? "success" : "primary",
+        },
       ]),
       [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
     ],
