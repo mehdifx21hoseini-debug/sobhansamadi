@@ -15,22 +15,19 @@ export async function sendAbout(ctx) {
   await sendSection(ctx, "ABOUT");
 }
 
-// دکمه‌ی ثبت‌نام هم روی صفحه‌ی بروکر است هم زیر هر دو ویدیو.
+// ثبت‌نام بالا و سبز، دو آموزش زیرش و کنار هم و آبی.
 //
-// دلیلش ساده است: کسی که تازه آموزش ثبت‌نام را دیده، همان لحظه
-// آماده‌ترین حالت را دارد. اگر برای ثبت‌نام باید برگردد بالا و صفحه‌ی
-// قبلی را پیدا کند، بخشی‌شان برنمی‌گردند.
-function signupRow() {
-  return [{ text: "🏦 ثبت‌نام در بروکر معتمد", url: BROKER_URL, style: "primary" }];
-}
-
+// رنگ اینجا سلسله‌مراتب را می‌گوید: سبز یعنی کارِ اصلی این صفحه، و دو
+// آبیِ هم‌ردیف یعنی دو آموزشِ هم‌ارزش که فرقشان در موضوع است نه در
+// اهمیت.
 export async function sendTrustedBroker(ctx) {
   await sendSection(ctx, "BROKER", {
     inline_keyboard: [
-      [{ text: "🎬 آموزش ثبت‌نام", callback_data: "BROKER_VID|SIGNUP", style: "primary" }],
-      [{ text: "🎬 آموزش واریز و برداشت", callback_data: "BROKER_VID|DEPOSIT", style: "primary" }],
-      signupRow(),
-      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+      [{ text: "🏦 لینک ثبت نام در بروکر معتمد", url: BROKER_URL, style: "success" }],
+      [
+        { text: "🎬 آموزش ثبت‌نام", callback_data: "BROKER_VID|SIGNUP", style: "primary" },
+        { text: "🎬 آموزش واریز و برداشت", callback_data: "BROKER_VID|DEPOSIT", style: "primary" },
+      ],
     ],
   });
 }
@@ -51,8 +48,13 @@ export async function sendBrokerVideo(ctx, key) {
   await ctx.answerCallbackQuery().catch(() => {});
   if (!video) return;
 
+  // زیر ویدیو فقط بازگشت.
+  //
+  // دکمه‌ی ثبت‌نام اینجا هم بود و برداشته شد: صفحه‌ی بروکر یک قدم
+  // بالاتر است و همان دکمه آنجا هست. تکرارش زیر هر ویدیو یعنی کاربر
+  // دو جا یک کار را می‌بیند و دیگر معلوم نیست کدام «همان» است.
   const keyboard = {
-    inline_keyboard: [signupRow(), [{ text: "🔙 بازگشت به بروکر معتمد", callback_data: "SEC_BROKER" }]],
+    inline_keyboard: [[{ text: "🔙 بازگشت", callback_data: "SEC_BROKER" }]],
   };
 
   let delivered = 0;
