@@ -57,20 +57,37 @@ function normalizePhone(raw) {
   return digits;
 }
 
+// یک متن تایید برای هر دو مسیر.
+//
+// پیش‌تر مسیر ثبت‌نام متن جداگانه‌ای داشت که فقط نام و شماره و دوره را
+// نشان می‌داد - چون آن مسیر هم فقط همان‌ها را می‌پرسید. حالا که هر دو
+// یک سوال‌نامه دارند، دو متن یعنی دو جای دیگر که باید هم‌گام بمانند.
+//
+// هر فیلدی که پر نشده باشد اصلاً نمایش داده نمی‌شود، نه با «undefined»
+// روبه‌روی برچسبش.
 function buildConfirmText(flow, temp) {
-  if (flow === "registration") {
-    return (
-      "لطفاً اطلاعات زیر را بررسی کنید:\n\n" +
-      `👤 <b>نام:</b> ${temp.name}\n📱 <b>شماره:</b> ${temp.phone}\n🎓 <b>دوره:</b> ${temp.course}\n\n` +
-      "آیا اطلاعات را تایید می‌کنید؟"
-    );
+  const lines = [
+    flow === "registration"
+      ? "لطفاً اطلاعات ثبت‌نام خود را بررسی کنید:"
+      : "✅ اطلاعات شما ثبت شد.\n\nلطفاً اطلاعات زیر را بررسی کنید:",
+    "",
+  ];
+
+  const fields = [
+    ["👤 نام", temp.name],
+    ["📱 موبایل", temp.phone],
+    ["🎯 دوره موردنظر", temp.course],
+    ["📊 سطح معامله‌گری", temp.level],
+    ["💬 موضوع", temp.topic],
+    ["🕐 زمان مناسب تماس", temp.preferred_time],
+  ];
+  for (const [label, value] of fields) {
+    if (value) lines.push(label + ": " + value);
   }
-  return (
-    "✅ اطلاعات شما ثبت شد.\n\nلطفاً اطلاعات زیر را بررسی کنید:\n\n" +
-    `👤 نام: ${temp.name}\n📱 موبایل: ${temp.phone}\n🎯 دوره موردنظر: ${temp.course}\n` +
-    `📊 سطح معامله‌گری: ${temp.level}\n💬 موضوع مشاوره: ${temp.topic}\n🕐 زمان مناسب تماس: ${temp.preferred_time}\n\n` +
-    "اگر اطلاعات صحیح است، روی «✅ تایید نهایی» بزنید."
-  );
+
+  lines.push("");
+  lines.push("اگر اطلاعات صحیح است، روی «✅ تایید نهایی» بزنید.");
+  return lines.join("\n");
 }
 
 export async function startFlow(ctx, flow, promptOverride) {
@@ -162,7 +179,10 @@ export async function handleText(ctx, state) {
   if (step === "ask_time") {
     temp.preferred_time = text;
     await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: temp });
-    await ctx.reply(buildConfirmText(flow, temp), { parse_mode: "HTML", reply_markup: confirmCancelKeyboard() });
+    // بدون parse_mode: متن هیچ تگی ندارد و نام کاربر مستقیم داخلش
+    // می‌نشیند. با HTML، نامی که یک < داشته باشد کل پیام را از سمت
+    // تلگرام رد می‌کرد و کاربر در انتهای فرم به دیوار می‌خورد.
+    await ctx.reply(buildConfirmText(flow, temp), { reply_markup: confirmCancelKeyboard() });
     return;
   }
 }
@@ -177,14 +197,15 @@ export async function handleContact(ctx) {
 
   await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: { remove_keyboard: true } });
 
-  if (state.current_flow === "consultation") {
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_level" });
-    await sendSection(ctx, "CONSULT_LEVEL", cancelOnlyKeyboard());
-    return;
-  }
-
-  await setUserState(ctx.env, ctx.from.id, { current_step: "confirm" });
-  await ctx.reply(buildConfirmText("registration", temp), { parse_mode: "HTML", reply_markup: confirmCancelKeyboard() });
+  // هر دو مسیر از اینجا یک راه می‌روند.
+  //
+  // پیش‌تر مسیر ثبت‌نام (دکمه‌ی «مجموعه آموزشی پیشرفته» در پایان دوره‌ی
+  // مقدماتی) مستقیم به تایید می‌رفت و سه سوال بعدی را نمی‌پرسید. نتیجه‌اش
+  // این بود که هر لیدی که از آن دکمه می‌آمد، در CRM ستون‌های سطح، موضوع
+  // و زمان تماسش خالی بود - و مشاور بدون هیچ زمینه‌ای زنگ می‌زد، آن هم
+  // به کسی که تازه شانزده جلسه را تمام کرده و آماده‌ترین مشتری است.
+  await setUserState(ctx.env, ctx.from.id, { current_step: "ask_level" });
+  await sendSection(ctx, "CONSULT_LEVEL", cancelOnlyKeyboard());
 }
 
 export async function handleConfirm(ctx) {
