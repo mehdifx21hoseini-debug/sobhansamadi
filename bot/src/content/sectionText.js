@@ -56,7 +56,7 @@ export const SECTIONS = {
 
   // هر کتاب توضیح و عکس خودش را دارد. عکس روی جلد است و توضیح، همان
   // چیزی که کاربر پیش از دانلود می‌خواند.
-  BOOK_00: { code: "BOOK_00_INTRO_TEXT", label: "📕 کتاب «ذهنیت ثروتمند»", def: D.BOOK_00_TEXT },
+  BOOK_00: { code: "BOOK_00_INTRO_TEXT", label: "📕 کتاب من — ذهنیت ثروتمند", def: D.BOOK_00_TEXT },
   BOOK_01: { code: "BOOK_01_INTRO_TEXT", label: "📕 کتاب ۱ — موفقیت در معامله‌گری", def: D.BOOK_01_TEXT },
   BOOK_02: { code: "BOOK_02_INTRO_TEXT", label: "📕 کتاب ۲ — بازی روانی معامله‌گری", def: D.BOOK_02_TEXT },
   BOOK_03: { code: "BOOK_03_INTRO_TEXT", label: "📕 کتاب ۳ — انضباط شخصی", def: D.BOOK_03_TEXT },
