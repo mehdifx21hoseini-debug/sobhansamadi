@@ -53,6 +53,7 @@ import {
   handleBookSelect,
   handleLibraryBack,
   sendExpert,
+  sendExpertVideos,
   handleExpertPlatform,
   sendFreeCoursesMenu,
   sendFreeIntro,
@@ -299,6 +300,13 @@ export function createBot(token, env, botInfo, build = "?") {
     if (data === "BOOK_LIST_BACK") {
       await ctx.answerCallbackQuery();
       await handleLibraryBack(ctx);
+      return;
+    }
+
+    if (data === "EXPERT_VIDEOS") {
+      if (!(await requirePhone(ctx, "EXPERT"))) return;
+      await ctx.answerCallbackQuery();
+      await sendExpertVideos(ctx);
       return;
     }
 

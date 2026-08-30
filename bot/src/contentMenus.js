@@ -181,49 +181,103 @@ export async function handleLibraryBack(ctx) {
 const EXPERT_FAQ_URL =
   "https://sobhansamadi.com/%D9%85%D8%AF%DB%8C%D8%B1%DB%8C%D8%AA-%D8%AD%D8%B1%D9%81%D9%87-%D8%A7%DB%8C-%D9%85%D8%B9%D8%A7%D9%85%D9%84%D8%A7%D8%AA-%D8%AF%D8%B1-ssprox/";
 
+// دو دکمه‌ی فایل، کنار هم. در هر صفحه‌ای که «قدم بعدی» فایل گرفتن است
+// همین ردیف می‌آید.
+function expertFileRow() {
+  return [
+    { text: "📥 فایل متاتریدر ۴", callback_data: "EXPERT_MT4", style: "primary" },
+    { text: "📥 فایل متاتریدر ۵", callback_data: "EXPERT_MT5", style: "primary" },
+  ];
+}
+
 function expertKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "🟦 MetaTrader 4", callback_data: "EXPERT_MT4", style: "primary" }],
-      [{ text: "🟩 MetaTrader 5", callback_data: "EXPERT_MT5", style: "primary" }],
-      // زیر دو پلتفرم و بالای منوی اصلی: این کیبورد بعد از ارسال فایل
-      // هم دوباره نشان داده می‌شود - دقیقاً همان لحظه‌ای که سوال‌ها
-      // پیش می‌آید.
+      [{ text: "🎬 آموزش نصب (متاتریدر ۴ و ۵)", callback_data: "EXPERT_VIDEOS", style: "primary" }],
+      expertFileRow(),
+      // زیر بقیه و بالای منوی اصلی: این کیبورد بعد از ارسال فایل هم
+      // دوباره نشان داده می‌شود - دقیقاً همان لحظه‌ای که سوال‌ها پیش
+      // می‌آید.
       [{ text: "❓ سوالات پرتکرار", url: EXPERT_FAQ_URL }],
       [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
     ],
   };
 }
 
+// هر دو ویدیوی آموزش نصب، پشت سر هم.
+//
+// پیش‌تر ویدیو به فایل چسبیده بود: هر که متاتریدر ۵ را می‌زد، ویدیوی
+// متاتریدر ۴ را هرگز نمی‌دید. ولی این دو، دو نسخه‌ی یک آموزش نیستند که
+// یکی‌شان کافی باشد - آکادمی می‌خواهد مخاطب هر دو را ببیند. پس انتخاب
+// از روی آموزش برداشته شد و فقط روی فایل ماند، جایی که واقعاً انتخاب
+// است: کسی که متاتریدر ۴ دارد نباید فایل ۵ را بگیرد.
+const EXPERT_VIDEOS = [
+  ["متاتریدر ۴", "EXPERT_MT4_VIDEO"],
+  ["متاتریدر ۵", "EXPERT_MT5_VIDEO"],
+];
+
+export async function sendExpertVideos(ctx) {
+  const next = {
+    inline_keyboard: [expertFileRow(), [{ text: "🔙 بازگشت", callback_data: "SEC_EXPERT" }]],
+  };
+
+  const sent = [];
+  const missing = [];
+  try {
+    await ctx.replyWithChatAction("upload_video").catch(() => {});
+    for (const [label, id] of EXPERT_VIDEOS) {
+      const n = await deliverContent(ctx, id).catch(() => 0);
+      (n > 0 ? sent : missing).push(label);
+    }
+  } catch (err) {
+    console.error("ارسال ویدیوهای اکسپرت شکست خورد:", err && err.message);
+  }
+
+  // متن دقیقاً همان چیزی را می‌گوید که اتفاق افتاده. «هر دو ویدیو ارسال
+  // شد» وقتی یکی‌شان نرفته، کاربر را دنبال چیزی می‌فرستد که نیست.
+  let text;
+  if (missing.length === 0) {
+    text = "👆 آموزش نصب برای هر دو پلتفرم ارسال شد.\n\nحالا فایل اکسپرت پلتفرم خودتان را بگیرید:";
+  } else if (sent.length > 0) {
+    text =
+      "👆 آموزش نصب " + sent.join(" و ") + " ارسال شد.\n\nویدیوی " + missing.join(" و ") +
+      " هنوز آماده نیست؛ به‌محض آماده شدن همین‌جا می‌فرستیم. 🙏";
+  } else {
+    text = "ویدیوهای آموزش نصب هنوز آماده نیستند؛ به‌محض آماده شدن همین‌جا می‌فرستیم. 🙏";
+  }
+
+  await ctx.reply(text, { reply_markup: next });
+}
+
 export async function sendExpert(ctx) {
   await sendSection(ctx, "EXPERT", expertKeyboard());
 }
 
+// فقط خودِ فایل. آموزش نصب دکمه‌ی خودش را دارد.
 export async function handleExpertPlatform(ctx, platform) {
   const name = platform === "MT4" ? "MetaTrader 4" : "MetaTrader 5";
   await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, `EXPERT_${platform}_FILE`);
 
-  // اکسپرت دو تکه دارد: ویدیوی آموزش نصب، و خود فایل.
-  //
-  // ویدیو اول می‌رود: کسی که تا حالا اکسپرت نصب نکرده، با دیدن فایل
-  // تنها نمی‌داند با آن چه کند. اول یاد می‌گیرد، بعد چیزی را می‌گیرد که
-  // نصبش را بلد است - و فایل، آخرین پیام و در دسترس می‌ماند.
   let delivered = 0;
   try {
     await ctx.replyWithChatAction("upload_document").catch(() => {});
-    for (const id of [`EXPERT_${platform}_VIDEO`, `EXPERT_${platform}_FILE`]) {
-      delivered += await deliverContent(ctx, id);
-    }
+    // دکمه‌ها به خود فایل می‌چسبند: فایل آخرین پیام و همیشه در دسترس
+    // می‌ماند، و قدم بعدی هم زیر همان است.
+    delivered = await deliverContent(ctx, `EXPERT_${platform}_FILE`, {
+      extra: { reply_markup: expertKeyboard() },
+    });
   } catch (err) {
     console.error("ارسال اکسپرت شکست خورد:", platform, err && err.message);
   }
 
-  await ctx.editMessageText(
-    delivered > 0
-      ? `✅ اکسپرت هوشمند SsProX نسخه ${name} براتون ارسال شد.\n\nاگر پلتفرم دیگری هم نیاز دارید، از دکمه‌های زیر انتخاب کنید:`
-      : `✅ درخواست شما برای اکسپرت هوشمند SsProX نسخه ${name} ثبت شد.\n\nتیم آکادمی به‌زودی فایل و ویدیوی آموزشی رو براتون می‌فرسته. 🙏\n\nاگر پلتفرم دیگری هم نیاز دارید، از دکمه‌های زیر انتخاب کنید:`,
-    { reply_markup: expertKeyboard() }
-  );
+  // پیام تازه و نه ویرایش پیام قبلی: این دکمه ممکن است از زیر یک ویدیو
+  // زده شود، و تلگرام اجازه نمی‌دهد متنِ پیامِ ویدیویی ویرایش شود.
+  if (delivered === 0) {
+    await ctx.reply(
+      `✅ درخواست شما برای اکسپرت هوشمند SsProX نسخه ${name} ثبت شد.\n\nتیم آکادمی به‌زودی فایل رو براتون می‌فرسته. 🙏`,
+      { reply_markup: expertKeyboard() }
+    );
+  }
 }
 
 // --- دوره‌های رایگان (زیرمنو) ---
