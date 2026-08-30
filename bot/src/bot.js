@@ -42,7 +42,7 @@ import {
   handleContentRefile,
   handleEconCallback,
 } from "./menuActions.js";
-import { sendAbout, sendTrustedBroker, sendContact } from "./staticContent.js";
+import { sendAbout, sendTrustedBroker, sendContact, sendBrokerVideo } from "./staticContent.js";
 import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
 import { handleChannelPost } from "./content/ingest.js";
@@ -310,6 +310,12 @@ export function createBot(token, env, botInfo, build = "?") {
       if (!(await requirePhone(ctx, "EXPERT"))) return;
       await ctx.answerCallbackQuery();
       await handleExpertPlatform(ctx, data === "EXPERT_MT4" ? "MT4" : "MT5");
+      return;
+    }
+
+    // sendBrokerVideo خودش callback را answer می‌کند.
+    if (data.startsWith("BROKER_VID|")) {
+      await sendBrokerVideo(ctx, data.split("|")[1]);
       return;
     }
 

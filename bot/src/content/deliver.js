@@ -17,17 +17,17 @@ const SENDERS = {
   photo: (api, chatId, fileId, caption) => api.sendPhoto(chatId, fileId, caption),
 };
 
-async function sendOne(ctx, row) {
+async function sendOne(ctx, row, extra = {}) {
   const send = SENDERS[row.file_type];
   if (!send) {
     // نوعی که نمی‌شناسیم - به‌جای سکوت، دست‌کم لینک/شناسه‌اش می‌رود.
-    await ctx.reply((row.title || "") + "\n" + row.file_id);
+    await ctx.reply((row.title || "") + "\n" + row.file_id, extra);
     return true;
   }
   // کپشن تلگرام سقف ۱۰۲۴ کاراکتری دارد؛ عنوان بلندتر کل ارسال را رد
   // می‌کند، پس بریده می‌شود نه اینکه فایل نرسد.
   const caption = row.title ? { caption: String(row.title).slice(0, 1000) } : {};
-  await send(ctx.api, ctx.chat.id, row.file_id, caption);
+  await send(ctx.api, ctx.chat.id, row.file_id, { ...caption, ...extra });
   return true;
 }
 
@@ -39,14 +39,20 @@ async function sendOne(ctx, row) {
  *   چیزی در کتابخانه نبود و صداکننده باید به مسیر «ثبت درخواست» برگردد.
  */
 export async function deliverContent(ctx, contentId, opts = {}) {
-  const exact = await getContent(ctx.env, contentId, opts);
+  // extra به آخرین فایل می‌چسبد، نه به همه: یک دکمه که زیر هر پارت
+  // تکرار شود، پنج بار همان دکمه است - و کاربر نمی‌فهمد کدامش «بعدی»
+  // است. زیر آخرین فایل اما دقیقاً همان‌جایی است که تمام شده و قدم بعد
+  // را می‌خواهد.
+  const { extra, ...findOpts } = opts;
+
+  const exact = await getContent(ctx.env, contentId, findOpts);
   if (exact && exact.file_id) {
-    await sendOne(ctx, exact);
+    await sendOne(ctx, exact, extra);
     return 1;
   }
 
   // تطبیق دقیق نبود: شاید چندپارتی است (BOOK_02_AUDIO → ..._P01 تا _P05).
-  const parts = await getContentParts(ctx.env, contentId, opts);
+  const parts = await getContentParts(ctx.env, contentId, findOpts);
   if (parts.length === 0) return 0;
 
   // ترتیب مهم است - پارت ۳ قبل از ۲ یعنی کتاب به‌هم‌ریخته. مرتب‌سازی در
@@ -54,7 +60,7 @@ export async function deliverContent(ctx, contentId, opts = {}) {
   let sent = 0;
   for (const row of parts) {
     try {
-      await sendOne(ctx, row);
+      await sendOne(ctx, row, row === parts[parts.length - 1] ? extra : undefined);
       sent++;
     } catch (err) {
       // یک پارت خراب نباید بقیه را از بین ببرد.

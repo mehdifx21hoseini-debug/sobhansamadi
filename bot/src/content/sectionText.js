@@ -30,12 +30,13 @@ export const SECTIONS = {
   // media: فایلی که آکادمی با هشتگ #TRUSTED_BROKER در کانال گذاشته -
   // ویدیوی معرفی بروکر. جدا از عکسِ ویرایشگر است: آن یکی از داخل تلگرام
   // ست می‌شود و این یکی از کانال می‌آید.
-  BROKER: {
-    code: "TRUSTED_BROKER_TEXT",
-    label: "🏦 بروکر معتمد",
-    def: D.TRUSTED_BROKER_TEXT,
-    media: "TRUSTED_BROKER",
-  },
+  // media از اینجا برداشته شد.
+  //
+  // ویدیوی TRUSTED_BROKER خودکار زیر متن می‌رفت؛ حالا پشت دکمه‌ی
+  // «آموزش ثبت‌نام» است و کنارش «آموزش واریز و برداشت» هم آمده. خودِ
+  // فایل سر جایش در کتابخانه مانده و از همان شناسه خوانده می‌شود - فقط
+  // دیگر بی‌درخواست فرستاده نمی‌شود.
+  BROKER: { code: "TRUSTED_BROKER_TEXT", label: "🏦 بروکر معتمد", def: D.TRUSTED_BROKER_TEXT },
   ABOUT_US_MENU: { code: "ABOUT_US_MENU_TEXT", label: "ℹ️ منوی «درباره ما»", def: D.ABOUT_US_MENU_TEXT },
   SUPPORT: { code: "SUPPORT_INTRO_TEXT", label: "💬 پشتیبانی", def: D.SUPPORT_INTRO_TEXT },
   PSY_VOICES: { code: "PSY_VOICES_INTRO_TEXT", label: "🎧 ویس‌های روانشناسی", def: D.PSY_VOICES_INTRO_TEXT },
