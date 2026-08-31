@@ -46,6 +46,18 @@ export async function crmSelfTest(env) {
     }
   }
 
+  // وضعیت‌های واقعیِ لیدها. رشته‌های وضعیت فارسی‌اند و در n8n هیچ‌جا
+  // فهرست نشده بودند؛ برای اینکه ربات لیدِ تازه را با همان وضعیتی بنویسد
+  // که پنل می‌شناسد، باید از خودِ داده پرسید نه از حافظه.
+  try {
+    const { results } = await env.DB
+      .prepare("SELECT status, COUNT(*) AS n FROM crm_leads GROUP BY status ORDER BY n DESC")
+      .all();
+    counts.__status_breakdown = (results || []).map((r) => (r.status || "(خالی)") + ": " + r.n);
+  } catch (err) {
+    counts.__status_breakdown = "خطا: " + String(err && err.message);
+  }
+
   try {
     await cleanup(env); // بازمانده‌ی اجرای قبلی، اگر وسط کار قطع شده بود
     const password = randomPassword();
