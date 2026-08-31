@@ -3,7 +3,10 @@ import { handleStart } from "./commands/start.js";
 import { isOwner } from "./owner.js";
 import { sendSection } from "./content/sectionText.js";
 
-const CHANNEL_USERNAME = "@sobhanforex";
+// تک منبعِ نامِ کانالِ دروازه. /members هم از همین می‌خواند تا اگر روزی
+// کانال عوض شد، گزارشِ مدیر همان کانالی را بشمارد که دروازه چک می‌کند.
+export const GATE_CHANNEL = "@sobhanforex";
+const CHANNEL_USERNAME = GATE_CHANNEL;
 const CHANNEL_JOIN_URL = "https://t.me/sobhanforex";
 
 function joinPromptKeyboard() {

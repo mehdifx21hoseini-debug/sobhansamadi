@@ -11,6 +11,7 @@ import { clearContentChannel, writeConfig } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
 import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
 import { SENDER_FLAG, senderStatus } from "../econ/sender.js";
+import { GATE_CHANNEL } from "../membershipGate.js";
 
 function yes(v) {
   return v ? "✅" : "❌";
@@ -95,6 +96,25 @@ export async function handleDiag(ctx, build) {
     lines.push("برای عوض کردن کانال: /resetchannel");
   }
 
+  // ۳.۵) کانال دروازه - جدا از کانال محتوا. این دو می‌توانند یکی نباشند
+  // و معمولاً هم نیستند: یکی جایی است که فایل‌ها از آن می‌آیند، این یکی
+  // جایی است که کاربر باید عضوش باشد.
+  lines.push("");
+  lines.push("🔒 <b>کانال دروازه‌ی عضویت</b>");
+  lines.push("کانال: <code>" + GATE_CHANNEL + "</code>");
+  try {
+    const count = await ctx.api.getChatMemberCount(GATE_CHANNEL);
+    lines.push("تعداد اعضا: <b>" + count.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "٬") + "</b>");
+    const me = await ctx.api.getMe();
+    const member = await ctx.api.getChatMember(GATE_CHANNEL, me.id);
+    const isAdmin = member.status === "administrator" || member.status === "creator";
+    lines.push("بات ادمین است: " + yes(isAdmin) + " (" + member.status + ")");
+    if (!isAdmin) lines.push("⚠️ بدون ادمینی، چک عضویت خطا می‌دهد و دروازه برای همه باز است.");
+  } catch (err) {
+    lines.push("⚠️ خوانده نشد: <code>" + String(err && err.message).slice(0, 120) + "</code>");
+    lines.push("یعنی دروازه‌ی عضویت هم همین خطا را می‌گیرد و برای همه باز است.");
+  }
+
   // ۴) چه چیزی تا حالا ثبت شده.
   lines.push("");
   lines.push("🗄 <b>پایگاه داده</b>");
@@ -133,6 +153,7 @@ export async function handleDiag(ctx, build) {
 
   lines.push("");
   lines.push("🛠 <b>دستورهای مدیر</b>");
+  lines.push("/members — تعداد اعضای کانال");
   lines.push("/edit — ویرایش متن و عکس بخش‌ها");
   lines.push("/delete — حذف یک محتوا با شناسه");
   lines.push("/kbsync — ساختن پایگاه دانش دستیار");

@@ -6,6 +6,7 @@ import {
   handleDeleteContent,
   handleEconSender,
 } from "./commands/diag.js";
+import { handleMembers } from "./commands/members.js";
 import {
   handleEditCommand,
   showSectionList,
@@ -115,6 +116,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("kbdel", handleKbDel);
   bot.command("aistats", handleAiStats);
   bot.command("econsender", handleEconSender);
+  bot.command("members", handleMembers);
 
   bot.on("message:contact", async (ctx) => {
     // دروازه‌ی شماره پیش از مسیر ثبت‌نام چک می‌شود: هر دو با همان
