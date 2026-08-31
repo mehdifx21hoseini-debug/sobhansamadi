@@ -268,42 +268,153 @@
 		.wrap { max-width: 640px; margin: 0 auto; }
 
 		/* ---------- header ---------- */
+
+		/* بنر برند.
+
+		   سه تصمیم که بنر را به اپ می‌چسبانند:
+
+		   ۱. برش تنگ روی صورت. فایل assets/img/sobhan-banner.jpg از پیش
+		      بریده شده (۷۶۰×۳۵۴) تا مرورگر مجبور نباشد عکسِ تمام‌قدِ
+		      ۱۲۸۰×۱۹۲۰ را دانلود و کوچک کند.
+
+		   ۲. متن زنده است، نه پخته‌شده در تصویر: با وزیرمتنِ خودِ اپ رندر
+		      می‌شود، روی رتینا تیز می‌ماند و ۲۸ کیلوبایت بیشتر خرج ندارد.
+
+		   ۳. پرده‌ی گرافیتی از سمت متن روی عکس می‌افتد و متن زمینه‌ی تمیز
+		      پیدا می‌کند؛ همان رنگِ --navy است تا بنر تکه‌ی جدا به نظر نرسد. */
+		.hero-banner {
+			position: relative;
+			overflow: hidden;
+			/* عرض صریح لازم است: با عرضِ auto، وقتی max-height بگیرد مرورگر
+			   برای حفظ نسبت، عرض را هم کوچک می‌کند و بنر از ستون محتوا
+			   باریک‌تر می‌شود. */
+			width: 100%;
+			aspect-ratio: 3.8;
+			max-height: 112px;
+			border-radius: 16px;
+			/* رنگِ بنر در هر دو تم یکی است. عکس تُنِ ثابتی دارد و پرده باید در
+			   همان تُن محو شود؛ اگر --navy را می‌گرفت، در تم تیره پرده
+			   سیاه‌تر از خودِ عکس می‌شد و صورت را از قاب می‌کَند. */
+			--hb-ink: #1f1e26;
+			background: var(--hb-ink);
+			margin-bottom: 12px;
+			container-type: inline-size;
+		}
+
+		/* left top است نه cover: با cover مرورگر خودش تصمیم می‌گیرد کجا را
+		   ببرد و صورت می‌افتاد بیرون کادر. ارتفاعِ ۱۰۰٪ یعنی قاب همیشه پر
+		   است و نسبتِ سر به بنر ثابت می‌ماند، هر عرضی که داشته باشد. */
+		/* لایه‌ی عکس دقیقاً به نسبتِ خودِ فایل بریده شده است، نه به اندازه‌ی
+		   بنر. این تفاوت مهم است: ماسکِ زیر بر حسب درصدِ همین لایه حساب
+		   می‌شود، پس محوشدنِ لبه‌ی راست همیشه روی خودِ عکس می‌افتد - در هر
+		   عرضی از بنر. اگر لایه هم‌اندازه‌ی بنر بود، در عرض‌های بزرگ‌تر ماسک
+		   دیرتر از پایانِ عکس شروع می‌شد و یک درزِ عمودیِ تیز می‌ماند. */
+		.hb-photo {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			left: 0;
+			aspect-ratio: 760 / 354;
+			background: url("assets/img/sobhan-banner.jpg") center / cover no-repeat;
+			-webkit-mask-image: linear-gradient(to right, #000 0%, #000 62%, transparent 96%);
+			mask-image: linear-gradient(to right, #000 0%, #000 62%, transparent 96%);
+		}
+
+		.hb-scrim {
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(to left,
+				var(--hb-ink) 0%, var(--hb-ink) 52%,
+				color-mix(in srgb, var(--hb-ink) 94%, transparent) 60%,
+				color-mix(in srgb, var(--hb-ink) 66%, transparent) 70%,
+				color-mix(in srgb, var(--hb-ink) 26%, transparent) 81%,
+				color-mix(in srgb, var(--hb-ink) 6%, transparent) 91%,
+				transparent 100%);
+		}
+
+		/* محوکننده‌ی لبه‌ها. لبه‌ی بالا سنگین‌تر است چون نوشته‌ی بنرِ پشت سر
+		   همان‌جا می‌افتد و نیمه‌بریده دیده می‌شود؛ این تیرگی حرف‌های ناقص را
+		   می‌خورد بدون اینکه بالای سر قربانی شود. */
+		.hb-vignette {
+			position: absolute;
+			inset: 0;
+			background:
+				linear-gradient(to bottom,
+					color-mix(in srgb, var(--hb-ink) 82%, transparent) 0%,
+					color-mix(in srgb, var(--hb-ink) 35%, transparent) 16%,
+					transparent 30%, transparent 72%,
+					color-mix(in srgb, var(--hb-ink) 62%, transparent) 100%),
+				linear-gradient(to right,
+					color-mix(in srgb, var(--hb-ink) 78%, transparent) 0%,
+					transparent 15%);
+		}
+
+		.hb-copy {
+			position: absolute;
+			inset: 0 16px 0 auto;
+			inset: 0 4.4cqw 0 auto;
+			width: 54%;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			gap: 4px;
+			gap: 1.1cqw;
+			text-align: right;
+		}
+
+		/* واحد cqw نسبت‌های ماکت را در هر عرضی نگه می‌دارد. اگر مرورگری
+		   container query نداشته باشد، اعلانِ دوم نامعتبر است و کنار گذاشته
+		   می‌شود - اولی می‌ماند و متن هنوز خوانا است. */
+		.hb-eyebrow {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			gap: 1.4cqw;
+			font-size: 0.44rem;
+			font-size: clamp(7px, 1.91cqw, 13px);
+			font-weight: 800;
+			color: #ff4d94;
+		}
+
+		.hb-eyebrow i {
+			display: block;
+			width: 9px;
+			width: 2.5cqw;
+			height: 1.5px;
+			border-radius: 2px;
+			background: currentColor;
+		}
+
+		.hero-banner h1 {
+			margin: 0;
+			font-size: 1rem;
+			font-size: clamp(14px, 4.23cqw, 27px);
+			font-weight: 900;
+			line-height: 1.28;
+			letter-spacing: -.02em;
+			color: #ffffff;
+			text-shadow: 0 1px 6px rgba(0, 0, 0, .5);
+		}
+
+		.hb-sub {
+			font-size: 0.58rem;
+			font-size: clamp(9px, 2.46cqw, 16px);
+			font-weight: 600;
+			line-height: 1.5;
+			color: #bab7c6;
+		}
+
 		.hero {
 			display: flex;
-			align-items: flex-start;
+			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
 			margin-bottom: 14px;
 		}
 
-		.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-		.brand-text { min-width: 0; }
-
-		/* The mark is navy on transparent, so it always needs a light plate
-		   behind it - on the dark ground it would otherwise vanish. */
-		.brand-mark {
-			flex: none;
-			width: 38px;
-			height: 38px;
-			border-radius: 12px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background: linear-gradient(150deg, #ffffff, #eef1f8);
-			box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent);
-		}
-
-		.brand-mark img { display: block; }
-
-		.hero h1 {
-			font-size: 1.15rem;
-			font-weight: 700;
-			margin: 0 0 2px;
-			letter-spacing: -.01em;
-		}
-
 		.hero p {
 			margin: 0;
+			min-width: 0;
 			font-size: 0.82rem;
 			color: var(--muted);
 		}
@@ -1815,16 +1926,22 @@
 	     Telegram Desktop shows the two-letter code instead. -->
 	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/><path fill="#fff" d="m202 402.8-45.8 5.4 4.6 45.9-32.8-32.4-33 32.2 4.9-45.9-45.8-5.8L93 377.4 69 338l43.6 15 15.8-43.4 15.5 43.5 43.7-14.7-24.3 39.2 38.8 25.1Zm222.7 8-20.5 2.6 2.2 20.5-14.8-14.4-14.7 14.5 2-20.5-20.5-2.4 17.3-11.2-10.9-17.5 19.6 6.5 6.9-19.5 7.1 19.4 19.5-6.7-10.7 17.6zM415 293.6l2.7-13-9.8-9 13.2-1.5 5.5-12.1 5.5 12.1 13.2 1.5-9.8 9 2.7 13-11.6-6.6zm-84.1-60-20.3 2.2 1.8 20.3-14.4-14.5-14.8 14.1 2.4-20.3-20.2-2.7 17.3-10.8-10.5-17.5 19.3 6.8 7.2-19.1 6.7 19.3 19.4-6.3-10.9 17.3zm175.8-32.8-20.9 2.7 2.3 20.9-15.1-14.7-15 14.8 2.1-21-20.9-2.4 17.7-11.5-11.1-17.9 20 6.7 7-19.8 7.2 19.8 19.9-6.9-11 18zm-82.1-83.5-20.7 2.3 1.9 20.8-14.7-14.8L376 140l2.4-20.7-20.7-2.8 17.7-11-10.7-17.9 19.7 6.9 7.3-19.5 6.8 19.7 19.8-6.5-11.1 17.6z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol></defs></svg>
 	<div class="wrap">
-		<div class="hero">
-			<div class="brand">
-				<span class="brand-mark">
-					<img src="assets/img/logo-mark.png" alt="" aria-hidden="true" width="26" height="26">
-				</span>
-				<div class="brand-text">
-					<h1>تقویم اقتصادی دلار</h1>
-					<p id="heroSub">در حال بارگذاری…</p>
-				</div>
+		<!-- بنر برند. عکس در سمت چپ می‌نشیند و پرده‌ی گرافیتی از سمت متن
+		     رویش می‌افتد؛ متن زنده است نه پخته‌شده در تصویر، تا با وزیرمتنِ
+		     خودِ اپ رندر شود و روی هر تراکم پیکسلی تیز بماند. -->
+		<div class="hero-banner">
+			<div class="hb-photo"></div>
+			<div class="hb-vignette"></div>
+			<div class="hb-scrim"></div>
+			<div class="hb-copy">
+				<div class="hb-eyebrow"><i aria-hidden="true"></i>ربات هوشمند</div>
+				<h1>آکادمی سبحان صمدی</h1>
+				<div class="hb-sub">تقویم اقتصادی و سشن‌های بازار</div>
 			</div>
+		</div>
+
+		<div class="hero">
+			<p id="heroSub">در حال بارگذاری…</p>
 			<div class="hero-actions">
 				<span id="riskPill" class="risk-pill" hidden><span class="dot"></span><span id="riskText"></span></span>
 				<button id="btnRefresh" class="icon-btn" type="button" aria-label="بروزرسانی" title="بروزرسانی">
@@ -1923,7 +2040,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 4c7affb68b</span>
+			<span class="build">نسخه 52fa41cbd6</span>
 		</p>
 	</div>
 
