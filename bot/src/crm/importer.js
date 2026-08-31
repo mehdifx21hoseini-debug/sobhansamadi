@@ -43,6 +43,7 @@ export const PLAN = [
     cols: ["username", "display_name", "role", "active", "password_hash",
       "password_salt", "telegram_chat_id", "reset_code", "reset_expires", "avatar",
       "created_at", "updated_at"],
+    defaults: { active: 0, role: "admin" },
     // این جدول در n8n created_at/updated_at ندارد؛ فقط createdAt/updatedAt
     // خودِ Data Table را دارد. آن‌ها را عمداً برمی‌داریم چون تاریخِ ساختِ
     // حساب، داده‌ی واقعی است نه فراداده.
@@ -59,6 +60,7 @@ export const PLAN = [
   {
     key: "products", table: "crm_products", pk: "product_id",
     cols: ["product_id", "name", "price", "active", "created_at"],
+    defaults: { active: 1 },
   },
   {
     key: "orders", table: "crm_orders", pk: "order_id",
@@ -78,6 +80,7 @@ export const PLAN = [
   {
     key: "broadcasts", table: "crm_broadcasts", pk: "batch_id",
     cols: ["batch_id", "message", "audience", "sent_count", "deleted", "created_at"],
+    defaults: { deleted: 0, sent_count: 0 },
   },
   {
     key: "broadcast_recipients", table: "crm_broadcast_recipients", pk: null,
@@ -92,12 +95,14 @@ export const PLAN = [
     key: "error_log", table: "crm_error_log", pk: "log_id",
     cols: ["log_id", "workflow_name", "node_name", "error_message", "input_snapshot",
       "telegram_user_id", "retry_count", "resolved", "notes", "severity", "created_at"],
+    defaults: { resolved: 0 },
     // error_log در n8n ستون created_at ندارد - زمانِ ردیف همان createdAt است.
     from: { created_at: "createdAt" },
   },
   {
     key: "admin_users", table: "crm_admin_users", pk: "telegram_id",
     cols: ["telegram_id", "name", "role", "active"],
+    defaults: { active: 1 },
   },
   {
     key: "admin_action_log", table: "crm_admin_action_log", pk: null,
@@ -130,11 +135,18 @@ export function coerce(v) {
 /** یک ردیف خام n8n را به آرایه‌ی مقادیر مقصد تبدیل می‌کند. */
 export function mapRow(spec, raw) {
   const from = spec.from || {};
+  const defaults = spec.defaults || {};
   return spec.cols.map((col) => {
     const src = from[col] || col;
     // فقط وقتی به فراداده‌ی n8n می‌رسیم که خودمان صریح خواسته باشیم.
     if (N8N_META.has(src) && !from[col]) return null;
-    return coerce(raw[src]);
+    const v = coerce(raw[src]);
+    // DEFAULT در SQLite فقط وقتی کار می‌کند که ستون در INSERT نیامده
+    // باشد؛ NULLِ صریح، NOT NULL را می‌شکند. n8n برای ستون‌های بولینی
+    // که هیچ‌وقت ست نشده‌اند null می‌دهد، پس مقدار پیش‌فرض اینجا - سمت
+    // داده - گذاشته می‌شود، نه با دست‌کاری طرح جدول.
+    if (v === null && col in defaults) return defaults[col];
+    return v;
   });
 }
 
