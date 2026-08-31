@@ -1899,14 +1899,17 @@
 			// The Worker, not n8n directly. Both the bot and this page now read
 			// the same D1 mirror, so an n8n outage no longer empties the
 			// calendar — it only makes the data a little stale. Alert settings
-			// still live in n8n and the Worker proxies those through.
+			// live in D1 too, in the same table the bot's buttons write to.
 			//
-			// The old n8n endpoint stays as a fallback. The Worker and this page
-			// deploy through different pipelines, so for a while one can be live
-			// without the other; without the fallback that window would look
-			// exactly like the outage this change exists to fix.
+			// There used to be a fallback to the old n8n endpoint here, for the
+			// window where this page was deployed but the Worker was not. It has
+			// been removed, and its removal matters: n8n still answers that URL,
+			// but it reads and writes its own subscription table — the one that
+			// nothing sends from any more. A user who saved a setting through
+			// that fallback would see it accepted and would never get the alert.
+			// A visible error is the honest answer; a write into an abandoned
+			// table is not.
 			var API = "https://sobhansamadi.mehdifx21hoseini.workers.dev/econ/miniapp";
-			var API_FALLBACK = "https://96825.7host.cloud/webhook/econ/miniapp";
 			var tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 
 			// The palette is the academy's, not Telegram's; the only thing taken
@@ -3351,19 +3354,7 @@ function eventNode(e) {
 
 			function call(payload) {
 				payload.initData = tg ? tg.initData : "";
-				return callOnce(API, payload).catch(function (err) {
-					// 401 means the signature was rejected, and the fallback
-					// checks the same signature with the same bot token — it
-					// would fail identically, so surface the real reason instead
-					// of hiding it behind a second failure.
-					//
-					// Everything else (the Worker not deployed yet, a 404, a 5xx,
-					// a dead connection) means this request never reached a
-					// working backend, so nothing was written and retrying
-					// elsewhere is safe.
-					if (err.status === 401) throw err;
-					return callOnce(API_FALLBACK, payload);
-				});
+				return callOnce(API, payload);
 			}
 
 			// Remembered so a later renderList can put the message back. Without
