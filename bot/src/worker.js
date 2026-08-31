@@ -9,6 +9,7 @@ import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
 import { handleCrmApi } from "./crm/panelApi.js";
 import { crmSelfTest } from "./crm/selftest.js";
+import { recentLeads, deleteLeads } from "./crm/maintenance.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
@@ -64,7 +65,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-2";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-3";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -233,6 +234,20 @@ async function handleAdmin(request, url, env) {
     }
   }
 
+  // نگهداری: دیدن آخرین لیدها و حذفِ ردیف‌های آزمایشی.
+  //
+  // حذف پیش‌فرضِ خشک دارد: بدون confirm=yes فقط می‌گوید چه چیزی حذف
+  // می‌شد. یک شناسه‌ی اشتباه در این مسیر یعنی یک مشتری واقعیِ رفته، و
+  // بین «دیدن» و «انجام دادن» باید یک قدمِ صریح باشد.
+  if (url.pathname === "/admin/crm-leads") {
+    return json({ ok: true, build: BUILD, leads: await recentLeads(env, url.searchParams.get("limit")) });
+  }
+  if (url.pathname === "/admin/crm-lead-delete") {
+    const ids = (url.searchParams.get("ids") || "").split(",");
+    const res = await deleteLeads(env, ids, url.searchParams.get("confirm") !== "yes");
+    return json({ build: BUILD, ...res }, res.ok ? 200 : 400);
+  }
+
   // کلید ارسال تقویم از ورکر - همان کاری که /econsender در تلگرام
   // می‌کند، از بیرون.
   //
@@ -395,7 +410,9 @@ export default {
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/crm-import" ||
-      url.pathname === "/admin/crm-selftest"
+      url.pathname === "/admin/crm-selftest" ||
+      url.pathname === "/admin/crm-leads" ||
+      url.pathname === "/admin/crm-lead-delete"
     ) {
       return handleAdmin(request, url, env);
     }
