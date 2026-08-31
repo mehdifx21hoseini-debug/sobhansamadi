@@ -1,0 +1,1764 @@
+		/* The academy's own palette, taken from the logo: navy #29386c and gold
+		   #d2ae6d, the same two tokens the CRM uses. The app deliberately no
+		   longer borrows Telegram's theme colours — it only follows Telegram's
+		   light/dark choice, which the boot code stamps onto the root element
+		   as data-theme. Without that stamp the OS preference decides.
+
+		   Every neutral here is biased toward the navy rather than being a
+		   pure grey, so the greys belong to the same family as the brand. */
+		:root {
+			--navy: #29386c;
+			--navy-dark: #1c2850;
+			--gold: #d2ae6d;
+			--gold-dark: #b8934f;
+
+			--bg: #f2f4f9;
+			--card: #ffffff;
+			--card-2: #f7f8fc;
+			--text: #1b2444;
+			--muted: #737ea3;
+			--line: color-mix(in srgb, var(--navy) 13%, transparent);
+			--link: var(--navy);
+			--accent: var(--navy);
+			--accent-text: #ffffff;
+
+			/* Elevation system lifted from open-props@1.7.23 (MIT, Adam
+			   Argyle) — the layered shadow recipes and easing curves, with the
+			   shadow hue re-biased from OP's neutral 220 to our navy's 228 so
+			   the shadows belong to the brand. Only these two variables change
+			   per theme; every shadow derives from them, which is the whole
+			   point: the dark theme no longer rewrites each shadow by hand. */
+			--shadow-color: 228 25% 22%;
+			--shadow-strength: 1%;
+			--shadow-strength-3: calc(var(--shadow-strength) + 2%);
+			--shadow-strength-4: calc(var(--shadow-strength) + 3%);
+			--shadow-strength-5: calc(var(--shadow-strength) + 4%);
+			--shadow-strength-6: calc(var(--shadow-strength) + 5%);
+			--shadow-strength-8: calc(var(--shadow-strength) + 7%);
+			--shadow-strength-10: calc(var(--shadow-strength) + 9%);
+			--shadow-1: 0 1px 2px -1px hsl(var(--shadow-color) / var(--shadow-strength-10));
+			--shadow-2: 0 3px 5px -2px hsl(var(--shadow-color) / var(--shadow-strength-4)),
+			            0 7px 14px -5px hsl(var(--shadow-color) / var(--shadow-strength-6));
+			--shadow-3: 0 -1px 3px 0 hsl(var(--shadow-color) / var(--shadow-strength-3)),
+			            0 1px 2px -5px hsl(var(--shadow-color) / var(--shadow-strength-3)),
+			            0 2px 5px -5px hsl(var(--shadow-color) / var(--shadow-strength-5)),
+			            0 4px 12px -5px hsl(var(--shadow-color) / var(--shadow-strength-6)),
+			            0 12px 15px -5px hsl(var(--shadow-color) / var(--shadow-strength-8));
+			--inner-highlight: inset 0 -.5px 0 0 #fff, inset 0 .5px 0 0 rgba(0, 0, 0, .067);
+			--ease-out-3: cubic-bezier(0, 0, .3, 1);
+			--ease-elastic-3: cubic-bezier(.5, 1.25, .75, 1.25);
+
+			--shadow: var(--shadow-2);
+			--shadow-sm: var(--shadow-1);
+			--hairline: var(--inner-highlight);
+
+			--high: #c8323c;
+			--medium: #c8892b;
+			--low: #99a0b8;
+			--up: #1f8f63;
+			--down: #c8323c;
+
+			/* The hairline around a flag badge: brand gold at rest, taken over
+			   by the state colour while a session is live or on its break. */
+			--flag-ring: color-mix(in srgb, var(--gold-dark) 62%, transparent);
+		}
+
+		/* Dark: the ground goes to a deep navy rather than neutral black, and
+		   gold takes over as the accent — navy on navy would disappear. */
+		:root[data-theme="dark"] {
+			--bg: #0d1226;
+			--card: #171f3a;
+			--card-2: #1e2748;
+			--text: #e9edf8;
+			--muted: #8d97b8;
+			--line: color-mix(in srgb, var(--gold) 15%, transparent);
+			--link: var(--gold);
+			--accent: var(--gold);
+			--accent-text: #1b2444;
+
+			--shadow-color: 228 45% 2%;
+			--shadow-strength: 25%;
+			--inner-highlight: inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
+			                   inset 0 .5px 0 0 rgba(0, 0, 0, .467);
+
+			--high: #ef5b62;
+			--medium: #e8a545;
+			--low: #7d859f;
+			--up: #35c48b;
+			--down: #ef5b62;
+
+			--flag-ring: color-mix(in srgb, var(--gold) 58%, transparent);
+		}
+
+		/* Same values again for viewers whose Telegram never reported a scheme
+		   and whose OS is dark. Kept as a copy rather than a shared selector so
+		   an explicit light stamp always wins over a dark OS. */
+		@media (prefers-color-scheme: dark) {
+			:root:not([data-theme="light"]) {
+				--bg: #0d1226;
+				--card: #171f3a;
+				--card-2: #1e2748;
+				--text: #e9edf8;
+				--muted: #8d97b8;
+				--line: color-mix(in srgb, var(--gold) 15%, transparent);
+				--link: var(--gold);
+				--accent: var(--gold);
+				--accent-text: #1b2444;
+
+				--shadow-color: 228 45% 2%;
+				--shadow-strength: 25%;
+				--inner-highlight: inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
+				                   inset 0 .5px 0 0 rgba(0, 0, 0, .467);
+
+				--high: #ef5b62;
+				--medium: #e8a545;
+				--low: #7d859f;
+				--up: #35c48b;
+				--down: #ef5b62;
+
+				--flag-ring: color-mix(in srgb, var(--gold) 58%, transparent);
+			}
+		}
+
+		* { box-sizing: border-box; }
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			background: var(--bg);
+			color: var(--text);
+		}
+
+		/* A quiet vertical wash so the page has atmosphere instead of being a
+		   flat sheet. Fixed, so scrolling never bands it. */
+		body::before {
+			content: "";
+			position: fixed;
+			inset: 0;
+			z-index: -1;
+			background:
+				radial-gradient(120% 55% at 50% 0%, color-mix(in srgb, var(--navy) 7%, transparent), transparent 70%);
+		}
+
+		body {
+			font-family: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+			font-size: 15px;
+			line-height: 1.6;
+			padding: 12px 12px calc(28px + env(safe-area-inset-bottom));
+			-webkit-tap-highlight-color: transparent;
+			text-rendering: optimizeLegibility;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		/* Numbers are the content on this page - times, percentages, counters.
+		   Vazirmatn carries the Persian digits, so the numeric treatment is a
+		   weight and spacing decision rather than a second family: proportional
+		   digits would make a ticking counter jitter on every frame. */
+		b, strong { font-weight: 700; }
+
+		h1, h2, h3 { text-wrap: balance; }
+
+		/* ---------- elevation ----------
+		   Every card surface is raised the same way, in one place, so the page
+		   reads as one stack of material rather than a set of panels that each
+		   invented their own shadow.
+
+		   --shadow is deliberately two shadows: a 1px contact shadow that pins
+		   the card to the page, and a wide, offset, heavily negative-spread one
+		   that gives it height. A single blurred shadow reads as fog.
+
+		   --hairline is the top edge catching the light. It is nearly white in
+		   the light theme and barely-there white in the dark one, where the
+		   effect has to be far weaker or it turns into a visible grey line. */
+		.next-card,
+		.mk-m,
+		.mk-picker,
+		.mk-overlap,
+		.tl,
+		.event,
+		.alerts,
+		.month-nav,
+		.seg {
+			box-shadow: var(--shadow), var(--hairline);
+		}
+
+		/* Cards that sit inside another card get no shadow of their own: a
+		   raised surface on a raised surface reads as a mistake. */
+		.month-cell, .skel { box-shadow: none; }
+
+		/* Controls sit lower than cards - enough to look pressable, not enough
+		   to compete with the content behind them. */
+		.icon-btn, .chip[aria-pressed="true"], .seg button[aria-selected="true"] {
+			box-shadow: var(--shadow-sm);
+		}
+
+		/* ---------- entrance ----------
+		   One orchestrated arrival when the markets tab opens, not scattered
+		   effects. Cards rise a short distance and settle; the delay is applied
+		   per node so they land in reading order.
+
+		   backwards fill matters: without it each card is painted at its final
+		   position for the length of its own delay, then jumps back to the
+		   start when its turn comes. */
+		.mk-enter {
+			animation: mk-in .42s cubic-bezier(.22, .68, .35, 1) backwards;
+		}
+
+		@keyframes mk-in {
+			from { opacity: 0; transform: translateY(10px) scale(.985); }
+			to   { opacity: 1; transform: none; }
+		}
+
+		/* The progress bar grows to its value on arrival. The class is added
+		   with the target width so the transition is only ever live during the
+		   entrance - a per-second redraw must not animate the bar. */
+		.mk-m-fill.is-filling {
+			transition: width .75s cubic-bezier(.22, .68, .35, 1) .12s;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.mk-enter { animation: none; }
+			.mk-m-fill.is-filling { transition: none; }
+		}
+
+		.wrap { max-width: 640px; margin: 0 auto; }
+
+		/* ---------- header ---------- */
+		.hero {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 14px;
+		}
+
+		.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+		.brand-text { min-width: 0; }
+
+		/* The mark is navy on transparent, so it always needs a light plate
+		   behind it - on the dark ground it would otherwise vanish. */
+		.brand-mark {
+			flex: none;
+			width: 38px;
+			height: 38px;
+			border-radius: 12px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background: linear-gradient(150deg, #ffffff, #eef1f8);
+			box-shadow: var(--shadow), inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent);
+		}
+
+		.brand-mark img { display: block; }
+
+		.hero h1 {
+			font-size: 1.15rem;
+			font-weight: 700;
+			margin: 0 0 2px;
+			letter-spacing: -.01em;
+		}
+
+		.hero p {
+			margin: 0;
+			font-size: 0.82rem;
+			color: var(--muted);
+		}
+
+		.hero-actions {
+			flex: none;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.icon-btn {
+			flex: none;
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			border: 0;
+			background: var(--card);
+			color: var(--muted);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			padding: 0;
+		}
+
+		.icon-btn:active { color: var(--accent); }
+
+		.icon-btn.is-busy svg { animation: spin .8s linear infinite; }
+
+		@keyframes spin {
+			to { transform: rotate(-360deg); }
+		}
+
+		.risk-pill {
+			flex: none;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 6px 12px;
+			border-radius: 999px;
+			font-size: 0.78rem;
+			font-weight: 700;
+			white-space: nowrap;
+		}
+
+		.risk-pill .dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: currentColor;
+		}
+
+		.risk-high { background: color-mix(in srgb, var(--high) 15%, transparent); color: var(--high); }
+		.risk-medium { background: color-mix(in srgb, var(--medium) 18%, transparent); color: var(--medium); }
+		.risk-low { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+
+		/* ---------- next-event countdown ---------- */
+		.next-card {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 13px 15px;
+			margin-bottom: 14px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+		}
+
+		.next-card .label {
+			font-size: 0.72rem;
+			color: var(--muted);
+			letter-spacing: .02em;
+		}
+
+		.next-card .name {
+			font-weight: 700;
+			font-size: 0.95rem;
+			margin-top: 1px;
+		}
+
+		.countdown {
+			flex: none;
+			text-align: center;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.countdown .value {
+			font-size: 1.15rem;
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.countdown .unit {
+			font-size: 0.68rem;
+			color: var(--muted);
+		}
+
+		/* The release minute: the countdown gives way to a pulsing live
+		   state until the actual value arrives. */
+		.next-card.is-releasing .countdown .value {
+			font-size: 0.9rem;
+			color: var(--high);
+			animation: release-pulse 1.3s ease-in-out infinite;
+		}
+
+		.next-card.is-releasing .countdown .value::before {
+			content: "";
+			display: inline-block;
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: var(--high);
+			margin-inline-end: 6px;
+			vertical-align: 1px;
+		}
+
+		@keyframes release-pulse {
+			50% { opacity: .45; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.next-card.is-releasing .countdown .value { animation: none; }
+		}
+
+		/* ---------- controls ---------- */
+		.seg {
+			display: flex;
+			background: var(--card);
+			border-radius: 11px;
+			padding: 3px;
+			margin-bottom: 10px;
+		}
+
+		.seg button {
+			flex: 1;
+			border: 0;
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.85rem;
+			font-weight: 600;
+			padding: 8px 4px;
+			border-radius: 9px;
+			cursor: pointer;
+			transition: background .16s ease, color .16s ease;
+		}
+
+		/* The selected tab is the app's most important state, so it carries
+		   the same accent fill the chips and minute buttons already use —
+		   one selected-language for every control. It previously filled with
+		   var(--bg) against the track's var(--card), which is 1.1:1 contrast
+		   in light and 1.14:1 in dark: the primary control read as unselected
+		   while a secondary filter chip sat at 11:1 beside it. */
+		.seg button[aria-selected="true"] {
+			background: var(--accent);
+			color: var(--accent-text);
+			font-weight: 700;
+		}
+
+		/* ---------- search ---------- */
+		.search-row {
+			position: relative;
+			margin-bottom: 10px;
+		}
+
+		.search-input {
+			width: 100%;
+			border: 1px solid var(--line);
+			border-radius: 11px;
+			background: var(--card);
+			color: var(--text);
+			font-family: inherit;
+			font-size: 0.86rem;
+			padding: 10px 14px 10px 34px;
+			-webkit-appearance: none;
+			appearance: none;
+		}
+
+		.search-input::-webkit-search-cancel-button { display: none; }
+
+		.search-input::placeholder { color: var(--muted); }
+
+		.search-input:focus {
+			outline: none;
+			border-color: var(--accent);
+		}
+
+		.search-clear {
+			position: absolute;
+			top: 50%;
+			left: 8px;
+			transform: translateY(-50%);
+			width: 24px;
+			height: 24px;
+			border: 0;
+			border-radius: 50%;
+			background: transparent;
+			color: var(--muted);
+			font-size: 1.15rem;
+			line-height: 1;
+			cursor: pointer;
+			padding: 0;
+		}
+
+		.search-note {
+			font-size: 0.75rem;
+			color: var(--muted);
+			margin: 0 2px 10px;
+		}
+
+		.chips {
+			display: flex;
+			gap: 7px;
+			margin-bottom: 16px;
+			overflow-x: auto;
+			scrollbar-width: none;
+			padding-bottom: 2px;
+		}
+
+		.chips::-webkit-scrollbar { display: none; }
+
+		.chip {
+			flex: none;
+			border: 1px solid var(--line);
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.78rem;
+			font-weight: 600;
+			padding: 6px 13px;
+			border-radius: 999px;
+			cursor: pointer;
+			white-space: nowrap;
+		}
+
+		.chip[aria-pressed="true"] {
+			background: var(--accent);
+			border-color: var(--accent);
+			color: var(--accent-text);
+		}
+
+		/* ---------- markets ----------
+		   One self-contained card per market: identity, state, its own
+		   24-hour Tehran track, and the times underneath. The shared axis
+		   below the board labels all five tracks at once. */
+		/* The hero is a map of the world it describes. Deliberately dark in
+		   both themes — a deep navy “screen” set into the page, so every
+		   colour inside it is a literal, not a theme token: the light theme's
+		   tokens would vanish against this ground. */
+		.mk-hero {
+			position: relative;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+			gap: 12px;
+			min-height: 205px;
+			background: linear-gradient(168deg, #1a2550 0%, #0c1330 55%, #070c1f 100%);
+			border-radius: 18px;
+			padding: 15px 17px;
+			margin-bottom: 14px;
+			color: #edf1fc;
+			box-shadow: var(--shadow-3),
+			            inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
+			            inset 0 .5px 0 0 rgba(0, 0, 0, .467);
+		}
+
+		/* NASA's Black Marble — earth at night — cropped offline to exactly
+		   the lon/lat window the marker projection uses, so the photo and
+		   the markers can never disagree. Its top and bottom edges fade
+		   into the card's own navy. */
+		.mk-photo {
+			position: absolute;
+			left: 0;
+			width: 100%;
+			pointer-events: none;
+			-webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+			mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+		}
+
+		/* A quiet navy shade so the titles, clock and markers sit on the
+		   photo comfortably; the state light (.mk-glow) rides above it. */
+		.mk-shade {
+			position: absolute;
+			inset: 0;
+			pointer-events: none;
+			background:
+				linear-gradient(180deg, rgba(9, 14, 34, .74) 0%, rgba(9, 14, 34, .16) 36%, rgba(7, 12, 31, .1) 60%, rgba(7, 12, 31, .5) 100%);
+		}
+
+		/* Ambient state light over the map: green while trading, red over the
+		   weekend, amber during the daily break. */
+		.mk-glow {
+			position: absolute;
+			inset: 0;
+			pointer-events: none;
+			background: radial-gradient(90% 80% at 82% 0%, rgba(120, 140, 200, .14), transparent 65%);
+		}
+
+		.mk-hero.is-open .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(53, 196, 139, .17), transparent 65%); }
+		.mk-hero.is-closed .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(239, 91, 98, .14), transparent 65%); }
+		.mk-hero.is-break .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(232, 165, 69, .16), transparent 65%); }
+
+		/* City markers, positioned in pixels by the same projection that draws
+		   the dots, so they can never drift off their coastlines. */
+		.mk-city {
+			position: absolute;
+			transform: translate(-50%, -50%);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 3px;
+			pointer-events: none;
+			z-index: 1;
+		}
+
+		.mk-city-dot {
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+			background: #55607f;
+			box-shadow: 0 0 0 2px rgba(85, 96, 127, .25);
+		}
+
+		.mk-city-name {
+			font-size: 0.56rem;
+			font-weight: 600;
+			letter-spacing: .02em;
+			color: rgba(214, 222, 244, .62);
+			text-shadow: 0 1px 3px rgba(5, 8, 20, .9);
+			white-space: nowrap;
+		}
+
+		.mk-city.is-on .mk-city-dot {
+			background: #35c48b;
+			box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55);
+			animation: mk-city-pulse 2.4s ease-out infinite;
+		}
+
+		.mk-city.is-on .mk-city-name { color: #8ce8c3; }
+
+		.mk-city.is-paused .mk-city-dot {
+			background: #e8a545;
+			box-shadow: 0 0 9px 2px rgba(232, 165, 69, .5);
+		}
+
+		/* Tehran is home: the academy's gold, always lit. */
+		.mk-city.is-home .mk-city-dot {
+			width: 6px;
+			height: 6px;
+			background: var(--gold);
+			box-shadow: 0 0 8px 2px rgba(210, 174, 109, .55);
+		}
+
+		.mk-city.is-home .mk-city-name { color: rgba(233, 208, 160, .85); }
+
+		@keyframes mk-city-pulse {
+			0% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 rgba(53, 196, 139, .45); }
+			70% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 10px transparent; }
+			100% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 transparent; }
+		}
+
+		.mk-hero-main { position: relative; min-width: 0; z-index: 2; }
+
+		.mk-hero-title {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 1.02rem;
+			font-weight: 800;
+			letter-spacing: -.01em;
+			text-shadow: 0 1px 4px rgba(5, 8, 20, .8);
+		}
+
+		/* Literals, not tokens: the ground under them never changes theme. */
+		.mk-hero.is-open .mk-hero-title { color: #35c48b; }
+		.mk-hero.is-closed .mk-hero-title { color: #ef5b62; }
+		.mk-hero.is-break .mk-hero-title { color: #e8a545; }
+
+		.mk-dot {
+			flex: none;
+			width: 9px;
+			height: 9px;
+			border-radius: 50%;
+			background: currentColor;
+		}
+
+		.mk-hero.is-open .mk-dot { animation: mk-pulse 2.2s ease-out infinite; }
+
+		@keyframes mk-pulse {
+			0% { box-shadow: 0 0 0 0 rgba(53, 196, 139, .6); }
+			70% { box-shadow: 0 0 0 9px transparent; }
+			100% { box-shadow: 0 0 0 0 transparent; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.mk-hero.is-open .mk-dot { animation: none; }
+			.mk-city.is-on .mk-city-dot { animation: none; }
+		}
+
+		.mk-hero-sub {
+			font-size: 0.78rem;
+			color: rgba(196, 205, 232, .8);
+			margin-top: 3px;
+			text-shadow: 0 1px 3px rgba(5, 8, 20, .8);
+		}
+
+		.mk-hero-sub b {
+			color: #fff;
+			font-variant-numeric: tabular-nums;
+		}
+
+		/* The clock sits in the ocean corner of the map, opposite the title. */
+		.mk-clock {
+			position: relative;
+			flex: none;
+			align-self: flex-end;
+			text-align: center;
+			line-height: 1.15;
+			z-index: 2;
+			text-shadow: 0 2px 8px rgba(5, 8, 20, .85);
+		}
+
+		/* The clock is the one piece of type on this screen that is allowed to
+		   be loud. Heavy, tight, tabular, with the seconds kept small so the
+		   hour and minute stay what the eye lands on. */
+		.mk-clock-time {
+			display: block;
+			font-size: 2.15rem;
+			font-weight: 900;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: -.02em;
+			line-height: 1;
+			direction: ltr;
+			color: #f4f7ff;
+		}
+
+		.mk-clock-sec {
+			font-size: 0.82rem;
+			font-weight: 700;
+			letter-spacing: 0;
+			color: rgba(196, 205, 232, .75);
+			margin-inline-start: 3px;
+			vertical-align: 3px;
+		}
+
+		.mk-clock-zone {
+			display: block;
+			font-size: 0.62rem;
+			color: rgba(196, 205, 232, .65);
+			letter-spacing: .06em;
+			margin-top: 4px;
+		}
+
+		.mk-board { display: flex; flex-direction: column; gap: 8px; }
+
+		.mk-m {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 11px 13px 10px;
+			border: 1px solid transparent;
+		}
+
+		/* A live market gets a tinted ground and a hairline, so which row
+		   matters right now is legible before reading a single word. */
+		.mk-m.is-live {
+			background: color-mix(in srgb, var(--up) 9%, var(--card));
+			border-color: color-mix(in srgb, var(--up) 32%, transparent);
+		}
+
+		/* Inside its hours, but the broker is in the rollover hour. */
+		.mk-m.is-paused {
+			background: color-mix(in srgb, var(--medium) 9%, var(--card));
+			border-color: color-mix(in srgb, var(--medium) 30%, transparent);
+		}
+
+		.mk-m-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin-bottom: 8px;
+		}
+
+		.mk-m-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+		/* Real flag artwork rather than an emoji, in a coin-shaped badge: the
+		   ring carries the row's state, so a market's flag is itself the
+		   signal — gold at rest, green while trading, amber on the break. */
+		.mk-m-flag {
+			flex: none;
+			width: 30px;
+			height: 30px;
+			border-radius: 50%;
+			overflow: hidden;
+			display: block;
+			border: 1.6px solid var(--flag-ring);
+			box-shadow: 0 2px 6px hsl(var(--shadow-color) / 22%);
+			transition: border-color .35s var(--ease-out-3), box-shadow .35s var(--ease-out-3);
+		}
+
+		/* The symbols are square; the badge crops them to the coin. */
+		.mk-m-flag svg {
+			width: 100%;
+			height: 100%;
+			display: block;
+		}
+
+		.mk-m.is-live .mk-m-flag {
+			border-color: var(--up);
+			box-shadow: 0 0 9px color-mix(in srgb, var(--up) 45%, transparent);
+		}
+
+		.mk-m.is-paused .mk-m-flag {
+			border-color: var(--medium);
+			box-shadow: 0 0 8px color-mix(in srgb, var(--medium) 40%, transparent);
+		}
+
+		/* Defined once, drawn by reference: the sprite itself never renders. */
+		.flag-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+		@media (prefers-reduced-motion: reduce) {
+			.mk-m-flag { transition: none; }
+		}
+		.mk-m-name { font-size: 0.9rem; font-weight: 600; }
+
+		.mk-m-sub {
+			font-size: 0.58rem;
+			font-weight: 700;
+			letter-spacing: .06em;
+			padding: 1px 6px;
+			border-radius: 5px;
+			color: var(--muted);
+			background: color-mix(in srgb, var(--muted) 16%, transparent);
+		}
+
+		.mk-m-pill {
+			flex: none;
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 0.68rem;
+			font-weight: 700;
+			padding: 3px 10px;
+			border-radius: 999px;
+			background: color-mix(in srgb, var(--muted) 16%, transparent);
+			color: var(--muted);
+		}
+
+		.mk-m.is-live .mk-m-pill {
+			background: color-mix(in srgb, var(--up) 20%, transparent);
+			color: var(--up);
+		}
+
+		.mk-m.is-paused .mk-m-pill {
+			background: color-mix(in srgb, var(--medium) 22%, transparent);
+			color: var(--medium);
+		}
+
+		.mk-m-live {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: currentColor;
+		}
+
+		.mk-m-track {
+			position: relative;
+			height: 12px;
+			border-radius: 6px;
+			background: color-mix(in srgb, var(--muted) 13%, transparent);
+			overflow: hidden;
+		}
+
+		/* --d1..--d3 are the three density bands the bar is painted with: one
+		   market open, two, three or more. They are declared per state so a
+		   live bar shades in green and an idle one in grey, while the gradient
+		   itself is built in script from the real per-minute counts. */
+		.mk-m-seg {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			border-radius: 6px;
+			--d1: color-mix(in srgb, var(--muted) 26%, transparent);
+			--d2: color-mix(in srgb, var(--muted) 42%, transparent);
+			--d3: color-mix(in srgb, var(--muted) 60%, transparent);
+			background: var(--d1);
+		}
+
+		.mk-m.is-live .mk-m-seg {
+			--d1: color-mix(in srgb, var(--up) 22%, transparent);
+			--d2: color-mix(in srgb, var(--up) 38%, transparent);
+			--d3: color-mix(in srgb, var(--up) 56%, transparent);
+			background: var(--d1);
+		}
+
+		.mk-m.is-paused .mk-m-seg {
+			--d1: color-mix(in srgb, var(--medium) 22%, transparent);
+			--d2: color-mix(in srgb, var(--medium) 38%, transparent);
+			--d3: color-mix(in srgb, var(--medium) 56%, transparent);
+			background: var(--d1);
+		}
+
+		/* Explains the shading without a separate chart: three chips of the
+		   same three bands the bars use. */
+		.mk-legend {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-wrap: wrap;
+			gap: 6px 14px;
+			margin: -6px 2px 14px;
+			font-size: 0.66rem;
+			color: var(--muted);
+		}
+
+		.mk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+		.mk-legend i {
+			width: 16px;
+			height: 8px;
+			border-radius: 3px;
+			background: color-mix(in srgb, var(--muted) 26%, transparent);
+		}
+
+		.mk-legend i.l2 { background: color-mix(in srgb, var(--muted) 42%, transparent); }
+		.mk-legend i.l3 { background: color-mix(in srgb, var(--muted) 60%, transparent); }
+
+		/* The daily rollover hour, hatched so it reads as "not trading" rather
+		   than as another session. Drawn over the segments beneath it. */
+		.mk-m-break {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			z-index: 1;
+			background:
+				repeating-linear-gradient(45deg,
+					color-mix(in srgb, var(--text) 34%, transparent) 0 2px,
+					transparent 2px 5px),
+				var(--card);
+		}
+
+		/* The elapsed part of a running session. It grows from the open edge,
+		   which under RTL is the right-hand side of the track. */
+		.mk-m-fill {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			right: 0;
+			border-radius: 6px;
+			background: var(--up);
+		}
+
+		.mk-m-now {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			width: 2px;
+			margin-right: -1px;
+			background: var(--text);
+			opacity: .55;
+			z-index: 2;
+		}
+
+		.mk-m.is-live .mk-m-now { opacity: 1; }
+
+		.mk-m-foot {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 5px 12px;
+			margin-top: 8px;
+			font-size: 0.72rem;
+			color: var(--muted);
+		}
+
+		.mk-m-time { display: inline-flex; align-items: center; gap: 5px; }
+
+		.mk-m-time b {
+			font-size: 0.8rem;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: .01em;
+			color: var(--text);
+		}
+
+		.mk-m-tag {
+			font-size: 0.6rem;
+			letter-spacing: .04em;
+			padding: 1px 6px;
+			border-radius: 5px;
+			background: color-mix(in srgb, var(--muted) 15%, transparent);
+		}
+
+		.mk-m-cd { margin-inline-start: auto; }
+
+		/* A running counter, so it needs fixed-width digits. Isolated rather
+		   than forced LTR: over a day the text is "۱ روز و ۰۲:۱۵:۳۳", and
+		   forcing LTR would reorder the Persian word. */
+		.mk-m-cdn, .mk-hero-cd {
+			display: inline-block;
+			unicode-bidi: isolate;
+			font-variant-numeric: tabular-nums;
+			font-weight: 700;
+			letter-spacing: .01em;
+			color: var(--text);
+		}
+
+		.mk-m-cdn { font-size: 0.8rem; }
+		.mk-m.is-live .mk-m-cdn { color: var(--up); }
+		.mk-m.is-paused .mk-m-cdn { color: var(--medium); }
+		.mk-m.is-paused .mk-m-now { opacity: 1; }
+
+		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
+
+		.mk-hour {
+			position: absolute;
+			transform: translateX(50%);
+			font-size: 0.64rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		/* The London∩NY window is the single most useful fact on this screen,
+		   so it gets the accent instead of sharing the neutral card look. */
+		.mk-overlap {
+			border-radius: 14px;
+			padding: 12px 15px;
+			background: color-mix(in srgb, var(--accent) 12%, var(--card));
+			border-right: 3px solid var(--accent);
+		}
+
+		.mk-overlap-title {
+			font-size: 0.82rem;
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.mk-overlap-sub {
+			font-size: 0.74rem;
+			color: var(--muted);
+			margin-top: 2px;
+		}
+
+		.mk-overlap-sub b {
+			color: var(--text);
+			font-size: 0.8rem;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.mk-picker {
+			background: var(--card);
+			border-radius: 13px;
+			padding: 13px 15px;
+			margin-top: 18px;
+		}
+
+		.mk-picker-label { font-size: 0.84rem; font-weight: 700; margin-bottom: 9px; }
+
+		.mk-picker-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+
+		.mk-picker-hint {
+			font-size: 0.7rem;
+			color: var(--muted);
+			line-height: 1.8;
+			margin-top: 10px;
+		}
+
+		/* ---------- day timeline ---------- */
+		.tl {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 13px 15px 11px;
+			margin-bottom: 16px;
+		}
+
+		.tl-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			margin-bottom: 12px;
+		}
+
+		.tl-title { font-size: 0.86rem; font-weight: 700; }
+
+		.tl-count { font-size: 0.74rem; color: var(--muted); }
+
+		/* The track is the positioning context for every mark inside it, all of
+		   which are placed with `right` because the page is RTL. */
+		.tl-track {
+			position: relative;
+			height: 30px;
+			border-radius: 7px;
+			background: color-mix(in srgb, var(--muted) 16%, transparent);
+			overflow: hidden;
+		}
+
+		.tl-band {
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			background: color-mix(in srgb, var(--high) 30%, transparent);
+		}
+
+		.tl-tick {
+			position: absolute;
+			top: 5px;
+			bottom: 5px;
+			width: 3px;
+			border-radius: 2px;
+			margin-right: -1.5px;
+		}
+
+		.tl-tick.imp-high { background: var(--high); }
+		.tl-tick.imp-medium { background: var(--medium); }
+		.tl-tick.imp-low { background: color-mix(in srgb, var(--low) 80%, transparent); }
+
+		.tl-now {
+			position: absolute;
+			top: -2px;
+			bottom: -2px;
+			width: 2px;
+			margin-right: -1px;
+			background: var(--text);
+		}
+
+		.tl-now::before {
+			content: "";
+			position: absolute;
+			top: 0;
+			right: -3px;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--text);
+		}
+
+		.tl-axis {
+			position: relative;
+			height: 15px;
+			margin-top: 5px;
+		}
+
+		.tl-hour {
+			position: absolute;
+			transform: translateX(50%);
+			font-size: 0.64rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.tl-legend {
+			font-size: 0.7rem;
+			color: var(--muted);
+			line-height: 1.7;
+			margin-top: 4px;
+		}
+
+		/* ---------- month grid ---------- */
+		.month-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 12px;
+		}
+
+		.month-name {
+			font-size: 0.95rem;
+			font-weight: 700;
+		}
+
+		.month-nav {
+			width: 32px;
+			height: 32px;
+			border-radius: 9px;
+			border: 0;
+			background: var(--card);
+			color: var(--text);
+			font-size: 1.15rem;
+			line-height: 1;
+			font-family: inherit;
+			cursor: pointer;
+		}
+
+		.month-grid {
+			display: grid;
+			grid-template-columns: repeat(7, 1fr);
+			gap: 4px;
+		}
+
+		.month-wd {
+			text-align: center;
+			font-size: 0.68rem;
+			font-weight: 700;
+			color: var(--muted);
+			padding-bottom: 3px;
+		}
+
+		.month-cell {
+			aspect-ratio: 1 / 1;
+			border: 0;
+			border-radius: 10px;
+			background: var(--card);
+			color: var(--text);
+			font-family: inherit;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 3px;
+			padding: 0;
+			cursor: pointer;
+		}
+
+		.month-cell:disabled { cursor: default; }
+		.month-cell.is-blank { background: transparent; }
+
+		/* Beyond the range the server sent, "no events" is unknown, not none. */
+		.month-cell.is-outside { opacity: .38; }
+
+		.month-cell.is-today {
+			outline: 2px solid var(--accent);
+			outline-offset: -2px;
+		}
+
+		.month-cell.is-selected {
+			background: var(--accent);
+			color: var(--accent-text);
+		}
+
+		.month-day {
+			font-size: 0.8rem;
+			font-weight: 600;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.month-dots {
+			display: flex;
+			gap: 2px;
+			height: 5px;
+			align-items: center;
+		}
+
+		.month-dot {
+			width: 5px;
+			height: 5px;
+			border-radius: 50%;
+			display: block;
+		}
+
+		.month-hint {
+			text-align: center;
+			color: var(--muted);
+			font-size: 0.8rem;
+			padding: 20px 10px 4px;
+		}
+
+		/* ---------- day groups ---------- */
+		.day-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			margin: 20px 2px 8px;
+		}
+
+		.day-head:first-child { margin-top: 4px; }
+
+		.day-head .date {
+			font-size: 0.87rem;
+			font-weight: 700;
+		}
+
+		.day-head .rel {
+			font-size: 0.74rem;
+			color: var(--muted);
+		}
+
+		.holiday {
+			background: color-mix(in srgb, var(--medium) 12%, transparent);
+			color: var(--medium);
+			border-radius: 11px;
+			padding: 9px 13px;
+			font-size: 0.8rem;
+			font-weight: 600;
+			margin-bottom: 8px;
+		}
+
+		/* ---------- same-instant clusters ---------- */
+		/* Two or more releases landing at the same minute are one market
+		   moment, not a coincidence: their cards sit on a shared tray with
+		   a single time header, and each card drops its now-redundant time
+		   column. */
+		.cluster {
+			background: color-mix(in srgb, var(--navy) 5%, transparent);
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			padding: 7px;
+			margin-bottom: 7px;
+		}
+
+		.cluster-head {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			padding: 3px 8px 8px;
+			font-size: 0.72rem;
+			color: var(--muted);
+		}
+
+		.cluster-head b {
+			font-variant-numeric: tabular-nums;
+			font-size: 0.86rem;
+			color: var(--text);
+		}
+
+		.cluster .event { margin-bottom: 6px; }
+		.cluster .event:last-child { margin-bottom: 0; }
+		.cluster .event { grid-template-columns: 1fr; }
+		.cluster .event-time { display: none; }
+
+		/* ---------- event rows ---------- */
+		.event {
+			display: grid;
+			grid-template-columns: 52px 1fr;
+			gap: 11px;
+			background: var(--card);
+			border-radius: 13px;
+			padding: 11px 13px;
+			margin-bottom: 7px;
+			cursor: pointer;
+			border: 0;
+			width: 100%;
+			text-align: right;
+			font-family: inherit;
+			color: inherit;
+		}
+
+		.event.is-past { opacity: .62; }
+
+		.event-time {
+			font-variant-numeric: tabular-nums;
+			font-weight: 700;
+			font-size: 0.88rem;
+			padding-top: 1px;
+		}
+
+		.event-time .plus {
+			display: block;
+			font-size: 0.62rem;
+			font-weight: 500;
+			color: var(--muted);
+		}
+
+		.event-title {
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			font-weight: 600;
+			font-size: 0.92rem;
+		}
+
+		.imp {
+			flex: none;
+			width: 7px;
+			height: 7px;
+			border-radius: 50%;
+		}
+
+		.imp-high { background: var(--high); }
+		.imp-medium { background: var(--medium); }
+		.imp-low { background: var(--low); }
+
+		/* The English release name inside an RTL row: isolated so the bidi
+		   algorithm cannot interleave it with the Persian around it. */
+		.event-title-en {
+			direction: ltr;
+			unicode-bidi: isolate;
+			text-align: right;
+			letter-spacing: .01em;
+			min-width: 0;
+			overflow-wrap: anywhere;
+		}
+
+		/* قبلی · پیش‌بینی · واقعی. Three equal cells so the eye learns one
+		   fixed geography and reads only the digits. */
+		.vals {
+			display: grid;
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+			gap: 6px;
+			margin-top: 7px;
+		}
+
+		.val {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 1px;
+			padding: 4px 4px 5px;
+			border-radius: 8px;
+			background: color-mix(in srgb, var(--muted) 9%, transparent);
+		}
+
+		.val small {
+			font-size: 0.58rem;
+			font-weight: 600;
+			letter-spacing: .04em;
+			color: var(--muted);
+		}
+
+		.val b {
+			font-size: 0.8rem;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			direction: ltr;
+			unicode-bidi: isolate;
+		}
+
+		.val.is-wait b { color: var(--muted); font-weight: 500; }
+
+		/* The actual cell carries the verdict: green when the surprise is
+		   dollar-positive, red when negative, neutral when the label has no
+		   direction to judge by. */
+		.val-actual.is-good {
+			background: color-mix(in srgb, var(--up) 16%, transparent);
+		}
+		.val-actual.is-good b { color: var(--up); }
+
+		.val-actual.is-bad {
+			background: color-mix(in srgb, var(--down) 14%, transparent);
+		}
+		.val-actual.is-bad b { color: var(--down); }
+
+		.val-actual.is-out {
+			background: color-mix(in srgb, var(--accent) 12%, transparent);
+		}
+
+		.event-fa {
+			font-size: 0.86rem;
+			font-weight: 700;
+			color: var(--text);
+		}
+
+		.event-meta {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px 14px;
+			margin-top: 4px;
+			font-size: 0.76rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.event-meta b {
+			color: var(--text);
+			font-weight: 600;
+		}
+
+		.read {
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+			margin-top: 7px;
+			padding: 3px 9px;
+			border-radius: 999px;
+			font-size: 0.72rem;
+			font-weight: 700;
+		}
+
+		.read-good { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+		.read-bad { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
+
+		/* Expanded detail, revealed on tap. Keeps the list scannable while the
+		   full numbers stay one tap away. */
+		.event-detail {
+			grid-column: 1 / -1;
+			margin-top: 9px;
+			padding-top: 9px;
+			border-top: 1px solid var(--line);
+			font-size: 0.78rem;
+			color: var(--muted);
+			display: none;
+		}
+
+		.event.is-open .event-detail { display: block; }
+
+		.event-detail div { margin-bottom: 3px; }
+
+		/* Past releases. Height encodes the value, colour encodes beat/miss —
+		   two readings from one glance. */
+		.hist { margin-bottom: 11px; }
+
+		.hist-title {
+			font-size: 0.74rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-bottom: 7px;
+		}
+
+		.hist-bars {
+			display: flex;
+			align-items: flex-end;
+			gap: 8px;
+			height: 74px;
+		}
+
+		.hist-col {
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: flex-end;
+			height: 100%;
+			min-width: 0;
+		}
+
+		.hist-bar {
+			width: 100%;
+			max-width: 30px;
+			border-radius: 4px 4px 2px 2px;
+			min-height: 6px;
+		}
+
+		.hist-up { background: color-mix(in srgb, var(--up) 72%, transparent); }
+		.hist-down { background: color-mix(in srgb, var(--down) 72%, transparent); }
+		.hist-flat { background: color-mix(in srgb, var(--muted) 55%, transparent); }
+
+		.hist-val {
+			font-size: 0.66rem;
+			font-weight: 700;
+			color: var(--text);
+			margin-top: 4px;
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+		}
+
+		.hist-date {
+			font-size: 0.6rem;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.hist-legend {
+			font-size: 0.66rem;
+			color: var(--muted);
+			margin-top: 6px;
+		}
+
+		/* ---------- alerts ---------- */
+		.alerts {
+			background: var(--card);
+			border-radius: 14px;
+			padding: 15px;
+			margin-top: 26px;
+		}
+
+		.alerts h2 {
+			font-size: 0.95rem;
+			font-weight: 700;
+			margin: 0 0 3px;
+		}
+
+		.alerts .sub {
+			font-size: 0.78rem;
+			color: var(--muted);
+			margin: 0 0 13px;
+		}
+
+		.row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 9px 0;
+		}
+
+		.row + .row { border-top: 1px solid var(--line); }
+
+		.row .label { font-size: 0.86rem; font-weight: 600; }
+		.row .hint { font-size: 0.73rem; color: var(--muted); margin-top: 1px; }
+
+		.switch {
+			flex: none;
+			width: 48px;
+			height: 28px;
+			border-radius: 999px;
+			border: 0;
+			background: color-mix(in srgb, var(--muted) 40%, transparent);
+			position: relative;
+			cursor: pointer;
+			transition: background .18s ease;
+		}
+
+		.switch[aria-checked="true"] { background: var(--accent); }
+
+		.switch::after {
+			content: "";
+			position: absolute;
+			top: 3px;
+			right: 3px;
+			width: 22px;
+			height: 22px;
+			border-radius: 50%;
+			background: #fff;
+			transition: transform .18s ease;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+		}
+
+		.switch[aria-checked="true"]::after { transform: translateX(-20px); }
+
+		.minutes {
+			display: flex;
+			gap: 6px;
+			margin-top: 10px;
+		}
+
+		.minutes button {
+			flex: 1;
+			border: 1px solid var(--line);
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.8rem;
+			font-weight: 600;
+			padding: 8px 2px;
+			border-radius: 9px;
+			cursor: pointer;
+		}
+
+		.minutes button[aria-pressed="true"] {
+			background: var(--accent);
+			border-color: var(--accent);
+			color: var(--accent-text);
+		}
+
+		.alerts-disabled { opacity: .45; pointer-events: none; }
+
+		/* ---------- AI analysis ---------- */
+		.ai-btn {
+			width: 100%;
+			border: 0;
+			border-radius: 10px;
+			background: var(--accent);
+			color: var(--accent-text);
+			font-family: inherit;
+			font-size: 0.86rem;
+			font-weight: 700;
+			padding: 11px;
+			cursor: pointer;
+		}
+
+		.ai-btn:disabled { opacity: .6; cursor: default; }
+
+		.ai-body {
+			margin-top: 12px;
+			font-size: 0.85rem;
+			line-height: 1.9;
+			white-space: pre-wrap;
+		}
+
+		.ai-body.is-empty {
+			color: var(--muted);
+			font-size: 0.8rem;
+			white-space: normal;
+		}
+
+		.ai-stamp {
+			display: block;
+			margin-top: 9px;
+			font-size: 0.7rem;
+			color: var(--muted);
+		}
+
+		/* ---------- states ---------- */
+		.skel {
+			background: var(--card);
+			border-radius: 13px;
+			height: 62px;
+			margin-bottom: 7px;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.skel::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text) 7%, transparent), transparent);
+			animation: sweep 1.3s ease-in-out infinite;
+		}
+
+		@keyframes sweep {
+			0% { transform: translateX(-100%); }
+			100% { transform: translateX(100%); }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.skel::after { animation: none; }
+			* { transition: none !important; }
+		}
+
+		.empty {
+			text-align: center;
+			color: var(--muted);
+			padding: 34px 16px;
+			font-size: 0.88rem;
+		}
+
+		.empty .big { font-size: 1.9rem; display: block; margin-bottom: 8px; opacity: .75; }
+
+		.error {
+			background: color-mix(in srgb, var(--high) 12%, transparent);
+			color: var(--high);
+			border-radius: 12px;
+			padding: 14px;
+			font-size: 0.85rem;
+			text-align: center;
+		}
+
+		.error button {
+			display: block;
+			margin: 10px auto 0;
+			border: 0;
+			background: var(--accent);
+			color: var(--accent-text);
+			font-family: inherit;
+			font-weight: 600;
+			font-size: 0.82rem;
+			padding: 8px 20px;
+			border-radius: 9px;
+			cursor: pointer;
+		}
+
+		.footnote {
+			margin-top: 18px;
+			font-size: 0.72rem;
+			color: var(--muted);
+			text-align: center;
+			line-height: 1.8;
+		}
+
+		.build { opacity: .55; }
+		/* ---------- touch ----------
+		   body sets -webkit-tap-highlight-color: transparent, which removes the
+		   platform's own tap flash. Nothing replaced it, so until now a tap
+		   produced no feedback at all until the result appeared. Every control
+		   now dips under the finger and springs back.
+
+		   The dip is scaled to the control: a full-width card moves barely at
+		   all, a chip moves more, or a big element looks like it is collapsing
+		   rather than being pressed.
+
+		   This section sits last on purpose. .seg button and .switch each
+		   declare a transition of their own further up, and at equal
+		   specificity the later rule wins - placed earlier, the press would
+		   silently snap instead of springing on exactly those two controls.
+		   Reduced motion is already handled by the global transition reset. */
+		.chip,
+		.seg button,
+		.icon-btn,
+		.event,
+		.ai-btn,
+		.month-nav,
+		.month-cell,
+		.switch,
+		.minutes button,
+		.search-clear {
+			transition: transform .18s var(--ease-elastic-3), background-color .16s ease, color .16s ease, border-color .16s ease;
+		}
+
+		.event:active { transform: scale(.99); }
+		.chip:active,
+		.seg button:active,
+		.ai-btn:active,
+		.minutes button:active,
+		.month-cell:not(:disabled):active { transform: scale(.955); }
+		.icon-btn:active,
+		.month-nav:active,
+		.search-clear:active,
+		.switch:active { transform: scale(.9); }
+
+		/* A disabled control must not pretend to respond. */
+		.ai-btn:disabled:active,
+		.month-cell:disabled:active { transform: none; }
+
+		/* Controls kept the browser's default focus ring, which differs per
+		   engine and belongs to no palette. This replaces it with one ring in
+		   the brand accent. focus-visible rather than focus, so a tap never
+		   leaves a ring behind on a touchscreen. */
+		.chip:focus-visible,
+		.seg button:focus-visible,
+		.icon-btn:focus-visible,
+		.event:focus-visible,
+		.ai-btn:focus-visible,
+		.month-nav:focus-visible,
+		.month-cell:focus-visible,
+		.switch:focus-visible,
+		.minutes button:focus-visible,
+		.search-clear:focus-visible {
+			outline: 2px solid var(--accent);
+			outline-offset: 2px;
+		}
+

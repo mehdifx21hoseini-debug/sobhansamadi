@@ -27,8 +27,16 @@ import {
   defaultSubscription,
   ALLOWED_MINUTES,
 } from "./subscribers.js";
+import { ECON_APP_VERSION } from "./appVersion.js";
 
-const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=29";
+// «?v=» کشِ وب‌ویوی تلگرام را می‌شکند. پیش از این عددش دستی نوشته می‌شد و
+// این یک تله بود: اگر بعد از تغییر اپ یادمان می‌رفت جلو ببریمش، کاربر
+// نسخه‌ی کهنه را می‌دید و هیچ‌جا خطایی ثبت نمی‌شد - فقط اپ «عوض نشده» بود.
+//
+// حالا مقدارش هشِ خودِ econ-app.html است که scripts/build-econ-app.mjs
+// می‌نویسد، پس نه می‌تواند عقب بماند و نه بی‌دلیل جلو برود.
+const ECON_APP_URL =
+  "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=" + ECON_APP_VERSION;
 
 
 // ایموجی‌ها همان‌هایی است که نود Send Econ Menu (HTTP) داشت - هرکدام به

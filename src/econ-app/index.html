@@ -1,0 +1,151 @@
+<!doctype html>
+<!--
+	این فایل ساخته می‌شود. دستی ویرایشش نکنید - با اولین ساخت پاک می‌شود.
+
+	منبعش اینجاست:
+	  src/econ-app/index.html   قالب و نشانه‌گذارها
+	  src/econ-app/app.css      استایل
+	  src/econ-app/app.js       منطق
+
+	بعد از هر تغییر:
+	  node scripts/build-econ-app.mjs
+
+	خروجی عمداً تک‌فایل است تا مینی‌اپ با یک درخواست بالا بیاید.
+-->
+<html lang="fa" dir="rtl">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>تقویم اقتصادی — آکادمی سبحان صمدی</title>
+	<script src="https://telegram.org/js/telegram-web-app.js"></script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="stylesheet"
+		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap">
+	<style>
+		<!-- build:css -->
+	</style>
+</head>
+
+<body>
+	<!-- Flag artwork from flag-icons (MIT, Panayiotis Lipiridis), inlined
+	     once as symbols: emoji flags do not render on Windows, where
+	     Telegram Desktop shows the two-letter code instead. -->
+	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/><path fill="#fff" d="m202 402.8-45.8 5.4 4.6 45.9-32.8-32.4-33 32.2 4.9-45.9-45.8-5.8L93 377.4 69 338l43.6 15 15.8-43.4 15.5 43.5 43.7-14.7-24.3 39.2 38.8 25.1Zm222.7 8-20.5 2.6 2.2 20.5-14.8-14.4-14.7 14.5 2-20.5-20.5-2.4 17.3-11.2-10.9-17.5 19.6 6.5 6.9-19.5 7.1 19.4 19.5-6.7-10.7 17.6zM415 293.6l2.7-13-9.8-9 13.2-1.5 5.5-12.1 5.5 12.1 13.2 1.5-9.8 9 2.7 13-11.6-6.6zm-84.1-60-20.3 2.2 1.8 20.3-14.4-14.5-14.8 14.1 2.4-20.3-20.2-2.7 17.3-10.8-10.5-17.5 19.3 6.8 7.2-19.1 6.7 19.3 19.4-6.3-10.9 17.3zm175.8-32.8-20.9 2.7 2.3 20.9-15.1-14.7-15 14.8 2.1-21-20.9-2.4 17.7-11.5-11.1-17.9 20 6.7 7-19.8 7.2 19.8 19.9-6.9-11 18zm-82.1-83.5-20.7 2.3 1.9 20.8-14.7-14.8L376 140l2.4-20.7-20.7-2.8 17.7-11-10.7-17.9 19.7 6.9 7.3-19.5 6.8 19.7 19.8-6.5-11.1 17.6z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol></defs></svg>
+	<div class="wrap">
+		<div class="hero">
+			<div class="brand">
+				<span class="brand-mark">
+					<img src="assets/img/logo-mark.png" alt="" aria-hidden="true" width="26" height="26">
+				</span>
+				<div class="brand-text">
+					<h1>تقویم اقتصادی دلار</h1>
+					<p id="heroSub">در حال بارگذاری…</p>
+				</div>
+			</div>
+			<div class="hero-actions">
+				<span id="riskPill" class="risk-pill" hidden><span class="dot"></span><span id="riskText"></span></span>
+				<button id="btnRefresh" class="icon-btn" type="button" aria-label="بروزرسانی" title="بروزرسانی">
+					<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+						stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M21 12a9 9 0 1 1-2.64-6.36" />
+						<path d="M21 3v6h-6" />
+					</svg>
+				</button>
+			</div>
+		</div>
+
+		<div id="nextCard" class="next-card" hidden>
+			<div>
+				<div class="label">رویداد بعدی</div>
+				<div class="name" id="nextName"></div>
+			</div>
+			<div class="countdown">
+				<div class="value" id="nextValue">—</div>
+				<div class="unit" id="nextUnit">مانده</div>
+			</div>
+		</div>
+
+		<div class="seg" role="tablist">
+			<button role="tab" id="tabToday" aria-selected="true">امروز</button>
+			<button role="tab" id="tabWeek" aria-selected="false">این هفته</button>
+			<button role="tab" id="tabMonth" aria-selected="false">ماه</button>
+			<button role="tab" id="tabMarkets" aria-selected="false">سشن‌ها</button>
+		</div>
+
+		<div class="search-row">
+			<input type="search" id="searchInput" class="search-input" autocomplete="off"
+				placeholder="جستجوی شاخص… مثلاً CPI یا تورم">
+			<button type="button" id="btnClearSearch" class="search-clear" aria-label="پاک کردن جستجو" hidden>×</button>
+		</div>
+
+		<div class="chips">
+			<button class="chip" data-imp="all" aria-pressed="true">همه</button>
+			<button class="chip" data-imp="high" aria-pressed="false">🔴 خیلی مهم</button>
+			<button class="chip" data-imp="medium" aria-pressed="false">🟡 مهم به بالا</button>
+		</div>
+
+		<div id="list">
+			<div class="skel"></div>
+			<div class="skel"></div>
+			<div class="skel"></div>
+		</div>
+
+		<div id="aiCard" class="alerts" hidden>
+			<h2>تحلیل هوش مصنوعی</h2>
+			<p class="sub">خلاصه و تفسیر خبرهای امروز.</p>
+			<button class="ai-btn" id="btnExplain" type="button">نمایش تحلیل امروز</button>
+			<div id="aiBody" class="ai-body" hidden></div>
+		</div>
+
+		<div id="alertsCard" class="alerts" hidden>
+			<h2>هشدار قبل از خبر</h2>
+			<p class="sub">قبل از انتشار خبرهای مهم، ربات بهت پیام می‌ده.</p>
+
+			<div class="row">
+				<div>
+					<div class="label">دریافت هشدار</div>
+					<div class="hint">فقط برای خبرهای دلار</div>
+				</div>
+				<button class="switch" id="swSubscribed" role="switch" aria-checked="false"
+					aria-label="دریافت هشدار"></button>
+			</div>
+
+			<div id="alertOptions">
+				<div class="row" style="display:block">
+					<div class="label">چند دقیقه قبل؟</div>
+					<div class="minutes" id="minutes">
+						<button data-m="5" aria-pressed="false">۵</button>
+						<button data-m="15" aria-pressed="true">۱۵</button>
+						<button data-m="30" aria-pressed="false">۳۰</button>
+						<button data-m="60" aria-pressed="false">۶۰</button>
+					</div>
+				</div>
+
+				<div class="row">
+					<div>
+						<div class="label">خبرهای کم‌اهمیت هم بیاد</div>
+						<div class="hint">پیش‌فرض: فقط مهم و خیلی مهم</div>
+					</div>
+					<button class="switch" id="swLow" role="switch" aria-checked="false"
+						aria-label="خبرهای کم‌اهمیت"></button>
+				</div>
+			</div>
+		</div>
+
+		<p class="footnote">
+			ساعت‌ها به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
+			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
+			<!-- Printed so a stale copy can be identified at a glance: the
+			     WebView caches this page and the URL is otherwise constant. -->
+			<span class="build">نسخه ۲۶</span>
+		</p>
+	</div>
+
+	<script>
+		<!-- build:js -->
+	</script>
+</body>
+
+</html>

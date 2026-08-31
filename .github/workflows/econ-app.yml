@@ -1,0 +1,40 @@
+# نگهبانِ مینی‌اپ.
+#
+# دو چیز را می‌شود فراموش کرد و هیچ‌کدام سر و صدا نمی‌کنند:
+#
+#   ۱. منبع src/econ-app/ عوض شود ولی econ-app.html ساخته نشود - آن‌وقت
+#      کاربر تغییر را اصلاً نمی‌بیند و فایل منبع بی‌صدا از خروجی جدا
+#      می‌افتد.
+#   ۲. اپ عوض شود ولی appVersion.js عقب بماند - آن‌وقت وب‌ویوی تلگرام
+#      نسخه‌ی کش‌شده را نگه می‌دارد و باز هم کاربر تغییر را نمی‌بیند.
+#
+# هر دو یک نشانه دارند: «چیزی عوض نشد». این جاب همان سکوت را به یک بیلد
+# قرمز تبدیل می‌کند.
+name: econ mini-app
+
+on:
+  push:
+    paths:
+      - "src/econ-app/**"
+      - "econ-app.html"
+      - "bot/src/econ/appVersion.js"
+      - "scripts/build-econ-app.mjs"
+      - ".github/workflows/econ-app.yml"
+  pull_request:
+    paths:
+      - "src/econ-app/**"
+      - "econ-app.html"
+      - "bot/src/econ/appVersion.js"
+      - "scripts/build-econ-app.mjs"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: خروجی و نسخه با منبع یکی است؟
+        run: node scripts/build-econ-app.mjs --check
