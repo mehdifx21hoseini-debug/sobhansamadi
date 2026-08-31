@@ -8,6 +8,7 @@
 // فقط داده کمی کهنه می‌شود.
 
 import { ensureKbSchema, replaceKb } from "../ai/kb.js";
+import { importSubscribers } from "./subscribers.js";
 
 const SYNC_STATE_KEY = "econ_last_sync";
 
@@ -263,6 +264,16 @@ export async function syncFromN8n(env) {
   // یعنی افزودنش به خروجی n8n کافی است تا خودبه‌خود شروع به کار کند.
   const kbCount = Array.isArray(data.kb) ? await replaceKb(env, data.kb) : null;
 
+  // مشترکین هشدار، فقط برای پر کردن اولیه‌ی آینه.
+  //
+  // این یکی جای‌گزینی نیست بلکه INSERT OR IGNORE است: منبع اصلیِ این
+  // فهرست از این به بعد خود D1 است و کاربر تنظیمش را از ربات و مینی‌اپ
+  // عوض می‌کند. اگر هر بار با نسخه‌ی n8n بازنویسی می‌شد، هر تغییرِ کاربر
+  // ده دقیقه بعد بی‌صدا برمی‌گشت به حالت قبل.
+  const subs = Array.isArray(data.subscribers)
+    ? await importSubscribers(env, data.subscribers)
+    : null;
+
   await markSynced(env, new Date().toISOString());
 
   return {
@@ -271,6 +282,7 @@ export async function syncFromN8n(env) {
     holidays: holidayCount,
     ai_cache: cacheCount,
     kb: kbCount,
+    subscribers: subs,
   };
 }
 

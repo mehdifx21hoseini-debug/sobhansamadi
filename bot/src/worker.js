@@ -17,7 +17,9 @@ import {
   runResultSweep,
   pruneSentLog,
   senderStatus,
+  SENDER_FLAG,
 } from "./econ/sender.js";
+import { writeConfig } from "./content/channel.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
 // آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
@@ -46,7 +48,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-30-sender";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-31-cutover";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -182,6 +184,22 @@ async function handleAdmin(request, url, env) {
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
     }
+  }
+
+  // کلید ارسال تقویم از ورکر - همان کاری که /econsender در تلگرام
+  // می‌کند، از بیرون.
+  //
+  // چرا دو راه: لحظه‌ی انتقال باید یک ترتیب دقیق داشته باشد (اول خاموش
+  // کردن ارسال n8n، بعد روشن کردن این)، و آن ترتیب را کسی اجرا می‌کند که
+  // همان لحظه به n8n هم دسترسی دارد. مجبور کردنش به رفتن به تلگرام وسط
+  // کار، یعنی چند دقیقه فاصله بین دو قدم - که دقیقاً همان چند دقیقه‌ای
+  // است که یا هیچ پیامی نمی‌رود یا هر پیام دو بار می‌رود.
+  if (url.pathname === "/admin/econ-sender") {
+    const state = (url.searchParams.get("state") || "").toLowerCase();
+    if (state === "on" || state === "off") {
+      await writeConfig(env, SENDER_FLAG, state);
+    }
+    return json({ ok: true, build: BUILD, econ_sender: await senderStatus(env) });
   }
 
   // آیا فید ForexFactory اصلاً عدد «واقعی» دارد؟
