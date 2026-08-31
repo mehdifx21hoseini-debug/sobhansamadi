@@ -76,14 +76,14 @@
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script>
 		// همان منطقِ js/data.js، اینجا تکرار شده چون صفحه‌ی ورود پیش از
-		// بارگذاری آن اجرا می‌شود. برگشت به n8n:
-		//   localStorage.setItem("crmApiBase", "https://96825.7host.cloud/webhook")
+		// بارگذاری آن اجرا می‌شود. امتحانِ ورکر:
+		//   localStorage.setItem("crmApiBase", "https://sobhansamadi.mehdifx21hoseini.workers.dev")
 		function apiBase() {
 			try {
 				var o = localStorage.getItem("crmApiBase");
 				if (o) return o;
 			} catch (e) {}
-			return "https://sobhansamadi.mehdifx21hoseini.workers.dev";
+			return "https://96825.7host.cloud/webhook";
 		}
 
 		document.getElementById("loginForm").addEventListener("submit", function (e) {
