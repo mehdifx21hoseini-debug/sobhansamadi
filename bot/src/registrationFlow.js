@@ -14,10 +14,23 @@ const COURSE_LABELS = {
 // شیء خام و نه سازنده‌ی InlineKeyboard: گرامی فیلد style را بی‌صدا دور
 // می‌ریزد و دکمه‌ها بی‌رنگ می‌شوند.
 //
-// دکمه‌های انتخاب دوره برداشته شدند: هر دو ورودیِ این مسیر خودشان اسم
-// دوره را می‌گویند، پس پرسیدنش یک قدم اضافه بود. handleCourseChoice
-// پایین‌تر عمداً مانده - پیام‌های قدیمی در چت کاربرها هنوز آن دکمه‌ها را
-// دارند و زدنشان نباید به سکوت بخورد.
+// «هر دو دوره» سبز است و آن دو آبی: سه گزینه‌ی هم‌رنگ یعنی سه گزینه‌ی
+// هم‌ارزش، در حالی که این یکی کامل‌ترین مسیر است و باید در یک نگاه
+// معلوم باشد.
+//
+// ترتیب هم تصادفی نیست: «مجموعه آموزشی پیشرفته» اول می‌آید چون کاربر
+// معمولاً از دکمه‌ی هم‌نامِ منو به اینجا رسیده و باید همان چیزی را که
+// رویش زده، اول ببیند.
+function courseChoiceKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "📚 مجموعه آموزشی پیشرفته", callback_data: "COURSE_TECH", style: "primary" }],
+      [{ text: "🧠 دوره روانشناسی", callback_data: "COURSE_PSY", style: "primary" }],
+      [{ text: "📘 هر دو دوره", callback_data: "COURSE_BOTH", style: "success" }],
+      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    ],
+  };
+}
 
 function cancelOnlyKeyboard() {
   return { inline_keyboard: [[{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]] };
@@ -81,34 +94,49 @@ function buildConfirmText(flow, temp) {
   return lines.join("\n");
 }
 
-export async function startFlow(ctx, flow, promptOverride) {
-  // انتخاب دوره برداشته شد.
-  //
-  // هر دو در ورودی این مسیر - دکمه‌ی منوی اصلی و دکمه‌ی پایان دوره‌ی
-  // مقدماتی - یک نام دارند: «شرکت در مجموعه آموزشی پیشرفته». وقتی خودِ
-  // دکمه دوره را گفته، پرسیدن دوباره‌اش یک قدم اضافه بود بین «بله
-  // می‌خواهم» و «اینم مشخصاتم» - و هر قدم اضافه در یک فرم، جایی است که
-  // بخشی از مردم می‌روند.
-  //
-  // دوره همچنان در temp_data می‌نشیند تا آن سر ماجرا، در CRM، ستون دوره
-  // خالی نباشد.
-  const temp = { course: COURSE_LABELS.COURSE_TECH };
+/**
+ * @param {object} opts
+ * @param {boolean} opts.skipCourseChoice پرسیدن دوره را رد کن و مستقیم
+ *   سراغ فرم برو. فقط ورودیِ پایان دوره‌ی مقدماتی این را می‌دهد: آنجا
+ *   کاربر تازه یک دوره را تمام کرده و روی دکمه‌ای زده که اسم دوره‌ی بعدی
+ *   رویش نوشته - پرسیدن دوباره‌اش یک قدم اضافه است بین «بله می‌خواهم» و
+ *   «اینم مشخصاتم».
+ *
+ *   ورودی منوی اصلی این را نمی‌دهد و هر سه گزینه را نشان می‌دهد، چون
+ *   کسی که از منو می‌آید هنوز چیزی انتخاب نکرده.
+ */
+export async function startFlow(ctx, flow, promptOverride, { skipCourseChoice = false } = {}) {
+  if (skipCourseChoice) {
+    // دوره همین‌جا ثبت می‌شود تا آن سر ماجرا، در CRM، ستون دوره خالی نماند.
+    await setUserState(ctx.env, ctx.from.id, {
+      current_flow: flow,
+      current_step: "ask_name",
+      temp_data: { course: COURSE_LABELS.COURSE_TECH },
+    });
+    if (promptOverride) await ctx.reply(promptOverride);
+    await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", {
+      reply_markup: cancelOnlyKeyboard(),
+    });
+    return;
+  }
 
   await setUserState(ctx.env, ctx.from.id, {
     current_flow: flow,
-    current_step: "ask_name",
-    temp_data: temp,
+    current_step: "choose_course",
+    temp_data: {},
   });
 
   if (promptOverride) {
-    await ctx.reply(promptOverride);
-  } else if (flow !== "registration") {
-    await sendSection(ctx, "CONSULT_START");
+    await ctx.reply(promptOverride, { reply_markup: courseChoiceKeyboard() });
+    return;
   }
-
-  await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", {
-    reply_markup: cancelOnlyKeyboard(),
-  });
+  if (flow === "registration") {
+    await ctx.reply("برای ثبت‌نام، لطفاً دوره موردنظر خود را انتخاب کنید:", {
+      reply_markup: courseChoiceKeyboard(),
+    });
+    return;
+  }
+  await sendSection(ctx, "CONSULT_START", courseChoiceKeyboard());
 }
 
 export async function handleCourseChoice(ctx, cb) {
