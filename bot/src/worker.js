@@ -20,12 +20,18 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { writeConfig } from "./content/channel.js";
+import { ingestEconSources, INGEST_FLAG, ingestEnabled } from "./econ/ingest.js";
+import { EXPLAIN_FLAG, explainEnabled } from "./econ/explain.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
 // آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
 // نوشته شده‌اند تا در یک نگاه با هم مقایسه شوند.
 const DIGEST_CRON = "30 4 * * *";
 const ALERT_CRON = "*/5 * * * *";
+// جمع‌آوری داده‌ی تقویم. ساعتی، همان فاصله‌ای که n8n داشت: فید هفتگی است
+// و تندتر خواندنش چیزی تازه‌تر نمی‌آورد، فقط شانس ۴۲۹ گرفتن را بالا
+// می‌برد. دقیقه‌ی ۱۷ عمدی است تا در ازدحام سرِ ساعت نیفتد.
+const INGEST_CRON = "17 * * * *";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -48,7 +54,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-32-cutover";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-33-selfingest";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -202,6 +208,35 @@ async function handleAdmin(request, url, env) {
     return json({ ok: true, build: BUILD, econ_sender: await senderStatus(env) });
   }
 
+  // کلیدهای مرحله‌ی آزادسازی تقویم از n8n: جمع‌آوری داده و تحلیل.
+  //
+  // هر کدام جدا روشن می‌شود، چون دو ریسک متفاوت دارند و باید بشود یکی را
+  // بدون دیگری برگرداند - تحلیل فقط یک دکمه است، ولی جمع‌آوری، مالکیتِ
+  // جدول رویدادها را عوض می‌کند.
+  if (url.pathname === "/admin/econ-ingest" || url.pathname === "/admin/econ-explain") {
+    const key = url.pathname.endsWith("ingest") ? INGEST_FLAG : EXPLAIN_FLAG;
+    const state = (url.searchParams.get("state") || "").toLowerCase();
+    if (state === "on" || state === "off") await writeConfig(env, key, state);
+
+    // «الان اجرا کن»، تا لازم نباشد برای دیدن نتیجه تا سر ساعت صبر کرد.
+    let ran = null;
+    if (url.pathname.endsWith("ingest") && url.searchParams.get("run") === "1") {
+      try {
+        ran = await ingestEconSources(env);
+      } catch (err) {
+        ran = { error: String(err && err.message) };
+      }
+    }
+
+    return json({
+      ok: true,
+      build: BUILD,
+      econ_ingest: await ingestEnabled(env),
+      econ_explain: await explainEnabled(env),
+      ran,
+    });
+  }
+
   // آیا فید ForexFactory اصلاً عدد «واقعی» دارد؟
   //
   // ستون «واقعی» در جدول تقویم همیشه خالی است. طبق کامنت نود Preserve
@@ -315,7 +350,9 @@ export default {
       url.pathname === "/admin/status" ||
       url.pathname === "/admin/sync" ||
       url.pathname === "/admin/ff-probe" ||
-      url.pathname === "/admin/econ-sender"
+      url.pathname === "/admin/econ-sender" ||
+      url.pathname === "/admin/econ-ingest" ||
+      url.pathname === "/admin/econ-explain"
     ) {
       return handleAdmin(request, url, env);
     }
@@ -450,6 +487,17 @@ export default {
     // هشدار قبل از خبر و اعلام نتیجه. هر پنج دقیقه: کوتاه‌ترین فاصله‌ای
     // که کاربر می‌تواند انتخاب کند پنج دقیقه است، و دفترِ ارسال جلوی
     // تکرار را می‌گیرد، پس فاصله‌ی کوتاه‌تر فقط بارِ بی‌مورد است.
+    if (cron === INGEST_CRON) {
+      ctx.waitUntil(
+        ingestEconSources(env)
+          .then((n) => {
+            if (n && !n.skipped) console.log("جمع‌آوری تقویم:", JSON.stringify(n));
+          })
+          .catch((err) => console.error("جمع‌آوری تقویم شکست خورد:", err && err.message))
+      );
+      return;
+    }
+
     if (cron === ALERT_CRON) {
       ctx.waitUntil(
         runAlertSweep(env)

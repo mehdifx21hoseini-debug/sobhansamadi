@@ -9,6 +9,7 @@
 
 import { ensureKbSchema, replaceKb } from "../ai/kb.js";
 import { importSubscribers } from "./subscribers.js";
+import { ingestEnabled } from "./ingest.js";
 
 const SYNC_STATE_KEY = "econ_last_sync";
 
@@ -254,9 +255,18 @@ export async function syncFromN8n(env) {
   await ensureSchema(env);
   await ensureKbSchema(env);
 
-  const eventCount = await replaceEvents(env, data.events);
+  // وقتی خود ورکر داده را جمع می‌کند، این دو جدول مالک تازه‌ای دارند و
+  // آینه‌سازی باید کنار بکشد. بدون این شرط، هر ده دقیقه نسخه‌ی n8n روی
+  // داده‌ی تازه‌ی ورکر نوشته می‌شد و از بیرون فقط این دیده می‌شد که عددها
+  // گاهی عقب می‌روند.
+  //
+  // برچسب‌ها و بقیه همچنان از اینجا می‌آیند، پس /admin/sync دستی هنوز
+  // کارِ خودش را می‌کند.
+  const selfIngest = await ingestEnabled(env).catch(() => false);
+
+  const eventCount = selfIngest ? null : await replaceEvents(env, data.events);
   const labelCount = await replaceLabels(env, data.labels);
-  const holidayCount = await replaceHolidays(env, data.holidays);
+  const holidayCount = selfIngest ? null : await replaceHolidays(env, data.holidays);
   const cacheCount = await replaceAiCache(env, data.ai_cache);
 
   // پایگاه دانش دستیار پشتیبانی هم از همین مسیر می‌آید. تا وقتی اندپوینت

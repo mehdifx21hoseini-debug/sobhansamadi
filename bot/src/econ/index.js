@@ -20,6 +20,7 @@ import {
 } from "./views.js";
 import { relativeTimeFa } from "./format.js";
 import { sendSection } from "../content/sectionText.js";
+import { explainEnabled, explainToday } from "./explain.js";
 import {
   readSubscription,
   saveSubscription,
@@ -228,11 +229,12 @@ export async function handleEconCallback(ctx, action) {
     let row = null;
     let failure = null;
     try {
-      row = await askExplain(ctx.env, {
-        cacheKey,
-        question: EXPLAIN_QUESTION,
-        context,
-      });
+      // مسیر تازه اول امتحان می‌شود: ورکر خودش از Gemini می‌پرسد و در
+      // D1 کش می‌کند. تا وقتی کلیدش خاموش است، همان مسیر n8n می‌ماند -
+      // یعنی برگرداندن یک دستور است، نه یک دیپلوی.
+      row = (await explainEnabled(ctx.env))
+        ? await explainToday(ctx.env, { cacheKey, question: EXPLAIN_QUESTION, context })
+        : await askExplain(ctx.env, { cacheKey, question: EXPLAIN_QUESTION, context });
     } catch (err) {
       failure = err && err.message;
       console.error("تحلیل هوش مصنوعی شکست خورد:", failure);
