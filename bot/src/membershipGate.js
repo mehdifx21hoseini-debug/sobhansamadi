@@ -14,7 +14,7 @@ function joinPromptKeyboard() {
   return new InlineKeyboard()
     .url("📢 عضویت در کانال", CHANNEL_JOIN_URL)
     .row()
-    .text("✅ بررسی مجدد", "CHECK_MEMBERSHIP");
+    .text("✅ تایید عضویت", "CHECK_MEMBERSHIP");
 }
 
 
