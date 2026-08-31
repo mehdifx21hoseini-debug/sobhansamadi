@@ -4,4 +4,4 @@
 // «node scripts/build-econ-app.mjs» به‌روز می‌شود. کارش شکستن کشِ
 // وب‌ویوی تلگرام است: تا وقتی فایل عوض نشود عدد ثابت می‌ماند، و لحظه‌ای
 // که عوض شد خودش جلو می‌رود.
-export const ECON_APP_VERSION = "7922ea016f";
+export const ECON_APP_VERSION = "4c7affb68b";
