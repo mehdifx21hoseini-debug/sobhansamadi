@@ -1,7 +1,37 @@
 (function (global) {
 	"use strict";
 
-	var API_BASE = "https://96825.7host.cloud/webhook";
+	// مقصد API.
+	//
+	// پیش‌فرض ورکر است. اگر چیزی خراب شد، برگشت به n8n یک خط در کنسول
+	// مرورگر است و نیازی به دیپلوی ندارد:
+	//
+	//   localStorage.setItem("crmApiBase", "https://96825.7host.cloud/webhook")
+	//
+	// و برای برگشتن به ورکر:
+	//
+	//   localStorage.removeItem("crmApiBase")
+	//
+	// این کلید عمداً localStorage است نه sessionStorage: اگر وسط یک
+	// خرابی لازم شد کلِ تیم برگردند، نباید با هر بار بستنِ تب دوباره
+	// همان کار را تکرار کنند.
+	var WORKER_BASE = "https://sobhansamadi.mehdifx21hoseini.workers.dev";
+	var N8N_BASE = "https://96825.7host.cloud/webhook";
+
+	function resolveApiBase() {
+		try {
+			var override = localStorage.getItem("crmApiBase");
+			if (override) return override;
+		} catch (e) {
+			// حالت ناشناس یا مسدود بودن ذخیره‌سازی: پیش‌فرض کافی است.
+		}
+		return WORKER_BASE;
+	}
+
+	// هر بار خوانده می‌شود، نه یک بار موقع بارگذاری. وسط یک خرابی، آخرین
+	// چیزی که کسی می‌خواهد این است که بعد از زدنِ کلیدِ برگشت، یادش
+	// بماند صفحه را هم رفرش کند.
+	function apiBase() { return resolveApiBase(); }
 
 	var REGISTRATION_MESSAGE_TEMPLATE = "سلام {نام} عزیز، وقت بخیر 🌷\nممنون از تماسی که داشتیم.\nشرایط ثبت‌نام مجموعه آموزشی به شرح زیره:\n\n📌 مدت دوره: ۳ ماه\n📌 نحوه برگزاری: آنلاین + پشتیبانی گروهی\n📌 امکان پرداخت اقساطی\n\nبرای ثبت‌نام نهایی از لینک زیر استفاده کنید:\nacademy.example.com/register\n\nهر سوالی داشتید در خدمتتون هستیم 🙏";
 
@@ -84,7 +114,7 @@
 		options = options || {};
 		var token = sessionStorage.getItem("crmToken");
 		options.headers = Object.assign({}, options.headers, token ? { "Authorization": "Bearer " + token } : {});
-		return fetch(API_BASE + path, options).then(function (res) {
+		return fetch(apiBase() + path, options).then(function (res) {
 			if (res.status === 401) {
 				sessionStorage.removeItem("crmAuthed");
 				sessionStorage.removeItem("crmToken");
@@ -104,7 +134,12 @@
 			// ۴۰۱ از قبل کاربر را به صفحه‌ی ورود فرستاده؛ سراغ آینه رفتن
 			// در آن حالت فقط یک درخواست بی‌فایده است.
 			var isAuth = /نشست منقضی/.test(err.message || "");
-			if (isAuth || !MIRRORED_PATHS[path]) throw err;
+			// آینه فقط برای قطعیِ n8n ساخته شده بود. وقتی مقصد اصلی خودِ
+			// ورکر است، افتادن روی آینه‌ی همان ورکر چیزی را نجات نمی‌دهد و
+			// فقط نوارِ «داده کهنه است» را برای خطایی نشان می‌دهد که ربطی
+			// به کهنگی ندارد.
+			var usingWorker = apiBase().indexOf(WORKER_BASE) === 0;
+			if (isAuth || usingWorker || !MIRRORED_PATHS[path]) throw err;
 			return fromMirror(path).catch(function () {
 				// آینه هم نبود: خطای اصلی مهم‌تر است، چون همان می‌گوید
 				// مشکل از کجاست.

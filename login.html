@@ -75,7 +75,16 @@
 
 	<script src="assets/vendor/jquery.min.js"></script>
 	<script>
-		var API_BASE = "https://96825.7host.cloud/webhook";
+		// همان منطقِ js/data.js، اینجا تکرار شده چون صفحه‌ی ورود پیش از
+		// بارگذاری آن اجرا می‌شود. برگشت به n8n:
+		//   localStorage.setItem("crmApiBase", "https://96825.7host.cloud/webhook")
+		function apiBase() {
+			try {
+				var o = localStorage.getItem("crmApiBase");
+				if (o) return o;
+			} catch (e) {}
+			return "https://sobhansamadi.mehdifx21hoseini.workers.dev";
+		}
 
 		document.getElementById("loginForm").addEventListener("submit", function (e) {
 			e.preventDefault();
@@ -87,7 +96,7 @@
 			$btn.disabled = true;
 			$btn.textContent = "در حال بررسی...";
 
-			fetch(API_BASE + "/crm/auth/login", {
+			fetch(apiBase() + "/crm/auth/login", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ username: username, password: password })
@@ -148,7 +157,7 @@
 			}
 			var $btn = this;
 			$btn.disabled = true;
-			fetch(API_BASE + "/crm/auth/forgot-password", {
+			fetch(apiBase() + "/crm/auth/forgot-password", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ username: username })
@@ -183,7 +192,7 @@
 
 			var $btn = this;
 			$btn.disabled = true;
-			fetch(API_BASE + "/crm/auth/reset-password", {
+			fetch(apiBase() + "/crm/auth/reset-password", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ username: username, code: code, new_password: newPassword })
