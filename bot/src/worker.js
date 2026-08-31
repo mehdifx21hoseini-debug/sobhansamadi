@@ -8,6 +8,7 @@ import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
 import { handleCrmApi } from "./crm/panelApi.js";
+import { crmSelfTest } from "./crm/selftest.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
@@ -60,8 +61,6 @@ let cachedBotInfo = null;
 // می‌داند، پس تکرارش روی isolateهای بعدی ضرری ندارد.
 let commandsRegistered = false;
 
-// نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
-// است و مشکل از تنظیمات نیست - از دیپلوی.
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
@@ -219,6 +218,16 @@ async function handleAdmin(request, url, env) {
         : await importAll(env);
       const failed = result.filter((r) => r.error);
       return json({ ok: failed.length === 0, build: BUILD, tables: result }, failed.length ? 502 : 200);
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
+  // خودآزمای CRM: ورود، نشست، خواندن - روی همان D1 پروداکشن.
+  if (url.pathname === "/admin/crm-selftest") {
+    try {
+      const result = await crmSelfTest(env);
+      return json({ ok: result.ok, build: BUILD, ...result }, result.ok ? 200 : 502);
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
     }
@@ -385,7 +394,8 @@ export default {
       url.pathname === "/admin/econ-sender" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
-      url.pathname === "/admin/crm-import"
+      url.pathname === "/admin/crm-import" ||
+      url.pathname === "/admin/crm-selftest"
     ) {
       return handleAdmin(request, url, env);
     }
