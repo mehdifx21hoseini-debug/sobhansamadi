@@ -196,6 +196,10 @@ export async function buildMiniappPayload(env, user) {
         en: enFull(e) || e.event || "",
         short: enShort(e),
         title: faName(e),
+        // خالی یعنی ردیفی که پیش از افزوده شدن این ستون ذخیره شده. اپ
+        // آن را دلاری می‌گیرد، که برای عملاً همه‌ی ردیف‌ها درست است و
+        // با اولین همگام‌سازیِ ساعتی خودش اصلاح می‌شود.
+        currency: e.currency || "",
         importance: e.importance || "low",
         forecast: e.forecast || "",
         previous: e.previous || "",

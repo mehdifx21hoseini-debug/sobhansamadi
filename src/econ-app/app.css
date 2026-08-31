@@ -1447,6 +1447,18 @@
 
 		.event-flag svg { width: 100%; height: 100%; display: block; }
 
+		/* رویدادِ «All» پرچم ندارد. قابِ چیپ حذف می‌شود تا کره ادای پرچم
+		   در نیاورد، ولی جای اشغالی همان است تا ریل هم‌تراز بماند. */
+		.event-flag.is-global {
+			box-shadow: none;
+			color: var(--muted);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.event-flag.is-global svg { width: 18px; height: 18px; }
+
 		.event-time {
 			font-variant-numeric: tabular-nums;
 			font-weight: 700;

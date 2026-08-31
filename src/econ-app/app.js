@@ -412,21 +412,52 @@
 				};
 			}
 
-			// پرچمِ ارزِ رویداد.
+			// نشانِ ارزِ رویداد.
 			//
-			// امروز همه‌ی ردیف‌ها دلاری‌اند: ingest هر چیزی جز USD و All را
-			// دور می‌ریزد و ستون ارز اصلاً ذخیره نمی‌شود، پس اپ راهی برای
-			// تشخیصشان ندارد. این تابع تک‌جایی است که آن فرض نشسته - اگر
-			// روزی ارز به داده اضافه شد، فقط همین‌جا عوض می‌شود.
+			// ingest فقط USD و All را می‌پذیرد. آن دومی - جکسون‌هول و
+			// نشست‌های G7/G20 - هر جفت‌ارز دلاری را تکان می‌دهد ولی خبرِ
+			// آمریکا نیست، پس پرچم آمریکا رویش دروغ است و نشانِ جهانی
+			// می‌گیرد.
+			//
+			// ارزِ خالی یعنی ردیفی که پیش از افزوده شدن ستونِ ارز ذخیره
+			// شده. دلاری فرض می‌شود، که برای عملاً همه‌شان درست است و با
+			// اولین همگام‌سازیِ ساعتی خودش اصلاح می‌شود.
 			var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
 
-			function flagChip(e) {
-				var id = FLAG_BY_CCY[String(e.currency || "USD").toUpperCase()];
-				if (!id) return null;
-				var box = el("span", "event-flag");
+			function svgNode(viewBox) {
 				var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-				svg.setAttribute("viewBox", "0 0 512 512");
+				svg.setAttribute("viewBox", viewBox);
 				svg.setAttribute("aria-hidden", "true");
+				return svg;
+			}
+
+			function flagChip(e) {
+				var ccy = String(e.currency || "USD").toUpperCase();
+				var id = FLAG_BY_CCY[ccy];
+
+				if (!id) {
+					// نشانِ جهانی: یک کره‌ی ساده، نه یک پرچم. عمداً با همان
+					// قابِ چیپ می‌آید تا ریل هم‌تراز بماند.
+					var g = el("span", "event-flag is-global");
+					var s = svgNode("0 0 24 24");
+					s.setAttribute("fill", "none");
+					s.setAttribute("stroke", "currentColor");
+					s.setAttribute("stroke-width", "1.7");
+					var paths = ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18",
+					             "M3 12h18", "M12 3c2.6 2.4 2.6 15.6 0 18",
+					             "M12 3c-2.6 2.4-2.6 15.6 0 18"];
+					for (var i = 0; i < paths.length; i++) {
+						var pth = document.createElementNS("http://www.w3.org/2000/svg", "path");
+						pth.setAttribute("d", paths[i]);
+						s.appendChild(pth);
+					}
+					g.appendChild(s);
+					g.title = "رویداد جهانی — مختص یک کشور نیست";
+					return g;
+				}
+
+				var box = el("span", "event-flag");
+				var svg = svgNode("0 0 512 512");
 				var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
 				use.setAttribute("href", "#fi-" + id);
 				svg.appendChild(use);

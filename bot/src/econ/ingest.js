@@ -80,6 +80,11 @@ export function normalizeFfEvents(raw, nowIso = new Date().toISOString()) {
       // می‌تواند عوضش کند بدون دست زدن به داده‌ی خام.
       event: title,
       event_fa: title,
+      // ارز تا امروز فقط فیلتر بود و بعدش دور ریخته می‌شد. حالا نگه
+      // داشته می‌شود چون فقط با آن می‌شود رویدادهای «All» - جکسون‌هول،
+      // نشست‌های G7/G20 - را از خبرهای دلاری جدا کرد. اپ روی همان‌ها
+      // نباید پرچم آمریکا بگذارد.
+      currency,
       importance,
       forecast: String((ev && ev.forecast) || ""),
       previous: String((ev && ev.previous) || ""),
@@ -159,13 +164,14 @@ async function upsertEvents(env, rows) {
   const statements = rows.map((e) =>
     env.DB.prepare(
       `INSERT INTO econ_events
-         (event_id, date, time, event, event_fa, importance, forecast,
+         (event_id, date, time, event, event_fa, currency, importance, forecast,
           previous, actual, status, source, last_updated)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(event_id) DO UPDATE SET
          date = excluded.date,
          time = excluded.time,
          event = excluded.event,
+         currency = excluded.currency,
          importance = excluded.importance,
          forecast = excluded.forecast,
          previous = excluded.previous,
@@ -173,7 +179,7 @@ async function upsertEvents(env, rows) {
          status = excluded.status,
          last_updated = excluded.last_updated`
     ).bind(
-      e.event_id, e.date, e.time, e.event, e.event_fa, e.importance,
+      e.event_id, e.date, e.time, e.event, e.event_fa, e.currency || null, e.importance,
       e.forecast, e.previous, e.actual, e.status, e.source, e.last_updated
     )
   );

@@ -18,8 +18,8 @@ const SYNC_STATE_KEY = "econ_last_sync";
 const DDL = [
   `CREATE TABLE IF NOT EXISTS econ_events (
      event_id TEXT PRIMARY KEY, date TEXT, time TEXT, event TEXT, event_fa TEXT,
-     importance TEXT, forecast TEXT, previous TEXT, actual TEXT, status TEXT,
-     source TEXT, last_updated TEXT)`,
+     currency TEXT, importance TEXT, forecast TEXT, previous TEXT, actual TEXT,
+     status TEXT, source TEXT, last_updated TEXT)`,
   `CREATE INDEX IF NOT EXISTS idx_econ_events_date ON econ_events (date)`,
   `CREATE TABLE IF NOT EXISTS econ_labels (
      match_text TEXT PRIMARY KEY, label_fa TEXT, label_short_en TEXT,
@@ -32,8 +32,25 @@ const DDL = [
      key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)`,
 ];
 
+// ستون‌هایی که بعد از ساختِ اولیه‌ی جدول اضافه شده‌اند.
+//
+// CREATE TABLE IF NOT EXISTS روی جدولی که از قبل هست هیچ کاری نمی‌کند،
+// پس ستونِ تازه در نصب‌های موجود هرگز نمی‌آمد. SQLite هم IF NOT EXISTS
+// برای ALTER ندارد، پس تنها راه این است که خطای «تکراری» بلعیده شود -
+// همان چیزی که در اجرای دوم به بعد می‌آید.
+const ADD_COLUMNS = [
+  `ALTER TABLE econ_events ADD COLUMN currency TEXT`,
+];
+
 export async function ensureSchema(env) {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+  for (const sql of ADD_COLUMNS) {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch (err) {
+      if (!/duplicate column/i.test(String(err && err.message))) throw err;
+    }
+  }
 }
 
 // پیش از اولین همگام‌سازی موفق، جدول‌ها هنوز وجود ندارند. این حالت خطا
@@ -48,8 +65,8 @@ function emptyIfNoTable(err) {
 export async function readEvents(env) {
   try {
     const { results } = await env.DB.prepare(
-      `SELECT event_id, date, time, event, event_fa, importance, forecast, previous,
-              actual, status, source, last_updated
+      `SELECT event_id, date, time, event, event_fa, currency, importance, forecast,
+              previous, actual, status, source, last_updated
          FROM econ_events`
     ).all();
     return results || [];
@@ -134,15 +151,16 @@ export async function replaceEvents(env, events) {
     statements.push(
       env.DB.prepare(
         `INSERT INTO econ_events
-           (event_id, date, time, event, event_fa, importance, forecast,
+           (event_id, date, time, event, event_fa, currency, importance, forecast,
             previous, actual, status, source, last_updated)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         String(e.event_id),
         e.date || null,
         e.time || null,
         e.event || null,
         e.event_fa || null,
+        e.currency || null,
         e.importance || "low",
         e.forecast || null,
         e.previous || null,
