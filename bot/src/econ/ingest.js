@@ -251,40 +251,79 @@ export async function ingestHolidays(env) {
  */
 export async function ingestActuals(env, rows) {
   if (!(await ingestEnabled(env))) return { skipped: "خاموش" };
-  if (!Array.isArray(rows) || rows.length === 0) return { updated: 0, unmatched: 0 };
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { updated: 0, unchanged: 0, ignored: 0 };
+  }
 
   await ensureSchema(env);
   const nowIso = new Date().toISOString();
-  let updated = 0;
-  const unmatched = [];
+
+  // دو راه برای پیدا کردن رویداد، همان‌طور که نسخه‌ی n8n داشت.
+  //
+  // راه اول شناسه‌ی ساخته‌شده از عنوان است. راه دوم خودِ عنوانِ ذخیره‌شده،
+  // بدون slug. دلیل داشتنِ هر دو این است که این عنوان از HTML خوانده
+  // می‌شود و آن یکی از JSON آمده؛ جایی که این دو در نقطه‌گذاری فرق کنند،
+  // یکی از دو راه هنوز جفت می‌کند.
+  const { results } = await env.DB
+    .prepare(`SELECT event_id, date, event, actual FROM econ_events`)
+    .all();
+
+  const byId = new Map();
+  const byDateTitle = new Map();
+  for (const r of results || []) {
+    byId.set(r.event_id, r);
+    byDateTitle.set(r.date + "|" + String(r.event || "").trim().toLowerCase(), r);
+  }
+
+  const updates = [];
+  const seen = new Set();
+  let ignored = 0;
+  let unchanged = 0;
 
   for (const r of rows) {
     const date = String((r && r.date) || "").slice(0, 10);
     const title = String((r && r.title) || "").trim();
     const actual = String((r && r.actual) || "").trim();
-    if (!date || !title || !actual) continue;
+    if (!date || !title || !actual) {
+      ignored++;
+      continue;
+    }
 
-    // همان فرمولی که رویداد با آن ساخته شده. اگر این دو از هم جدا
-    // بیفتند، هیچ عددی هرگز به هیچ رویدادی نمی‌چسبد و از بیرون فقط
-    // «ستون واقعی همیشه خالی است» دیده می‌شود.
-    const eventId = "FF_" + date + "_" + slugify(title);
+    const row =
+      byId.get("FF_" + date + "_" + slugify(title)) ||
+      byDateTitle.get(date + "|" + title.toLowerCase());
 
-    const res = await env.DB
-      .prepare(
-        `UPDATE econ_events
-            SET actual = ?, status = 'released', last_updated = ?
-          WHERE event_id = ?`
-      )
-      .bind(actual, nowIso, eventId)
-      .run();
+    // عددی برای رویدادی که نداریم، نادیده گرفته می‌شود و هرگز درج
+    // نمی‌شود: خواننده عنوان را از HTML برمی‌دارد و اگر روزی متن کمی
+    // فرق کند، درج یعنی یک رویداد تکراریِ بی‌ساعت در تقویم.
+    if (!row) {
+      ignored++;
+      continue;
+    }
+    if (seen.has(row.event_id)) continue;
+    seen.add(row.event_id);
 
-    if ((res && res.meta ? res.meta.changes || 0 : 0) > 0) updated++;
-    else unmatched.push(eventId);
+    // عددی که عوض نشده دوباره نوشته نمی‌شود. اگر می‌نوشتیم،
+    // last_updated هر نیم‌ساعت جلو می‌رفت و خط «آخرین بروزرسانی» که
+    // کاربر می‌بیند، تازگیِ دروغین نشان می‌داد.
+    if (String(row.actual || "").trim() === actual) {
+      unchanged++;
+      continue;
+    }
+
+    updates.push(
+      env.DB
+        .prepare(
+          `UPDATE econ_events
+              SET actual = ?, status = 'released', last_updated = ?
+            WHERE event_id = ?`
+        )
+        .bind(actual, nowIso, row.event_id)
+    );
   }
 
-  // نامِ ردیف‌هایی که جفت نشدند برمی‌گردد، نه فقط تعدادشان: اگر عنوانی در
-  // صفحه عوض شده باشد، این تنها جایی است که لو می‌رود.
-  return { updated, unmatched: unmatched.length, unmatched_ids: unmatched.slice(0, 10) };
+  if (updates.length > 0) await env.DB.batch(updates);
+  return { updated: updates.length, unchanged, ignored, received: rows.length };
 }
 
 /**
