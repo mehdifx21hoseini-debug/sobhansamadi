@@ -37,6 +37,22 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Fail on the real cause, not three steps later.
+          #
+          # Without this the job fetches the feed, posts it unauthenticated
+          # and reports the Worker's 401 — which reads like the Worker is
+          # broken when the actual problem is a secret this repository
+          # cannot see. GitHub renders a secret that IS set as *** in the
+          # env group above; an empty value there means it is missing here,
+          # whatever it may say in some other settings page.
+          if [ -z "${ECON_INGEST_KEY:-}" ]; then
+            echo "ECON_INGEST_KEY is not visible to this workflow."
+            echo "It must be a *repository* secret on this repo:"
+            echo "  Settings → Secrets and variables → Actions → Repository secrets"
+            echo "An environment or organization secret will not reach this job."
+            exit 1
+          fi
+
           curl -sS --fail --max-time 60 \
             -H 'User-Agent: sobhansamadi-bot/1.0 (+https://sobhansamadi.com)' \
             https://nfs.faireconomy.media/ff_calendar_thisweek.json > feed.json
