@@ -41,7 +41,7 @@ const ECON_APP_URL = "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ
 export function econMenuKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "📊 تقویم و سشن‌ها", web_app: { url: ECON_APP_URL }, style: "success" }],
+      [{ text: "🔥 سشن های بازار (اپ اختصاصی)", web_app: { url: ECON_APP_URL }, style: "success" }],
       [
         { text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" },
         { text: "📆 این هفته", callback_data: "ECON_WEEK", style: "primary" },
