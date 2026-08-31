@@ -10,6 +10,7 @@ import { importAll, importTable } from "./crm/importer.js";
 import { handleCrmApi } from "./crm/panelApi.js";
 import { crmSelfTest } from "./crm/selftest.js";
 import { recentLeads, deleteLeads } from "./crm/maintenance.js";
+import { sendDailyReport } from "./crm/report.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
@@ -42,6 +43,9 @@ const ALERT_CRON = "*/5 * * * *";
 // و تندتر خواندنش چیزی تازه‌تر نمی‌آورد، فقط شانس ۴۲۹ گرفتن را بالا
 // می‌برد. دقیقه‌ی ۱۷ عمدی است تا در ازدحام سرِ ساعت نیفتد.
 const INGEST_CRON = "17 * * * *";
+// گزارش روزانه‌ی فروش: ۲۱:۰۰ تهران = ۱۷:۳۰ UTC. تهران ساعت تابستانی
+// ندارد، پس این نگاشت تمام سال ثابت است.
+const SALES_REPORT_CRON = "30 17 * * *";
 
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
@@ -65,7 +69,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-4";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-5";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -568,6 +572,16 @@ export default {
         pruneSentLog(env).catch((err) =>
           console.error("پاک‌سازی دفتر ارسال شکست خورد:", err && err.message)
         )
+      );
+      return;
+    }
+
+    // گزارش روزانه‌ی فروش - جای‌گزینِ WF-18 که ساعت ۲۱ در n8n اجرا می‌شد.
+    if (cron === SALES_REPORT_CRON) {
+      ctx.waitUntil(
+        sendDailyReport(env)
+          .then((n) => console.log("گزارش روزانه‌ی فروش:", JSON.stringify(n)))
+          .catch((err) => console.error("گزارش روزانه‌ی فروش شکست خورد:", err && err.message))
       );
       return;
     }

@@ -1,7 +1,7 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import { getUserState, setUserState, clearUserState, createLead, readUserSource } from "./db.js";
 import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
-import { insertBotLead } from "./crm/writes.js";
+import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendSection, resolveSection } from "./content/sectionText.js";
@@ -280,8 +280,12 @@ export async function handleConfirm(ctx) {
   // پنل CRM حالا از crm_leads در D1 می‌خواند، پس لید باید همان‌جا هم
   // بنشیند - وگرنه مشتری‌ای که همین حالا ثبت‌نام کرده در فهرست مشاورها
   // دیده نمی‌شود. خطایش بلعیده می‌شود چون رکورد اصلی در جدول leads است.
+  //
+  // upsert است نه insert: اگر همین شماره لید قبلی داشته باشد، یادداشت
+  // تازه به همان پرونده می‌چسبد. بدون این، مشتریِ برگشته یک ردیف دوم
+  // می‌سازد و دو مشاور به یک نفر زنگ می‌زنند - قاعده‌ای که n8n داشت.
   await ensureCrmSchema(ctx.env)
-    .then(() => insertBotLead(ctx.env, lead))
+    .then(() => upsertBotLead(ctx.env, lead))
     .catch((err) => console.error("نوشتن لید در crm_leads شکست خورد:", err && err.message));
 
   // ارسال به n8n هنوز لازم است: تخصیص چرخشی و اطلاع‌رسانی به مشاورها

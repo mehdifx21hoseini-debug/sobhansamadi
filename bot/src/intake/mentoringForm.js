@@ -17,6 +17,7 @@
 
 import { queueOutbound } from "../crmSync.js";
 import { ensureCrmSchema } from "../crm/schema.js";
+import { mentoringLead, mentoringNotifyText, notifyAdmins } from "../crm/intake.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS mentoring_intake (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -210,38 +211,60 @@ export async function handleMentoringIntake(request, env) {
     return json({ success: false, error: "ثبت درخواست ممکن نشد" }, 500);
   }
 
-  // و همان درخواست، در جدولی که پنل CRM می‌خواند.
-  //
-  // جدول بالا رکوردِ خامِ ماست و هیچ‌وقت پاک نمی‌شود؛ این یکی چیزی است
-  // که صفحه‌ی «درخواست‌های منتورینگ» نشان می‌دهد. تا پیش از سوییچ، پنل
-  // از n8n می‌خواند و همین ارسالِ صف کافی بود - حالا دیگر نیست.
-  //
-  // شکستش نباید جلوی پاسخ ۲۰۰ را بگیرد: داده در جدول بالا هست و از بین
-  // نمی‌رود.
-  try {
-    await ensureCrmSchema(env);
-    await env.DB
-      .prepare(
-        `INSERT INTO crm_mentoring_requests
-           (request_id, created_at, full_name, phone, telegram_id, email,
-            consultation_goal, answers_json, raw_payload)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        "MREQ-" + Date.now().toString(36) + "-" + Math.floor(1000 + Math.random() * 9000),
-        now, data.full_name, data.phone, data.telegram_id, data.email,
-        data.message, JSON.stringify(data.answers), raw
-      )
-      .run();
-  } catch (err) {
-    console.error("ثبت منتورینگ در crm_mentoring_requests شکست خورد:", err && err.message);
-  }
-
   if (reason) {
     await alertOwner(env, ["⚠️ یک درخواست منتورینگ ناقص بود", "", "علت: " + reason, "", "——— محتوای خام ———", raw.slice(0, 2500)]);
     // ۲۰۰ برمی‌گردد، نه خطا: از دید فرستنده درخواست رسید و ذخیره شد.
     // چیزی که کم است، اطلاعاتِ خود اوست، نه خرابی سرویس.
     return json({ success: true, stored: true, needs_review: true });
+  }
+
+  // و همان درخواست، در جدول‌هایی که پنل CRM می‌خواند - با همان کاری که
+  // WF-21 می‌کرد: یک لید (یا الحاق به لیدِ موجودِ همان شماره)، تخصیص
+  // چرخشی به مشاور بعدی، ثبت پرسش‌نامه، و خبر دادن به مدیرها.
+  //
+  // جدول mentoring_intake بالا رکوردِ خامِ ماست و هیچ‌وقت پاک نمی‌شود؛
+  // این‌ها چیزی است که تیم می‌بیند. شکستشان نباید جلوی پاسخ ۲۰۰ را
+  // بگیرد: داده در جدول بالا هست و از بین نمی‌رود.
+  let leadInfo = null;
+  try {
+    await ensureCrmSchema(env);
+    leadInfo = await mentoringLead(env, data);
+    await env.DB
+      .prepare(
+        `INSERT INTO crm_mentoring_requests
+           (request_id, lead_id, created_at, full_name, phone, telegram_id, email,
+            consultation_goal, answers_json, raw_payload)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        "MR-" + now.slice(0, 10).replace(/-/g, "") + "-" + Math.floor(1000 + Math.random() * 9000),
+        leadInfo.lead_id, now, data.full_name, data.phone, data.telegram_id, data.email,
+        data.message, JSON.stringify(data.answers), raw
+      )
+      .run();
+  } catch (err) {
+    console.error("ثبت منتورینگ در جدول‌های CRM شکست خورد:", err && err.message);
+  }
+
+  // خبر دادن به مدیرها - همان قالبِ WF-21.
+  //
+  // بعد از ثبت می‌آید، نه قبلش: پیامی که بگوید «لید ساخته شد» در حالی
+  // که نوشتن شکست خورده، از نبودِ پیام بدتر است.
+  if (leadInfo) {
+    await notifyAdmins(
+      env,
+      mentoringNotifyText(
+        {
+          lead_id: leadInfo.lead_id,
+          full_name: data.full_name,
+          phone: data.phone,
+          telegram_id: data.telegram_id,
+          message: data.message,
+          merged: leadInfo.merged,
+        },
+        data.answers
+      )
+    ).catch((err) => console.error("اطلاع‌رسانی منتورینگ شکست خورد:", err && err.message));
   }
 
   await queueOutbound(env, "mentoring", {
