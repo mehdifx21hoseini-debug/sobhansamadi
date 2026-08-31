@@ -1417,6 +1417,9 @@
 		/* داخل خوشه ساعت یک‌بار در سرتیتر آمده؛ تکرارش روی هر ردیف فقط جا
 		   می‌گیرد و همان عدد را دو بار می‌گوید. */
 		.cluster .event-time { display: none; }
+		/* بدون ساعت، ریل فقط پرچم است و خطِ جداکننده دیگر چیزی را جدا
+		   نمی‌کند - فقط یک خطِ عمودیِ کوتاه کنار پرچم می‌ماند. */
+		.cluster .event-rail { border-inline-end: 0; padding-inline-end: 0; }
 
 		/* ---------- the event row ----------
 		   اهمیت، لبه‌ی کناری است: ۳ پیکسل برای خیلی مهم، نازک برای مهم، هیچ
@@ -1424,13 +1427,19 @@
 		   ردیف مالِ عدد باشند - پیش از این قرمز هم‌زمان «خیلی مهم» و «بد
 		   برای دلار» را می‌گفت و با یک نگاه معلوم نبود کدام. */
 		.event {
-			display: block;
+			/* دو ستون: ریلِ باریکِ ارز، و بدنه. عرضِ ریل ثابت است، پس چشم
+			   برای پیدا کردنِ ساعت هر بار عرضِ متفاوتی را طی نمی‌کند و
+			   ردیف‌ها یک شبکه‌ی واقعی پیدا می‌کنند - همان چیزی که کارتِ
+			   قبلی با چیدنِ ساعت و اسم روی یک خطِ کشسان نداشت. */
+			display: grid;
+			grid-template-columns: 38px 1fr;
+			gap: 11px;
 			background: var(--card);
 			border: 1px solid var(--line);
 			border-inline-start: 3px solid transparent;
-			border-radius: 11px;
-			padding: 10px 12px;
-			margin-bottom: 6px;
+			border-radius: 13px;
+			padding: 11px 12px;
+			margin-bottom: 7px;
 			cursor: pointer;
 			width: 100%;
 			text-align: right;
@@ -1442,25 +1451,46 @@
 		.event.imp-medium { border-inline-start-color: var(--line-strong); }
 		.event.is-past { opacity: .74; }
 
-		.event-top { display: flex; align-items: baseline; gap: 8px; }
+		.event-rail {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 5px;
+			padding-inline-end: 9px;
+			border-inline-end: 1px solid var(--line);
+		}
+
+		/* همان زبانِ تصویریِ چیپ‌های پرچم در تب سشن‌ها: گوشه‌ی تیز نه
+		   دایره - دایره آواتار می‌خواند و این‌ها برچسبِ ابزارند. */
+		.event-flag {
+			width: 24px;
+			height: 17px;
+			border-radius: 3px;
+			overflow: hidden;
+			flex: none;
+			box-shadow: 0 0 0 1.5px var(--line-strong);
+		}
+
+		.event-flag svg { width: 100%; height: 100%; display: block; }
 
 		.event-time {
 			font-variant-numeric: tabular-nums;
 			font-weight: 700;
-			font-size: 0.74rem;
-			color: var(--muted);
-			flex: none;
+			font-size: 0.8rem;
+			line-height: 1.1;
+			color: var(--text);
+			text-align: center;
 		}
 
 		.event-time .plus {
-			font-size: 0.58rem;
+			display: block;
+			font-size: 0.55rem;
 			font-weight: 700;
-			margin-inline-start: 3px;
 			color: var(--medium);
 			white-space: nowrap;
 		}
 
-		.event-nm { min-width: 0; flex: 1; }
+		.event-nm { min-width: 0; }
 
 		/* The English release name inside an RTL row: isolated so the bidi
 		   algorithm cannot interleave it with the Persian around it, and set
@@ -1495,36 +1525,27 @@
 		   چون «چقدر با پیش‌بینی فرق داشت» همان سؤالی است که ردیف برایش وجود
 		   دارد - و تنها عددی بود که کارت قبلی هرگز نشان نمی‌داد. «قبلی» به
 		   جزئیات می‌رود: کم‌اهمیت‌ترینِ سه‌تاست. */
-		.vals { display: flex; align-items: flex-end; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+		.vals { display: flex; align-items: baseline; gap: 9px; margin-top: 7px; flex-wrap: wrap; }
 
-		.val-big { line-height: 1; }
-
-		.val-big b {
-			font-size: 1.3rem;
+		.val-big {
+			font-size: 1.16rem;
 			font-weight: 800;
-			letter-spacing: -.5px;
+			line-height: 1;
 			font-variant-numeric: tabular-nums;
 			direction: ltr;
 			unicode-bidi: isolate;
-			display: inline-block;
 		}
 
-		.val-big span {
-			display: block;
-			font-size: 0.6rem;
-			color: var(--muted);
-			font-weight: 700;
-			margin-top: 4px;
-		}
+		.val-k { font-size: 0.62rem; font-weight: 700; color: var(--muted); }
 
-		.val-big.is-up b { color: var(--up); }
+.val-big.is-up b { color: var(--up); }
 		.val-big.is-down b { color: var(--down); }
 
 		.surprise {
-			font-size: 0.74rem;
-			font-weight: 800;
-			border-radius: 7px;
-			padding: 4px 8px;
+			font-size: 0.66rem;
+			font-weight: 700;
+			border-radius: 999px;
+			padding: 2px 7px;
 			white-space: nowrap;
 			line-height: 1.2;
 		}
@@ -1536,7 +1557,7 @@
 		.val-small { margin-inline-start: auto; text-align: left; line-height: 1.3; }
 
 		.val-small b {
-			font-size: 0.76rem;
+			font-size: 0.78rem;
 			font-weight: 700;
 			font-variant-numeric: tabular-nums;
 			direction: ltr;
@@ -1544,11 +1565,11 @@
 			display: inline-block;
 		}
 
-		.val-small span { display: block; font-size: 0.6rem; color: var(--muted); font-weight: 700; }
+		.val-small span { display: block; font-size: 0.58rem; color: var(--muted); font-weight: 700; }
 
 		/* خبری که هنوز نیامده عددی برای نشان دادن ندارد، پس به‌جای سه سلول
 		   خالی که ادای داده در می‌آورند، فقط انتظارش را می‌گوید. */
-		.pending { display: flex; align-items: baseline; gap: 7px; margin-top: 8px; font-size: 0.74rem; }
+		.pending { display: flex; align-items: baseline; gap: 7px; margin-top: 7px; font-size: 0.74rem; }
 		.pending b {
 			font-weight: 800;
 			font-variant-numeric: tabular-nums;
@@ -1599,6 +1620,7 @@
 		/* Expanded detail, revealed on tap. Keeps the list scannable while the
 		   full numbers stay one tap away. */
 		.event-detail {
+			grid-column: 1 / -1;
 			margin-top: 10px;
 			padding-top: 9px;
 			border-top: 1px solid var(--line);
@@ -2048,7 +2070,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه d51628d167</span>
+			<span class="build">نسخه a54cad38bb</span>
 		</p>
 	</div>
 
@@ -2467,19 +2489,45 @@
 				};
 			}
 
+			// پرچمِ ارزِ رویداد.
+			//
+			// امروز همه‌ی ردیف‌ها دلاری‌اند: ingest هر چیزی جز USD و All را
+			// دور می‌ریزد و ستون ارز اصلاً ذخیره نمی‌شود، پس اپ راهی برای
+			// تشخیصشان ندارد. این تابع تک‌جایی است که آن فرض نشسته - اگر
+			// روزی ارز به داده اضافه شد، فقط همین‌جا عوض می‌شود.
+			var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
+
+			function flagChip(e) {
+				var id = FLAG_BY_CCY[String(e.currency || "USD").toUpperCase()];
+				if (!id) return null;
+				var box = el("span", "event-flag");
+				var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+				svg.setAttribute("viewBox", "0 0 512 512");
+				svg.setAttribute("aria-hidden", "true");
+				var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+				use.setAttribute("href", "#fi-" + id);
+				svg.appendChild(use);
+				box.appendChild(svg);
+				return box;
+			}
+
 			function eventNode(e) {
 				var node = el("button", "event imp-" + (e.importance || "low"));
 				node.type = "button";
 				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
 				if (state.open[e.event_id]) node.className += " is-open";
 
-				var top = el("div", "event-top");
+				// ریلِ ارز: پرچم بالا، ساعت زیرش، روی یک ستونِ با عرضِ ثابت.
+				var rail = el("div", "event-rail");
+				var fl = flagChip(e);
+				if (fl) rail.appendChild(fl);
 				var time = el("div", "event-time");
 				time.appendChild(document.createTextNode(fa((e.time_tehran || "—").replace("+1", ""))));
 				if ((e.time_tehran || "").indexOf("+1") !== -1) {
 					time.appendChild(el("span", "plus", "فردا"));
 				}
-				top.appendChild(time);
+				rail.appendChild(time);
+				node.appendChild(rail);
 
 				var nm = el("div", "event-nm");
 				// نام انگلیسی همان تیتر می‌ماند؛ ترجمه‌ی فارسی که تا امروز
@@ -2488,8 +2536,7 @@
 				if (e.title && e.title !== (e.en || "")) {
 					nm.appendChild(el("div", "event-fa", e.title));
 				}
-				top.appendChild(nm);
-				node.appendChild(top);
+				node.appendChild(nm);
 
 				var s = surpriseOf(e);
 				if (e.actual) {
@@ -2498,10 +2545,8 @@
 					// بودنِ خام: برای شاخص‌های معکوس مثل نرخ بیکاری، «بالاتر»
 					// یعنی بدتر.
 					var tone = e.read ? (e.read.good ? " is-up" : " is-down") : "";
-					var big = el("div", "val-big" + tone);
-					big.appendChild(el("b", null, fa(e.actual)));
-					big.appendChild(el("span", null, "واقعی"));
-					vals.appendChild(big);
+					vals.appendChild(el("span", "val-big" + tone, fa(e.actual)));
+					vals.appendChild(el("span", "val-k", "واقعی"));
 
 					if (s) {
 						var sTone = s.dir === "flat" ? "is-flat" : (e.read ? (e.read.good ? "is-up" : "is-down") : "is-flat");
@@ -2509,19 +2554,19 @@
 					}
 
 					if (e.forecast) {
-						var sm = el("div", "val-small");
+						var sm = el("span", "val-small");
 						sm.appendChild(el("b", null, fa(e.forecast)));
 						sm.appendChild(el("span", null, "پیش‌بینی"));
 						vals.appendChild(sm);
 					}
-					node.appendChild(vals);
+					nm.appendChild(vals);
 				} else if (e.forecast || e.previous) {
 					var pend = el("div", "pending");
 					pend.appendChild(el("span", "k", "پیش‌بینی"));
 					pend.appendChild(el("b", null, fa(e.forecast || "—")));
 					pend.appendChild(el("span", "k", "· قبلی"));
 					pend.appendChild(el("b", null, fa(e.previous || "—")));
-					node.appendChild(pend);
+					nm.appendChild(pend);
 				}
 
 				var detail = el("div", "event-detail");

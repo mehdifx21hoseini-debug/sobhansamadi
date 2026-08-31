@@ -412,19 +412,45 @@
 				};
 			}
 
+			// پرچمِ ارزِ رویداد.
+			//
+			// امروز همه‌ی ردیف‌ها دلاری‌اند: ingest هر چیزی جز USD و All را
+			// دور می‌ریزد و ستون ارز اصلاً ذخیره نمی‌شود، پس اپ راهی برای
+			// تشخیصشان ندارد. این تابع تک‌جایی است که آن فرض نشسته - اگر
+			// روزی ارز به داده اضافه شد، فقط همین‌جا عوض می‌شود.
+			var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
+
+			function flagChip(e) {
+				var id = FLAG_BY_CCY[String(e.currency || "USD").toUpperCase()];
+				if (!id) return null;
+				var box = el("span", "event-flag");
+				var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+				svg.setAttribute("viewBox", "0 0 512 512");
+				svg.setAttribute("aria-hidden", "true");
+				var use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+				use.setAttribute("href", "#fi-" + id);
+				svg.appendChild(use);
+				box.appendChild(svg);
+				return box;
+			}
+
 			function eventNode(e) {
 				var node = el("button", "event imp-" + (e.importance || "low"));
 				node.type = "button";
 				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
 				if (state.open[e.event_id]) node.className += " is-open";
 
-				var top = el("div", "event-top");
+				// ریلِ ارز: پرچم بالا، ساعت زیرش، روی یک ستونِ با عرضِ ثابت.
+				var rail = el("div", "event-rail");
+				var fl = flagChip(e);
+				if (fl) rail.appendChild(fl);
 				var time = el("div", "event-time");
 				time.appendChild(document.createTextNode(fa((e.time_tehran || "—").replace("+1", ""))));
 				if ((e.time_tehran || "").indexOf("+1") !== -1) {
 					time.appendChild(el("span", "plus", "فردا"));
 				}
-				top.appendChild(time);
+				rail.appendChild(time);
+				node.appendChild(rail);
 
 				var nm = el("div", "event-nm");
 				// نام انگلیسی همان تیتر می‌ماند؛ ترجمه‌ی فارسی که تا امروز
@@ -433,8 +459,7 @@
 				if (e.title && e.title !== (e.en || "")) {
 					nm.appendChild(el("div", "event-fa", e.title));
 				}
-				top.appendChild(nm);
-				node.appendChild(top);
+				node.appendChild(nm);
 
 				var s = surpriseOf(e);
 				if (e.actual) {
@@ -443,10 +468,8 @@
 					// بودنِ خام: برای شاخص‌های معکوس مثل نرخ بیکاری، «بالاتر»
 					// یعنی بدتر.
 					var tone = e.read ? (e.read.good ? " is-up" : " is-down") : "";
-					var big = el("div", "val-big" + tone);
-					big.appendChild(el("b", null, fa(e.actual)));
-					big.appendChild(el("span", null, "واقعی"));
-					vals.appendChild(big);
+					vals.appendChild(el("span", "val-big" + tone, fa(e.actual)));
+					vals.appendChild(el("span", "val-k", "واقعی"));
 
 					if (s) {
 						var sTone = s.dir === "flat" ? "is-flat" : (e.read ? (e.read.good ? "is-up" : "is-down") : "is-flat");
@@ -454,19 +477,19 @@
 					}
 
 					if (e.forecast) {
-						var sm = el("div", "val-small");
+						var sm = el("span", "val-small");
 						sm.appendChild(el("b", null, fa(e.forecast)));
 						sm.appendChild(el("span", null, "پیش‌بینی"));
 						vals.appendChild(sm);
 					}
-					node.appendChild(vals);
+					nm.appendChild(vals);
 				} else if (e.forecast || e.previous) {
 					var pend = el("div", "pending");
 					pend.appendChild(el("span", "k", "پیش‌بینی"));
 					pend.appendChild(el("b", null, fa(e.forecast || "—")));
 					pend.appendChild(el("span", "k", "· قبلی"));
 					pend.appendChild(el("b", null, fa(e.previous || "—")));
-					node.appendChild(pend);
+					nm.appendChild(pend);
 				}
 
 				var detail = el("div", "event-detail");
