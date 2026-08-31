@@ -3,15 +3,15 @@
 
 	// مقصد API.
 	//
-	// پیش‌فرض هنوز n8n است. کدِ ورکر آماده و تست‌شده است ولی تا وقتی
-	// دیپلویش روی هوا تایید نشده، پیش‌فرض کردنش یعنی پنل برای تیم فروش
-	// می‌خوابد - همان اشتباهی که یک بار کردم و همین‌جا برگرداندمش.
+	// پیش‌فرض ورکر است. شرطش این بود که خودِ پروداکشن جواب بدهد، نه اینکه
+	// کد پوش شده باشد - و /admin/crm-selftest همان را روی D1 واقعی سنجید:
+	// ورود، نشست، رد شدنِ توکن جعلی، و خواندنِ ۱۱۸ لید.
 	//
-	// برای امتحان کردنِ ورکر، بدون اینکه کسی دیگر تحت تاثیر باشد:
+	// برای برگشتن به n8n - بدون دیپلوی، همان لحظه، در کنسول مرورگر:
 	//
-	//   localStorage.setItem("crmApiBase", "https://sobhansamadi.mehdifx21hoseini.workers.dev")
+	//   localStorage.setItem("crmApiBase", "https://96825.7host.cloud/webhook")
 	//
-	// و برای برگشتن:
+	// و برای برگشتن به حالت عادی:
 	//
 	//   localStorage.removeItem("crmApiBase")
 	//
@@ -28,7 +28,7 @@
 		} catch (e) {
 			// حالت ناشناس یا مسدود بودن ذخیره‌سازی: پیش‌فرض کافی است.
 		}
-		return N8N_BASE;
+		return WORKER_BASE;
 	}
 
 	// هر بار خوانده می‌شود، نه یک بار موقع بارگذاری. وسط یک خرابی، آخرین
@@ -117,7 +117,37 @@
 		options = options || {};
 		var token = sessionStorage.getItem("crmToken");
 		options.headers = Object.assign({}, options.headers, token ? { "Authorization": "Bearer " + token } : {});
-		return fetch(apiBase() + path, options).then(function (res) {
+		var base = apiBase();
+		return fetch(base + path, options).then(function (res) {
+			// ۵۰۱ یعنی «این مسیر هنوز به ورکر منتقل نشده».
+			//
+			// در دوره‌ی انتقال، بیشترِ مسیرها روی ورکرند و چندتایی هنوز
+			// نه. بدون این برگشت، سوییچ یعنی «یا همه یا هیچ» و یک صفحه‌ی
+			// جامانده کلِ سوییچ را عقب می‌اندازد. ۵۰۱ عمداً انتخاب شده،
+			// نه ۴۰۴: فقط خودِ مسیریابِ ما آن را می‌دهد، پس هیچ خطای
+			// واقعی‌ای اشتباهی به n8n نمی‌رود.
+			if (res.status === 501 && base !== N8N_BASE) {
+				return fetch(N8N_BASE + path, options).then(handle);
+			}
+			return handle(res);
+		}).catch(function (err) {
+			// ۴۰۱ از قبل کاربر را به صفحه‌ی ورود فرستاده؛ سراغ آینه رفتن
+			// در آن حالت فقط یک درخواست بی‌فایده است.
+			var isAuth = /نشست منقضی/.test(err.message || "");
+			// آینه فقط برای قطعیِ n8n ساخته شده بود. وقتی مقصد اصلی خودِ
+			// ورکر است، افتادن روی آینه‌ی همان ورکر چیزی را نجات نمی‌دهد و
+			// فقط نوارِ «داده کهنه است» را برای خطایی نشان می‌دهد که ربطی
+			// به کهنگی ندارد.
+			var usingWorker = base.indexOf(WORKER_BASE) === 0;
+			if (isAuth || usingWorker || !MIRRORED_PATHS[path]) throw err;
+			return fromMirror(path).catch(function () {
+				// آینه هم نبود: خطای اصلی مهم‌تر است، چون همان می‌گوید
+				// مشکل از کجاست.
+				throw err;
+			});
+		});
+
+		function handle(res) {
 			if (res.status === 401) {
 				sessionStorage.removeItem("crmAuthed");
 				sessionStorage.removeItem("crmToken");
@@ -133,22 +163,7 @@
 				});
 			}
 			return res.json();
-		}).catch(function (err) {
-			// ۴۰۱ از قبل کاربر را به صفحه‌ی ورود فرستاده؛ سراغ آینه رفتن
-			// در آن حالت فقط یک درخواست بی‌فایده است.
-			var isAuth = /نشست منقضی/.test(err.message || "");
-			// آینه فقط برای قطعیِ n8n ساخته شده بود. وقتی مقصد اصلی خودِ
-			// ورکر است، افتادن روی آینه‌ی همان ورکر چیزی را نجات نمی‌دهد و
-			// فقط نوارِ «داده کهنه است» را برای خطایی نشان می‌دهد که ربطی
-			// به کهنگی ندارد.
-			var usingWorker = apiBase().indexOf(WORKER_BASE) === 0;
-			if (isAuth || usingWorker || !MIRRORED_PATHS[path]) throw err;
-			return fromMirror(path).catch(function () {
-				// آینه هم نبود: خطای اصلی مهم‌تر است، چون همان می‌گوید
-				// مشکل از کجاست.
-				throw err;
-			});
-		});
+		}
 	}
 
 	var LEADS_CACHE_TTL = 5000;
