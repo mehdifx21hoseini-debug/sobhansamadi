@@ -60,6 +60,35 @@ export async function setUserState(env, telegramUserId, patch) {
   return merged;
 }
 
+/**
+ * ثبتِ اینکه این کاربر امروز با ربات کار کرده.
+ *
+ * چرا جدا از setUserState: آن یکی اول می‌خواند، بعد ادغام می‌کند، بعد
+ * می‌نویسد - و فقط وقتی صدا زده می‌شود که کاربر وارد یک فرم شود. یعنی
+ * کسی که فقط /start می‌زد و منو را می‌گشت هیچ ردی از خودش نمی‌گذاشت و در
+ * هیچ شمارشی نمی‌آمد. این یکی یک upsert خالی است: بدون خواندن، و بدون
+ * دست زدن به وضعیتِ فرمِ در جریان.
+ *
+ * شکستش هرگز نباید جلوی پاسخ به کاربر را بگیرد - یک عدد آماری به اندازه‌ی
+ * جواب ندادن مهم نیست.
+ */
+export async function touchUser(env, telegramUserId) {
+  if (!env || !env.DB) return;
+  const now = new Date().toISOString();
+  try {
+    await env.DB
+      .prepare(
+        `INSERT INTO user_state (telegram_user_id, source_first_seen, last_interaction_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(telegram_user_id) DO UPDATE SET last_interaction_at = excluded.last_interaction_at`
+      )
+      .bind(String(telegramUserId), now, now)
+      .run();
+  } catch (err) {
+    console.error("ثبت تعامل کاربر شکست خورد:", err && err.message);
+  }
+}
+
 export async function clearUserState(env, telegramUserId) {
   await setUserState(env, telegramUserId, { current_flow: null, current_step: null, temp_data: {} });
 }

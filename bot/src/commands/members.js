@@ -1,11 +1,13 @@
-// /members - چند نفر عضو کانال‌اند. فقط برای مدیر.
+// /members - چند نفر عضو ربات‌اند. فقط برای مدیر.
 //
-// عدد از تلگرام می‌آید نه از دیتابیس: دیتابیس فقط کسانی را می‌شناسد که
-// با ربات حرف زده‌اند، و آن‌ها زیرمجموعه‌ی اعضای کانال‌اند نه خودشان.
+// «عضو ربات» در تلگرام مفهوم رسمی ندارد: تلگرام API‌ای برای شمردن
+// کاربران یک ربات نمی‌دهد. پس عدد از D1 می‌آید - از جدول user_state، که
+// حالا برای هر کسی که با ربات کار می‌کند یک ردیف دارد.
 //
-// وضعیت ادمین بودنِ ربات هم همین‌جا گفته می‌شود، چون همان یک چیز است که
-// دروازه‌ی عضویت به آن بند است: اگر ربات از ادمینیِ کانال بیفتد،
-// getChatMember خطا می‌دهد و دروازه بی‌سروصدا برای همه باز می‌شود.
+// یک هشدارِ صادقانه همراه گزارش می‌رود: تا پیش از این، ردیف فقط وقتی
+// ساخته می‌شد که کاربر وارد یک فرم شود (ثبت‌نام، مشاوره، پشتیبانی). کسی
+// که فقط منو را می‌گشت هیچ ردی نمی‌گذاشت. پس عددِ «کل» برای گذشته کمتر
+// از واقعیت است و از امروز به بعد کامل می‌شود.
 
 import { isOwner } from "../owner.js";
 import { GATE_CHANNEL } from "../membershipGate.js";
@@ -20,46 +22,81 @@ function fa(n) {
     .replace(/[0-9]/g, (d) => FA[d]);
 }
 
+function agoIso(ms) {
+  return new Date(Date.now() - ms).toISOString();
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+
+async function count(env, sql, ...binds) {
+  try {
+    const q = env.DB.prepare(sql);
+    const row = await (binds.length ? q.bind(...binds) : q).first();
+    return row ? Number(Object.values(row)[0]) : null;
+  } catch (err) {
+    console.error("شمارش شکست خورد:", sql, err && err.message);
+    return null;
+  }
+}
+
+function line(label, n, unit) {
+  return label + ": " + (n === null ? "—" : "<b>" + fa(n) + "</b>" + (unit ? " " + unit : ""));
+}
+
 export async function handleMembers(ctx) {
   if (!isOwner(ctx)) return;
 
-  const lines = ["👥 <b>اعضای کانال</b>", ""];
+  const env = ctx.env;
+  const d1 = agoIso(DAY);
+  const d7 = agoIso(7 * DAY);
+  const d30 = agoIso(30 * DAY);
 
-  let title = GATE_CHANNEL;
-  try {
-    const chat = await ctx.api.getChat(GATE_CHANNEL);
-    if (chat.title) title = chat.title;
-  } catch {
-    // اسم کانال چیز لازمی نیست؛ اگر نیامد، همان یوزرنیم نوشته می‌شود.
-  }
-  lines.push("کانال: «" + title + "» — <code>" + GATE_CHANNEL + "</code>");
+  const [total, a1, a7, a30, new7, new30, subs, phones] = await Promise.all([
+    count(env, "SELECT COUNT(*) FROM user_state"),
+    count(env, "SELECT COUNT(*) FROM user_state WHERE last_interaction_at >= ?", d1),
+    count(env, "SELECT COUNT(*) FROM user_state WHERE last_interaction_at >= ?", d7),
+    count(env, "SELECT COUNT(*) FROM user_state WHERE last_interaction_at >= ?", d30),
+    count(env, "SELECT COUNT(*) FROM user_state WHERE source_first_seen >= ?", d7),
+    count(env, "SELECT COUNT(*) FROM user_state WHERE source_first_seen >= ?", d30),
+    count(env, "SELECT COUNT(*) FROM econ_subscriber WHERE subscribed = 1"),
+    count(env, "SELECT COUNT(*) FROM phone_book"),
+  ]);
 
-  try {
-    const count = await ctx.api.getChatMemberCount(GATE_CHANNEL);
-    lines.push("تعداد اعضا: <b>" + fa(count) + "</b> نفر");
-  } catch (err) {
-    lines.push("تعداد اعضا: ⚠️ خوانده نشد");
-    lines.push("<code>" + String(err && err.message).slice(0, 140) + "</code>");
-  }
+  const lines = ["👥 <b>اعضای ربات</b>", ""];
+  lines.push(line("کل کاربران", total, "نفر"));
+  lines.push("");
+  lines.push("<b>فعال اخیر</b>");
+  lines.push(line("۲۴ ساعت گذشته", a1, "نفر"));
+  lines.push(line("۷ روز گذشته", a7, "نفر"));
+  lines.push(line("۳۰ روز گذشته", a30, "نفر"));
+  lines.push("");
+  lines.push("<b>تازه‌وارد</b>");
+  lines.push(line("۷ روز گذشته", new7, "نفر"));
+  lines.push(line("۳۰ روز گذشته", new30, "نفر"));
+  lines.push("");
+  lines.push(line("مشترک هشدار تقویم", subs, "نفر"));
+  lines.push(line("شماره‌ی ثبت‌شده", phones, "نفر"));
 
-  // این سطر مهم‌تر از خودِ عدد است.
+  // کانال، برای مقایسه. دو عدد کاملاً جدا هستند و جمعشان معنی ندارد.
+  lines.push("");
+  lines.push("📢 <b>کانال</b> <code>" + GATE_CHANNEL + "</code>");
   try {
+    lines.push(line("عضو کانال", await ctx.api.getChatMemberCount(GATE_CHANNEL), "نفر"));
     const me = await ctx.api.getMe();
-    const member = await ctx.api.getChatMember(GATE_CHANNEL, me.id);
-    const isAdmin = member.status === "administrator" || member.status === "creator";
-    lines.push("");
-    lines.push("ربات در کانال ادمین است: " + (isAdmin ? "✅" : "❌") + " (" + member.status + ")");
+    const m = await ctx.api.getChatMember(GATE_CHANNEL, me.id);
+    const isAdmin = m.status === "administrator" || m.status === "creator";
     if (!isAdmin) {
-      lines.push(
-        "<i>تا وقتی ادمین نباشد، چک عضویت خطا می‌دهد و دروازه برای همه باز می‌ماند.</i>"
-      );
+      lines.push("⚠️ ربات در کانال ادمین نیست (" + m.status + ") — دروازه‌ی عضویت برای همه باز است.");
     }
   } catch (err) {
-    lines.push("");
-    lines.push("ربات در کانال ادمین است: ⚠️ بررسی نشد");
-    lines.push("<code>" + String(err && err.message).slice(0, 140) + "</code>");
-    lines.push("<i>یعنی دروازه‌ی عضویت هم همین خطا را می‌گیرد و برای همه باز است.</i>");
+    lines.push("⚠️ خوانده نشد: <code>" + String(err && err.message).slice(0, 120) + "</code>");
+    lines.push("یعنی دروازه‌ی عضویت هم همین خطا را می‌گیرد و برای همه باز است.");
   }
+
+  lines.push("");
+  lines.push(
+    "<i>«کل کاربران» برای گذشته کمتر از واقعیت است: تا پیش از این نسخه، فقط کسانی ثبت می‌شدند که وارد یک فرم شده بودند. از حالا هرکسی که با ربات کار کند شمرده می‌شود.</i>"
+  );
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
 }

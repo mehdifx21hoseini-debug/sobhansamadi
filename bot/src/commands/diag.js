@@ -153,7 +153,7 @@ export async function handleDiag(ctx, build) {
 
   lines.push("");
   lines.push("🛠 <b>دستورهای مدیر</b>");
-  lines.push("/members — تعداد اعضای کانال");
+  lines.push("/members — تعداد کاربران ربات");
   lines.push("/edit — ویرایش متن و عکس بخش‌ها");
   lines.push("/delete — حذف یک محتوا با شناسه");
   lines.push("/kbsync — ساختن پایگاه دانش دستیار");

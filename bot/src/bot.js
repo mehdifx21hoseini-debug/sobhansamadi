@@ -30,6 +30,7 @@ import { handleAiStats } from "./commands/aistats.js";
 import { VOTE_PREFIX, recordVote } from "./ai/log.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
+import { touchUser } from "./db.js";
 import { isOwner } from "./owner.js";
 import { ensureAdminCommands } from "./commands/registry.js";
 import { getUserState, clearUserState } from "./db.js";
@@ -98,6 +99,16 @@ export function createBot(token, env, botInfo, build = "?") {
       // پشت یک درخواست دیگر به تلگرام نگه دارد.
       ensureAdminCommands(ctx).catch(() => {});
     }
+    return next();
+  });
+
+  // شمارشِ «اعضای ربات». پیش از دروازه است عمداً: کسی که پشت دروازه
+  // مانده هم ربات را استارت کرده و باید در عدد بیاید.
+  //
+  // منتظرش نمی‌مانیم - یک نوشتنِ آماری نباید پاسخ به کاربر را کند کند.
+  bot.use(async (ctx, next) => {
+    const id = ctx.from && ctx.from.id;
+    if (id && !ctx.from.is_bot) touchUser(ctx.env, id).catch(() => {});
     return next();
   });
 
