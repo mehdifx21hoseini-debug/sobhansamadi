@@ -6,6 +6,7 @@ import { handleMiniapp } from "./econ/miniapp.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
+import { importAll, importTable } from "./crm/importer.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
@@ -193,6 +194,27 @@ async function handleAdmin(request, url, env) {
     try {
       const result = await syncFromN8n(env);
       return json({ ok: true, build: BUILD, synced: result });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
+  // انتقال CRM از n8n به D1 - مرحله‌ی داده.
+  //
+  // بدون پارامتر: همه‌ی جدول‌ها، به ترتیبِ نقشه. با ?table=leads فقط
+  // یکی، برای وقتی یک جدول شکسته و نباید بقیه دوباره کشیده شوند.
+  //
+  // idempotent است، پس تا لحظه‌ی سوییچ هر بار می‌شود دوباره اجرایش کرد
+  // تا داده‌ی تازه بیاید - و همین است که یک انتقال را از یک قمار جدا
+  // می‌کند.
+  if (url.pathname === "/admin/crm-import") {
+    const one = url.searchParams.get("table");
+    try {
+      const result = one
+        ? [await importTable(env, one)]
+        : await importAll(env);
+      const failed = result.filter((r) => r.error);
+      return json({ ok: failed.length === 0, build: BUILD, tables: result }, failed.length ? 502 : 200);
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
     }

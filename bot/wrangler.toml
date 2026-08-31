@@ -29,6 +29,10 @@ ECON_EXPLAIN_URL = "https://96825.7host.cloud/webhook/econ/explain"
 # فقط برای تنظیمات هشدار استفاده می‌شود؛ داده‌ی تقویم از آینه‌ی D1 می‌آید.
 ECON_MINIAPP_URL = "https://96825.7host.cloud/webhook/econ/miniapp"
 CRM_LEAD_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/bot-intake"
+
+# انتقال یک‌باره‌ی جدول‌های CRM به D1 (WF-24). موقتی: بعد از سوییچ، هم این
+# متغیر و هم خودِ ورک‌فلو برداشته می‌شوند.
+CRM_MIGRATE_URL = "https://96825.7host.cloud/webhook/crm/migrate-export"
 # مقصدِ درخواست‌های فرم منتورینگ، بعد از اینکه ورکر ذخیره‌شان کرد.
 CRM_MENTORING_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/mentoring-intake"
 # خروجی فقط-خواندنی جدول‌های CRM، برای آینه‌ای که صفحه‌ها را با قطعی n8n
