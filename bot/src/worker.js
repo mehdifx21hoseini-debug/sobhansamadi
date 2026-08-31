@@ -122,11 +122,6 @@ async function handleAdmin(request, url, env) {
   // از n8n می‌پرسد معتبر است یا نه. کلید مدیر همچنان کار می‌کند و
   // پایین‌تر بررسی می‌شود - هم برای مسیرهای تشخیصی، هم به‌عنوان راه
   // ورود وقتی n8n خوابیده و توکن قابل بررسی نیست.
-  // API پنل CRM. احراز هویت خودش را دارد (نشستِ crm_session) و به
-  // ADMIN_KEY کاری ندارد، پس پیش از دروازه‌ی کلیدِ مدیر می‌آید.
-  const crm = await handleCrmApi(request, url, env);
-  if (crm) return crm;
-
   if (url.pathname.startsWith("/admin/ai/")) {
     const auth = request.headers.get("authorization") || "";
     const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
@@ -389,10 +384,22 @@ export default {
       url.pathname === "/admin/ff-probe" ||
       url.pathname === "/admin/econ-sender" ||
       url.pathname === "/admin/econ-ingest" ||
-      url.pathname === "/admin/econ-explain"
+      url.pathname === "/admin/econ-explain" ||
+      url.pathname === "/admin/crm-import"
     ) {
       return handleAdmin(request, url, env);
     }
+
+    // API پنل CRM. اینجاست، نه داخل handleAdmin: آن تابع فقط برای
+    // مسیرهای فهرست‌شده‌ی بالا صدا زده می‌شود، پس هرچه داخلش بود از
+    // بیرون دیده نمی‌شد - همان تله‌ای که /crm/* را روی پروداکشن ۴۰۴
+    // می‌کرد در حالی که کدش دیپلوی شده بود.
+    //
+    // احراز هویت خودش را دارد (نشستِ crm_session) و به ADMIN_KEY کاری
+    // ندارد، پس پیش از دروازه‌ی کلیدِ مدیر می‌آید. اگر مسیر مالِ او
+    // نباشد null برمی‌گرداند و کار پایین ادامه پیدا می‌کند.
+    const crm = await handleCrmApi(request, url, env);
+    if (crm) return crm;
 
     // صفحه‌ی «هوش مصنوعی» در CRM. روی دامنه‌ی دیگری است، پس مرورگر اول
     // یک درخواست OPTIONS می‌فرستد - و آن درخواست هدر کلید را ندارد،
