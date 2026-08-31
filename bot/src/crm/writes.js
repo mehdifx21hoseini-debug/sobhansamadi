@@ -33,6 +33,71 @@ async function leadExists(env, leadId) {
 
 const bad = (error) => ({ ok: false, error });
 
+// ─── لیدِ تازه از ربات ────────────────────────────────────────────────
+
+/**
+ * شناسه‌ی لید، با همان الگویی که n8n می‌ساخت: LEAD-YYYYMMDD-NNNN.
+ *
+ * تاریخ به وقت تهران است، نه UTC. شناسه‌ای که مشاور در ساعت دو بامداد
+ * می‌سازد نباید تاریخِ دیروز را روی خودش داشته باشد.
+ */
+export function newLeadId(d = new Date()) {
+  const p = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tehran", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+  return "LEAD-" + p.replace(/-/g, "") + "-" + Math.floor(1000 + Math.random() * 9000);
+}
+
+// وضعیتِ لیدِ تازه. رشته‌ی فارسی است چون پنل و n8n هر دو با همین کار
+// می‌کنند - ۱۰۲ ردیف از ۱۱۸ ردیفِ منتقل‌شده همین را دارند.
+const NEW_STATUS = "جدید";
+
+/**
+ * لیدی که ربات گرفته را مستقیم در D1 می‌نشاند.
+ *
+ * تا پیش از این فقط به n8n فرستاده می‌شد و پنل هم از n8n می‌خواند. حالا
+ * که پنل از D1 می‌خواند، بدون این نوشتن، لیدِ تازه در پنل دیده نمی‌شود -
+ * یعنی مشتری‌ای که همین حالا ثبت‌نام کرده، هیچ‌وقت تماسی نمی‌گیرد.
+ *
+ * ارسال به n8n سر جایش می‌ماند: تخصیص چرخشی و اطلاع‌رسانی به مشاورها
+ * هنوز آنجاست و تا وقتی خاموش نشده، قطع کردنش یعنی از دست دادن آن‌ها.
+ */
+export async function insertBotLead(env, lead) {
+  const leadId = newLeadId();
+  const now = nowIso();
+  const extras = [
+    lead.level ? "سطح: " + lead.level : "",
+    lead.topic ? "موضوع: " + lead.topic : "",
+    lead.preferred_time ? "زمان دلخواه: " + lead.preferred_time : "",
+  ].filter(Boolean);
+
+  await env.DB
+    .prepare(
+      `INSERT INTO crm_leads
+         (lead_id, telegram_user_id, telegram_username, full_name, phone, course,
+          request_type, notes, status, contact_attempts, created_at, updated_at, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+    )
+    .bind(
+      leadId,
+      lead.telegram_user_id == null ? null : String(lead.telegram_user_id),
+      lead.username || null,
+      lead.name || null,
+      lead.phone || null,
+      lead.course || null,
+      lead.request_type || null,
+      extras.join("\n") || null,
+      NEW_STATUS,
+      now,
+      now,
+      lead.source || "telegram_bot"
+    )
+    .run();
+
+  await logActivity(env, leadId, "ثبت لید", "از ربات تلگرام", "bot");
+  return leadId;
+}
+
 // ─── وضعیت لید ───────────────────────────────────────────────────────
 
 export async function setLeadStatus(env, body, actor) {

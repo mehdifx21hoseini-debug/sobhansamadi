@@ -1,6 +1,8 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import { getUserState, setUserState, clearUserState, createLead, readUserSource } from "./db.js";
 import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
+import { insertBotLead } from "./crm/writes.js";
+import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendSection, resolveSection } from "./content/sectionText.js";
 import { savePhone } from "./phones.js";
@@ -275,10 +277,16 @@ export async function handleConfirm(ctx) {
 
   await createLead(ctx.env, lead);
 
-  // CRM لیدها را از جدول‌های n8n می‌خواند، نه از D1. بدون این صف، لیدی که
-  // ربات می‌گیرد در CRM دیده نمی‌شود و مشاور هرگز با آن مشتری تماس
-  // نمی‌گیرد. ثبت در صف نباید جلوی پاسخ به کاربر را بگیرد، پس خطایش
-  // بلعیده می‌شود - رکورد اصلی در جدول leads است و از دست نمی‌رود.
+  // پنل CRM حالا از crm_leads در D1 می‌خواند، پس لید باید همان‌جا هم
+  // بنشیند - وگرنه مشتری‌ای که همین حالا ثبت‌نام کرده در فهرست مشاورها
+  // دیده نمی‌شود. خطایش بلعیده می‌شود چون رکورد اصلی در جدول leads است.
+  await ensureCrmSchema(ctx.env)
+    .then(() => insertBotLead(ctx.env, lead))
+    .catch((err) => console.error("نوشتن لید در crm_leads شکست خورد:", err && err.message));
+
+  // ارسال به n8n هنوز لازم است: تخصیص چرخشی و اطلاع‌رسانی به مشاورها
+  // آنجا انجام می‌شود. ثبت در صف نباید جلوی پاسخ به کاربر را بگیرد، پس
+  // خطایش هم بلعیده می‌شود.
   await queueLead(ctx.env, lead).catch((err) =>
     console.error("ثبت لید در صف CRM شکست خورد:", err && err.message)
   );

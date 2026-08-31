@@ -16,6 +16,7 @@
 // یعنی از دست دادن مشتری برای رعایت یک قاعده‌ی شکلی.
 
 import { queueOutbound } from "../crmSync.js";
+import { ensureCrmSchema } from "../crm/schema.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS mentoring_intake (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,6 +208,33 @@ export async function handleMentoringIntake(request, env) {
     // بدهیم، تا اگر روزی افزونه‌ای تلاش مجدد داشت، دوباره بفرستد.
     console.error("ثبت درخواست منتورینگ شکست خورد:", err && err.message);
     return json({ success: false, error: "ثبت درخواست ممکن نشد" }, 500);
+  }
+
+  // و همان درخواست، در جدولی که پنل CRM می‌خواند.
+  //
+  // جدول بالا رکوردِ خامِ ماست و هیچ‌وقت پاک نمی‌شود؛ این یکی چیزی است
+  // که صفحه‌ی «درخواست‌های منتورینگ» نشان می‌دهد. تا پیش از سوییچ، پنل
+  // از n8n می‌خواند و همین ارسالِ صف کافی بود - حالا دیگر نیست.
+  //
+  // شکستش نباید جلوی پاسخ ۲۰۰ را بگیرد: داده در جدول بالا هست و از بین
+  // نمی‌رود.
+  try {
+    await ensureCrmSchema(env);
+    await env.DB
+      .prepare(
+        `INSERT INTO crm_mentoring_requests
+           (request_id, created_at, full_name, phone, telegram_id, email,
+            consultation_goal, answers_json, raw_payload)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        "MREQ-" + Date.now().toString(36) + "-" + Math.floor(1000 + Math.random() * 9000),
+        now, data.full_name, data.phone, data.telegram_id, data.email,
+        data.message, JSON.stringify(data.answers), raw
+      )
+      .run();
+  } catch (err) {
+    console.error("ثبت منتورینگ در crm_mentoring_requests شکست خورد:", err && err.message);
   }
 
   if (reason) {

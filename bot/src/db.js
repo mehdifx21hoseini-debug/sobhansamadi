@@ -1,5 +1,7 @@
 // لایه‌ی دسترسی به D1 - جایگزین جدول‌های n8n Data Table.
 
+import { ensureCrmSchema } from "./crm/schema.js";
+
 export async function getUserState(env, telegramUserId) {
   const row = await env.DB
     .prepare("SELECT * FROM user_state WHERE telegram_user_id = ?")
@@ -118,21 +120,48 @@ export async function createLead(env, lead) {
 
 export async function createSupportTicket(env, ticket) {
   const ticketId = "TCK-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7);
+  const now = new Date().toISOString();
+  const args = [
+    ticketId,
+    String(ticket.telegram_user_id),
+    ticket.telegram_username || null,
+    ticket.first_name || null,
+    ticket.last_name || null,
+    ticket.message || null,
+    now,
+  ];
+
   await env.DB
     .prepare(
       `INSERT INTO support_tickets (ticket_id, telegram_user_id, telegram_username, first_name, last_name, message, status, created_at)
        VALUES (?, ?, ?, ?, ?, ?, 'باز', ?)`
     )
-    .bind(
-      ticketId,
-      String(ticket.telegram_user_id),
-      ticket.telegram_username || null,
-      ticket.first_name || null,
-      ticket.last_name || null,
-      ticket.message || null,
-      new Date().toISOString()
-    )
+    .bind(...args)
     .run();
+
+  // و همان تیکت در جدولی که پنل CRM می‌خواند.
+  //
+  // این دو جدول هم‌نام نیستند و نباید باشند: support_tickets از قبل در
+  // D1 بود و شکل دیگری داشت. تا پیش از سوییچ، پنل تیکت‌ها را از n8n
+  // می‌گرفت؛ حالا از crm_support_tickets می‌خواند، پس بدون این نوشتن
+  // تیکتِ تازه در صندوق پشتیبانی دیده نمی‌شود.
+  //
+  // خطایش بلعیده می‌شود: تیکت در جدول بالا ثبت شده و از بین نمی‌رود.
+  try {
+    await ensureCrmSchema(env);
+    await env.DB
+      .prepare(
+        `INSERT INTO crm_support_tickets
+           (ticket_id, telegram_user_id, telegram_username, first_name, last_name,
+            message, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'باز', ?, ?)`
+      )
+      .bind(...args, now)
+      .run();
+  } catch (err) {
+    console.error("ثبت تیکت در crm_support_tickets شکست خورد:", err && err.message);
+  }
+
   return ticketId;
 }
 
