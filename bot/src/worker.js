@@ -8,7 +8,7 @@ import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
-import { stripInstagramHandleOnce } from "./content/cleanup.js";
+import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
 import { handleMirrorApi, mirrorPreflight } from "./crm/api.js";
 import { handlePhonesApi, phonesPreflight } from "./crm/phonesApi.js";
 import {
@@ -60,7 +60,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-40-twopaths";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-41-p04caption";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -583,6 +583,14 @@ export default {
           if (n && n.changed) console.log("آیدی اینستاگرام از متن لایو ترید برداشته شد.");
         })
         .catch((err) => console.error("پاک‌سازی متن لایو ترید شکست خورد:", err && err.message))
+    );
+
+    ctx.waitUntil(
+      setIntroP04CaptionOnce(env)
+        .then((n) => {
+          if (n && n.changed) console.log("کپشن قسمت ۴ دوره‌ی مقدماتی نوشته شد.");
+        })
+        .catch((err) => console.error("کپشن قسمت ۴ نوشته نشد:", err && err.message))
     );
   },
 };
