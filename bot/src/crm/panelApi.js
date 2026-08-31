@@ -13,6 +13,7 @@ import {
   updateDisplayName, updateUsername, updateAvatar, pruneSessions, revokeSessions,
 } from "./auth.js";
 import { ensureCrmSchema } from "./schema.js";
+import * as R from "./reads.js";
 
 // صفحه‌ها روی GitHub Pages میزبانی می‌شوند و ورکر جای دیگری است، پس هر
 // پاسخ باید سرآیندهای CORS داشته باشد - از جمله پاسخ‌های خطا، وگرنه
@@ -146,6 +147,37 @@ export async function handleCrmApi(request, url, env) {
     // می‌آید، چند ردیفِ منقضی هم پاک می‌شود. بدون یک زمان‌بندِ جداگانه.
     await pruneSessions(env).catch(() => {});
     return json({ success: true, username: session.username, role: session.role, display_name: session.display_name });
+  }
+
+  // ─── خواندنی‌ها ────────────────────────────────────────────────────
+  // شکل پاسخ عمداً آرایه‌ی خام است، نه {success, data}. توضیحش در
+  // reads.js است؛ خلاصه‌اش: صفحه‌ها همین را انتظار دارند.
+  if (request.method === "GET") {
+    const LISTS = {
+      "/crm/leads": R.listLeads,
+      "/crm/calls": R.listCalls,
+      "/crm/products": R.listProducts,
+      "/crm/consultants": R.listConsultants,
+      "/crm/admins": R.listAdmins,
+      "/crm/mentoring-requests": R.listMentoring,
+      "/crm/support-tickets": R.listTickets,
+      "/crm/errors": R.listErrors,
+      "/crm/broadcasts": R.listBroadcasts,
+      "/crm/content-texts": R.listContentTexts,
+      "/crm/content-files": R.listContentFiles,
+      "/crm/econ-subscribers": R.listEconSubscribers,
+    };
+    if (LISTS[path]) return json(await LISTS[path](env));
+
+    if (path === "/crm/lead/activity") {
+      return json(await R.leadActivity(env, url.searchParams.get("id")));
+    }
+    if (path === "/crm/support-ticket") {
+      return json(await R.ticketDetail(env, url.searchParams.get("id")));
+    }
+    if (path === "/crm/followups/today") {
+      return json(await R.followupsToday(env));
+    }
   }
 
   // مسیر CRM است ولی هنوز منتقل نشده. ۵۰۱ عمدی است و نه ۴۰۴: صفحه باید
