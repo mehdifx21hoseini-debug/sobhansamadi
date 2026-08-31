@@ -7,6 +7,7 @@ import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
+import { handleCrmApi } from "./crm/api.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
@@ -118,6 +119,11 @@ async function handleAdmin(request, url, env) {
   // از n8n می‌پرسد معتبر است یا نه. کلید مدیر همچنان کار می‌کند و
   // پایین‌تر بررسی می‌شود - هم برای مسیرهای تشخیصی، هم به‌عنوان راه
   // ورود وقتی n8n خوابیده و توکن قابل بررسی نیست.
+  // API پنل CRM. احراز هویت خودش را دارد (نشستِ crm_session) و به
+  // ADMIN_KEY کاری ندارد، پس پیش از دروازه‌ی کلیدِ مدیر می‌آید.
+  const crm = await handleCrmApi(request, url, env);
+  if (crm) return crm;
+
   if (url.pathname.startsWith("/admin/ai/")) {
     const auth = request.headers.get("authorization") || "";
     const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
