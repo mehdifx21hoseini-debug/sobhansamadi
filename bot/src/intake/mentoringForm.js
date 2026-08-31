@@ -15,7 +15,6 @@
 // بی‌نام هنوز شماره و پرسشنامه دارد و کاملاً قابل پیگیری است؛ دور ریختنش
 // یعنی از دست دادن مشتری برای رعایت یک قاعده‌ی شکلی.
 
-import { queueOutbound } from "../crmSync.js";
 import { ensureCrmSchema } from "../crm/schema.js";
 import { mentoringLead, mentoringNotifyText, notifyAdmins } from "../crm/intake.js";
 
@@ -266,21 +265,6 @@ export async function handleMentoringIntake(request, env) {
       )
     ).catch((err) => console.error("اطلاع‌رسانی منتورینگ شکست خورد:", err && err.message));
   }
-
-  await queueOutbound(env, "mentoring", {
-    full_name: data.full_name,
-    phone: data.phone,
-    telegram_id: data.telegram_id,
-    email: data.email,
-    message: data.message,
-    ...data.answers,
-    form_id: String(body.form_id || ""),
-  }).catch((err) => {
-    // صف پر نشد ولی خودِ درخواست ذخیره شده. هشدار می‌دهیم چون تنها
-    // راهِ باقی‌مانده برای دیدنش، همین پیام است.
-    console.error("صف منتورینگ پر نشد:", err && err.message);
-    return alertOwner(env, ["⚠️ درخواست منتورینگ ذخیره شد ولی در صف CRM ننشست", "", (data.full_name || "بدون نام") + " — " + (data.phone || "بدون شماره")]);
-  });
 
   return json({ success: true, stored: true });
 }

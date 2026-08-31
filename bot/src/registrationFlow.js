@@ -1,6 +1,5 @@
 import { InlineKeyboard, Keyboard } from "grammy";
 import { getUserState, setUserState, clearUserState, createLead, readUserSource } from "./db.js";
-import { queueLead, flushLeadOutboxSoon } from "./crmSync.js";
 import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
@@ -288,22 +287,11 @@ export async function handleConfirm(ctx) {
     .then(() => upsertBotLead(ctx.env, lead))
     .catch((err) => console.error("نوشتن لید در crm_leads شکست خورد:", err && err.message));
 
-  // ارسال به n8n هنوز لازم است: تخصیص چرخشی و اطلاع‌رسانی به مشاورها
-  // آنجا انجام می‌شود. ثبت در صف نباید جلوی پاسخ به کاربر را بگیرد، پس
-  // خطایش هم بلعیده می‌شود.
-  await queueLead(ctx.env, lead).catch((err) =>
-    console.error("ثبت لید در صف CRM شکست خورد:", err && err.message)
-  );
-
   await clearUserState(ctx.env, ctx.from.id);
 
   await ctx.editMessageText("✅ اطلاعات شما تایید و ثبت شد.", { reply_markup: undefined });
   await sendLeadDone(ctx);
 
-  // بعد از اینکه کاربر پاسخش را گرفت: یک تلاش فوری تا لید در همان لحظه در
-  // CRM ظاهر شود، نه ده دقیقه بعد. عمداً بعد از reply است تا اگر n8n کند
-  // یا قطع بود، کاربر منتظر نماند.
-  await flushLeadOutboxSoon(ctx.env);
 }
 
 export async function handleCancel(ctx) {

@@ -12,6 +12,7 @@ import { crmSelfTest } from "./crm/selftest.js";
 import { recentLeads, deleteLeads } from "./crm/maintenance.js";
 import { sendDailyReport } from "./crm/report.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
+import { handlePaymentIntake } from "./intake/payment.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
 import { handleMirrorApi, mirrorPreflight } from "./crm/mirrorApi.js";
@@ -69,7 +70,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-5";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-6";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -479,6 +480,12 @@ export default {
       return handleMentoringIntake(request, env);
     }
 
+    // وبهوک پرداخت. جای‌گزینِ POST /payment/verify در n8n - با این تفاوت
+    // که این یکی کلید می‌خواهد و آن یکی برای هر کسی روی اینترنت باز بود.
+    if (url.pathname === "/intake/payment") {
+      return handlePaymentIntake(request, env);
+    }
+
     // مینی‌اپ تقویم. تا پیش از این مستقیم به n8n می‌زد و با هر قطعی آن
     // هاست، همه‌ی تب‌های تقویم خالی می‌شدند در حالی که خود ربات - که از
     // آینه‌ی D1 می‌خواند - سالم بود. حالا هر دو از یک منبع می‌خوانند.
@@ -624,11 +631,12 @@ export default {
       return;
     }
 
-    ctx.waitUntil(
-      syncFromN8n(env)
-        .then((n) => console.log("همگام‌سازی تقویم:", JSON.stringify(n)))
-        .catch((err) => console.error("همگام‌سازی تقویم شکست خورد:", err && err.message))
-    );
+    // همگام‌سازی تقویم از n8n برداشته شد.
+    //
+    // جمع‌آوری مستقیم (econ_worker_ingest) روشن است و همان جدول را پر
+    // می‌کند، پس این کشیدن نه‌تنها لازم نیست، بلکه می‌تواند داده‌ی تازه‌تر
+    // را با نسخه‌ی کهنه‌ی n8n بازنویسی کند. تابعش می‌ماند و از
+    // /admin/sync دستی قابل اجراست.
 
     // تلاش دوباره برای لیدهایی که موقع ثبت نتوانستند به CRM برسند. این
     // چیزی است که قطعی n8n را از «مشتری از دست رفت» به «مشتری چند دقیقه
@@ -643,16 +651,8 @@ export default {
         .catch((err) => console.error("ارسال لیدهای معلق شکست خورد:", err && err.message))
     );
 
-    // آینه‌ی CRM. اگر n8n خواب باشد این هم شکست می‌خورد - که اشکالی
-    // ندارد: آینه‌ی قبلی سر جایش می‌ماند و همان است که صفحه را زنده
-    // نگه می‌دارد.
-    ctx.waitUntil(
-      syncCrmMirror(env)
-        .then((n) => {
-          if (n && !n.skipped) console.log("آینه‌ی CRM:", JSON.stringify(n.written));
-        })
-        .catch((err) => console.error("آینه‌ی CRM همگام نشد:", err && err.message))
-    );
+    // آینه‌ی CRM هم برداشته شد: پنل حالا مستقیم از جدول‌های crm_ در D1
+    // می‌خواند، پس آینه‌ای که از n8n پر می‌شد دیگر هیچ‌کس را نجات نمی‌دهد.
 
     // پاک‌سازی یک‌باره؛ بعد از اولین اجرا فقط یک خواندن از bot_config
     // است و برمی‌گردد.
