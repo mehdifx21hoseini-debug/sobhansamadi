@@ -48,7 +48,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-31-cutover";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-32-cutover";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -311,7 +311,12 @@ export default {
     // مسیرهای تشخیص. وقتی چیزی کار نمی‌کند، بدون این‌ها باید بین «کد
     // دیپلوی نشده»، «متغیر ست نشده»، «Cron اجرا نمی‌شود» و «n8n جواب
     // نمی‌دهد» حدس زد. این‌ها همان چهار حالت را از هم جدا می‌کنند.
-    if (url.pathname === "/admin/status" || url.pathname === "/admin/sync" || url.pathname === "/admin/ff-probe") {
+    if (
+      url.pathname === "/admin/status" ||
+      url.pathname === "/admin/sync" ||
+      url.pathname === "/admin/ff-probe" ||
+      url.pathname === "/admin/econ-sender"
+    ) {
       return handleAdmin(request, url, env);
     }
 
