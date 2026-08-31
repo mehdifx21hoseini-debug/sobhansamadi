@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS user_state (
   intro_progress INTEGER DEFAULT 0,
   source_first_seen TEXT,
   last_interaction_at TEXT,
-  channel_verified_at TEXT  -- آخرین باری که عضویت کانال با موفقیت تایید شد
+  -- دیگر خوانده و نوشته نمی‌شود. دروازه‌ی عضویت کش را برداشت چون کسی که
+  -- از کانال بیرون می‌رفت تا انقضای همین ستون دسترسی‌اش باز می‌ماند. ستون
+  -- سر جایش مانده تا دیتای موجود دور ریخته نشود.
+  channel_verified_at TEXT  -- منسوخ
 );
 
 CREATE TABLE IF NOT EXISTS leads (
