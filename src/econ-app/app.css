@@ -247,9 +247,11 @@
 
 		   سه تصمیم که بنر را به اپ می‌چسبانند:
 
-		   ۱. برش تنگ روی صورت. فایل assets/img/sobhan-banner.jpg از پیش
-		      بریده شده (۷۶۰×۳۵۴) تا مرورگر مجبور نباشد عکسِ تمام‌قدِ
-		      ۱۲۸۰×۱۹۲۰ را دانلود و کوچک کند.
+		   ۱. برش تنگ روی صورت. فایل assets/img/sobhan-banner-2.jpg از پیش
+		      بریده شده (۷۰۰×۳۸۸) تا مرورگر مجبور نباشد عکسِ تمام‌قدِ
+		      ۱۲۸۰×۱۹۲۰ را دانلود و کوچک کند. پنجره‌ی برش از ۴۵ پیکسل بالای
+		      تاجِ سر تا زیر خط شانه‌هاست: برشِ اول ۱۰۵ پیکسل هوای خالی بالای
+		      سر داشت و درست زیر چانه می‌برید، پس شانه‌ها اصلاً نمی‌آمدند.
 
 		   ۲. متن زنده است، نه پخته‌شده در تصویر: با وزیرمتنِ خودِ اپ رندر
 		      می‌شود، روی رتینا تیز می‌ماند و ۲۸ کیلوبایت بیشتر خرج ندارد.
@@ -263,8 +265,8 @@
 			   برای حفظ نسبت، عرض را هم کوچک می‌کند و بنر از ستون محتوا
 			   باریک‌تر می‌شود. */
 			width: 100%;
-			aspect-ratio: 3.8;
-			max-height: 112px;
+			aspect-ratio: 2.75;
+			max-height: 155px;
 			border-radius: 16px;
 			/* رنگِ بنر در هر دو تم یکی است. عکس تُنِ ثابتی دارد و پرده باید در
 			   همان تُن محو شود؛ اگر --navy را می‌گرفت، در تم تیره پرده
@@ -272,7 +274,11 @@
 			--hb-ink: #1f1e26;
 			background: var(--hb-ink);
 			margin-bottom: 12px;
-			container-type: inline-size;
+			/* size و نه inline-size: اندازه‌ی متن به ارتفاع بسته است نه عرض.
+			   با inline-size، بلندتر کردن بنر فقط صورت را بزرگ می‌کرد و متن
+			   همان‌قدر می‌ماند و در کادر گم می‌شد. ارتفاع اینجا از عرض و
+			   aspect-ratio می‌آید نه از محتوا، پس size امن است. */
+			container-type: size;
 		}
 
 		/* left top است نه cover: با cover مرورگر خودش تصمیم می‌گیرد کجا را
@@ -288,8 +294,8 @@
 			top: 0;
 			bottom: 0;
 			left: 0;
-			aspect-ratio: 760 / 354;
-			background: url("assets/img/sobhan-banner.jpg") center / cover no-repeat;
+			aspect-ratio: 700 / 388;
+			background: url("assets/img/sobhan-banner-2.jpg") center / cover no-repeat;
 			-webkit-mask-image: linear-gradient(to right, #000 0%, #000 62%, transparent 96%);
 			mask-image: linear-gradient(to right, #000 0%, #000 62%, transparent 96%);
 		}
@@ -314,12 +320,13 @@
 			inset: 0;
 			background:
 				linear-gradient(to bottom,
-					color-mix(in srgb, var(--hb-ink) 82%, transparent) 0%,
-					color-mix(in srgb, var(--hb-ink) 35%, transparent) 16%,
-					transparent 30%, transparent 72%,
-					color-mix(in srgb, var(--hb-ink) 62%, transparent) 100%),
+					color-mix(in srgb, var(--hb-ink) 92%, transparent) 0%,
+					color-mix(in srgb, var(--hb-ink) 55%, transparent) 15%,
+					color-mix(in srgb, var(--hb-ink) 12%, transparent) 28%,
+					transparent 38%, transparent 70%,
+					color-mix(in srgb, var(--hb-ink) 66%, transparent) 100%),
 				linear-gradient(to right,
-					color-mix(in srgb, var(--hb-ink) 78%, transparent) 0%,
+					color-mix(in srgb, var(--hb-ink) 80%, transparent) 0%,
 					transparent 15%);
 		}
 
@@ -327,42 +334,43 @@
 			position: absolute;
 			inset: 0 16px 0 auto;
 			inset: 0 4.4cqw 0 auto;
-			width: 54%;
+			width: 57%;
 			display: flex;
 			flex-direction: column;
 			justify-content: center;
-			gap: 4px;
-			gap: 1.1cqw;
+			gap: 5px;
+			gap: 4.2cqh;
 			text-align: right;
 		}
 
-		/* واحد cqw نسبت‌های ماکت را در هر عرضی نگه می‌دارد. اگر مرورگری
+		/* واحد cqh نسبت‌های ماکت را در هر اندازه‌ای نگه می‌دارد. اگر مرورگری
 		   container query نداشته باشد، اعلانِ دوم نامعتبر است و کنار گذاشته
-		   می‌شود - اولی می‌ماند و متن هنوز خوانا است. */
+		   می‌شود - اولیِ px می‌ماند، که همان مقدار در ارتفاع پیش‌فرض است. */
 		.hb-eyebrow {
 			display: flex;
 			align-items: center;
-			gap: 5px;
-			gap: 1.4cqw;
-			font-size: 0.44rem;
-			font-size: clamp(7px, 1.91cqw, 13px);
+			gap: 7px;
+			gap: 5.2cqh;
+			font-size: 0.62rem;
+			font-size: clamp(7px, 7.3cqh, 14px);
 			font-weight: 800;
 			color: #ff4d94;
 		}
 
 		.hb-eyebrow i {
 			display: block;
-			width: 9px;
-			width: 2.5cqw;
-			height: 1.5px;
+			width: 12px;
+			width: 9.4cqh;
+			height: 2px;
+			height: 1.6cqh;
 			border-radius: 2px;
 			background: currentColor;
 		}
 
 		.hero-banner h1 {
 			margin: 0;
-			font-size: 1rem;
-			font-size: clamp(14px, 4.23cqw, 27px);
+			font-size: 1.34rem;
+			font-size: clamp(14px, 16.1cqh, 30px);
 			font-weight: 900;
 			line-height: 1.28;
 			letter-spacing: -.02em;
@@ -371,8 +379,8 @@
 		}
 
 		.hb-sub {
-			font-size: 0.58rem;
-			font-size: clamp(9px, 2.46cqw, 16px);
+			font-size: 0.79rem;
+			font-size: clamp(9px, 9.4cqh, 18px);
 			font-weight: 600;
 			line-height: 1.5;
 			color: #bab7c6;
