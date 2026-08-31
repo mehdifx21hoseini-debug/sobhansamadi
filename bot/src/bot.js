@@ -275,7 +275,7 @@ export function createBot(token, env, botInfo, build = "?") {
 
     if (data === "INTRO_REGISTER_ADVANCED") {
       await ctx.answerCallbackQuery();
-      await startRegistrationFlow(ctx, "registration", "برای ثبت‌نام در مجموعه آموزشی پیشرفته، لطفاً دوره موردنظر خود را انتخاب کنید:");
+      await startRegistrationFlow(ctx, "registration", "🎓 برای ثبت‌نام در مجموعه آموزشی پیشرفته، چند مشخصه از شما می‌گیریم و همکاران ما تماس می‌گیرند.");
       return;
     }
 
