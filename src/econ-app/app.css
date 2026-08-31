@@ -690,6 +690,14 @@
 		}
 
 		.sb-tz:hover { color: var(--sb-text); background: var(--sb-panel-2); }
+
+		/* منطقه‌ی غیر از تهران: برچسب رنگ سیگنال می‌گیرد تا انتخاب فراموش
+		   نشود. ساعت‌های تقویم همیشه تهران‌اند، پس اگر تابلو روی منطقه‌ی
+		   دیگری باشد و کسی متوجه نشود، دو بخشِ همین اپ با هم نمی‌خوانند. */
+		.sb-tz.is-off {
+			color: var(--sb-signal);
+			background: color-mix(in srgb, var(--sb-signal) 10%, transparent);
+		}
 		.sb-tz:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: 1px; }
 		.sb-caret { font-size: 0.5rem; opacity: .8; }
 		.sb-tz[aria-expanded="true"] .sb-caret { transform: rotate(180deg); }

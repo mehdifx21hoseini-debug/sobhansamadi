@@ -207,7 +207,6 @@
 				var d = state.data;
 				var todays = todaysEvents();
 				var highs = todays.filter(function (e) { return e.importance === "high"; }).length;
-				var name = d.user && d.user.first_name ? d.user.first_name : "";
 				var sub;
 
 				if (todays.length === 0) {
@@ -218,7 +217,12 @@
 					sub = "امروز خبری برای دلار نیست";
 					if (next) sub += " — بعدی " + relDay(next.date) + "، " + (next.en || next.title);
 				} else {
-					sub = (name ? name + " عزیز، " : "") + "امروز " + fa(todays.length) + " رویداد برای دلار ثبت شده.";
+					// بدون خطاب. نامِ نمایشیِ تلگرام هرچیزی می‌تواند باشد - نام
+					// یک کانال، یک اکانت کاری، یا رشته‌ای از ایموجی - و
+					// «… عزیز» چسبیده به آن، جمله‌ای می‌ساخت که گاهی بی‌معنی
+					// بود. تازه فرض می‌کرد خواننده دانشجوی ماست، که همیشه
+					// درست نیست: این اپ را هرکسی می‌تواند باز کند.
+					sub = "امروز " + fa(todays.length) + " رویداد برای دلار ثبت شده.";
 				}
 				document.getElementById("heroSub").textContent = sub;
 
@@ -1062,7 +1066,12 @@
 					// window, so the heading must stop claiming they are today's.
 					weekend ? "سشن‌ها، در روز کاری بعد" : "امروز، سشن‌های بازار"));
 
-				var tzBtn = el("button", "sb-tz");
+				// وقتی منطقه تهران نیست، برچسب علامت می‌خورد. بدون این، یک
+				// انتخابِ فراموش‌شده در این دکمه، کل ساعت‌های تابلو را
+				// جابه‌جا می‌کند و از بیرون شبیه «ساعت‌ها اشتباه است» به
+				// نظر می‌رسد - نه شبیه «تو منطقه را عوض کرده‌ای».
+				var offZone = viewZone.key !== "tehran";
+				var tzBtn = el("button", "sb-tz" + (offZone ? " is-off" : ""));
 				tzBtn.type = "button";
 				tzBtn.setAttribute("aria-expanded", "false");
 				var tzLabel = el("span", null,
