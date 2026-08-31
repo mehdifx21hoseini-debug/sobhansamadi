@@ -1,0 +1,73 @@
+# Pulls the ForexFactory weekly calendar feed and posts it to the Worker.
+#
+# Why not fetch it from the Worker directly: measured, the feed answers 429
+# to every Cloudflare Worker request (with and without a User-Agent) and 200
+# to a runner here, in the same minute. The feed sits behind Cloudflare and
+# refuses Workers. Waiting or backing off does not change that.
+#
+# So this job is a pipe and nothing more: curl the feed, post the raw body.
+# All the normalizing, the actual-value preservation and the writing happen
+# in bot/src/econ/ingest.js, where they are tested and visible. Anything
+# clever added here would live in the one place with no tests around it.
+name: FF Calendar Feed
+
+on:
+  schedule:
+    # Hourly, the same cadence n8n used. The feed covers a whole week and
+    # only changes when a value is released, so reading it faster brings
+    # nothing new.
+    - cron: '9 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ff-calendar
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch feed and post to the Worker
+        env:
+          ECON_INGEST_KEY: ${{ secrets.ECON_INGEST_KEY }}
+          WORKER_URL: https://sobhansamadi.mehdifx21hoseini.workers.dev/econ/ingest
+        run: |
+          set -euo pipefail
+
+          curl -sS --fail --max-time 60 \
+            -H 'User-Agent: sobhansamadi-bot/1.0 (+https://sobhansamadi.com)' \
+            https://nfs.faireconomy.media/ff_calendar_thisweek.json > feed.json
+
+          # A healthy feed is never empty. Stopping here rather than posting
+          # keeps a bad read from reaching the Worker at all — though the
+          # Worker refuses an empty list too, so this is the second lock on
+          # the same door, not the only one.
+          count=$(jq 'length' feed.json)
+          echo "rows in feed: $count"
+          if [ "$count" -lt 1 ]; then
+            echo "feed came back empty; leaving the calendar as it is"
+            exit 1
+          fi
+
+          # --argjson keeps the feed as JSON instead of a string, and the key
+          # goes through --arg so it never lands in the process list.
+          jq -n --arg key "$ECON_INGEST_KEY" --slurpfile events feed.json \
+            '{key: $key, events: $events[0]}' > payload.json
+
+          # -o/-w rather than piping the body: the response can carry the key
+          # back in an error echo, and this way only the status line is
+          # printed. The body goes to a file that the runner discards.
+          status=$(curl -sS --max-time 60 -o response.json -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' \
+            --data @payload.json "$WORKER_URL")
+
+          echo "worker responded: $status"
+          jq -r 'del(.error) | tostring' response.json || true
+
+          if [ "$status" != "200" ]; then
+            echo "the Worker rejected the feed"
+            exit 1
+          fi

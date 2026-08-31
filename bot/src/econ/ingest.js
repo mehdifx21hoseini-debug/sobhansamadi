@@ -19,7 +19,17 @@ export async function ingestEnabled(env) {
   return String(v).toLowerCase() === "on";
 }
 
-const FF_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+// فید تقویم را ورکر نمی‌تواند بگیرد، و این یک محدودیت شبکه است نه نرخ.
+//
+// اندازه‌گیری شده: از Cloudflare Worker همیشه ۴۲۹ برمی‌گردد (با و بدون
+// User-Agent)، از یک ران‌رِ GitHub Actions همان لحظه ۲۰۰. فید پشت خود
+// Cloudflare نشسته و درخواست‌های Workers را رد می‌کند. صبر کردن یا کم
+// کردن دفعات این را حل نمی‌کند.
+//
+// پس فید را یک جاب ساعتی در GitHub Actions می‌گیرد و خامش را به
+// POST /econ/ingest می‌فرستد؛ همان تابع نرمال‌سازی اینجا رویش اجرا
+// می‌شود. الگویش تازه نیست: خواننده‌ی اعداد واقعی (ff-actuals.yml)
+// دقیقاً به همین دلیل از قبل آنجاست.
 const HOLIDAY_URL = (year) => `https://date.nager.at/api/v3/publicholidays/${year}/US`;
 
 function slugify(s) {
@@ -180,54 +190,84 @@ async function pruneOldEvents(env) {
 }
 
 /**
- * یک دور کامل جمع‌آوری.
+ * رویدادها را از فیدِ خامی که GitHub Actions فرستاده می‌نویسد.
  *
- * دو منبع مستقل‌اند و شکست یکی نباید دیگری را زمین بزند: اگر فید تقویم
- * ۴۲۹ بدهد ولی تعطیلات بیاید، تعطیلات باید نوشته شود. هر خطا در نتیجه
- * برمی‌گردد، نه اینکه بالا پرت شود - صداکننده یک زمان‌بند است و چیزی
- * برای گرفتنِ استثنا آن بالا نیست جز لاگ.
+ * نرمال‌سازی اینجا انجام می‌شود نه آن طرف: جاب فقط یک لوله است و هرچه
+ * منطق در آن بنشیند، جایی است که نه تست دارد نه به‌سادگی دیده می‌شود.
  */
-export async function ingestEconSources(env) {
+export async function ingestEvents(env, feed) {
   if (!(await ingestEnabled(env))) return { skipped: "خاموش" };
 
   await ensureSchema(env);
   const nowIso = new Date().toISOString();
-  const out = { events: 0, holidays: 0, pruned: 0, errors: [] };
+  const fresh = normalizeFfEvents(Array.isArray(feed) ? feed : [], nowIso);
 
+  // فیدِ سالم هرگز خالی نیست. آرایه‌ی خالی یعنی ساختار عوض شده یا صفحه‌ی
+  // خطا برگشته؛ در هر دو حالت نوشتنش یعنی پاک کردن تقویم.
+  if (fresh.length === 0) {
+    return { events: 0, pruned: 0, error: "فید خالی بود؛ داده‌ی قبلی دست‌نخورده ماند" };
+  }
+
+  const { results } = await env.DB.prepare(`SELECT event_id, actual FROM econ_events`).all();
+  const events = await upsertEvents(env, preserveActuals(fresh, results || []));
+  const pruned = await pruneOldEvents(env);
+  await markSynced(env, nowIso);
+  return { events, pruned };
+}
+
+/**
+ * تعطیلات - این یکی را ورکر خودش می‌گیرد.
+ *
+ * date.nager.at از Workers بی‌مشکل جواب می‌دهد، پس بردنش به GitHub
+ * Actions فقط یک قطعه‌ی متحرکِ اضافه بود.
+ */
+export async function ingestHolidays(env) {
+  if (!(await ingestEnabled(env))) return { skipped: "خاموش" };
+
+  await ensureSchema(env);
+  const nowIso = new Date().toISOString();
+  const year = new Date().getUTCFullYear();
+
+  // امسال و سال بعد: در دی و بهمن، نمای «این هفته» به ژانویه‌ی سال بعد
+  // می‌رسد و بدون این، تعطیلات آن هفته گم می‌شد.
+  const [a, b] = await Promise.all([
+    fetchJson(HOLIDAY_URL(year), "تعطیلات"),
+    fetchJson(HOLIDAY_URL(year + 1), "تعطیلات سال بعد").catch(() => []),
+  ]);
+
+  const rows = normalizeHolidays([...(a || []), ...(b || [])], nowIso);
+  if (rows.length === 0) return { holidays: 0, error: "فهرست تعطیلات خالی بود" };
+  return { holidays: await replaceHolidays(env, rows) };
+}
+
+/**
+ * اندپوینتی که جاب GitHub Actions به آن POST می‌کند.
+ *
+ * کلید در بدنه است نه در هدر، چون فرستنده یک `curl` در یک فایل YAML
+ * است و بدنه همان جایی است که بقیه‌ی وبهوک‌های این پروژه هم کلید را
+ * می‌گیرند - یک عادت، نه دو تا.
+ */
+export async function handleIngestPost(request, env) {
+  const expected = env.ECON_INGEST_KEY || env.ECON_EXPORT_KEY;
+  if (!expected) {
+    return { status: 503, body: { success: false, error: "کلید ورودی تنظیم نشده است" } };
+  }
+
+  let body;
   try {
-    const feed = await fetchJson(FF_URL, "فید ForexFactory");
-    const fresh = normalizeFfEvents(Array.isArray(feed) ? feed : [], nowIso);
-    if (fresh.length === 0) {
-      // فیدِ سالم هرگز خالی نیست. یک آرایه‌ی خالی یعنی ساختار عوض شده یا
-      // صفحه‌ی خطا برگشته؛ در هر دو حالت نوشتنش یعنی پاک کردن تقویم.
-      out.errors.push("فید تقویم خالی بود؛ داده‌ی قبلی دست‌نخورده ماند");
-    } else {
-      const { results } = await env.DB
-        .prepare(`SELECT event_id, actual FROM econ_events`)
-        .all();
-      out.events = await upsertEvents(env, preserveActuals(fresh, results || []));
-      out.pruned = await pruneOldEvents(env);
-    }
-  } catch (err) {
-    out.errors.push(String(err && err.message));
+    body = await request.json();
+  } catch {
+    return { status: 400, body: { success: false, error: "بدنه JSON معتبر نبود" } };
+  }
+
+  if (!body || body.key !== expected) {
+    return { status: 401, body: { success: false, error: "unauthorized" } };
   }
 
   try {
-    const year = new Date().getUTCFullYear();
-    // امسال و سال بعد: در دی و بهمن، نمای «این هفته» به ژانویه‌ی سال
-    // بعد می‌رسد و بدون این، تعطیلات آن هفته گم می‌شد.
-    const [a, b] = await Promise.all([
-      fetchJson(HOLIDAY_URL(year), "تعطیلات"),
-      fetchJson(HOLIDAY_URL(year + 1), "تعطیلات سال بعد").catch(() => []),
-    ]);
-    const rows = normalizeHolidays([...(a || []), ...(b || [])], nowIso);
-    if (rows.length > 0) {
-      out.holidays = await replaceHolidays(env, rows);
-    }
+    const res = await ingestEvents(env, body.events);
+    return { status: 200, body: { success: true, ...res } };
   } catch (err) {
-    out.errors.push(String(err && err.message));
+    return { status: 500, body: { success: false, error: String(err && err.message) } };
   }
-
-  if (out.events > 0 || out.holidays > 0) await markSynced(env, nowIso);
-  return out;
 }

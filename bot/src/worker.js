@@ -20,7 +20,12 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { writeConfig } from "./content/channel.js";
-import { ingestEconSources, INGEST_FLAG, ingestEnabled } from "./econ/ingest.js";
+import {
+  ingestHolidays,
+  handleIngestPost,
+  INGEST_FLAG,
+  ingestEnabled,
+} from "./econ/ingest.js";
 import { EXPLAIN_FLAG, explainEnabled } from "./econ/explain.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
@@ -54,7 +59,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-33-selfingest";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-34-ffingest";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -222,7 +227,7 @@ async function handleAdmin(request, url, env) {
     let ran = null;
     if (url.pathname.endsWith("ingest") && url.searchParams.get("run") === "1") {
       try {
-        ran = await ingestEconSources(env);
+        ran = await ingestHolidays(env);
       } catch (err) {
         ran = { error: String(err && err.message) };
       }
@@ -413,6 +418,15 @@ export default {
 
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن
     // درخواست جعلی به این آدرس بفرستد.
+    // ورودیِ فید تقویم از جاب GitHub Actions.
+    //
+    // بیرون از /admin است چون فرستنده‌اش ADMIN_KEY را ندارد و نباید
+    // داشته باشد: این مسیر فقط یک کار می‌کند و کلید خودش را دارد.
+    if (url.pathname === "/econ/ingest" && request.method === "POST") {
+      const { status, body } = await handleIngestPost(request, env);
+      return json(body, status);
+    }
+
     if (url.pathname === `/webhook/${env.BOT_TOKEN}`) {
       // تلگرام آپدیت‌ها را برای هر بات پشت‌سرهم می‌فرستد و اگر پاسخ ۲۰۰
       // نگیرد، همان آپدیت را دوباره و دوباره می‌فرستد. یعنی یک آپدیتِ
@@ -488,12 +502,14 @@ export default {
     // که کاربر می‌تواند انتخاب کند پنج دقیقه است، و دفترِ ارسال جلوی
     // تکرار را می‌گیرد، پس فاصله‌ی کوتاه‌تر فقط بارِ بی‌مورد است.
     if (cron === INGEST_CRON) {
+      // فقط تعطیلات. رویدادها از POST /econ/ingest می‌آیند، چون فید
+      // تقویم درخواست‌های Cloudflare Workers را رد می‌کند.
       ctx.waitUntil(
-        ingestEconSources(env)
+        ingestHolidays(env)
           .then((n) => {
-            if (n && !n.skipped) console.log("جمع‌آوری تقویم:", JSON.stringify(n));
+            if (n && !n.skipped) console.log("تعطیلات تقویم:", JSON.stringify(n));
           })
-          .catch((err) => console.error("جمع‌آوری تقویم شکست خورد:", err && err.message))
+          .catch((err) => console.error("تعطیلات تقویم شکست خورد:", err && err.message))
       );
       return;
     }
