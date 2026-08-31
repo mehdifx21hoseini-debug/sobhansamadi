@@ -9,7 +9,7 @@
 // شد و خروجی‌شان را مقایسه کرد.
 
 import {
-  login, requireSession, forgotPassword, resetPassword, changePassword,
+  login, clientIp, requireSession, forgotPassword, resetPassword, changePassword,
   updateDisplayName, updateUsername, updateAvatar, pruneSessions, revokeSessions,
 } from "./auth.js";
 import { ensureCrmSchema } from "./schema.js";
@@ -74,7 +74,21 @@ export async function handleCrmApi(request, url, env) {
 
   if (path === "/crm/auth/login" && request.method === "POST") {
     const b = await readBody(request);
-    const res = await login(env, b.username, b.password);
+    const res = await login(env, b.username, b.password, clientIp(request));
+    if (res.locked) {
+      // ۴۲۹ و نه ۴۰۱: صفحه باید بتواند «رمز غلط» را از «فعلاً صبر کن»
+      // جدا کند، وگرنه کاربری که رمزش درست است هم فکر می‌کند اشتباه
+      // می‌زند و همان‌طور ادامه می‌دهد.
+      return json(
+        {
+          success: false,
+          error: "تلاش‌های ناموفق زیاد بود. لطفاً " +
+            Math.ceil((res.retry_after_s || 60) / 60) + " دقیقه دیگر دوباره امتحان کنید.",
+          retry_after_s: res.retry_after_s,
+        },
+        429
+      );
+    }
     if (!res.ok) return json({ success: false }, 401);
     // شکلِ پاسخ عمداً همان n8n است تا صفحه‌ی ورود دست نخورد.
     return json({

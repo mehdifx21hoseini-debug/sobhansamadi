@@ -34,6 +34,13 @@ const DDL = [
   `CREATE INDEX IF NOT EXISTS idx_crm_session_expires ON crm_session (expires_at)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_session_user ON crm_session (username)`,
 
+  // شمارشِ تلاش‌های ناموفقِ ورود. کلید یا «کاربر|IP» است یا «ip:IP» -
+  // توضیحش در auth.js. ردیف‌ها با موفق شدنِ ورود یا با گذشتنِ پنجره
+  // بی‌اثر می‌شوند، پس این جدول هیچ‌وقت بزرگ نمی‌شود.
+  `CREATE TABLE IF NOT EXISTS crm_login_attempt (
+     key TEXT PRIMARY KEY, fails INTEGER NOT NULL DEFAULT 0,
+     window_start TEXT NOT NULL)`,
+
   `CREATE TABLE IF NOT EXISTS crm_activity_log (
      id INTEGER PRIMARY KEY AUTOINCREMENT, lead_id TEXT, action TEXT,
      detail TEXT, actor TEXT, created_at TEXT)`,

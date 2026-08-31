@@ -154,20 +154,120 @@ export async function pruneSessions(env) {
  * هیچ‌وقت نمی‌گوید کدام‌یک اشتباه بود - نام کاربری، رمز، یا غیرفعال
  * بودن. همه یک جواب می‌گیرند.
  */
-export async function login(env, username, password) {
+export async function login(env, username, password, ip = "") {
   await ensureCrmSchema(env);
+
+  const gate = await throttleCheck(env, username, ip);
+  if (gate.locked) return { ok: false, locked: true, retry_after_s: gate.retry_after_s };
+
   const row = await getAdmin(env, username);
-  if (!row) return { ok: false };
-  if (!isActive(row.active)) return { ok: false };
+  if (!row) return failLogin(env, username, ip);
+  if (!isActive(row.active)) return failLogin(env, username, ip);
   // بدون هش، هیچ راهی برای ورود نیست. مسیرِ «رمزِ متنِ ساده» که در n8n
   // بود اینجا اصلاً وجود ندارد؛ ستونش هم منتقل نشد.
-  if (!row.password_hash || !row.password_salt) return { ok: false };
+  if (!row.password_hash || !row.password_salt) return failLogin(env, username, ip);
 
   const computed = await hashPassword(password, row.password_salt);
-  if (!safeEqual(computed, row.password_hash)) return { ok: false };
+  if (!safeEqual(computed, row.password_hash)) return failLogin(env, username, ip);
 
+  await clearAttempts(env, username, ip);
   const session = await issueSession(env, row);
   return { ok: true, session, user: publicAdmin(row) };
+}
+
+// ─── محدودکردن تلاشِ ورود ────────────────────────────────────────────
+//
+// هش ما SHA-256 است - عمداً، چون باید با رمزهای موجود سازگار می‌ماند -
+// و SHA-256 سریع است. یعنی تنها چیزی که بین یک مهاجم و چهار حسابِ این
+// پنل ایستاده، سرعتِ درخواست است. این بخش همان را می‌گیرد.
+//
+// کلید، «کاربر + IP» است نه فقط کاربر. دلیلش مهم است: اگر فقط روی نام
+// کاربری قفل می‌کردیم، هر کسی می‌توانست با چند رمزِ غلط، حسابِ یک مشاور
+// را عمداً قفل کند. با این کلید، قفل روی همان کسی می‌افتد که تلاش
+// می‌کند، نه روی صاحب حساب.
+//
+// یک سقفِ دوم هم روی خودِ IP هست، برای وقتی که مهاجم به‌جای یک حساب،
+// چند حساب را با یک رمز امتحان می‌کند - که از دید کلیدِ اول اصلاً تلاشِ
+// تکراری نیست.
+
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_PER_USER_IP = 8;
+const MAX_PER_IP = 30;
+
+export function clientIp(request) {
+  return (
+    request.headers.get("cf-connecting-ip") ||
+    request.headers.get("x-forwarded-for") ||
+    ""
+  ).split(",")[0].trim();
+}
+
+const userKey = (u, ip) => "u:" + String(u || "").trim().toLowerCase() + "|" + ip;
+const ipKey = (ip) => "ip:" + ip;
+
+async function bump(env, key, limit, now) {
+  const row = await env.DB
+    .prepare("SELECT fails, window_start FROM crm_login_attempt WHERE key = ?")
+    .bind(key)
+    .first();
+
+  // پنجره که گذشت، شمارش از نو. یک تلاشِ غلط سه ساعت پیش، نشانه‌ی حمله
+  // نیست و نباید روی کاربرِ امروز اثر بگذارد.
+  const fresh = row && now - new Date(row.window_start).getTime() < WINDOW_MS;
+  const fails = (fresh ? row.fails : 0) + 1;
+  const start = fresh ? row.window_start : new Date(now).toISOString();
+
+  await env.DB
+    .prepare(
+      `INSERT INTO crm_login_attempt (key, fails, window_start) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET fails = excluded.fails, window_start = excluded.window_start`
+    )
+    .bind(key, fails, start)
+    .run();
+
+  return fails >= limit ? WINDOW_MS - (now - new Date(start).getTime()) : 0;
+}
+
+async function isLocked(env, key, limit, now) {
+  const row = await env.DB
+    .prepare("SELECT fails, window_start FROM crm_login_attempt WHERE key = ?")
+    .bind(key)
+    .first();
+  if (!row) return 0;
+  const elapsed = now - new Date(row.window_start).getTime();
+  if (elapsed >= WINDOW_MS) return 0;
+  return row.fails >= limit ? WINDOW_MS - elapsed : 0;
+}
+
+/** @returns {Promise<{locked:boolean, retry_after_s?:number}>} */
+export async function throttleCheck(env, username, ip) {
+  if (!ip) return { locked: false }; // بدون IP، قفلِ اشتباه بدتر از نبودنش است
+  const now = Date.now();
+  const wait = Math.max(
+    await isLocked(env, userKey(username, ip), MAX_PER_USER_IP, now),
+    await isLocked(env, ipKey(ip), MAX_PER_IP, now)
+  );
+  return wait > 0 ? { locked: true, retry_after_s: Math.ceil(wait / 1000) } : { locked: false };
+}
+
+async function failLogin(env, username, ip) {
+  if (ip) {
+    const now = Date.now();
+    await bump(env, userKey(username, ip), MAX_PER_USER_IP, now).catch(() => {});
+    await bump(env, ipKey(ip), MAX_PER_IP, now).catch(() => {});
+  }
+  // پاسخ همان «نشد» است، بدون اینکه بگوید چند تلاش مانده - شمردنِ
+  // تلاش‌ها هم خودش یک نشتِ اطلاعات است.
+  return { ok: false };
+}
+
+async function clearAttempts(env, username, ip) {
+  if (!ip) return;
+  await env.DB
+    .prepare("DELETE FROM crm_login_attempt WHERE key = ?")
+    .bind(userKey(username, ip))
+    .run()
+    .catch(() => {});
 }
 
 // ─── فراموشی و بازنشانی رمز ──────────────────────────────────────────
