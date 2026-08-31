@@ -32,7 +32,11 @@ jobs:
     steps:
       - name: Fetch feed and post to the Worker
         env:
+          # Either name works, preferring the dedicated one. The Worker
+          # has exactly the same fallback, so the two sides cannot disagree
+          # about which secret counts — only about its value.
           ECON_INGEST_KEY: ${{ secrets.ECON_INGEST_KEY }}
+          ECON_EXPORT_KEY: ${{ secrets.ECON_EXPORT_KEY }}
           WORKER_URL: https://sobhansamadi.mehdifx21hoseini.workers.dev/econ/ingest
         run: |
           set -euo pipefail
@@ -45,9 +49,10 @@ jobs:
           # cannot see. GitHub renders a secret that IS set as *** in the
           # env group above; an empty value there means it is missing here,
           # whatever it may say in some other settings page.
-          if [ -z "${ECON_INGEST_KEY:-}" ]; then
-            echo "ECON_INGEST_KEY is not visible to this workflow."
-            echo "It must be a *repository* secret on this repo:"
+          KEY="${ECON_INGEST_KEY:-${ECON_EXPORT_KEY:-}}"
+          if [ -z "$KEY" ]; then
+            echo "Neither ECON_INGEST_KEY nor ECON_EXPORT_KEY is visible here."
+            echo "One of them must be a *repository* secret on this repo:"
             echo "  Settings → Secrets and variables → Actions → Repository secrets"
             echo "An environment or organization secret will not reach this job."
             exit 1
@@ -70,7 +75,7 @@ jobs:
 
           # --argjson keeps the feed as JSON instead of a string, and the key
           # goes through --arg so it never lands in the process list.
-          jq -n --arg key "$ECON_INGEST_KEY" --slurpfile events feed.json \
+          jq -n --arg key "$KEY" --slurpfile events feed.json \
             '{key: $key, events: $events[0]}' > payload.json
 
           # -o/-w rather than piping the body: the response can carry the key
