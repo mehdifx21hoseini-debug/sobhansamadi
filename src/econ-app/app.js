@@ -500,18 +500,6 @@ function eventNode(e) {
 				return null;
 			}
 
-			// The broker's server clock differs per broker, so it is the reader's
-			// choice rather than a guess baked into the page.
-			// GMT+3 first and default: that is the academy's own broker, so it is
-			// what almost every reader here needs.
-			var BROKER_MODES = [
-				{ key: "utc3", label: "GMT+۳", fixed: 180 },
-				{ key: "eu", label: "GMT+۲/+۳ (اروپا)", zone: "Europe/Berlin" },
-				{ key: "utc2", label: "GMT+۲", fixed: 120 },
-				{ key: "utc0", label: "GMT+۰", fixed: 0 }
-			];
-			var BROKER_KEY = "econAppBroker";
-
 			// Brokers stop trading for one hour at the daily rollover: 00:00–01:00
 			// on a GMT+3 server, which is 00:30–01:30 Tehran. Both clocks are
 			// fixed-offset, so the window is 21:00–22:00 UTC all year and does not
@@ -644,30 +632,6 @@ function eventNode(e) {
 				return (p.hour % 24 < 10 ? "0" : "") + (p.hour % 24) + ":" + p.minute;
 			}
 
-			function hhmmAtOffset(instant, offsetMinutes) {
-				var shifted = new Date(instant + offsetMinutes * 60000);
-				var h = shifted.getUTCHours(), m = shifted.getUTCMinutes();
-				return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
-			}
-
-			function brokerMode() {
-				var stored;
-				try { stored = localStorage.getItem(BROKER_KEY); } catch (e) { stored = null; }
-				for (var i = 0; i < BROKER_MODES.length; i++) {
-					if (BROKER_MODES[i].key === stored) return BROKER_MODES[i];
-				}
-				return BROKER_MODES[0];
-			}
-
-			function hhmmBroker(instant) {
-				var mode = brokerMode();
-				return mode.zone ? hhmmInZone(instant, mode.zone) : hhmmAtOffset(instant, mode.fixed);
-			}
-
-			function secondsInZone(instant, timeZone) {
-				return tzParts(new Date(instant), timeZone).second;
-			}
-
 			// A real ticking counter rather than prose. Beyond a day the seconds
 			// stop meaning anything, so the day count leads and the clock follows.
 			function countdownText(instant, nowMs) {
@@ -780,16 +744,6 @@ function eventNode(e) {
 			var MAP_LAT_TOP = 72, MAP_LAT_BOT = -55;
 			var PHOTO_ASPECT = 1600 / 565; // the shipped file's pixel size
 
-			// The five session cities plus home. New York carries both the forex
-			// session and the exchange, so its dot lights if either is open.
-			var CITIES = [
-				{ name: "سیدنی", lon: 151.21, lat: -33.87, keys: ["sydney"] },
-				{ name: "توکیو", lon: 139.69, lat: 35.68, keys: ["tokyo"] },
-				{ name: "لندن", lon: -0.13, lat: 51.51, keys: ["london"] },
-				{ name: "نیویورک", lon: -74.01, lat: 40.71, keys: ["newyork", "nyse"] },
-				{ name: "تهران", lon: 51.39, lat: 35.69, home: true }
-			];
-
 			// One <use> pointing at a symbol in the sprite at the top of the
 			// page, so the same flag can appear on several rows - New York
 			// carries both the forex session and the exchange - while its
@@ -814,32 +768,6 @@ function eventNode(e) {
 				badge.appendChild(svg);
 				return badge;
 			}
-
-			var heroMap = null;
-
-			// Positions the photo and the city markers with one shared
-			// projection, so markers can never drift off their coastlines.
-			// The photo is fitted to the card's width and centred vertically.
-			function layoutHeroMap() {
-				if (!heroMap || !heroMap.img.isConnected) return;
-				var host = heroMap.img.parentNode;
-				var w = host.clientWidth, h = host.clientHeight;
-				if (!w || !h) return;
-				var mapH = w / PHOTO_ASPECT;
-				var oy = (h - mapH) / 2;
-				heroMap.img.style.top = oy + "px";
-				heroMap.img.style.height = mapH + "px";
-				heroMap.cities.forEach(function (c) {
-					var x = (c.lon + 180) / 360 * w;
-					var y = oy + (MAP_LAT_TOP - c.lat) / (MAP_LAT_TOP - MAP_LAT_BOT) * mapH;
-					c.node.style.left = x + "px";
-					c.node.style.top = y + "px";
-				});
-			}
-
-			window.addEventListener("resize", function () {
-				if (state.scope === "markets") layoutHeroMap();
-			});
 
 			// Per-second updaters registered by renderMarkets. Only the text
 			// nodes that actually change are touched; rebuilding the whole board
@@ -867,47 +795,137 @@ function eventNode(e) {
 			}
 			var marketsSig = null;
 
-			function tehranMinutesOf(instant) {
-				var t = hhmmInZone(instant, TEHRAN).split(":").map(Number);
-				return t[0] * 60 + t[1];
-			}
-
-			// A hard-stop gradient across one drawn span, one band per run of
-			// equal concurrency. Hard stops rather than blends: the number of
-			// open markets changes at an instant, and a smooth ramp would imply
-			// a gradual change that does not happen.
-			//
-			// Inside a span the minutes increase leftwards - the span is pinned
-			// by its right edge under RTL - so the gradient runs "to left".
-			function densityGradient(a, b, busy) {
-				var level = function (m) { return Math.min(3, Math.max(1, busy[m] || 1)); };
-				var stops = [];
-				var runStart = a;
-				for (var m = a + 1; m <= b; m++) {
-					if (m === b || level(m) !== level(runStart)) {
-						var c = "var(--d" + level(runStart) + ")";
-						stops.push(c + " " + ((runStart - a) / (b - a) * 100) + "% " + ((m - a) / (b - a) * 100) + "%");
-						runStart = m;
-					}
-				}
-				return stops.length ? "linear-gradient(to left, " + stops.join(", ") + ")" : "";
-			}
-
 			function spansOf(openM, closeM) {
 				// A session running past Tehran midnight is drawn as two segments
 				// rather than one bar wrapping off the edge of the track.
 				return closeM > openM ? [[openM, closeM]] : [[openM, 1440], [0, closeM]];
 			}
 
+			// ---------- the viewing zone ----------
+			// Every session already carried its own IANA zone, so the engine was
+			// multi-zone from the start; only the axis was nailed to Tehran.
+			// This makes that one choice a variable.
+			//
+			// It also absorbs what the broker-clock picker used to do. That
+			// control put the server's time on a second line under each
+			// session; picking the offset here puts the whole board on it,
+			// which is the same answer given better. Etc/GMT-3 is UTC+3 - the
+			// sign in those zone names is inverted, which is confusing enough
+			// to be worth saying once.
+			function deviceZone() {
+				try {
+					return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+				} catch (e) { return "UTC"; }
+			}
+
+			var VIEW_ZONES = [
+				{ key: "tehran", zone: TEHRAN, name: "تهران" },
+				{ key: "device", zone: deviceZone(), name: "وقت گوشی خودم", short: "گوشی شما" },
+				{ key: "broker3", zone: "Etc/GMT-3", name: "بروکر GMT+۳", short: "بروکر" },
+				{ key: "broker2", zone: "Europe/Berlin", name: "بروکر اروپا", short: "بروکر اروپا" },
+				{ key: "gmt", zone: "UTC", name: "GMT" },
+				{ key: "newyork", zone: "America/New_York", name: "نیویورک" }
+			];
+
+			var VIEW_KEY = "econAppViewZone";
+
+			function storedViewZone() {
+				try { return localStorage.getItem(VIEW_KEY); } catch (e) { return null; }
+			}
+
+			function viewZoneByKey(key) {
+				for (var i = 0; i < VIEW_ZONES.length; i++) {
+					if (VIEW_ZONES[i].key === key) return VIEW_ZONES[i];
+				}
+				return VIEW_ZONES[0];
+			}
+
+			var viewZone = viewZoneByKey(storedViewZone() || "tehran");
+			function VIEW() { return viewZone.zone; }
+			function viewName() { return viewZone.short || viewZone.name; }
+
+			// "GMT+3:30" - the half-hour offsets are exactly why this is
+			// computed rather than written down.
+			function offsetLabel(zone, at) {
+				var m = tzOffsetMinutes(at || new Date(), zone);
+				if (m === 0) return "GMT";
+				var sign = m < 0 ? "−" : "+";
+				m = Math.abs(m);
+				var h = Math.floor(m / 60), mm = m % 60;
+				return "GMT" + sign + h + (mm ? ":" + (mm < 10 ? "0" + mm : mm) : "");
+			}
+
+			function viewMinutesOf(instant) {
+				var t = hhmmInZone(instant, VIEW()).split(":").map(Number);
+				return t[0] * 60 + t[1];
+			}
+
+			var DOW_FA = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
+
+			function dayInZone(instant, zone) {
+				var p = tzParts(new Date(instant), zone);
+				return DOW_FA[new Date(Date.UTC(+p.year, +p.month - 1, +p.day)).getUTCDay()];
+			}
+
+			function isoDateInZone(instant, zone) {
+				var p = tzParts(new Date(instant), zone);
+				return p.year + "-" + p.month + "-" + p.day;
+			}
+
+			// ---------- bank holidays ----------
+			// The holiday feed is United States only (date.nager.at .../US), so
+			// this can only ever speak for the two American rows - and it is
+			// keyed on New York's own calendar date, not Tehran's, because a
+			// holiday is a New York day.
+			//
+			// No data is not "no holiday" in a way worth hiding: when the fetch
+			// failed, holidays is simply absent and the board behaves exactly
+			// as it did before this feature existed.
+			function holidayFor(session, instant) {
+				if (session.zone !== "America/New_York") return null;
+				var list = (state.data && state.data.holidays) || [];
+				var date = isoDateInZone(instant, session.zone);
+				for (var i = 0; i < list.length; i++) {
+					if (list[i] && list[i].date === date) return list[i];
+				}
+				return null;
+			}
+
+			// ---------- flags ----------
+			// The same inline sprite the page already ships: no network request,
+			// and emoji flags do not render on Windows at all.
+			var SVG_NS = "http://www.w3.org/2000/svg";
+			var XLINK_NS = "http://www.w3.org/1999/xlink";
+
+			function flagBadge(code, label) {
+				var badge = document.createElement("span");
+				badge.className = "sb-flag";
+				badge.setAttribute("role", "img");
+				badge.setAttribute("aria-label", "پرچم " + label);
+				var svg = document.createElementNS(SVG_NS, "svg");
+				svg.setAttribute("viewBox", "0 0 512 512");
+				// The sprite is square and the chip is not: slice crops the flag
+				// instead of squashing it, which is what object-fit would do for
+				// an <img> but does nothing for an inline svg.
+				svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+				svg.setAttribute("aria-hidden", "true");
+				var use = document.createElementNS(SVG_NS, "use");
+				use.setAttribute("href", "#fi-" + code);
+				use.setAttributeNS(XLINK_NS, "xlink:href", "#fi-" + code);
+				svg.appendChild(use);
+				badge.appendChild(svg);
+				return badge;
+			}
+
+			var selectedSession = "london";
+
 			function renderMarkets(container) {
 				var now = new Date();
+				var nowT = now.getTime();
 				tickers = [];
 				marketsSig = marketsSignature(now);
 				var animate = marketsEntering && motionOK();
 				marketsEntering = false;
-				// One counter across the whole view, so the hero, the five market
-				// cards and the panels below them arrive as a single sequence
-				// rather than three independent ones.
 				var step = 0;
 				var enter = function (node) {
 					if (!animate) return node;
@@ -915,270 +933,294 @@ function eventNode(e) {
 					node.style.animationDelay = (step++ * 45) + "ms";
 					return node;
 				};
-				var fills = [];
+
+				var board = el("div", "sb");
 				var market = marketState(now);
-				var nowM = tehranMinutesOf(now.getTime());
-				// The rollover window as Tehran minutes, derived rather than
-				// hardcoded so it stays right if the constants ever move.
-				var nextBreak = breakStartAfter(now.getTime());
-				var breakM = [tehranMinutesOf(nextBreak), tehranMinutesOf(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000)];
+				var nowM = viewMinutesOf(nowT);
 
-				// ---- how many markets are open at each minute of the day
-				// Shaded onto the bars, so the busiest hours are visibly denser:
-				// the London bar darkens exactly where New York joins it. The
-				// count is taken over the same spans that get drawn, so the
-				// shading can never disagree with the bars it sits on.
-				var refs = {};
-				var busy = [];
-				for (var bi = 0; bi < 1440; bi++) busy.push(0);
-				SESSIONS.forEach(function (s) {
-					var st = sessionState(s, now);
-					var r = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
-					refs[s.key] = { st: st, ref: r };
-					if (!r.open) return;
-					spansOf(tehranMinutesOf(r.open), tehranMinutesOf(r.close)).forEach(function (sp) {
-						for (var m = sp[0]; m < sp[1] && m < 1440; m++) busy[m]++;
-					});
-				});
+				// marketState returns a nextOpen only when we are outside the
+				// whole Monday-open..Friday-close window, so this flag *is* the
+				// weekend - no second weekday calculation that could disagree
+				// with the first.
+				var weekend = !market.open && !market.onBreak && !!market.nextOpen;
 
+				// ---- status
+				var status = el("div", "sb-status " +
+					(market.onBreak ? "is-break" : (market.open ? "is-open" : (weekend ? "is-weekend" : "is-closed"))));
 
-				// ---- status hero
-				var heroClass = market.onBreak ? "is-break" : (market.open ? "is-open" : "is-closed");
-				var hero = el("div", "mk-hero " + heroClass);
-				var photo = el("img", "mk-photo");
-				photo.src = "earth-night.jpg";
-				photo.alt = "";
-				photo.setAttribute("aria-hidden", "true");
-				hero.appendChild(photo);
-				hero.appendChild(el("div", "mk-shade"));
-				hero.appendChild(el("div", "mk-glow"));
-				var cityEls = [];
-				CITIES.forEach(function (c) {
-					var on = false, pausedCity = false;
-					if (c.keys) {
-						var anyOpen = c.keys.some(function (k) { return refs[k].st.open; });
-						on = anyOpen && market.open;
-						pausedCity = anyOpen && !market.open;
-					}
-					var m = el("span", "mk-city" + (c.home ? " is-home" : "") + (on ? " is-on" : "") + (pausedCity ? " is-paused" : ""));
-					m.appendChild(el("span", "mk-city-dot"));
-					m.appendChild(el("span", "mk-city-name", c.name));
-					hero.appendChild(m);
-					cityEls.push({ node: m, lon: c.lon, lat: c.lat });
-				});
-				heroMap = { img: photo, cities: cityEls };
-				// The photo can only be placed once the card has a layout box.
-				requestAnimationFrame(layoutHeroMap);
-				var heroL = el("div", "mk-hero-main");
-				var title = el("div", "mk-hero-title");
-				title.appendChild(el("span", "mk-dot"));
-				title.appendChild(el("span", null,
-					market.onBreak ? "استراحت روزانه سشن‌ها" : (market.open ? "سشن باز است" : "سشن بسته است")));
-				heroL.appendChild(title);
-				var sub = el("div", "mk-hero-sub");
-				// The hero countdown ticks too, so the headline and the cards
-				// below can never disagree about how long is left.
-				var heroTarget = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
-				if (heroTarget) {
-					sub.appendChild(el("span", null, market.onBreak ? "از سر گرفته می‌شود " : "باز می‌شود "));
-					var heroNum = el("b", "mk-hero-cd", countdownText(heroTarget, now.getTime()));
-					sub.appendChild(heroNum);
-					sub.appendChild(el("span", null, " دیگر، ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(heroTarget, TEHRAN))));
-					tickers.push(function (t) { heroNum.textContent = countdownText(heroTarget, t); });
+				var st = el("div", "sb-state");
+				st.appendChild(el("span", "sb-dot"));
+				st.appendChild(el("span", null,
+					market.onBreak ? "تسویه‌ی روزانه"
+						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
+				status.appendChild(st);
+
+				var clock = el("div", "sb-clock");
+				// No seconds: they read as extra digits glued to the minutes, and
+				// the only things here that need a second hand - the countdowns -
+				// keep their own.
+				var clockTime = el("div", "sb-time", fa(hhmmInZone(nowT, VIEW())));
+				clock.appendChild(clockTime);
+				var clockZone = el("div", "sb-zone", viewName());
+				clock.appendChild(clockZone);
+				status.appendChild(clock);
+				tickers.push(function (t) { clockTime.textContent = fa(hhmmInZone(t, VIEW())); });
+
+				var sub = el("div", "sb-sub");
+				var target = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
+				if (target) {
+					sub.appendChild(el("span", null,
+						market.onBreak ? "از سر گرفته می‌شود " : (weekend ? "بازارها باز می‌شوند " : "باز می‌شود ")));
+					var cd = el("b", null, countdownText(target, nowT));
+					sub.appendChild(cd);
+					sub.appendChild(el("span", null,
+						" دیگر — " + dayInZone(target, VIEW()) + " ساعت " + fa(hhmmInZone(target, VIEW()))));
+					tickers.push(function (t) { cd.textContent = countdownText(target, t); });
 				} else if (market.open && market.until) {
 					sub.appendChild(el("span", null, "تا جمعه ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, TEHRAN))));
+					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, VIEW()))));
 				}
-				heroL.appendChild(sub);
-				hero.appendChild(heroL);
-				var clock = el("div", "mk-clock");
-				var clockTime = el("span", "mk-clock-time", fa(hhmmInZone(now.getTime(), TEHRAN)));
-				// Seconds ride alongside the big number rather than inside it, so
-				// the hour and minute stay the thing the eye lands on.
-				var clockSec = el("span", "mk-clock-sec", fa(secondsInZone(now.getTime(), TEHRAN)));
-				clockTime.appendChild(clockSec);
-				clock.appendChild(clockTime);
-				clock.appendChild(el("span", "mk-clock-zone", "تهران"));
-				tickers.push(function (t) {
-					clockTime.firstChild.nodeValue = fa(hhmmInZone(t, TEHRAN));
-					clockSec.textContent = fa(secondsInZone(t, TEHRAN));
+				status.appendChild(sub);
+				board.appendChild(enter(status));
+
+				// ---- the board card
+				var card = el("div", "sb-board");
+				var head = el("div", "sb-head");
+				head.appendChild(el("span", "sb-title",
+					// On a weekend the bars already show each session's *next*
+					// window, so the heading must stop claiming they are today's.
+					weekend ? "سشن‌ها، در روز کاری بعد" : "امروز، سشن‌های بازار"));
+
+				var tzBtn = el("button", "sb-tz");
+				tzBtn.type = "button";
+				tzBtn.setAttribute("aria-expanded", "false");
+				var tzLabel = el("span", null,
+					"ساعت‌ها به وقت " + viewName() + " · " + offsetLabel(VIEW(), now));
+				tzBtn.appendChild(tzLabel);
+				tzBtn.appendChild(el("span", "sb-caret", "▼"));
+				head.appendChild(tzBtn);
+				card.appendChild(head);
+
+				var menu = el("div", "sb-menu");
+				menu.hidden = true;
+				menu.setAttribute("role", "radiogroup");
+				menu.setAttribute("aria-label", "منطقه‌ی زمانی");
+				VIEW_ZONES.forEach(function (z) {
+					var b = el("button", "sb-opt");
+					b.type = "button";
+					b.setAttribute("role", "radio");
+					b.setAttribute("aria-checked", z.key === viewZone.key ? "true" : "false");
+					b.appendChild(el("span", null, z.name));
+					b.appendChild(el("span", "sb-off",
+						offsetLabel(z.zone, now) + " · " + fa(hhmmInZone(nowT, z.zone))));
+					b.addEventListener("click", function () {
+						viewZone = z;
+						try { localStorage.setItem(VIEW_KEY, z.key); } catch (e) { /* preference only */ }
+						renderList();
+					});
+					menu.appendChild(b);
 				});
-				hero.appendChild(clock);
-				container.appendChild(enter(hero));
+				tzBtn.addEventListener("click", function () {
+					var open = menu.hidden;
+					menu.hidden = !open;
+					tzBtn.setAttribute("aria-expanded", open ? "true" : "false");
+				});
+				card.appendChild(menu);
 
-				// ---- one self-contained row per market
-				var board = el("div", "mk-board");
+				// ---- each session's current or next window, resolved once
+				var refs = {};
 				SESSIONS.forEach(function (s) {
-					var st = refs[s.key].st;
-					var ref = refs[s.key].ref;
-					// A session inside its own hours while the broker is not
-					// trading is paused - the nightly settlement, or the hour
-					// between the Sydney bell and the Monday week open.
-					var paused = st.open && !market.open;
-					var live = st.open && market.open;
-					var row = el("div", "mk-m" + (live ? " is-live" : "") + (paused ? " is-paused" : ""));
+					var ss = sessionState(s, now);
+					var r = ss.open ? { open: ss.since, close: ss.until } : { open: ss.nextOpen, close: ss.nextClose };
+					refs[s.key] = { st: ss, ref: r, holiday: holidayFor(s, r.open || nowT) };
+				});
 
-					var head = el("div", "mk-m-head");
-					var who = el("div", "mk-m-who");
+				var grid = el("div", "sb-grid");
+
+				// ---- hour axis
+				var hours = el("div", "sb-hours");
+				[0, 3, 6, 9, 12, 15, 18, 21].forEach(function (h) {
+					var lab = el("span", "sb-hour", fa(h < 10 ? "0" + h : h));
+					lab.style.right = (h * 60 / 1440 * 100) + "%";
+					hours.appendChild(lab);
+				});
+				grid.appendChild(hours);
+
+				// ---- the rollover band, in the viewed zone's minutes
+				var brkStart = (BREAK_START_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
+				var brkEnd = (BREAK_END_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
+
+				// ---- rows
+				var rows = el("div", "sb-rows");
+				SESSIONS.forEach(function (s) {
+					var ss = refs[s.key].st, ref = refs[s.key].ref, hol = refs[s.key].holiday;
+					var paused = ss.open && !market.open;
+					var live = ss.open && market.open;
+
+					var row = el("button", "sb-row" +
+						(live ? " is-live" : "") + (paused ? " is-paused" : "") + (hol ? " is-holiday" : ""));
+					row.type = "button";
+					// The hue lives on the row, so the flag ring, the bar and the
+					// drawer's edge all read it from one place.
+					row.style.setProperty("--seg", "var(--sb-" + s.key + ")");
+					row.setAttribute("aria-pressed", s.key === selectedSession ? "true" : "false");
+					row.addEventListener("click", function () { selectedSession = s.key; renderList(); });
+
+					var who = el("div", "sb-who");
 					who.appendChild(flagBadge(s.flag, s.name));
-					who.appendChild(el("span", "mk-m-name", s.name));
-					// Two rows share the New York flag and clock, so the exchange
-					// gets a ticker badge to tell them apart at a glance.
-					if (s.sub) who.appendChild(el("span", "mk-m-sub", s.sub));
-					head.appendChild(who);
+					var nm = el("div", "sb-nm");
+					nm.appendChild(el("div", "sb-name", s.name));
+					nm.appendChild(el("div", "sb-st",
+						hol ? "تعطیل بانکی" : (live ? "باز" : (paused ? "استراحت" : "بسته"))));
+					who.appendChild(nm);
+					row.appendChild(who);
 
-					// The state word and the countdown are separate elements: as
-					// one string with a separator, RTL reordering pushed the dot
-					// against the number and "۱۱ ·" read as "۱۱۰".
-					var pill = el("span", "mk-m-pill");
-					if (live) {
-						pill.appendChild(el("span", "mk-m-live"));
-						pill.appendChild(el("span", null, "باز"));
-					} else {
-						pill.appendChild(el("span", null, paused ? "استراحت" : "بسته"));
-					}
-					head.appendChild(pill);
-					row.appendChild(head);
-
-					var track = el("div", "mk-m-track");
-					if (ref.open) {
-						var openM = tehranMinutesOf(ref.open);
-						var closeM = tehranMinutesOf(ref.close);
-						spansOf(openM, closeM).forEach(function (sp) {
-							var seg = el("div", "mk-m-seg");
+					var track = el("div", "sb-track");
+					if (hol) {
+						// The bar is struck through rather than merely dark: on a
+						// bank holiday the session does not happen at all, which
+						// is a different thing from "closed right now".
+						var hb = el("div", "sb-holiday");
+						hb.appendChild(el("span", null, "🏦 تعطیل بانکی — " + (hol.name || "آمریکا")));
+						hb.title = "تعطیلی بانکی آمریکا: " + (hol.name || "");
+						track.appendChild(hb);
+					} else if (ref.open) {
+						var openM = viewMinutesOf(ref.open), closeM = viewMinutesOf(ref.close);
+						spansOf(openM, closeM).forEach(function (sp, idx) {
+							var seg = el("div", "sb-seg");
 							seg.style.right = (sp[0] / 1440 * 100) + "%";
 							seg.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
-							var grad = densityGradient(sp[0], sp[1], busy);
-							if (grad) seg.style.backgroundImage = grad;
-							// While a session is running, fill the part already
-							// elapsed so the bar doubles as a progress meter.
 							if (live && nowM >= sp[0] && nowM <= sp[1]) {
-								var fill = el("div", "mk-m-fill");
-								var pct = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
-								// On entry the bar grows to its value rather than
-								// appearing at it; on a redraw it is simply correct.
-								if (animate) { fill.style.width = "0%"; fills.push([fill, pct]); }
-								else { fill.style.width = pct; }
+								var fill = el("div", "sb-fill");
+								fill.style.width = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
 								seg.appendChild(fill);
+							}
+							// The hours ride inside the widest segment - one less
+							// number to hunt for underneath the chart.
+							if (idx === 0 && (sp[1] - sp[0]) > 300) {
+								seg.appendChild(el("span", "sb-seg-lab",
+									fa(hhmmInZone(ref.open, VIEW())) + "–" + fa(hhmmInZone(ref.close, VIEW()))));
 							}
 							track.appendChild(seg);
 						});
 					}
-					// The rollover hour, drawn over whatever sits beneath it so the
-					// gap in the trading day is visible on every track.
-					if (breakM[1] > breakM[0]) {
-						var brk = el("div", "mk-m-break");
-						brk.style.right = (breakM[0] / 1440 * 100) + "%";
-						brk.style.width = ((breakM[1] - breakM[0]) / 1440 * 100) + "%";
-						brk.title = "استراحت روزانه سشن‌ها";
+					if (!hol && brkEnd > brkStart) {
+						var brk = el("div", "sb-break");
+						brk.style.right = (brkStart / 1440 * 100) + "%";
+						brk.style.width = ((brkEnd - brkStart) / 1440 * 100) + "%";
 						track.appendChild(brk);
 					}
-
-					var nl = el("div", "mk-m-now");
-					nl.style.right = (nowM / 1440 * 100) + "%";
-					track.appendChild(nl);
 					row.appendChild(track);
-
-					var foot = el("div", "mk-m-foot");
-					if (ref.open) {
-						var t1 = el("span", "mk-m-time");
-						t1.appendChild(el("span", "mk-m-tag", "تهران"));
-						t1.appendChild(el("b", null, fa(hhmmInZone(ref.open, TEHRAN)) + "–" + fa(hhmmInZone(ref.close, TEHRAN))));
-						foot.appendChild(t1);
-
-						var t2 = el("span", "mk-m-time");
-						t2.appendChild(el("span", "mk-m-tag", "بروکر"));
-						t2.appendChild(el("b", null, fa(hhmmBroker(ref.open)) + "–" + fa(hhmmBroker(ref.close))));
-						foot.appendChild(t2);
-
-						var cd = el("span", "mk-m-cd");
-						var target = paused ? (market.resumesAt || market.nextOpen) : (live ? ref.close : ref.open);
-						var cdNum = el("b", "mk-m-cdn", countdownText(target, now.getTime()));
-						cd.appendChild(cdNum);
-						cd.appendChild(el("span", null, paused ? " تا از سرگیری" : (live ? " تا بسته شدن" : " تا باز شدن")));
-						tickers.push(function (t) { cdNum.textContent = countdownText(target, t); });
-						foot.appendChild(cd);
-					}
-					row.appendChild(foot);
-					board.appendChild(enter(row));
+					rows.appendChild(row);
 				});
+				grid.appendChild(rows);
+
+				// ---- the single now-line, over every row
+				// The plot starts after the label rail, so the offset is measured
+				// from the rail's inner edge and the percentage is of the plot
+				// width, not of the whole grid. calc keeps that true at any size.
+				var line = el("div", "sb-now");
+				// Hidden on a weekend: the bars are showing the next working day,
+				// so a needle at the current minute points at the wrong day.
+				line.hidden = weekend;
+				line.style.right = "calc(var(--off) + (100% - var(--off)) * " + (nowM / 1440).toFixed(5) + ")";
+				grid.appendChild(line);
+				card.appendChild(grid);
+
+				// ---- the London / New York overlap, in one sentence
+				// Intersected from the very spans the two bars are drawn from, so
+				// it can never claim an hour the chart above does not show, and it
+				// follows the DST gap in March and October on its own.
+				var ovNote = el("div", "sb-ov");
+				var lo = refs.london.ref, ny = refs.newyork.ref;
+				var ovStart = null, ovEnd = null;
+				if (lo.open && ny.open && !refs.newyork.holiday) {
+					var a = Math.max(lo.open, ny.open), z = Math.min(lo.close, ny.close);
+					if (z > a) { ovStart = a; ovEnd = z; }
+				}
+				if (ovStart) {
+					var inNow = false;
+					spansOf(viewMinutesOf(ovStart), viewMinutesOf(ovEnd)).forEach(function (sp) {
+						if (nowM >= sp[0] && nowM < sp[1]) inNow = true;
+					});
+					ovNote.appendChild(document.createTextNode("هم‌پوشانی لندن و نیویورک، "));
+					ovNote.appendChild(el("b", null,
+						fa(hhmmInZone(ovStart, VIEW())) + "–" + fa(hhmmInZone(ovEnd, VIEW()))));
+					ovNote.appendChild(document.createTextNode(
+						inNow && market.open
+							? " — همین حالا، پرنوسان‌ترین ساعت‌های روز"
+							: " — پرنوسان‌ترین ساعت‌های روز"));
+				} else if (refs.newyork.holiday) {
+					ovNote.textContent = "امروز تعطیلی بانکی آمریکاست — هم‌پوشانی لندن و نیویورک در کار نیست.";
+				} else {
+					ovNote.textContent = "لندن و نیویورک امروز هم‌پوشانی ندارند.";
+				}
+				card.appendChild(ovNote);
+
+				// ---- detail drawer for the selected row
+				// Only the row you tapped: five rows each carrying three numbers
+				// is a wall, and four of them are numbers you did not ask for.
+				var sel = sessionByKey(selectedSession) || SESSIONS[0];
+				var selRef = refs[sel.key];
+				var live2 = selRef.st.open && market.open, paused2 = selRef.st.open && !market.open;
+				var d = el("div", "sb-detail");
+				d.style.setProperty("--seg", "var(--sb-" + sel.key + ")");
+				var dhead = el("div", "sb-dhead");
+				dhead.appendChild(el("b", null, sel.name));
+				dhead.appendChild(el("span", null,
+					selRef.holiday ? "— تعطیل بانکی"
+						: (live2 ? "— باز است" : (paused2 ? "— در استراحت" : "— بسته است"))));
+				d.appendChild(dhead);
+
+				if (selRef.holiday) {
+					var note = el("div", "sb-dnote");
+					note.appendChild(document.createTextNode("🏦 امروز در آمریکا تعطیلی بانکی است: "));
+					note.appendChild(el("b", null, selRef.holiday.name || "تعطیل رسمی"));
+					note.appendChild(document.createTextNode("."));
+					d.appendChild(note);
+				} else if (selRef.ref.open) {
+					var c1 = el("div", "sb-dt");
+					c1.appendChild(el("div", "sb-dk", "به وقت " + viewName()));
+					c1.appendChild(el("div", "sb-dv",
+						fa(hhmmInZone(selRef.ref.open, VIEW())) + "–" + fa(hhmmInZone(selRef.ref.close, VIEW()))));
+					d.appendChild(c1);
+
+					var c2 = el("div", "sb-dt");
+					c2.appendChild(el("div", "sb-dk", "به وقت محلی"));
+					c2.appendChild(el("div", "sb-dv",
+						fa(hhmmInZone(selRef.ref.open, sel.zone)) + "–" + fa(hhmmInZone(selRef.ref.close, sel.zone))));
+					d.appendChild(c2);
+
+					var c3 = el("div", "sb-dt");
+					c3.appendChild(el("div", "sb-dk",
+						live2 ? "تا بسته شدن" : (paused2 ? "تا از سرگیری" : "تا باز شدن")));
+					var tgt = paused2 ? (market.resumesAt || market.nextOpen) : (live2 ? selRef.ref.close : selRef.ref.open);
+					var dv = el("div", "sb-dv is-cd", countdownText(tgt, nowT));
+					c3.appendChild(dv);
+					d.appendChild(c3);
+					tickers.push(function (t) { dv.textContent = countdownText(tgt, t); });
+				}
+				card.appendChild(d);
+				board.appendChild(enter(card));
+
+				// ---- city clocks
+				var clocks = el("div", "sb-clocks");
+				// NYSE is America/New_York, the same zone New York already shows.
+				// A fifth card would have been a clock that can never differ.
+				SESSIONS.filter(function (s) { return s.key !== "nyse"; }).forEach(function (s) {
+					var ss = refs[s.key].st;
+					var c = el("div", "sb-ck" + (ss.open && market.open && !refs[s.key].holiday ? " is-live" : ""));
+					c.style.setProperty("--ck", "var(--sb-" + s.key + ")");
+					c.appendChild(el("div", "sb-ck-city", s.name));
+					var ct = el("div", "sb-ck-time", fa(hhmmInZone(nowT, s.zone)));
+					c.appendChild(ct);
+					c.appendChild(el("div", "sb-ck-day", dayInZone(nowT, s.zone)));
+					clocks.appendChild(c);
+					tickers.push(function (t) { ct.textContent = fa(hhmmInZone(t, s.zone)); });
+				});
+				board.appendChild(enter(clocks));
+
 				container.appendChild(board);
-
-				var axis = el("div", "mk-axis");
-				[0, 4, 8, 12, 16, 20].forEach(function (h) {
-					var lab = el("span", "mk-hour", fa(h < 10 ? "0" + h : h));
-					lab.style.right = (h * 60 / 1440 * 100) + "%";
-					axis.appendChild(lab);
-				});
-				container.appendChild(axis);
-
-				var legend = el("div", "mk-legend");
-				[["", "یک سشن باز"], ["l2", "دو سشن"], ["l3", "سه سشن یا بیشتر"]].forEach(function (l) {
-					var item = el("span");
-					item.appendChild(el("i", l[0] || null));
-					item.appendChild(el("span", null, l[1]));
-					legend.appendChild(item);
-				});
-				container.appendChild(legend);
-
-				// ---- the overlap is the point of the whole screen
-				var london = sessionByKey("london"), ny = sessionByKey("newyork");
-				var lSt = sessionState(london, now), nSt = sessionState(ny, now);
-				var lRef = lSt.open ? { o: lSt.since, c: lSt.until } : { o: lSt.nextOpen, c: lSt.nextClose };
-				var nRef = nSt.open ? { o: nSt.since, c: nSt.until } : { o: nSt.nextOpen, c: nSt.nextClose };
-				if (lRef.o && nRef.o) {
-					var ovStart = Math.max(lRef.o, nRef.o), ovEnd = Math.min(lRef.c, nRef.c);
-					if (ovEnd > ovStart) {
-						var ov = el("div", "mk-overlap");
-						ov.appendChild(el("div", "mk-overlap-title", "همپوشانی لندن و نیویورک"));
-						var ovs = el("div", "mk-overlap-sub");
-						ovs.appendChild(el("b", null, fa(hhmmInZone(ovStart, TEHRAN)) + " – " + fa(hhmmInZone(ovEnd, TEHRAN))));
-						ovs.appendChild(el("span", null, " به وقت تهران · پرمعامله‌ترین بازه‌ی روز"));
-						ov.appendChild(ovs);
-						container.appendChild(enter(ov));
-					}
-				}
-
-				// Broker clock picker
-				var picker = el("div", "mk-picker");
-				picker.appendChild(el("div", "mk-picker-label", "ساعت سرور بروکر شما"));
-				var chips = el("div", "mk-picker-chips");
-				var current = brokerMode();
-				BROKER_MODES.forEach(function (mode) {
-					var b = el("button", "chip", mode.label);
-					b.type = "button";
-					b.setAttribute("aria-pressed", mode.key === current.key ? "true" : "false");
-					b.addEventListener("click", function () {
-						try { localStorage.setItem(BROKER_KEY, mode.key); } catch (e) { /* preference only */ }
-						haptic("select");
-						renderList();
-					});
-					chips.appendChild(b);
-				});
-				picker.appendChild(chips);
-				picker.appendChild(el("div", "mk-picker-hint",
-					"در متاتریدر، ساعت بالای پنجره‌ی Market Watch ساعت سرور است. اگر با ستون بالا نخواند، گزینه‌ی دیگری را انتخاب کن."));
-				container.appendChild(enter(picker));
-
-				container.appendChild(el("p", "footnote",
-					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. سشن‌ها از بامداد دوشنبه پس از پایان تسویه (۰۱:۳۰ به وقت ایران) تا جمعه با بسته شدن نیویورک فعال‌اند. "
-					+ "هر شب هم از " + fa(hhmmInZone(nextBreak, TEHRAN)) + " تا " + fa(hhmmInZone(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, TEHRAN))
-					+ " به وقت ایران، سشن‌ها برای تسویه‌ی روزانه یک ساعت بسته‌اند (نوار تیره روی نمودارها)."));
-
-				// The width has to be set in a later frame than the 0% it starts
-				// at, or the browser collapses the two into one value and the
-				// transition never runs.
-				if (fills.length) {
-					requestAnimationFrame(function () {
-						requestAnimationFrame(function () {
-							fills.forEach(function (f) {
-								f[0].classList.add("is-filling");
-								f[0].style.width = f[1];
-							});
-						});
-					});
-				}
 			}
 
 			// ---------- month grid ----------

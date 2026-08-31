@@ -171,9 +171,9 @@
 		   the light theme and barely-there white in the dark one, where the
 		   effect has to be far weaker or it turns into a visible grey line. */
 		.next-card,
-		.mk-m,
-		.mk-picker,
-		.mk-overlap,
+		.sb-status,
+		.sb-board,
+		.sb-ck,
 		.tl,
 		.event,
 		.alerts,
@@ -209,16 +209,8 @@
 			to   { opacity: 1; transform: none; }
 		}
 
-		/* The progress bar grows to its value on arrival. The class is added
-		   with the target width so the transition is only ever live during the
-		   entrance - a per-second redraw must not animate the bar. */
-		.mk-m-fill.is-filling {
-			transition: width .75s cubic-bezier(.22, .68, .35, 1) .12s;
-		}
-
 		@media (prefers-reduced-motion: reduce) {
 			.mk-enter { animation: none; }
-			.mk-m-fill.is-filling { transition: none; }
 		}
 
 		.wrap { max-width: 640px; margin: 0 auto; }
@@ -502,531 +494,491 @@
 			color: var(--accent-text);
 		}
 
-		/* ---------- markets ----------
-		   One self-contained card per market: identity, state, its own
-		   24-hour Tehran track, and the times underneath. The shared axis
-		   below the board labels all five tracks at once. */
-		/* The hero is a map of the world it describes. Deliberately dark in
-		   both themes — a deep navy “screen” set into the page, so every
-		   colour inside it is a literal, not a theme token: the light theme's
-		   tokens would vanish against this ground. */
-		.mk-hero {
-			position: relative;
-			overflow: hidden;
-			display: flex;
-			flex-direction: column;
-			justify-content: space-between;
-			gap: 12px;
-			min-height: 205px;
-			background: linear-gradient(168deg, #1a2550 0%, #0c1330 55%, #070c1f 100%);
-			border-radius: 18px;
-			padding: 15px 17px;
-			margin-bottom: 14px;
-			color: #edf1fc;
-			box-shadow: var(--shadow-3),
-			            inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
-			            inset 0 .5px 0 0 rgba(0, 0, 0, .467);
+		/* ---------- sessions board ----------
+		   «تابلوی معاملاتی». One 24-hour axis for every market instead of
+		   five cards each with its own track: only a shared axis lets the eye
+		   compare two sessions, which is the whole question this tab exists
+		   to answer.
+
+		   The palette is scoped to .sb rather than declared on :root. The rest
+		   of the app is the academy's navy and gold; this board is graphite
+		   with a single magenta signal, and scoping keeps the two from
+		   leaking into each other. */
+		.sb {
+			--sb-panel: #ffffff;
+			--sb-panel-2: #f7f6f4;
+			--sb-text: #1f1e26;
+			--sb-muted: #78767f;
+			--sb-line: rgba(31, 30, 38, .11);
+			--sb-line-strong: rgba(31, 30, 38, .2);
+
+			/* NOW. One colour, one meaning: the current-time line, the live
+			   countdown, the focus ring. It appears nowhere else, so wherever
+			   it shows up the eye already knows why. */
+			--sb-signal: #d81b60;
+
+			/* Market state, kept apart from the signal so "open" and "now" are
+			   never confused for each other. */
+			--sb-live: #00875a;
+			--sb-rest: #b0741a;
+			--sb-shut: #8a8792;
+
+			/* The sun's path west: Sydney, Tokyo, London, New York, the
+			   exchange. The order of the hues carries a fact. */
+			--sb-sydney: #0f9b8e;
+			--sb-tokyo: #3d6fe0;
+			--sb-london: #8257d4;
+			--sb-newyork: #e07a20;
+			--sb-nyse: #c9482a;
+
+			--sb-track: rgba(31, 30, 38, .06);
+			--sb-hatch: rgba(31, 30, 38, .17);
+
+			color: var(--sb-text);
+			font-variant-numeric: tabular-nums;
 		}
 
-		/* NASA's Black Marble — earth at night — cropped offline to exactly
-		   the lon/lat window the marker projection uses, so the photo and
-		   the markers can never disagree. Its top and bottom edges fade
-		   into the card's own navy. */
-		.mk-photo {
-			position: absolute;
-			left: 0;
-			width: 100%;
-			pointer-events: none;
-			-webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
-			mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+		:root[data-theme="dark"] .sb {
+			--sb-panel: #1b1b23;
+			--sb-panel-2: #23232d;
+			--sb-text: #eceaf2;
+			--sb-muted: #918fa0;
+			--sb-line: rgba(255, 255, 255, .09);
+			--sb-line-strong: rgba(255, 255, 255, .17);
+			--sb-signal: #ff4d94;
+			--sb-live: #2bd49a;
+			--sb-rest: #e0a640;
+			--sb-shut: #7d7b8a;
+			--sb-sydney: #23c9b6;
+			--sb-tokyo: #6c9bff;
+			--sb-london: #a785ff;
+			--sb-newyork: #ffa242;
+			--sb-nyse: #ff6f52;
+			--sb-track: rgba(255, 255, 255, .06);
+			--sb-hatch: rgba(255, 255, 255, .2);
 		}
 
-		/* A quiet navy shade so the titles, clock and markers sit on the
-		   photo comfortably; the state light (.mk-glow) rides above it. */
-		.mk-shade {
-			position: absolute;
-			inset: 0;
-			pointer-events: none;
-			background:
-				linear-gradient(180deg, rgba(9, 14, 34, .74) 0%, rgba(9, 14, 34, .16) 36%, rgba(7, 12, 31, .1) 60%, rgba(7, 12, 31, .5) 100%);
+		@media (prefers-color-scheme: dark) {
+			:root:not([data-theme="light"]) .sb {
+				--sb-panel: #1b1b23;
+				--sb-panel-2: #23232d;
+				--sb-text: #eceaf2;
+				--sb-muted: #918fa0;
+				--sb-line: rgba(255, 255, 255, .09);
+				--sb-line-strong: rgba(255, 255, 255, .17);
+				--sb-signal: #ff4d94;
+				--sb-live: #2bd49a;
+				--sb-rest: #e0a640;
+				--sb-shut: #7d7b8a;
+				--sb-sydney: #23c9b6;
+				--sb-tokyo: #6c9bff;
+				--sb-london: #a785ff;
+				--sb-newyork: #ffa242;
+				--sb-nyse: #ff6f52;
+				--sb-track: rgba(255, 255, 255, .06);
+				--sb-hatch: rgba(255, 255, 255, .2);
+			}
 		}
 
-		/* Ambient state light over the map: green while trading, red over the
-		   weekend, amber during the daily break. */
-		.mk-glow {
-			position: absolute;
-			inset: 0;
-			pointer-events: none;
-			background: radial-gradient(90% 80% at 82% 0%, rgba(120, 140, 200, .14), transparent 65%);
-		}
-
-		.mk-hero.is-open .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(53, 196, 139, .17), transparent 65%); }
-		.mk-hero.is-closed .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(239, 91, 98, .14), transparent 65%); }
-		.mk-hero.is-break .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(232, 165, 69, .16), transparent 65%); }
-
-		/* City markers, positioned in pixels by the same projection that draws
-		   the dots, so they can never drift off their coastlines. */
-		.mk-city {
-			position: absolute;
-			transform: translate(-50%, -50%);
-			display: flex;
-			flex-direction: column;
+		/* ---- status ----
+		   Set in the largest type on the tab: it answers the one question the
+		   tab exists for, before anything else is read. */
+		.sb-status {
+			background: var(--sb-panel);
+			border: 1px solid var(--sb-line);
+			border-radius: 12px;
+			padding: 13px 15px;
+			margin-bottom: 10px;
+			display: grid;
+			grid-template-columns: 1fr auto;
 			align-items: center;
-			gap: 3px;
-			pointer-events: none;
-			z-index: 1;
+			gap: 8px;
+			/* A 3px edge in the state's own colour: the card says what it means
+			   before a single word is read. */
+			border-inline-start: 3px solid var(--sb-shut);
 		}
 
-		.mk-city-dot {
-			width: 7px;
-			height: 7px;
-			border-radius: 50%;
-			background: #55607f;
-			box-shadow: 0 0 0 2px rgba(85, 96, 127, .25);
-		}
+		.sb-status.is-open { border-inline-start-color: var(--sb-live); }
+		.sb-status.is-break { border-inline-start-color: var(--sb-rest); }
+		.sb-status.is-weekend { border-inline-start-color: var(--sb-shut); }
 
-		.mk-city-name {
-			font-size: 0.56rem;
-			font-weight: 600;
-			letter-spacing: .02em;
-			color: rgba(214, 222, 244, .62);
-			text-shadow: 0 1px 3px rgba(5, 8, 20, .9);
-			white-space: nowrap;
-		}
-
-		.mk-city.is-on .mk-city-dot {
-			background: #35c48b;
-			box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55);
-			animation: mk-city-pulse 2.4s ease-out infinite;
-		}
-
-		.mk-city.is-on .mk-city-name { color: #8ce8c3; }
-
-		.mk-city.is-paused .mk-city-dot {
-			background: #e8a545;
-			box-shadow: 0 0 9px 2px rgba(232, 165, 69, .5);
-		}
-
-		/* Tehran is home: the academy's gold, always lit. */
-		.mk-city.is-home .mk-city-dot {
-			width: 6px;
-			height: 6px;
-			background: var(--gold);
-			box-shadow: 0 0 8px 2px rgba(210, 174, 109, .55);
-		}
-
-		.mk-city.is-home .mk-city-name { color: rgba(233, 208, 160, .85); }
-
-		@keyframes mk-city-pulse {
-			0% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 rgba(53, 196, 139, .45); }
-			70% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 10px transparent; }
-			100% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 transparent; }
-		}
-
-		.mk-hero-main { position: relative; min-width: 0; z-index: 2; }
-
-		.mk-hero-title {
+		.sb-state {
 			display: flex;
 			align-items: center;
 			gap: 8px;
-			font-size: 1.02rem;
 			font-weight: 800;
-			letter-spacing: -.01em;
-			text-shadow: 0 1px 4px rgba(5, 8, 20, .8);
+			font-size: 0.97rem;
 		}
 
-		/* Literals, not tokens: the ground under them never changes theme. */
-		.mk-hero.is-open .mk-hero-title { color: #35c48b; }
-		.mk-hero.is-closed .mk-hero-title { color: #ef5b62; }
-		.mk-hero.is-break .mk-hero-title { color: #e8a545; }
-
-		.mk-dot {
-			flex: none;
-			width: 9px;
-			height: 9px;
+		.sb-dot {
+			width: 8px;
+			height: 8px;
 			border-radius: 50%;
-			background: currentColor;
-		}
-
-		.mk-hero.is-open .mk-dot { animation: mk-pulse 2.2s ease-out infinite; }
-
-		@keyframes mk-pulse {
-			0% { box-shadow: 0 0 0 0 rgba(53, 196, 139, .6); }
-			70% { box-shadow: 0 0 0 9px transparent; }
-			100% { box-shadow: 0 0 0 0 transparent; }
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			.mk-hero.is-open .mk-dot { animation: none; }
-			.mk-city.is-on .mk-city-dot { animation: none; }
-		}
-
-		.mk-hero-sub {
-			font-size: 0.78rem;
-			color: rgba(196, 205, 232, .8);
-			margin-top: 3px;
-			text-shadow: 0 1px 3px rgba(5, 8, 20, .8);
-		}
-
-		.mk-hero-sub b {
-			color: #fff;
-			font-variant-numeric: tabular-nums;
-		}
-
-		/* The clock sits in the ocean corner of the map, opposite the title. */
-		.mk-clock {
-			position: relative;
+			background: var(--sb-shut);
 			flex: none;
-			align-self: flex-end;
-			text-align: center;
-			line-height: 1.15;
-			z-index: 2;
-			text-shadow: 0 2px 8px rgba(5, 8, 20, .85);
 		}
 
-		/* The clock is the one piece of type on this screen that is allowed to
-		   be loud. Heavy, tight, tabular, with the seconds kept small so the
-		   hour and minute stay what the eye lands on. */
-		.mk-clock-time {
-			display: block;
-			font-size: 2.15rem;
-			font-weight: 900;
-			font-variant-numeric: tabular-nums;
-			letter-spacing: -.02em;
-			line-height: 1;
-			direction: ltr;
-			color: #f4f7ff;
+		.sb-status.is-open .sb-dot {
+			background: var(--sb-live);
+			box-shadow: 0 0 0 4px color-mix(in srgb, var(--sb-live) 22%, transparent);
 		}
 
-		.mk-clock-sec {
-			font-size: 0.82rem;
+		.sb-status.is-break .sb-dot {
+			background: var(--sb-rest);
+			box-shadow: 0 0 0 4px color-mix(in srgb, var(--sb-rest) 22%, transparent);
+		}
+
+		.sb-sub {
+			grid-column: 1 / -1;
+			font-size: 0.78rem;
+			color: var(--sb-muted);
+			line-height: 1.7;
+		}
+
+		.sb-sub b { color: var(--sb-text); font-weight: 700; }
+		.sb-clock { text-align: left; line-height: 1; }
+		.sb-time { font-size: 1.75rem; font-weight: 800; letter-spacing: -1px; }
+		.sb-zone { font-size: 0.66rem; color: var(--sb-muted); font-weight: 600; margin-top: 3px; }
+
+		/* ---- the board ----
+		   Corners are near-square: this is an instrument readout, and pills
+		   would make it look like a row of buttons. */
+		.sb-board {
+			background: var(--sb-panel);
+			border: 1px solid var(--sb-line);
+			border-radius: 12px;
+			padding: 13px 13px 9px;
+			margin-bottom: 14px;
+			/* The rail and the gap live on the card so every layer inside -
+			   hours, bars, the now-line - is positioned from one number and
+			   they cannot drift apart. */
+			--rail: 116px;
+			--gap: 8px;
+			--off: calc(var(--rail) + var(--gap));
+		}
+
+		.sb-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 8px;
+			margin-bottom: 9px;
+		}
+
+		.sb-title { font-size: 0.82rem; font-weight: 700; }
+
+		/* ---- zone picker ----
+		   The axis label is the control. There is no separate settings icon to
+		   hunt for, because the thing you want to change is the thing you are
+		   already reading. */
+		.sb-tz {
+			font: inherit;
+			font-size: 0.66rem;
 			font-weight: 700;
-			letter-spacing: 0;
-			color: rgba(196, 205, 232, .75);
-			margin-inline-start: 3px;
-			vertical-align: 3px;
-		}
-
-		.mk-clock-zone {
-			display: block;
-			font-size: 0.62rem;
-			color: rgba(196, 205, 232, .65);
-			letter-spacing: .06em;
-			margin-top: 4px;
-		}
-
-		.mk-board { display: flex; flex-direction: column; gap: 8px; }
-
-		.mk-m {
-			background: var(--card);
-			border-radius: 14px;
-			padding: 11px 13px 10px;
-			border: 1px solid transparent;
-		}
-
-		/* A live market gets a tinted ground and a hairline, so which row
-		   matters right now is legible before reading a single word. */
-		.mk-m.is-live {
-			background: color-mix(in srgb, var(--up) 9%, var(--card));
-			border-color: color-mix(in srgb, var(--up) 32%, transparent);
-		}
-
-		/* Inside its hours, but the broker is in the rollover hour. */
-		.mk-m.is-paused {
-			background: color-mix(in srgb, var(--medium) 9%, var(--card));
-			border-color: color-mix(in srgb, var(--medium) 30%, transparent);
-		}
-
-		.mk-m-head {
+			color: var(--sb-muted);
+			background: none;
+			border: 0;
+			padding: 2px 4px;
+			margin: -2px -4px;
+			border-radius: 6px;
+			cursor: pointer;
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
-			gap: 10px;
-			margin-bottom: 8px;
+			gap: 4px;
+			white-space: nowrap;
 		}
 
-		.mk-m-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
-		/* Real flag artwork rather than an emoji, in a coin-shaped badge: the
-		   ring carries the row's state, so a market's flag is itself the
-		   signal — gold at rest, green while trading, amber on the break. */
-		.mk-m-flag {
-			flex: none;
-			width: 30px;
-			height: 30px;
-			border-radius: 50%;
-			overflow: hidden;
-			display: block;
-			border: 1.6px solid var(--flag-ring);
-			box-shadow: 0 2px 6px hsl(var(--shadow-color) / 22%);
-			transition: border-color .35s var(--ease-out-3), box-shadow .35s var(--ease-out-3);
+		.sb-tz:hover { color: var(--sb-text); background: var(--sb-panel-2); }
+		.sb-tz:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: 1px; }
+		.sb-caret { font-size: 0.5rem; opacity: .8; }
+		.sb-tz[aria-expanded="true"] .sb-caret { transform: rotate(180deg); }
+
+		/* display:grid outranks the user agent's [hidden] rule, so the
+		   attribute has to be honoured explicitly or the sheet never closes. */
+		.sb-menu[hidden] { display: none; }
+
+		.sb-menu {
+			border: 1px solid var(--sb-line);
+			border-radius: 10px;
+			background: var(--sb-panel-2);
+			padding: 4px;
+			margin-bottom: 10px;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 3px;
 		}
 
-		/* The symbols are square; the badge crops them to the coin. */
-		.mk-m-flag svg {
-			width: 100%;
-			height: 100%;
-			display: block;
+		.sb-opt {
+			font: inherit;
+			font-size: 0.73rem;
+			font-weight: 600;
+			text-align: right;
+			background: none;
+			border: 0;
+			border-radius: 7px;
+			padding: 7px 8px;
+			color: var(--sb-text);
+			cursor: pointer;
+			display: flex;
+			flex-direction: column;
+			gap: 1px;
 		}
 
-		.mk-m.is-live .mk-m-flag {
-			border-color: var(--up);
-			box-shadow: 0 0 9px color-mix(in srgb, var(--up) 45%, transparent);
-		}
+		.sb-opt:hover { background: var(--sb-panel); }
+		.sb-opt:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: -2px; }
+		.sb-opt[aria-checked="true"] { background: var(--sb-panel); box-shadow: inset 0 0 0 1.5px var(--sb-signal); }
+		.sb-off { font-size: 0.62rem; color: var(--sb-muted); font-weight: 600; }
 
-		.mk-m.is-paused .mk-m-flag {
-			border-color: var(--medium);
-			box-shadow: 0 0 8px color-mix(in srgb, var(--medium) 40%, transparent);
-		}
+		.sb-grid { position: relative; }
+		.sb-hours { position: relative; height: 15px; margin-inline-start: var(--off); }
 
-		/* Defined once, drawn by reference: the sprite itself never renders. */
-		.flag-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-
-		@media (prefers-reduced-motion: reduce) {
-			.mk-m-flag { transition: none; }
-		}
-		.mk-m-name { font-size: 0.9rem; font-weight: 600; }
-
-		.mk-m-sub {
-			font-size: 0.58rem;
-			font-weight: 700;
-			letter-spacing: .06em;
-			padding: 1px 6px;
-			border-radius: 5px;
-			color: var(--muted);
-			background: color-mix(in srgb, var(--muted) 16%, transparent);
-		}
-
-		.mk-m-pill {
-			flex: none;
-			display: inline-flex;
-			align-items: center;
-			gap: 6px;
-			font-size: 0.68rem;
-			font-weight: 700;
-			padding: 3px 10px;
-			border-radius: 999px;
-			background: color-mix(in srgb, var(--muted) 16%, transparent);
-			color: var(--muted);
-		}
-
-		.mk-m.is-live .mk-m-pill {
-			background: color-mix(in srgb, var(--up) 20%, transparent);
-			color: var(--up);
-		}
-
-		.mk-m.is-paused .mk-m-pill {
-			background: color-mix(in srgb, var(--medium) 22%, transparent);
-			color: var(--medium);
-		}
-
-		.mk-m-live {
-			width: 6px;
-			height: 6px;
-			border-radius: 50%;
-			background: currentColor;
-		}
-
-		.mk-m-track {
-			position: relative;
-			height: 12px;
-			border-radius: 6px;
-			background: color-mix(in srgb, var(--muted) 13%, transparent);
-			overflow: hidden;
-		}
-
-		/* --d1..--d3 are the three density bands the bar is painted with: one
-		   market open, two, three or more. They are declared per state so a
-		   live bar shades in green and an idle one in grey, while the gradient
-		   itself is built in script from the real per-minute counts. */
-		.mk-m-seg {
+		.sb-hour {
 			position: absolute;
 			top: 0;
-			bottom: 0;
-			border-radius: 6px;
-			--d1: color-mix(in srgb, var(--muted) 26%, transparent);
-			--d2: color-mix(in srgb, var(--muted) 42%, transparent);
-			--d3: color-mix(in srgb, var(--muted) 60%, transparent);
-			background: var(--d1);
+			transform: translateX(50%);
+			font-size: 0.6rem;
+			font-weight: 700;
+			color: var(--sb-muted);
+			letter-spacing: .04em;
 		}
 
-		.mk-m.is-live .mk-m-seg {
-			--d1: color-mix(in srgb, var(--up) 22%, transparent);
-			--d2: color-mix(in srgb, var(--up) 38%, transparent);
-			--d3: color-mix(in srgb, var(--up) 56%, transparent);
-			background: var(--d1);
+		.sb-rows { position: relative; display: flex; flex-direction: column; }
+
+		.sb-row {
+			display: grid;
+			grid-template-columns: var(--rail) 1fr;
+			align-items: center;
+			gap: var(--gap);
+			border: 0;
+			border-top: 1px solid var(--sb-line);
+			padding: 6px 0;
+			margin: 0;
+			background: none;
+			color: inherit;
+			font: inherit;
+			text-align: right;
+			cursor: pointer;
+			min-height: 38px;
 		}
 
-		.mk-m.is-paused .mk-m-seg {
-			--d1: color-mix(in srgb, var(--medium) 22%, transparent);
-			--d2: color-mix(in srgb, var(--medium) 38%, transparent);
-			--d3: color-mix(in srgb, var(--medium) 56%, transparent);
-			background: var(--d1);
+		.sb-row:first-child { border-top: 0; }
+		.sb-row[aria-pressed="true"] { background: var(--sb-panel-2); }
+		.sb-row:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: -2px; }
+
+		.sb-who { display: flex; align-items: center; gap: 7px; min-width: 0; }
+
+		/* Square-cornered flag chips rather than circles: a circle reads as an
+		   avatar, and these are instrument labels. The session's own colour is
+		   the ring, which ties each row to its bar without a legend. */
+		.sb-flag {
+			width: 22px;
+			height: 16px;
+			border-radius: 3px;
+			flex: none;
+			overflow: hidden;
+			display: block;
+			background: var(--sb-panel-2);
+			box-shadow: 0 0 0 1.5px var(--seg, var(--sb-line-strong));
 		}
 
-		/* Explains the shading without a separate chart: three chips of the
-		   same three bands the bars use. */
-		.mk-legend {
+		.sb-flag svg { width: 100%; height: 100%; display: block; }
+		.sb-nm { min-width: 0; flex: 1 1 auto; line-height: 1.2; }
+
+		/* «بورس نیویورک» is the longest label and it sets the rail width: one
+		   pixel narrower and it wrapped, which made that row taller than the
+		   other four. nowrap keeps that from coming back silently if a name is
+		   ever edited. */
+		.sb-name {
+			font-size: 0.72rem;
+			font-weight: 600;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.sb-st {
+			font-size: 0.6rem;
+			color: var(--sb-shut);
+			font-weight: 700;
+			letter-spacing: .02em;
+			white-space: nowrap;
+		}
+
+		.sb-row.is-live .sb-st { color: var(--sb-live); }
+		.sb-row.is-paused .sb-st { color: var(--sb-rest); }
+		.sb-row.is-holiday .sb-st { color: var(--sb-rest); }
+
+		.sb-track {
+			position: relative;
+			height: 20px;
+			background: var(--sb-track);
+			border-radius: 3px;
+			overflow: hidden;
+		}
+
+		.sb-seg { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--seg); opacity: .3; }
+		.sb-row.is-live .sb-seg { opacity: .52; }
+
+		/* The elapsed part of a running session: the bar doubles as a meter. */
+		.sb-fill { position: absolute; inset: 0 auto 0 0; background: var(--seg); border-radius: 2px; }
+
+		.sb-seg-lab {
+			position: absolute;
+			inset: 0;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			flex-wrap: wrap;
-			gap: 6px 14px;
-			margin: -6px 2px 14px;
-			font-size: 0.66rem;
-			color: var(--muted);
+			font-size: 0.6rem;
+			font-weight: 700;
+			color: var(--sb-text);
+			opacity: .72;
+			white-space: nowrap;
+			letter-spacing: .02em;
 		}
 
-		.mk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+		.sb-row.is-live .sb-seg-lab { opacity: 1; }
 
-		.mk-legend i {
-			width: 16px;
-			height: 8px;
-			border-radius: 3px;
-			background: color-mix(in srgb, var(--muted) 26%, transparent);
+		/* A bank holiday is not "closed for the night": the bar is struck
+		   through so the row reads as cancelled, not merely dark. */
+		.sb-holiday {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 5px;
+			font-size: 0.6rem;
+			font-weight: 700;
+			color: var(--sb-rest);
+			background: repeating-linear-gradient(-45deg,
+				color-mix(in srgb, var(--sb-rest) 20%, transparent) 0 3px,
+				transparent 3px 7px);
+			white-space: nowrap;
+			overflow: hidden;
 		}
 
-		.mk-legend i.l2 { background: color-mix(in srgb, var(--muted) 42%, transparent); }
-		.mk-legend i.l3 { background: color-mix(in srgb, var(--muted) 60%, transparent); }
-
-		/* The daily rollover hour, hatched so it reads as "not trading" rather
-		   than as another session. Drawn over the segments beneath it. */
-		.mk-m-break {
+		/* The rollover hour, over whatever sits beneath it. */
+		.sb-break {
 			position: absolute;
 			top: 0;
 			bottom: 0;
-			z-index: 1;
-			background:
-				repeating-linear-gradient(45deg,
-					color-mix(in srgb, var(--text) 34%, transparent) 0 2px,
-					transparent 2px 5px),
-				var(--card);
+			background: repeating-linear-gradient(-45deg, var(--sb-hatch) 0 2px, transparent 2px 5px);
 		}
 
-		/* The elapsed part of a running session. It grows from the open edge,
-		   which under RTL is the right-hand side of the track. */
-		.mk-m-fill {
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			right: 0;
-			border-radius: 6px;
-			background: var(--up);
-		}
+		/* One line for every row, not one per row. It starts just below the
+		   hour numbers so the needle never crosses the labels it is measured
+		   against. */
+		.sb-now[hidden] { display: none; }
 
-		.mk-m-now {
+		.sb-now {
 			position: absolute;
-			top: 0;
+			top: 13px;
 			bottom: 0;
 			width: 2px;
-			margin-right: -1px;
-			background: var(--text);
-			opacity: .55;
-			z-index: 2;
+			background: var(--sb-signal);
+			pointer-events: none;
+			z-index: 3;
 		}
 
-		.mk-m.is-live .mk-m-now { opacity: 1; }
-
-		.mk-m-foot {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: 5px 12px;
-			margin-top: 8px;
-			font-size: 0.72rem;
-			color: var(--muted);
-		}
-
-		.mk-m-time { display: inline-flex; align-items: center; gap: 5px; }
-
-		.mk-m-time b {
-			font-size: 0.8rem;
-			font-weight: 700;
-			font-variant-numeric: tabular-nums;
-			letter-spacing: .01em;
-			color: var(--text);
-		}
-
-		.mk-m-tag {
-			font-size: 0.6rem;
-			letter-spacing: .04em;
-			padding: 1px 6px;
-			border-radius: 5px;
-			background: color-mix(in srgb, var(--muted) 15%, transparent);
-		}
-
-		.mk-m-cd { margin-inline-start: auto; }
-
-		/* A running counter, so it needs fixed-width digits. Isolated rather
-		   than forced LTR: over a day the text is "۱ روز و ۰۲:۱۵:۳۳", and
-		   forcing LTR would reorder the Persian word. */
-		.mk-m-cdn, .mk-hero-cd {
-			display: inline-block;
-			unicode-bidi: isolate;
-			font-variant-numeric: tabular-nums;
-			font-weight: 700;
-			letter-spacing: .01em;
-			color: var(--text);
-		}
-
-		.mk-m-cdn { font-size: 0.8rem; }
-		.mk-m.is-live .mk-m-cdn { color: var(--up); }
-		.mk-m.is-paused .mk-m-cdn { color: var(--medium); }
-		.mk-m.is-paused .mk-m-now { opacity: 1; }
-
-		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
-
-		.mk-hour {
+		.sb-now::before {
+			content: "";
 			position: absolute;
-			transform: translateX(50%);
-			font-size: 0.64rem;
-			color: var(--muted);
-			font-variant-numeric: tabular-nums;
+			top: -3px;
+			right: -3px;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--sb-signal);
+			box-shadow: 0 0 0 2px var(--sb-panel);
 		}
 
-		/* The London∩NY window is the single most useful fact on this screen,
-		   so it gets the accent instead of sharing the neutral card look. */
-		.mk-overlap {
-			border-radius: 14px;
-			padding: 12px 15px;
-			background: color-mix(in srgb, var(--accent) 12%, var(--card));
-			border-right: 3px solid var(--accent);
+		/* London and New York trading together is the most consequential fact
+		   on this tab, but it does not need a shape of its own: the two bars
+		   above already show it. One sentence carries it instead. */
+		.sb-ov {
+			font-size: 0.66rem;
+			color: var(--sb-muted);
+			font-weight: 600;
+			border-top: 1px solid var(--sb-line);
+			padding: 8px 0 2px;
+			line-height: 1.6;
 		}
 
-		.mk-overlap-title {
-			font-size: 0.82rem;
-			font-weight: 700;
-			color: var(--accent);
+		.sb-ov b { color: var(--sb-text); font-weight: 700; }
+
+		/* Only the row you tapped: five rows each carrying three numbers is a
+		   wall, and four of them are numbers you did not ask for. */
+		.sb-detail {
+			margin-top: 9px;
+			padding: 10px 12px;
+			background: var(--sb-panel-2);
+			border-radius: 9px;
+			border-inline-start: 3px solid var(--seg, var(--sb-line-strong));
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 9px;
 		}
 
-		.mk-overlap-sub {
-			font-size: 0.74rem;
-			color: var(--muted);
-			margin-top: 2px;
-		}
+		.sb-dt { min-width: 0; }
+		.sb-dk { font-size: 0.62rem; color: var(--sb-muted); font-weight: 600; margin-bottom: 3px; }
 
-		.mk-overlap-sub b {
-			color: var(--text);
+		.sb-dv {
 			font-size: 0.8rem;
-			font-variant-numeric: tabular-nums;
+			font-weight: 800;
+			white-space: nowrap;
+			letter-spacing: -.2px;
 		}
 
-		.mk-picker {
-			background: var(--card);
-			border-radius: 13px;
-			padding: 13px 15px;
-			margin-top: 18px;
+		.sb-dv.is-cd { color: var(--sb-signal); }
+
+		.sb-dhead {
+			grid-column: 1 / -1;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 0.74rem;
+			font-weight: 700;
+			color: var(--sb-muted);
 		}
 
-		.mk-picker-label { font-size: 0.84rem; font-weight: 700; margin-bottom: 9px; }
+		.sb-dhead b { color: var(--sb-text); font-size: 0.8rem; }
 
-		.mk-picker-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-
-		.mk-picker-hint {
-			font-size: 0.7rem;
-			color: var(--muted);
-			line-height: 1.8;
-			margin-top: 10px;
+		.sb-dnote {
+			grid-column: 1 / -1;
+			font-size: 0.66rem;
+			color: var(--sb-muted);
+			font-weight: 600;
+			line-height: 1.6;
 		}
+
+		.sb-dnote b { color: var(--sb-text); font-weight: 700; }
+
+		/* «الان توکیو ساعت چند است» - a question the board above never answers
+		   on its own. Four cards, not five: NYSE and New York are the same
+		   IANA zone, so a fifth would show a duplicate number forever. */
+		.sb-clocks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 14px; }
+
+		.sb-ck {
+			background: var(--sb-panel);
+			border: 1px solid var(--sb-line);
+			border-radius: 9px;
+			padding: 8px 4px 7px;
+			text-align: center;
+			border-bottom: 2px solid var(--ck);
+		}
+
+		.sb-ck-city {
+			font-size: 0.6rem;
+			color: var(--sb-muted);
+			font-weight: 700;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.sb-ck-time { font-size: 0.92rem; font-weight: 800; margin-top: 3px; letter-spacing: -.4px; }
+		.sb-ck-day { font-size: 0.58rem; color: var(--sb-muted); margin-top: 1px; }
+		.sb-ck.is-live .sb-ck-time { color: var(--sb-live); }
 
 		/* ---------- day timeline ---------- */
 		.tl {
@@ -1761,4 +1713,3 @@
 			outline: 2px solid var(--accent);
 			outline-offset: 2px;
 		}
-

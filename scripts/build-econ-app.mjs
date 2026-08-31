@@ -30,6 +30,7 @@ const OUT_VERSION = join(ROOT, "bot", "src", "econ", "appVersion.js");
 
 const CSS_MARK = "<!-- build:css -->";
 const JS_MARK = "<!-- build:js -->";
+const VERSION_MARK = "<!-- build:version -->";
 
 function read(p) {
   return readFileSync(p, "utf8");
@@ -49,17 +50,31 @@ function inject(template, mark, body, what) {
   return lines.join("\n");
 }
 
-export function buildHtml() {
-  let html = read(join(SRC, "index.html"));
-  html = inject(html, CSS_MARK, read(join(SRC, "app.css")), "CSS");
-  html = inject(html, JS_MARK, read(join(SRC, "app.js")), "JS");
-  return html;
-}
-
 // ده رقم hex از sha256. کوتاه است تا در لاگ و آدرس خوانا بماند، و به
 // اندازه‌ی کافی بلند است که دو نسخه‌ی متفاوتِ این فایل به هم نخورند.
-export function versionOf(html) {
-  return createHash("sha256").update(html, "utf8").digest("hex").slice(0, 10);
+//
+// از روی **منبع‌ها** حساب می‌شود نه خروجی، چون همین عدد داخل خروجی نوشته
+// می‌شود: هش گرفتن از خروجی یعنی نوشتن عدد، عدد را عوض می‌کند.
+export function versionOf(parts) {
+  const h = createHash("sha256");
+  for (const p of parts) h.update(p, "utf8");
+  return h.digest("hex").slice(0, 10);
+}
+
+export function build() {
+  const template = read(join(SRC, "index.html"));
+  const css = read(join(SRC, "app.css"));
+  const js = read(join(SRC, "app.js"));
+  const version = versionOf([template, css, js]);
+
+  let html = inject(template, CSS_MARK, css, "CSS");
+  html = inject(html, JS_MARK, js, "JS");
+  // این یکی درجا جای‌گزین می‌شود نه خط‌به‌خط: وسط یک خط نشسته.
+  if (!html.includes(VERSION_MARK)) {
+    throw new Error("نشانه‌گذار «" + VERSION_MARK + "» در قالب نیست - شماره‌ی نسخه جایی برای رفتن ندارد");
+  }
+  html = html.replace(VERSION_MARK, version);
+  return { html, version };
 }
 
 function versionModule(version) {
@@ -77,8 +92,7 @@ function versionModule(version) {
 
 const check = process.argv.includes("--check");
 
-const html = buildHtml();
-const version = versionOf(html);
+const { html, version } = build();
 const module_ = versionModule(version);
 
 if (check) {

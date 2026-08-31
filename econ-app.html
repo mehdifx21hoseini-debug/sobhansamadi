@@ -197,9 +197,9 @@
 		   the light theme and barely-there white in the dark one, where the
 		   effect has to be far weaker or it turns into a visible grey line. */
 		.next-card,
-		.mk-m,
-		.mk-picker,
-		.mk-overlap,
+		.sb-status,
+		.sb-board,
+		.sb-ck,
 		.tl,
 		.event,
 		.alerts,
@@ -235,16 +235,8 @@
 			to   { opacity: 1; transform: none; }
 		}
 
-		/* The progress bar grows to its value on arrival. The class is added
-		   with the target width so the transition is only ever live during the
-		   entrance - a per-second redraw must not animate the bar. */
-		.mk-m-fill.is-filling {
-			transition: width .75s cubic-bezier(.22, .68, .35, 1) .12s;
-		}
-
 		@media (prefers-reduced-motion: reduce) {
 			.mk-enter { animation: none; }
-			.mk-m-fill.is-filling { transition: none; }
 		}
 
 		.wrap { max-width: 640px; margin: 0 auto; }
@@ -528,531 +520,491 @@
 			color: var(--accent-text);
 		}
 
-		/* ---------- markets ----------
-		   One self-contained card per market: identity, state, its own
-		   24-hour Tehran track, and the times underneath. The shared axis
-		   below the board labels all five tracks at once. */
-		/* The hero is a map of the world it describes. Deliberately dark in
-		   both themes — a deep navy “screen” set into the page, so every
-		   colour inside it is a literal, not a theme token: the light theme's
-		   tokens would vanish against this ground. */
-		.mk-hero {
-			position: relative;
-			overflow: hidden;
-			display: flex;
-			flex-direction: column;
-			justify-content: space-between;
-			gap: 12px;
-			min-height: 205px;
-			background: linear-gradient(168deg, #1a2550 0%, #0c1330 55%, #070c1f 100%);
-			border-radius: 18px;
-			padding: 15px 17px;
-			margin-bottom: 14px;
-			color: #edf1fc;
-			box-shadow: var(--shadow-3),
-			            inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
-			            inset 0 .5px 0 0 rgba(0, 0, 0, .467);
+		/* ---------- sessions board ----------
+		   «تابلوی معاملاتی». One 24-hour axis for every market instead of
+		   five cards each with its own track: only a shared axis lets the eye
+		   compare two sessions, which is the whole question this tab exists
+		   to answer.
+
+		   The palette is scoped to .sb rather than declared on :root. The rest
+		   of the app is the academy's navy and gold; this board is graphite
+		   with a single magenta signal, and scoping keeps the two from
+		   leaking into each other. */
+		.sb {
+			--sb-panel: #ffffff;
+			--sb-panel-2: #f7f6f4;
+			--sb-text: #1f1e26;
+			--sb-muted: #78767f;
+			--sb-line: rgba(31, 30, 38, .11);
+			--sb-line-strong: rgba(31, 30, 38, .2);
+
+			/* NOW. One colour, one meaning: the current-time line, the live
+			   countdown, the focus ring. It appears nowhere else, so wherever
+			   it shows up the eye already knows why. */
+			--sb-signal: #d81b60;
+
+			/* Market state, kept apart from the signal so "open" and "now" are
+			   never confused for each other. */
+			--sb-live: #00875a;
+			--sb-rest: #b0741a;
+			--sb-shut: #8a8792;
+
+			/* The sun's path west: Sydney, Tokyo, London, New York, the
+			   exchange. The order of the hues carries a fact. */
+			--sb-sydney: #0f9b8e;
+			--sb-tokyo: #3d6fe0;
+			--sb-london: #8257d4;
+			--sb-newyork: #e07a20;
+			--sb-nyse: #c9482a;
+
+			--sb-track: rgba(31, 30, 38, .06);
+			--sb-hatch: rgba(31, 30, 38, .17);
+
+			color: var(--sb-text);
+			font-variant-numeric: tabular-nums;
 		}
 
-		/* NASA's Black Marble — earth at night — cropped offline to exactly
-		   the lon/lat window the marker projection uses, so the photo and
-		   the markers can never disagree. Its top and bottom edges fade
-		   into the card's own navy. */
-		.mk-photo {
-			position: absolute;
-			left: 0;
-			width: 100%;
-			pointer-events: none;
-			-webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
-			mask-image: linear-gradient(180deg, transparent 0, #000 14%, #000 86%, transparent 100%);
+		:root[data-theme="dark"] .sb {
+			--sb-panel: #1b1b23;
+			--sb-panel-2: #23232d;
+			--sb-text: #eceaf2;
+			--sb-muted: #918fa0;
+			--sb-line: rgba(255, 255, 255, .09);
+			--sb-line-strong: rgba(255, 255, 255, .17);
+			--sb-signal: #ff4d94;
+			--sb-live: #2bd49a;
+			--sb-rest: #e0a640;
+			--sb-shut: #7d7b8a;
+			--sb-sydney: #23c9b6;
+			--sb-tokyo: #6c9bff;
+			--sb-london: #a785ff;
+			--sb-newyork: #ffa242;
+			--sb-nyse: #ff6f52;
+			--sb-track: rgba(255, 255, 255, .06);
+			--sb-hatch: rgba(255, 255, 255, .2);
 		}
 
-		/* A quiet navy shade so the titles, clock and markers sit on the
-		   photo comfortably; the state light (.mk-glow) rides above it. */
-		.mk-shade {
-			position: absolute;
-			inset: 0;
-			pointer-events: none;
-			background:
-				linear-gradient(180deg, rgba(9, 14, 34, .74) 0%, rgba(9, 14, 34, .16) 36%, rgba(7, 12, 31, .1) 60%, rgba(7, 12, 31, .5) 100%);
+		@media (prefers-color-scheme: dark) {
+			:root:not([data-theme="light"]) .sb {
+				--sb-panel: #1b1b23;
+				--sb-panel-2: #23232d;
+				--sb-text: #eceaf2;
+				--sb-muted: #918fa0;
+				--sb-line: rgba(255, 255, 255, .09);
+				--sb-line-strong: rgba(255, 255, 255, .17);
+				--sb-signal: #ff4d94;
+				--sb-live: #2bd49a;
+				--sb-rest: #e0a640;
+				--sb-shut: #7d7b8a;
+				--sb-sydney: #23c9b6;
+				--sb-tokyo: #6c9bff;
+				--sb-london: #a785ff;
+				--sb-newyork: #ffa242;
+				--sb-nyse: #ff6f52;
+				--sb-track: rgba(255, 255, 255, .06);
+				--sb-hatch: rgba(255, 255, 255, .2);
+			}
 		}
 
-		/* Ambient state light over the map: green while trading, red over the
-		   weekend, amber during the daily break. */
-		.mk-glow {
-			position: absolute;
-			inset: 0;
-			pointer-events: none;
-			background: radial-gradient(90% 80% at 82% 0%, rgba(120, 140, 200, .14), transparent 65%);
-		}
-
-		.mk-hero.is-open .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(53, 196, 139, .17), transparent 65%); }
-		.mk-hero.is-closed .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(239, 91, 98, .14), transparent 65%); }
-		.mk-hero.is-break .mk-glow { background: radial-gradient(90% 80% at 82% 0%, rgba(232, 165, 69, .16), transparent 65%); }
-
-		/* City markers, positioned in pixels by the same projection that draws
-		   the dots, so they can never drift off their coastlines. */
-		.mk-city {
-			position: absolute;
-			transform: translate(-50%, -50%);
-			display: flex;
-			flex-direction: column;
+		/* ---- status ----
+		   Set in the largest type on the tab: it answers the one question the
+		   tab exists for, before anything else is read. */
+		.sb-status {
+			background: var(--sb-panel);
+			border: 1px solid var(--sb-line);
+			border-radius: 12px;
+			padding: 13px 15px;
+			margin-bottom: 10px;
+			display: grid;
+			grid-template-columns: 1fr auto;
 			align-items: center;
-			gap: 3px;
-			pointer-events: none;
-			z-index: 1;
+			gap: 8px;
+			/* A 3px edge in the state's own colour: the card says what it means
+			   before a single word is read. */
+			border-inline-start: 3px solid var(--sb-shut);
 		}
 
-		.mk-city-dot {
-			width: 7px;
-			height: 7px;
-			border-radius: 50%;
-			background: #55607f;
-			box-shadow: 0 0 0 2px rgba(85, 96, 127, .25);
-		}
+		.sb-status.is-open { border-inline-start-color: var(--sb-live); }
+		.sb-status.is-break { border-inline-start-color: var(--sb-rest); }
+		.sb-status.is-weekend { border-inline-start-color: var(--sb-shut); }
 
-		.mk-city-name {
-			font-size: 0.56rem;
-			font-weight: 600;
-			letter-spacing: .02em;
-			color: rgba(214, 222, 244, .62);
-			text-shadow: 0 1px 3px rgba(5, 8, 20, .9);
-			white-space: nowrap;
-		}
-
-		.mk-city.is-on .mk-city-dot {
-			background: #35c48b;
-			box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55);
-			animation: mk-city-pulse 2.4s ease-out infinite;
-		}
-
-		.mk-city.is-on .mk-city-name { color: #8ce8c3; }
-
-		.mk-city.is-paused .mk-city-dot {
-			background: #e8a545;
-			box-shadow: 0 0 9px 2px rgba(232, 165, 69, .5);
-		}
-
-		/* Tehran is home: the academy's gold, always lit. */
-		.mk-city.is-home .mk-city-dot {
-			width: 6px;
-			height: 6px;
-			background: var(--gold);
-			box-shadow: 0 0 8px 2px rgba(210, 174, 109, .55);
-		}
-
-		.mk-city.is-home .mk-city-name { color: rgba(233, 208, 160, .85); }
-
-		@keyframes mk-city-pulse {
-			0% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 rgba(53, 196, 139, .45); }
-			70% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 10px transparent; }
-			100% { box-shadow: 0 0 10px 2px rgba(53, 196, 139, .55), 0 0 0 0 transparent; }
-		}
-
-		.mk-hero-main { position: relative; min-width: 0; z-index: 2; }
-
-		.mk-hero-title {
+		.sb-state {
 			display: flex;
 			align-items: center;
 			gap: 8px;
-			font-size: 1.02rem;
 			font-weight: 800;
-			letter-spacing: -.01em;
-			text-shadow: 0 1px 4px rgba(5, 8, 20, .8);
+			font-size: 0.97rem;
 		}
 
-		/* Literals, not tokens: the ground under them never changes theme. */
-		.mk-hero.is-open .mk-hero-title { color: #35c48b; }
-		.mk-hero.is-closed .mk-hero-title { color: #ef5b62; }
-		.mk-hero.is-break .mk-hero-title { color: #e8a545; }
-
-		.mk-dot {
-			flex: none;
-			width: 9px;
-			height: 9px;
+		.sb-dot {
+			width: 8px;
+			height: 8px;
 			border-radius: 50%;
-			background: currentColor;
-		}
-
-		.mk-hero.is-open .mk-dot { animation: mk-pulse 2.2s ease-out infinite; }
-
-		@keyframes mk-pulse {
-			0% { box-shadow: 0 0 0 0 rgba(53, 196, 139, .6); }
-			70% { box-shadow: 0 0 0 9px transparent; }
-			100% { box-shadow: 0 0 0 0 transparent; }
-		}
-
-		@media (prefers-reduced-motion: reduce) {
-			.mk-hero.is-open .mk-dot { animation: none; }
-			.mk-city.is-on .mk-city-dot { animation: none; }
-		}
-
-		.mk-hero-sub {
-			font-size: 0.78rem;
-			color: rgba(196, 205, 232, .8);
-			margin-top: 3px;
-			text-shadow: 0 1px 3px rgba(5, 8, 20, .8);
-		}
-
-		.mk-hero-sub b {
-			color: #fff;
-			font-variant-numeric: tabular-nums;
-		}
-
-		/* The clock sits in the ocean corner of the map, opposite the title. */
-		.mk-clock {
-			position: relative;
+			background: var(--sb-shut);
 			flex: none;
-			align-self: flex-end;
-			text-align: center;
-			line-height: 1.15;
-			z-index: 2;
-			text-shadow: 0 2px 8px rgba(5, 8, 20, .85);
 		}
 
-		/* The clock is the one piece of type on this screen that is allowed to
-		   be loud. Heavy, tight, tabular, with the seconds kept small so the
-		   hour and minute stay what the eye lands on. */
-		.mk-clock-time {
-			display: block;
-			font-size: 2.15rem;
-			font-weight: 900;
-			font-variant-numeric: tabular-nums;
-			letter-spacing: -.02em;
-			line-height: 1;
-			direction: ltr;
-			color: #f4f7ff;
+		.sb-status.is-open .sb-dot {
+			background: var(--sb-live);
+			box-shadow: 0 0 0 4px color-mix(in srgb, var(--sb-live) 22%, transparent);
 		}
 
-		.mk-clock-sec {
-			font-size: 0.82rem;
+		.sb-status.is-break .sb-dot {
+			background: var(--sb-rest);
+			box-shadow: 0 0 0 4px color-mix(in srgb, var(--sb-rest) 22%, transparent);
+		}
+
+		.sb-sub {
+			grid-column: 1 / -1;
+			font-size: 0.78rem;
+			color: var(--sb-muted);
+			line-height: 1.7;
+		}
+
+		.sb-sub b { color: var(--sb-text); font-weight: 700; }
+		.sb-clock { text-align: left; line-height: 1; }
+		.sb-time { font-size: 1.75rem; font-weight: 800; letter-spacing: -1px; }
+		.sb-zone { font-size: 0.66rem; color: var(--sb-muted); font-weight: 600; margin-top: 3px; }
+
+		/* ---- the board ----
+		   Corners are near-square: this is an instrument readout, and pills
+		   would make it look like a row of buttons. */
+		.sb-board {
+			background: var(--sb-panel);
+			border: 1px solid var(--sb-line);
+			border-radius: 12px;
+			padding: 13px 13px 9px;
+			margin-bottom: 14px;
+			/* The rail and the gap live on the card so every layer inside -
+			   hours, bars, the now-line - is positioned from one number and
+			   they cannot drift apart. */
+			--rail: 116px;
+			--gap: 8px;
+			--off: calc(var(--rail) + var(--gap));
+		}
+
+		.sb-head {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 8px;
+			margin-bottom: 9px;
+		}
+
+		.sb-title { font-size: 0.82rem; font-weight: 700; }
+
+		/* ---- zone picker ----
+		   The axis label is the control. There is no separate settings icon to
+		   hunt for, because the thing you want to change is the thing you are
+		   already reading. */
+		.sb-tz {
+			font: inherit;
+			font-size: 0.66rem;
 			font-weight: 700;
-			letter-spacing: 0;
-			color: rgba(196, 205, 232, .75);
-			margin-inline-start: 3px;
-			vertical-align: 3px;
-		}
-
-		.mk-clock-zone {
-			display: block;
-			font-size: 0.62rem;
-			color: rgba(196, 205, 232, .65);
-			letter-spacing: .06em;
-			margin-top: 4px;
-		}
-
-		.mk-board { display: flex; flex-direction: column; gap: 8px; }
-
-		.mk-m {
-			background: var(--card);
-			border-radius: 14px;
-			padding: 11px 13px 10px;
-			border: 1px solid transparent;
-		}
-
-		/* A live market gets a tinted ground and a hairline, so which row
-		   matters right now is legible before reading a single word. */
-		.mk-m.is-live {
-			background: color-mix(in srgb, var(--up) 9%, var(--card));
-			border-color: color-mix(in srgb, var(--up) 32%, transparent);
-		}
-
-		/* Inside its hours, but the broker is in the rollover hour. */
-		.mk-m.is-paused {
-			background: color-mix(in srgb, var(--medium) 9%, var(--card));
-			border-color: color-mix(in srgb, var(--medium) 30%, transparent);
-		}
-
-		.mk-m-head {
+			color: var(--sb-muted);
+			background: none;
+			border: 0;
+			padding: 2px 4px;
+			margin: -2px -4px;
+			border-radius: 6px;
+			cursor: pointer;
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
-			gap: 10px;
-			margin-bottom: 8px;
+			gap: 4px;
+			white-space: nowrap;
 		}
 
-		.mk-m-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
-		/* Real flag artwork rather than an emoji, in a coin-shaped badge: the
-		   ring carries the row's state, so a market's flag is itself the
-		   signal — gold at rest, green while trading, amber on the break. */
-		.mk-m-flag {
-			flex: none;
-			width: 30px;
-			height: 30px;
-			border-radius: 50%;
-			overflow: hidden;
-			display: block;
-			border: 1.6px solid var(--flag-ring);
-			box-shadow: 0 2px 6px hsl(var(--shadow-color) / 22%);
-			transition: border-color .35s var(--ease-out-3), box-shadow .35s var(--ease-out-3);
+		.sb-tz:hover { color: var(--sb-text); background: var(--sb-panel-2); }
+		.sb-tz:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: 1px; }
+		.sb-caret { font-size: 0.5rem; opacity: .8; }
+		.sb-tz[aria-expanded="true"] .sb-caret { transform: rotate(180deg); }
+
+		/* display:grid outranks the user agent's [hidden] rule, so the
+		   attribute has to be honoured explicitly or the sheet never closes. */
+		.sb-menu[hidden] { display: none; }
+
+		.sb-menu {
+			border: 1px solid var(--sb-line);
+			border-radius: 10px;
+			background: var(--sb-panel-2);
+			padding: 4px;
+			margin-bottom: 10px;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 3px;
 		}
 
-		/* The symbols are square; the badge crops them to the coin. */
-		.mk-m-flag svg {
-			width: 100%;
-			height: 100%;
-			display: block;
+		.sb-opt {
+			font: inherit;
+			font-size: 0.73rem;
+			font-weight: 600;
+			text-align: right;
+			background: none;
+			border: 0;
+			border-radius: 7px;
+			padding: 7px 8px;
+			color: var(--sb-text);
+			cursor: pointer;
+			display: flex;
+			flex-direction: column;
+			gap: 1px;
 		}
 
-		.mk-m.is-live .mk-m-flag {
-			border-color: var(--up);
-			box-shadow: 0 0 9px color-mix(in srgb, var(--up) 45%, transparent);
-		}
+		.sb-opt:hover { background: var(--sb-panel); }
+		.sb-opt:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: -2px; }
+		.sb-opt[aria-checked="true"] { background: var(--sb-panel); box-shadow: inset 0 0 0 1.5px var(--sb-signal); }
+		.sb-off { font-size: 0.62rem; color: var(--sb-muted); font-weight: 600; }
 
-		.mk-m.is-paused .mk-m-flag {
-			border-color: var(--medium);
-			box-shadow: 0 0 8px color-mix(in srgb, var(--medium) 40%, transparent);
-		}
+		.sb-grid { position: relative; }
+		.sb-hours { position: relative; height: 15px; margin-inline-start: var(--off); }
 
-		/* Defined once, drawn by reference: the sprite itself never renders. */
-		.flag-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-
-		@media (prefers-reduced-motion: reduce) {
-			.mk-m-flag { transition: none; }
-		}
-		.mk-m-name { font-size: 0.9rem; font-weight: 600; }
-
-		.mk-m-sub {
-			font-size: 0.58rem;
-			font-weight: 700;
-			letter-spacing: .06em;
-			padding: 1px 6px;
-			border-radius: 5px;
-			color: var(--muted);
-			background: color-mix(in srgb, var(--muted) 16%, transparent);
-		}
-
-		.mk-m-pill {
-			flex: none;
-			display: inline-flex;
-			align-items: center;
-			gap: 6px;
-			font-size: 0.68rem;
-			font-weight: 700;
-			padding: 3px 10px;
-			border-radius: 999px;
-			background: color-mix(in srgb, var(--muted) 16%, transparent);
-			color: var(--muted);
-		}
-
-		.mk-m.is-live .mk-m-pill {
-			background: color-mix(in srgb, var(--up) 20%, transparent);
-			color: var(--up);
-		}
-
-		.mk-m.is-paused .mk-m-pill {
-			background: color-mix(in srgb, var(--medium) 22%, transparent);
-			color: var(--medium);
-		}
-
-		.mk-m-live {
-			width: 6px;
-			height: 6px;
-			border-radius: 50%;
-			background: currentColor;
-		}
-
-		.mk-m-track {
-			position: relative;
-			height: 12px;
-			border-radius: 6px;
-			background: color-mix(in srgb, var(--muted) 13%, transparent);
-			overflow: hidden;
-		}
-
-		/* --d1..--d3 are the three density bands the bar is painted with: one
-		   market open, two, three or more. They are declared per state so a
-		   live bar shades in green and an idle one in grey, while the gradient
-		   itself is built in script from the real per-minute counts. */
-		.mk-m-seg {
+		.sb-hour {
 			position: absolute;
 			top: 0;
-			bottom: 0;
-			border-radius: 6px;
-			--d1: color-mix(in srgb, var(--muted) 26%, transparent);
-			--d2: color-mix(in srgb, var(--muted) 42%, transparent);
-			--d3: color-mix(in srgb, var(--muted) 60%, transparent);
-			background: var(--d1);
+			transform: translateX(50%);
+			font-size: 0.6rem;
+			font-weight: 700;
+			color: var(--sb-muted);
+			letter-spacing: .04em;
 		}
 
-		.mk-m.is-live .mk-m-seg {
-			--d1: color-mix(in srgb, var(--up) 22%, transparent);
-			--d2: color-mix(in srgb, var(--up) 38%, transparent);
-			--d3: color-mix(in srgb, var(--up) 56%, transparent);
-			background: var(--d1);
+		.sb-rows { position: relative; display: flex; flex-direction: column; }
+
+		.sb-row {
+			display: grid;
+			grid-template-columns: var(--rail) 1fr;
+			align-items: center;
+			gap: var(--gap);
+			border: 0;
+			border-top: 1px solid var(--sb-line);
+			padding: 6px 0;
+			margin: 0;
+			background: none;
+			color: inherit;
+			font: inherit;
+			text-align: right;
+			cursor: pointer;
+			min-height: 38px;
 		}
 
-		.mk-m.is-paused .mk-m-seg {
-			--d1: color-mix(in srgb, var(--medium) 22%, transparent);
-			--d2: color-mix(in srgb, var(--medium) 38%, transparent);
-			--d3: color-mix(in srgb, var(--medium) 56%, transparent);
-			background: var(--d1);
+		.sb-row:first-child { border-top: 0; }
+		.sb-row[aria-pressed="true"] { background: var(--sb-panel-2); }
+		.sb-row:focus-visible { outline: 2px solid var(--sb-signal); outline-offset: -2px; }
+
+		.sb-who { display: flex; align-items: center; gap: 7px; min-width: 0; }
+
+		/* Square-cornered flag chips rather than circles: a circle reads as an
+		   avatar, and these are instrument labels. The session's own colour is
+		   the ring, which ties each row to its bar without a legend. */
+		.sb-flag {
+			width: 22px;
+			height: 16px;
+			border-radius: 3px;
+			flex: none;
+			overflow: hidden;
+			display: block;
+			background: var(--sb-panel-2);
+			box-shadow: 0 0 0 1.5px var(--seg, var(--sb-line-strong));
 		}
 
-		/* Explains the shading without a separate chart: three chips of the
-		   same three bands the bars use. */
-		.mk-legend {
+		.sb-flag svg { width: 100%; height: 100%; display: block; }
+		.sb-nm { min-width: 0; flex: 1 1 auto; line-height: 1.2; }
+
+		/* «بورس نیویورک» is the longest label and it sets the rail width: one
+		   pixel narrower and it wrapped, which made that row taller than the
+		   other four. nowrap keeps that from coming back silently if a name is
+		   ever edited. */
+		.sb-name {
+			font-size: 0.72rem;
+			font-weight: 600;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.sb-st {
+			font-size: 0.6rem;
+			color: var(--sb-shut);
+			font-weight: 700;
+			letter-spacing: .02em;
+			white-space: nowrap;
+		}
+
+		.sb-row.is-live .sb-st { color: var(--sb-live); }
+		.sb-row.is-paused .sb-st { color: var(--sb-rest); }
+		.sb-row.is-holiday .sb-st { color: var(--sb-rest); }
+
+		.sb-track {
+			position: relative;
+			height: 20px;
+			background: var(--sb-track);
+			border-radius: 3px;
+			overflow: hidden;
+		}
+
+		.sb-seg { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--seg); opacity: .3; }
+		.sb-row.is-live .sb-seg { opacity: .52; }
+
+		/* The elapsed part of a running session: the bar doubles as a meter. */
+		.sb-fill { position: absolute; inset: 0 auto 0 0; background: var(--seg); border-radius: 2px; }
+
+		.sb-seg-lab {
+			position: absolute;
+			inset: 0;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			flex-wrap: wrap;
-			gap: 6px 14px;
-			margin: -6px 2px 14px;
-			font-size: 0.66rem;
-			color: var(--muted);
+			font-size: 0.6rem;
+			font-weight: 700;
+			color: var(--sb-text);
+			opacity: .72;
+			white-space: nowrap;
+			letter-spacing: .02em;
 		}
 
-		.mk-legend span { display: inline-flex; align-items: center; gap: 5px; }
+		.sb-row.is-live .sb-seg-lab { opacity: 1; }
 
-		.mk-legend i {
-			width: 16px;
-			height: 8px;
-			border-radius: 3px;
-			background: color-mix(in srgb, var(--muted) 26%, transparent);
+		/* A bank holiday is not "closed for the night": the bar is struck
+		   through so the row reads as cancelled, not merely dark. */
+		.sb-holiday {
+			position: absolute;
+			inset: 0;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 5px;
+			font-size: 0.6rem;
+			font-weight: 700;
+			color: var(--sb-rest);
+			background: repeating-linear-gradient(-45deg,
+				color-mix(in srgb, var(--sb-rest) 20%, transparent) 0 3px,
+				transparent 3px 7px);
+			white-space: nowrap;
+			overflow: hidden;
 		}
 
-		.mk-legend i.l2 { background: color-mix(in srgb, var(--muted) 42%, transparent); }
-		.mk-legend i.l3 { background: color-mix(in srgb, var(--muted) 60%, transparent); }
-
-		/* The daily rollover hour, hatched so it reads as "not trading" rather
-		   than as another session. Drawn over the segments beneath it. */
-		.mk-m-break {
+		/* The rollover hour, over whatever sits beneath it. */
+		.sb-break {
 			position: absolute;
 			top: 0;
 			bottom: 0;
-			z-index: 1;
-			background:
-				repeating-linear-gradient(45deg,
-					color-mix(in srgb, var(--text) 34%, transparent) 0 2px,
-					transparent 2px 5px),
-				var(--card);
+			background: repeating-linear-gradient(-45deg, var(--sb-hatch) 0 2px, transparent 2px 5px);
 		}
 
-		/* The elapsed part of a running session. It grows from the open edge,
-		   which under RTL is the right-hand side of the track. */
-		.mk-m-fill {
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			right: 0;
-			border-radius: 6px;
-			background: var(--up);
-		}
+		/* One line for every row, not one per row. It starts just below the
+		   hour numbers so the needle never crosses the labels it is measured
+		   against. */
+		.sb-now[hidden] { display: none; }
 
-		.mk-m-now {
+		.sb-now {
 			position: absolute;
-			top: 0;
+			top: 13px;
 			bottom: 0;
 			width: 2px;
-			margin-right: -1px;
-			background: var(--text);
-			opacity: .55;
-			z-index: 2;
+			background: var(--sb-signal);
+			pointer-events: none;
+			z-index: 3;
 		}
 
-		.mk-m.is-live .mk-m-now { opacity: 1; }
-
-		.mk-m-foot {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: 5px 12px;
-			margin-top: 8px;
-			font-size: 0.72rem;
-			color: var(--muted);
-		}
-
-		.mk-m-time { display: inline-flex; align-items: center; gap: 5px; }
-
-		.mk-m-time b {
-			font-size: 0.8rem;
-			font-weight: 700;
-			font-variant-numeric: tabular-nums;
-			letter-spacing: .01em;
-			color: var(--text);
-		}
-
-		.mk-m-tag {
-			font-size: 0.6rem;
-			letter-spacing: .04em;
-			padding: 1px 6px;
-			border-radius: 5px;
-			background: color-mix(in srgb, var(--muted) 15%, transparent);
-		}
-
-		.mk-m-cd { margin-inline-start: auto; }
-
-		/* A running counter, so it needs fixed-width digits. Isolated rather
-		   than forced LTR: over a day the text is "۱ روز و ۰۲:۱۵:۳۳", and
-		   forcing LTR would reorder the Persian word. */
-		.mk-m-cdn, .mk-hero-cd {
-			display: inline-block;
-			unicode-bidi: isolate;
-			font-variant-numeric: tabular-nums;
-			font-weight: 700;
-			letter-spacing: .01em;
-			color: var(--text);
-		}
-
-		.mk-m-cdn { font-size: 0.8rem; }
-		.mk-m.is-live .mk-m-cdn { color: var(--up); }
-		.mk-m.is-paused .mk-m-cdn { color: var(--medium); }
-		.mk-m.is-paused .mk-m-now { opacity: 1; }
-
-		.mk-axis { position: relative; height: 15px; margin: 7px 2px 14px; }
-
-		.mk-hour {
+		.sb-now::before {
+			content: "";
 			position: absolute;
-			transform: translateX(50%);
-			font-size: 0.64rem;
-			color: var(--muted);
-			font-variant-numeric: tabular-nums;
+			top: -3px;
+			right: -3px;
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: var(--sb-signal);
+			box-shadow: 0 0 0 2px var(--sb-panel);
 		}
 
-		/* The London∩NY window is the single most useful fact on this screen,
-		   so it gets the accent instead of sharing the neutral card look. */
-		.mk-overlap {
-			border-radius: 14px;
-			padding: 12px 15px;
-			background: color-mix(in srgb, var(--accent) 12%, var(--card));
-			border-right: 3px solid var(--accent);
+		/* London and New York trading together is the most consequential fact
+		   on this tab, but it does not need a shape of its own: the two bars
+		   above already show it. One sentence carries it instead. */
+		.sb-ov {
+			font-size: 0.66rem;
+			color: var(--sb-muted);
+			font-weight: 600;
+			border-top: 1px solid var(--sb-line);
+			padding: 8px 0 2px;
+			line-height: 1.6;
 		}
 
-		.mk-overlap-title {
-			font-size: 0.82rem;
-			font-weight: 700;
-			color: var(--accent);
+		.sb-ov b { color: var(--sb-text); font-weight: 700; }
+
+		/* Only the row you tapped: five rows each carrying three numbers is a
+		   wall, and four of them are numbers you did not ask for. */
+		.sb-detail {
+			margin-top: 9px;
+			padding: 10px 12px;
+			background: var(--sb-panel-2);
+			border-radius: 9px;
+			border-inline-start: 3px solid var(--seg, var(--sb-line-strong));
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 9px;
 		}
 
-		.mk-overlap-sub {
-			font-size: 0.74rem;
-			color: var(--muted);
-			margin-top: 2px;
-		}
+		.sb-dt { min-width: 0; }
+		.sb-dk { font-size: 0.62rem; color: var(--sb-muted); font-weight: 600; margin-bottom: 3px; }
 
-		.mk-overlap-sub b {
-			color: var(--text);
+		.sb-dv {
 			font-size: 0.8rem;
-			font-variant-numeric: tabular-nums;
+			font-weight: 800;
+			white-space: nowrap;
+			letter-spacing: -.2px;
 		}
 
-		.mk-picker {
-			background: var(--card);
-			border-radius: 13px;
-			padding: 13px 15px;
-			margin-top: 18px;
+		.sb-dv.is-cd { color: var(--sb-signal); }
+
+		.sb-dhead {
+			grid-column: 1 / -1;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 0.74rem;
+			font-weight: 700;
+			color: var(--sb-muted);
 		}
 
-		.mk-picker-label { font-size: 0.84rem; font-weight: 700; margin-bottom: 9px; }
+		.sb-dhead b { color: var(--sb-text); font-size: 0.8rem; }
 
-		.mk-picker-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-
-		.mk-picker-hint {
-			font-size: 0.7rem;
-			color: var(--muted);
-			line-height: 1.8;
-			margin-top: 10px;
+		.sb-dnote {
+			grid-column: 1 / -1;
+			font-size: 0.66rem;
+			color: var(--sb-muted);
+			font-weight: 600;
+			line-height: 1.6;
 		}
+
+		.sb-dnote b { color: var(--sb-text); font-weight: 700; }
+
+		/* «الان توکیو ساعت چند است» - a question the board above never answers
+		   on its own. Four cards, not five: NYSE and New York are the same
+		   IANA zone, so a fifth would show a duplicate number forever. */
+		.sb-clocks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 14px; }
+
+		.sb-ck {
+			background: var(--sb-panel);
+			border: 1px solid var(--sb-line);
+			border-radius: 9px;
+			padding: 8px 4px 7px;
+			text-align: center;
+			border-bottom: 2px solid var(--ck);
+		}
+
+		.sb-ck-city {
+			font-size: 0.6rem;
+			color: var(--sb-muted);
+			font-weight: 700;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.sb-ck-time { font-size: 0.92rem; font-weight: 800; margin-top: 3px; letter-spacing: -.4px; }
+		.sb-ck-day { font-size: 0.58rem; color: var(--sb-muted); margin-top: 1px; }
+		.sb-ck.is-live .sb-ck-time { color: var(--sb-live); }
 
 		/* ---------- day timeline ---------- */
 		.tl {
@@ -1897,11 +1849,14 @@
 		</div>
 
 		<p class="footnote">
-			ساعت‌ها به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
+			ساعت‌های تقویم به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
-			<!-- Printed so a stale copy can be identified at a glance: the
-			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۲۶</span>
+			<!-- Printed so a stale copy can be identified at a glance: the WebView
+			     caches this page and the URL is otherwise constant. This is the
+			     same hash the bot puts in the URL's ?v=, so a mismatch between
+			     what the page prints and what the link says is exactly the
+			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
+			<span class="build">نسخه 8af75cb7c3</span>
 		</p>
 	</div>
 
@@ -2408,18 +2363,6 @@ function eventNode(e) {
 				return null;
 			}
 
-			// The broker's server clock differs per broker, so it is the reader's
-			// choice rather than a guess baked into the page.
-			// GMT+3 first and default: that is the academy's own broker, so it is
-			// what almost every reader here needs.
-			var BROKER_MODES = [
-				{ key: "utc3", label: "GMT+۳", fixed: 180 },
-				{ key: "eu", label: "GMT+۲/+۳ (اروپا)", zone: "Europe/Berlin" },
-				{ key: "utc2", label: "GMT+۲", fixed: 120 },
-				{ key: "utc0", label: "GMT+۰", fixed: 0 }
-			];
-			var BROKER_KEY = "econAppBroker";
-
 			// Brokers stop trading for one hour at the daily rollover: 00:00–01:00
 			// on a GMT+3 server, which is 00:30–01:30 Tehran. Both clocks are
 			// fixed-offset, so the window is 21:00–22:00 UTC all year and does not
@@ -2552,30 +2495,6 @@ function eventNode(e) {
 				return (p.hour % 24 < 10 ? "0" : "") + (p.hour % 24) + ":" + p.minute;
 			}
 
-			function hhmmAtOffset(instant, offsetMinutes) {
-				var shifted = new Date(instant + offsetMinutes * 60000);
-				var h = shifted.getUTCHours(), m = shifted.getUTCMinutes();
-				return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
-			}
-
-			function brokerMode() {
-				var stored;
-				try { stored = localStorage.getItem(BROKER_KEY); } catch (e) { stored = null; }
-				for (var i = 0; i < BROKER_MODES.length; i++) {
-					if (BROKER_MODES[i].key === stored) return BROKER_MODES[i];
-				}
-				return BROKER_MODES[0];
-			}
-
-			function hhmmBroker(instant) {
-				var mode = brokerMode();
-				return mode.zone ? hhmmInZone(instant, mode.zone) : hhmmAtOffset(instant, mode.fixed);
-			}
-
-			function secondsInZone(instant, timeZone) {
-				return tzParts(new Date(instant), timeZone).second;
-			}
-
 			// A real ticking counter rather than prose. Beyond a day the seconds
 			// stop meaning anything, so the day count leads and the clock follows.
 			function countdownText(instant, nowMs) {
@@ -2688,16 +2607,6 @@ function eventNode(e) {
 			var MAP_LAT_TOP = 72, MAP_LAT_BOT = -55;
 			var PHOTO_ASPECT = 1600 / 565; // the shipped file's pixel size
 
-			// The five session cities plus home. New York carries both the forex
-			// session and the exchange, so its dot lights if either is open.
-			var CITIES = [
-				{ name: "سیدنی", lon: 151.21, lat: -33.87, keys: ["sydney"] },
-				{ name: "توکیو", lon: 139.69, lat: 35.68, keys: ["tokyo"] },
-				{ name: "لندن", lon: -0.13, lat: 51.51, keys: ["london"] },
-				{ name: "نیویورک", lon: -74.01, lat: 40.71, keys: ["newyork", "nyse"] },
-				{ name: "تهران", lon: 51.39, lat: 35.69, home: true }
-			];
-
 			// One <use> pointing at a symbol in the sprite at the top of the
 			// page, so the same flag can appear on several rows - New York
 			// carries both the forex session and the exchange - while its
@@ -2722,32 +2631,6 @@ function eventNode(e) {
 				badge.appendChild(svg);
 				return badge;
 			}
-
-			var heroMap = null;
-
-			// Positions the photo and the city markers with one shared
-			// projection, so markers can never drift off their coastlines.
-			// The photo is fitted to the card's width and centred vertically.
-			function layoutHeroMap() {
-				if (!heroMap || !heroMap.img.isConnected) return;
-				var host = heroMap.img.parentNode;
-				var w = host.clientWidth, h = host.clientHeight;
-				if (!w || !h) return;
-				var mapH = w / PHOTO_ASPECT;
-				var oy = (h - mapH) / 2;
-				heroMap.img.style.top = oy + "px";
-				heroMap.img.style.height = mapH + "px";
-				heroMap.cities.forEach(function (c) {
-					var x = (c.lon + 180) / 360 * w;
-					var y = oy + (MAP_LAT_TOP - c.lat) / (MAP_LAT_TOP - MAP_LAT_BOT) * mapH;
-					c.node.style.left = x + "px";
-					c.node.style.top = y + "px";
-				});
-			}
-
-			window.addEventListener("resize", function () {
-				if (state.scope === "markets") layoutHeroMap();
-			});
 
 			// Per-second updaters registered by renderMarkets. Only the text
 			// nodes that actually change are touched; rebuilding the whole board
@@ -2775,47 +2658,137 @@ function eventNode(e) {
 			}
 			var marketsSig = null;
 
-			function tehranMinutesOf(instant) {
-				var t = hhmmInZone(instant, TEHRAN).split(":").map(Number);
-				return t[0] * 60 + t[1];
-			}
-
-			// A hard-stop gradient across one drawn span, one band per run of
-			// equal concurrency. Hard stops rather than blends: the number of
-			// open markets changes at an instant, and a smooth ramp would imply
-			// a gradual change that does not happen.
-			//
-			// Inside a span the minutes increase leftwards - the span is pinned
-			// by its right edge under RTL - so the gradient runs "to left".
-			function densityGradient(a, b, busy) {
-				var level = function (m) { return Math.min(3, Math.max(1, busy[m] || 1)); };
-				var stops = [];
-				var runStart = a;
-				for (var m = a + 1; m <= b; m++) {
-					if (m === b || level(m) !== level(runStart)) {
-						var c = "var(--d" + level(runStart) + ")";
-						stops.push(c + " " + ((runStart - a) / (b - a) * 100) + "% " + ((m - a) / (b - a) * 100) + "%");
-						runStart = m;
-					}
-				}
-				return stops.length ? "linear-gradient(to left, " + stops.join(", ") + ")" : "";
-			}
-
 			function spansOf(openM, closeM) {
 				// A session running past Tehran midnight is drawn as two segments
 				// rather than one bar wrapping off the edge of the track.
 				return closeM > openM ? [[openM, closeM]] : [[openM, 1440], [0, closeM]];
 			}
 
+			// ---------- the viewing zone ----------
+			// Every session already carried its own IANA zone, so the engine was
+			// multi-zone from the start; only the axis was nailed to Tehran.
+			// This makes that one choice a variable.
+			//
+			// It also absorbs what the broker-clock picker used to do. That
+			// control put the server's time on a second line under each
+			// session; picking the offset here puts the whole board on it,
+			// which is the same answer given better. Etc/GMT-3 is UTC+3 - the
+			// sign in those zone names is inverted, which is confusing enough
+			// to be worth saying once.
+			function deviceZone() {
+				try {
+					return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+				} catch (e) { return "UTC"; }
+			}
+
+			var VIEW_ZONES = [
+				{ key: "tehran", zone: TEHRAN, name: "تهران" },
+				{ key: "device", zone: deviceZone(), name: "وقت گوشی خودم", short: "گوشی شما" },
+				{ key: "broker3", zone: "Etc/GMT-3", name: "بروکر GMT+۳", short: "بروکر" },
+				{ key: "broker2", zone: "Europe/Berlin", name: "بروکر اروپا", short: "بروکر اروپا" },
+				{ key: "gmt", zone: "UTC", name: "GMT" },
+				{ key: "newyork", zone: "America/New_York", name: "نیویورک" }
+			];
+
+			var VIEW_KEY = "econAppViewZone";
+
+			function storedViewZone() {
+				try { return localStorage.getItem(VIEW_KEY); } catch (e) { return null; }
+			}
+
+			function viewZoneByKey(key) {
+				for (var i = 0; i < VIEW_ZONES.length; i++) {
+					if (VIEW_ZONES[i].key === key) return VIEW_ZONES[i];
+				}
+				return VIEW_ZONES[0];
+			}
+
+			var viewZone = viewZoneByKey(storedViewZone() || "tehran");
+			function VIEW() { return viewZone.zone; }
+			function viewName() { return viewZone.short || viewZone.name; }
+
+			// "GMT+3:30" - the half-hour offsets are exactly why this is
+			// computed rather than written down.
+			function offsetLabel(zone, at) {
+				var m = tzOffsetMinutes(at || new Date(), zone);
+				if (m === 0) return "GMT";
+				var sign = m < 0 ? "−" : "+";
+				m = Math.abs(m);
+				var h = Math.floor(m / 60), mm = m % 60;
+				return "GMT" + sign + h + (mm ? ":" + (mm < 10 ? "0" + mm : mm) : "");
+			}
+
+			function viewMinutesOf(instant) {
+				var t = hhmmInZone(instant, VIEW()).split(":").map(Number);
+				return t[0] * 60 + t[1];
+			}
+
+			var DOW_FA = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
+
+			function dayInZone(instant, zone) {
+				var p = tzParts(new Date(instant), zone);
+				return DOW_FA[new Date(Date.UTC(+p.year, +p.month - 1, +p.day)).getUTCDay()];
+			}
+
+			function isoDateInZone(instant, zone) {
+				var p = tzParts(new Date(instant), zone);
+				return p.year + "-" + p.month + "-" + p.day;
+			}
+
+			// ---------- bank holidays ----------
+			// The holiday feed is United States only (date.nager.at .../US), so
+			// this can only ever speak for the two American rows - and it is
+			// keyed on New York's own calendar date, not Tehran's, because a
+			// holiday is a New York day.
+			//
+			// No data is not "no holiday" in a way worth hiding: when the fetch
+			// failed, holidays is simply absent and the board behaves exactly
+			// as it did before this feature existed.
+			function holidayFor(session, instant) {
+				if (session.zone !== "America/New_York") return null;
+				var list = (state.data && state.data.holidays) || [];
+				var date = isoDateInZone(instant, session.zone);
+				for (var i = 0; i < list.length; i++) {
+					if (list[i] && list[i].date === date) return list[i];
+				}
+				return null;
+			}
+
+			// ---------- flags ----------
+			// The same inline sprite the page already ships: no network request,
+			// and emoji flags do not render on Windows at all.
+			var SVG_NS = "http://www.w3.org/2000/svg";
+			var XLINK_NS = "http://www.w3.org/1999/xlink";
+
+			function flagBadge(code, label) {
+				var badge = document.createElement("span");
+				badge.className = "sb-flag";
+				badge.setAttribute("role", "img");
+				badge.setAttribute("aria-label", "پرچم " + label);
+				var svg = document.createElementNS(SVG_NS, "svg");
+				svg.setAttribute("viewBox", "0 0 512 512");
+				// The sprite is square and the chip is not: slice crops the flag
+				// instead of squashing it, which is what object-fit would do for
+				// an <img> but does nothing for an inline svg.
+				svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+				svg.setAttribute("aria-hidden", "true");
+				var use = document.createElementNS(SVG_NS, "use");
+				use.setAttribute("href", "#fi-" + code);
+				use.setAttributeNS(XLINK_NS, "xlink:href", "#fi-" + code);
+				svg.appendChild(use);
+				badge.appendChild(svg);
+				return badge;
+			}
+
+			var selectedSession = "london";
+
 			function renderMarkets(container) {
 				var now = new Date();
+				var nowT = now.getTime();
 				tickers = [];
 				marketsSig = marketsSignature(now);
 				var animate = marketsEntering && motionOK();
 				marketsEntering = false;
-				// One counter across the whole view, so the hero, the five market
-				// cards and the panels below them arrive as a single sequence
-				// rather than three independent ones.
 				var step = 0;
 				var enter = function (node) {
 					if (!animate) return node;
@@ -2823,270 +2796,294 @@ function eventNode(e) {
 					node.style.animationDelay = (step++ * 45) + "ms";
 					return node;
 				};
-				var fills = [];
+
+				var board = el("div", "sb");
 				var market = marketState(now);
-				var nowM = tehranMinutesOf(now.getTime());
-				// The rollover window as Tehran minutes, derived rather than
-				// hardcoded so it stays right if the constants ever move.
-				var nextBreak = breakStartAfter(now.getTime());
-				var breakM = [tehranMinutesOf(nextBreak), tehranMinutesOf(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000)];
+				var nowM = viewMinutesOf(nowT);
 
-				// ---- how many markets are open at each minute of the day
-				// Shaded onto the bars, so the busiest hours are visibly denser:
-				// the London bar darkens exactly where New York joins it. The
-				// count is taken over the same spans that get drawn, so the
-				// shading can never disagree with the bars it sits on.
-				var refs = {};
-				var busy = [];
-				for (var bi = 0; bi < 1440; bi++) busy.push(0);
-				SESSIONS.forEach(function (s) {
-					var st = sessionState(s, now);
-					var r = st.open ? { open: st.since, close: st.until } : { open: st.nextOpen, close: st.nextClose };
-					refs[s.key] = { st: st, ref: r };
-					if (!r.open) return;
-					spansOf(tehranMinutesOf(r.open), tehranMinutesOf(r.close)).forEach(function (sp) {
-						for (var m = sp[0]; m < sp[1] && m < 1440; m++) busy[m]++;
-					});
-				});
+				// marketState returns a nextOpen only when we are outside the
+				// whole Monday-open..Friday-close window, so this flag *is* the
+				// weekend - no second weekday calculation that could disagree
+				// with the first.
+				var weekend = !market.open && !market.onBreak && !!market.nextOpen;
 
+				// ---- status
+				var status = el("div", "sb-status " +
+					(market.onBreak ? "is-break" : (market.open ? "is-open" : (weekend ? "is-weekend" : "is-closed"))));
 
-				// ---- status hero
-				var heroClass = market.onBreak ? "is-break" : (market.open ? "is-open" : "is-closed");
-				var hero = el("div", "mk-hero " + heroClass);
-				var photo = el("img", "mk-photo");
-				photo.src = "earth-night.jpg";
-				photo.alt = "";
-				photo.setAttribute("aria-hidden", "true");
-				hero.appendChild(photo);
-				hero.appendChild(el("div", "mk-shade"));
-				hero.appendChild(el("div", "mk-glow"));
-				var cityEls = [];
-				CITIES.forEach(function (c) {
-					var on = false, pausedCity = false;
-					if (c.keys) {
-						var anyOpen = c.keys.some(function (k) { return refs[k].st.open; });
-						on = anyOpen && market.open;
-						pausedCity = anyOpen && !market.open;
-					}
-					var m = el("span", "mk-city" + (c.home ? " is-home" : "") + (on ? " is-on" : "") + (pausedCity ? " is-paused" : ""));
-					m.appendChild(el("span", "mk-city-dot"));
-					m.appendChild(el("span", "mk-city-name", c.name));
-					hero.appendChild(m);
-					cityEls.push({ node: m, lon: c.lon, lat: c.lat });
-				});
-				heroMap = { img: photo, cities: cityEls };
-				// The photo can only be placed once the card has a layout box.
-				requestAnimationFrame(layoutHeroMap);
-				var heroL = el("div", "mk-hero-main");
-				var title = el("div", "mk-hero-title");
-				title.appendChild(el("span", "mk-dot"));
-				title.appendChild(el("span", null,
-					market.onBreak ? "استراحت روزانه سشن‌ها" : (market.open ? "سشن باز است" : "سشن بسته است")));
-				heroL.appendChild(title);
-				var sub = el("div", "mk-hero-sub");
-				// The hero countdown ticks too, so the headline and the cards
-				// below can never disagree about how long is left.
-				var heroTarget = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
-				if (heroTarget) {
-					sub.appendChild(el("span", null, market.onBreak ? "از سر گرفته می‌شود " : "باز می‌شود "));
-					var heroNum = el("b", "mk-hero-cd", countdownText(heroTarget, now.getTime()));
-					sub.appendChild(heroNum);
-					sub.appendChild(el("span", null, " دیگر، ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(heroTarget, TEHRAN))));
-					tickers.push(function (t) { heroNum.textContent = countdownText(heroTarget, t); });
+				var st = el("div", "sb-state");
+				st.appendChild(el("span", "sb-dot"));
+				st.appendChild(el("span", null,
+					market.onBreak ? "تسویه‌ی روزانه"
+						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
+				status.appendChild(st);
+
+				var clock = el("div", "sb-clock");
+				// No seconds: they read as extra digits glued to the minutes, and
+				// the only things here that need a second hand - the countdowns -
+				// keep their own.
+				var clockTime = el("div", "sb-time", fa(hhmmInZone(nowT, VIEW())));
+				clock.appendChild(clockTime);
+				var clockZone = el("div", "sb-zone", viewName());
+				clock.appendChild(clockZone);
+				status.appendChild(clock);
+				tickers.push(function (t) { clockTime.textContent = fa(hhmmInZone(t, VIEW())); });
+
+				var sub = el("div", "sb-sub");
+				var target = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
+				if (target) {
+					sub.appendChild(el("span", null,
+						market.onBreak ? "از سر گرفته می‌شود " : (weekend ? "بازارها باز می‌شوند " : "باز می‌شود ")));
+					var cd = el("b", null, countdownText(target, nowT));
+					sub.appendChild(cd);
+					sub.appendChild(el("span", null,
+						" دیگر — " + dayInZone(target, VIEW()) + " ساعت " + fa(hhmmInZone(target, VIEW()))));
+					tickers.push(function (t) { cd.textContent = countdownText(target, t); });
 				} else if (market.open && market.until) {
 					sub.appendChild(el("span", null, "تا جمعه ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, TEHRAN))));
+					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, VIEW()))));
 				}
-				heroL.appendChild(sub);
-				hero.appendChild(heroL);
-				var clock = el("div", "mk-clock");
-				var clockTime = el("span", "mk-clock-time", fa(hhmmInZone(now.getTime(), TEHRAN)));
-				// Seconds ride alongside the big number rather than inside it, so
-				// the hour and minute stay the thing the eye lands on.
-				var clockSec = el("span", "mk-clock-sec", fa(secondsInZone(now.getTime(), TEHRAN)));
-				clockTime.appendChild(clockSec);
-				clock.appendChild(clockTime);
-				clock.appendChild(el("span", "mk-clock-zone", "تهران"));
-				tickers.push(function (t) {
-					clockTime.firstChild.nodeValue = fa(hhmmInZone(t, TEHRAN));
-					clockSec.textContent = fa(secondsInZone(t, TEHRAN));
+				status.appendChild(sub);
+				board.appendChild(enter(status));
+
+				// ---- the board card
+				var card = el("div", "sb-board");
+				var head = el("div", "sb-head");
+				head.appendChild(el("span", "sb-title",
+					// On a weekend the bars already show each session's *next*
+					// window, so the heading must stop claiming they are today's.
+					weekend ? "سشن‌ها، در روز کاری بعد" : "امروز، سشن‌های بازار"));
+
+				var tzBtn = el("button", "sb-tz");
+				tzBtn.type = "button";
+				tzBtn.setAttribute("aria-expanded", "false");
+				var tzLabel = el("span", null,
+					"ساعت‌ها به وقت " + viewName() + " · " + offsetLabel(VIEW(), now));
+				tzBtn.appendChild(tzLabel);
+				tzBtn.appendChild(el("span", "sb-caret", "▼"));
+				head.appendChild(tzBtn);
+				card.appendChild(head);
+
+				var menu = el("div", "sb-menu");
+				menu.hidden = true;
+				menu.setAttribute("role", "radiogroup");
+				menu.setAttribute("aria-label", "منطقه‌ی زمانی");
+				VIEW_ZONES.forEach(function (z) {
+					var b = el("button", "sb-opt");
+					b.type = "button";
+					b.setAttribute("role", "radio");
+					b.setAttribute("aria-checked", z.key === viewZone.key ? "true" : "false");
+					b.appendChild(el("span", null, z.name));
+					b.appendChild(el("span", "sb-off",
+						offsetLabel(z.zone, now) + " · " + fa(hhmmInZone(nowT, z.zone))));
+					b.addEventListener("click", function () {
+						viewZone = z;
+						try { localStorage.setItem(VIEW_KEY, z.key); } catch (e) { /* preference only */ }
+						renderList();
+					});
+					menu.appendChild(b);
 				});
-				hero.appendChild(clock);
-				container.appendChild(enter(hero));
+				tzBtn.addEventListener("click", function () {
+					var open = menu.hidden;
+					menu.hidden = !open;
+					tzBtn.setAttribute("aria-expanded", open ? "true" : "false");
+				});
+				card.appendChild(menu);
 
-				// ---- one self-contained row per market
-				var board = el("div", "mk-board");
+				// ---- each session's current or next window, resolved once
+				var refs = {};
 				SESSIONS.forEach(function (s) {
-					var st = refs[s.key].st;
-					var ref = refs[s.key].ref;
-					// A session inside its own hours while the broker is not
-					// trading is paused - the nightly settlement, or the hour
-					// between the Sydney bell and the Monday week open.
-					var paused = st.open && !market.open;
-					var live = st.open && market.open;
-					var row = el("div", "mk-m" + (live ? " is-live" : "") + (paused ? " is-paused" : ""));
+					var ss = sessionState(s, now);
+					var r = ss.open ? { open: ss.since, close: ss.until } : { open: ss.nextOpen, close: ss.nextClose };
+					refs[s.key] = { st: ss, ref: r, holiday: holidayFor(s, r.open || nowT) };
+				});
 
-					var head = el("div", "mk-m-head");
-					var who = el("div", "mk-m-who");
+				var grid = el("div", "sb-grid");
+
+				// ---- hour axis
+				var hours = el("div", "sb-hours");
+				[0, 3, 6, 9, 12, 15, 18, 21].forEach(function (h) {
+					var lab = el("span", "sb-hour", fa(h < 10 ? "0" + h : h));
+					lab.style.right = (h * 60 / 1440 * 100) + "%";
+					hours.appendChild(lab);
+				});
+				grid.appendChild(hours);
+
+				// ---- the rollover band, in the viewed zone's minutes
+				var brkStart = (BREAK_START_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
+				var brkEnd = (BREAK_END_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
+
+				// ---- rows
+				var rows = el("div", "sb-rows");
+				SESSIONS.forEach(function (s) {
+					var ss = refs[s.key].st, ref = refs[s.key].ref, hol = refs[s.key].holiday;
+					var paused = ss.open && !market.open;
+					var live = ss.open && market.open;
+
+					var row = el("button", "sb-row" +
+						(live ? " is-live" : "") + (paused ? " is-paused" : "") + (hol ? " is-holiday" : ""));
+					row.type = "button";
+					// The hue lives on the row, so the flag ring, the bar and the
+					// drawer's edge all read it from one place.
+					row.style.setProperty("--seg", "var(--sb-" + s.key + ")");
+					row.setAttribute("aria-pressed", s.key === selectedSession ? "true" : "false");
+					row.addEventListener("click", function () { selectedSession = s.key; renderList(); });
+
+					var who = el("div", "sb-who");
 					who.appendChild(flagBadge(s.flag, s.name));
-					who.appendChild(el("span", "mk-m-name", s.name));
-					// Two rows share the New York flag and clock, so the exchange
-					// gets a ticker badge to tell them apart at a glance.
-					if (s.sub) who.appendChild(el("span", "mk-m-sub", s.sub));
-					head.appendChild(who);
+					var nm = el("div", "sb-nm");
+					nm.appendChild(el("div", "sb-name", s.name));
+					nm.appendChild(el("div", "sb-st",
+						hol ? "تعطیل بانکی" : (live ? "باز" : (paused ? "استراحت" : "بسته"))));
+					who.appendChild(nm);
+					row.appendChild(who);
 
-					// The state word and the countdown are separate elements: as
-					// one string with a separator, RTL reordering pushed the dot
-					// against the number and "۱۱ ·" read as "۱۱۰".
-					var pill = el("span", "mk-m-pill");
-					if (live) {
-						pill.appendChild(el("span", "mk-m-live"));
-						pill.appendChild(el("span", null, "باز"));
-					} else {
-						pill.appendChild(el("span", null, paused ? "استراحت" : "بسته"));
-					}
-					head.appendChild(pill);
-					row.appendChild(head);
-
-					var track = el("div", "mk-m-track");
-					if (ref.open) {
-						var openM = tehranMinutesOf(ref.open);
-						var closeM = tehranMinutesOf(ref.close);
-						spansOf(openM, closeM).forEach(function (sp) {
-							var seg = el("div", "mk-m-seg");
+					var track = el("div", "sb-track");
+					if (hol) {
+						// The bar is struck through rather than merely dark: on a
+						// bank holiday the session does not happen at all, which
+						// is a different thing from "closed right now".
+						var hb = el("div", "sb-holiday");
+						hb.appendChild(el("span", null, "🏦 تعطیل بانکی — " + (hol.name || "آمریکا")));
+						hb.title = "تعطیلی بانکی آمریکا: " + (hol.name || "");
+						track.appendChild(hb);
+					} else if (ref.open) {
+						var openM = viewMinutesOf(ref.open), closeM = viewMinutesOf(ref.close);
+						spansOf(openM, closeM).forEach(function (sp, idx) {
+							var seg = el("div", "sb-seg");
 							seg.style.right = (sp[0] / 1440 * 100) + "%";
 							seg.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
-							var grad = densityGradient(sp[0], sp[1], busy);
-							if (grad) seg.style.backgroundImage = grad;
-							// While a session is running, fill the part already
-							// elapsed so the bar doubles as a progress meter.
 							if (live && nowM >= sp[0] && nowM <= sp[1]) {
-								var fill = el("div", "mk-m-fill");
-								var pct = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
-								// On entry the bar grows to its value rather than
-								// appearing at it; on a redraw it is simply correct.
-								if (animate) { fill.style.width = "0%"; fills.push([fill, pct]); }
-								else { fill.style.width = pct; }
+								var fill = el("div", "sb-fill");
+								fill.style.width = ((nowM - sp[0]) / (sp[1] - sp[0]) * 100) + "%";
 								seg.appendChild(fill);
+							}
+							// The hours ride inside the widest segment - one less
+							// number to hunt for underneath the chart.
+							if (idx === 0 && (sp[1] - sp[0]) > 300) {
+								seg.appendChild(el("span", "sb-seg-lab",
+									fa(hhmmInZone(ref.open, VIEW())) + "–" + fa(hhmmInZone(ref.close, VIEW()))));
 							}
 							track.appendChild(seg);
 						});
 					}
-					// The rollover hour, drawn over whatever sits beneath it so the
-					// gap in the trading day is visible on every track.
-					if (breakM[1] > breakM[0]) {
-						var brk = el("div", "mk-m-break");
-						brk.style.right = (breakM[0] / 1440 * 100) + "%";
-						brk.style.width = ((breakM[1] - breakM[0]) / 1440 * 100) + "%";
-						brk.title = "استراحت روزانه سشن‌ها";
+					if (!hol && brkEnd > brkStart) {
+						var brk = el("div", "sb-break");
+						brk.style.right = (brkStart / 1440 * 100) + "%";
+						brk.style.width = ((brkEnd - brkStart) / 1440 * 100) + "%";
 						track.appendChild(brk);
 					}
-
-					var nl = el("div", "mk-m-now");
-					nl.style.right = (nowM / 1440 * 100) + "%";
-					track.appendChild(nl);
 					row.appendChild(track);
-
-					var foot = el("div", "mk-m-foot");
-					if (ref.open) {
-						var t1 = el("span", "mk-m-time");
-						t1.appendChild(el("span", "mk-m-tag", "تهران"));
-						t1.appendChild(el("b", null, fa(hhmmInZone(ref.open, TEHRAN)) + "–" + fa(hhmmInZone(ref.close, TEHRAN))));
-						foot.appendChild(t1);
-
-						var t2 = el("span", "mk-m-time");
-						t2.appendChild(el("span", "mk-m-tag", "بروکر"));
-						t2.appendChild(el("b", null, fa(hhmmBroker(ref.open)) + "–" + fa(hhmmBroker(ref.close))));
-						foot.appendChild(t2);
-
-						var cd = el("span", "mk-m-cd");
-						var target = paused ? (market.resumesAt || market.nextOpen) : (live ? ref.close : ref.open);
-						var cdNum = el("b", "mk-m-cdn", countdownText(target, now.getTime()));
-						cd.appendChild(cdNum);
-						cd.appendChild(el("span", null, paused ? " تا از سرگیری" : (live ? " تا بسته شدن" : " تا باز شدن")));
-						tickers.push(function (t) { cdNum.textContent = countdownText(target, t); });
-						foot.appendChild(cd);
-					}
-					row.appendChild(foot);
-					board.appendChild(enter(row));
+					rows.appendChild(row);
 				});
+				grid.appendChild(rows);
+
+				// ---- the single now-line, over every row
+				// The plot starts after the label rail, so the offset is measured
+				// from the rail's inner edge and the percentage is of the plot
+				// width, not of the whole grid. calc keeps that true at any size.
+				var line = el("div", "sb-now");
+				// Hidden on a weekend: the bars are showing the next working day,
+				// so a needle at the current minute points at the wrong day.
+				line.hidden = weekend;
+				line.style.right = "calc(var(--off) + (100% - var(--off)) * " + (nowM / 1440).toFixed(5) + ")";
+				grid.appendChild(line);
+				card.appendChild(grid);
+
+				// ---- the London / New York overlap, in one sentence
+				// Intersected from the very spans the two bars are drawn from, so
+				// it can never claim an hour the chart above does not show, and it
+				// follows the DST gap in March and October on its own.
+				var ovNote = el("div", "sb-ov");
+				var lo = refs.london.ref, ny = refs.newyork.ref;
+				var ovStart = null, ovEnd = null;
+				if (lo.open && ny.open && !refs.newyork.holiday) {
+					var a = Math.max(lo.open, ny.open), z = Math.min(lo.close, ny.close);
+					if (z > a) { ovStart = a; ovEnd = z; }
+				}
+				if (ovStart) {
+					var inNow = false;
+					spansOf(viewMinutesOf(ovStart), viewMinutesOf(ovEnd)).forEach(function (sp) {
+						if (nowM >= sp[0] && nowM < sp[1]) inNow = true;
+					});
+					ovNote.appendChild(document.createTextNode("هم‌پوشانی لندن و نیویورک، "));
+					ovNote.appendChild(el("b", null,
+						fa(hhmmInZone(ovStart, VIEW())) + "–" + fa(hhmmInZone(ovEnd, VIEW()))));
+					ovNote.appendChild(document.createTextNode(
+						inNow && market.open
+							? " — همین حالا، پرنوسان‌ترین ساعت‌های روز"
+							: " — پرنوسان‌ترین ساعت‌های روز"));
+				} else if (refs.newyork.holiday) {
+					ovNote.textContent = "امروز تعطیلی بانکی آمریکاست — هم‌پوشانی لندن و نیویورک در کار نیست.";
+				} else {
+					ovNote.textContent = "لندن و نیویورک امروز هم‌پوشانی ندارند.";
+				}
+				card.appendChild(ovNote);
+
+				// ---- detail drawer for the selected row
+				// Only the row you tapped: five rows each carrying three numbers
+				// is a wall, and four of them are numbers you did not ask for.
+				var sel = sessionByKey(selectedSession) || SESSIONS[0];
+				var selRef = refs[sel.key];
+				var live2 = selRef.st.open && market.open, paused2 = selRef.st.open && !market.open;
+				var d = el("div", "sb-detail");
+				d.style.setProperty("--seg", "var(--sb-" + sel.key + ")");
+				var dhead = el("div", "sb-dhead");
+				dhead.appendChild(el("b", null, sel.name));
+				dhead.appendChild(el("span", null,
+					selRef.holiday ? "— تعطیل بانکی"
+						: (live2 ? "— باز است" : (paused2 ? "— در استراحت" : "— بسته است"))));
+				d.appendChild(dhead);
+
+				if (selRef.holiday) {
+					var note = el("div", "sb-dnote");
+					note.appendChild(document.createTextNode("🏦 امروز در آمریکا تعطیلی بانکی است: "));
+					note.appendChild(el("b", null, selRef.holiday.name || "تعطیل رسمی"));
+					note.appendChild(document.createTextNode("."));
+					d.appendChild(note);
+				} else if (selRef.ref.open) {
+					var c1 = el("div", "sb-dt");
+					c1.appendChild(el("div", "sb-dk", "به وقت " + viewName()));
+					c1.appendChild(el("div", "sb-dv",
+						fa(hhmmInZone(selRef.ref.open, VIEW())) + "–" + fa(hhmmInZone(selRef.ref.close, VIEW()))));
+					d.appendChild(c1);
+
+					var c2 = el("div", "sb-dt");
+					c2.appendChild(el("div", "sb-dk", "به وقت محلی"));
+					c2.appendChild(el("div", "sb-dv",
+						fa(hhmmInZone(selRef.ref.open, sel.zone)) + "–" + fa(hhmmInZone(selRef.ref.close, sel.zone))));
+					d.appendChild(c2);
+
+					var c3 = el("div", "sb-dt");
+					c3.appendChild(el("div", "sb-dk",
+						live2 ? "تا بسته شدن" : (paused2 ? "تا از سرگیری" : "تا باز شدن")));
+					var tgt = paused2 ? (market.resumesAt || market.nextOpen) : (live2 ? selRef.ref.close : selRef.ref.open);
+					var dv = el("div", "sb-dv is-cd", countdownText(tgt, nowT));
+					c3.appendChild(dv);
+					d.appendChild(c3);
+					tickers.push(function (t) { dv.textContent = countdownText(tgt, t); });
+				}
+				card.appendChild(d);
+				board.appendChild(enter(card));
+
+				// ---- city clocks
+				var clocks = el("div", "sb-clocks");
+				// NYSE is America/New_York, the same zone New York already shows.
+				// A fifth card would have been a clock that can never differ.
+				SESSIONS.filter(function (s) { return s.key !== "nyse"; }).forEach(function (s) {
+					var ss = refs[s.key].st;
+					var c = el("div", "sb-ck" + (ss.open && market.open && !refs[s.key].holiday ? " is-live" : ""));
+					c.style.setProperty("--ck", "var(--sb-" + s.key + ")");
+					c.appendChild(el("div", "sb-ck-city", s.name));
+					var ct = el("div", "sb-ck-time", fa(hhmmInZone(nowT, s.zone)));
+					c.appendChild(ct);
+					c.appendChild(el("div", "sb-ck-day", dayInZone(nowT, s.zone)));
+					clocks.appendChild(c);
+					tickers.push(function (t) { ct.textContent = fa(hhmmInZone(t, s.zone)); });
+				});
+				board.appendChild(enter(clocks));
+
 				container.appendChild(board);
-
-				var axis = el("div", "mk-axis");
-				[0, 4, 8, 12, 16, 20].forEach(function (h) {
-					var lab = el("span", "mk-hour", fa(h < 10 ? "0" + h : h));
-					lab.style.right = (h * 60 / 1440 * 100) + "%";
-					axis.appendChild(lab);
-				});
-				container.appendChild(axis);
-
-				var legend = el("div", "mk-legend");
-				[["", "یک سشن باز"], ["l2", "دو سشن"], ["l3", "سه سشن یا بیشتر"]].forEach(function (l) {
-					var item = el("span");
-					item.appendChild(el("i", l[0] || null));
-					item.appendChild(el("span", null, l[1]));
-					legend.appendChild(item);
-				});
-				container.appendChild(legend);
-
-				// ---- the overlap is the point of the whole screen
-				var london = sessionByKey("london"), ny = sessionByKey("newyork");
-				var lSt = sessionState(london, now), nSt = sessionState(ny, now);
-				var lRef = lSt.open ? { o: lSt.since, c: lSt.until } : { o: lSt.nextOpen, c: lSt.nextClose };
-				var nRef = nSt.open ? { o: nSt.since, c: nSt.until } : { o: nSt.nextOpen, c: nSt.nextClose };
-				if (lRef.o && nRef.o) {
-					var ovStart = Math.max(lRef.o, nRef.o), ovEnd = Math.min(lRef.c, nRef.c);
-					if (ovEnd > ovStart) {
-						var ov = el("div", "mk-overlap");
-						ov.appendChild(el("div", "mk-overlap-title", "همپوشانی لندن و نیویورک"));
-						var ovs = el("div", "mk-overlap-sub");
-						ovs.appendChild(el("b", null, fa(hhmmInZone(ovStart, TEHRAN)) + " – " + fa(hhmmInZone(ovEnd, TEHRAN))));
-						ovs.appendChild(el("span", null, " به وقت تهران · پرمعامله‌ترین بازه‌ی روز"));
-						ov.appendChild(ovs);
-						container.appendChild(enter(ov));
-					}
-				}
-
-				// Broker clock picker
-				var picker = el("div", "mk-picker");
-				picker.appendChild(el("div", "mk-picker-label", "ساعت سرور بروکر شما"));
-				var chips = el("div", "mk-picker-chips");
-				var current = brokerMode();
-				BROKER_MODES.forEach(function (mode) {
-					var b = el("button", "chip", mode.label);
-					b.type = "button";
-					b.setAttribute("aria-pressed", mode.key === current.key ? "true" : "false");
-					b.addEventListener("click", function () {
-						try { localStorage.setItem(BROKER_KEY, mode.key); } catch (e) { /* preference only */ }
-						haptic("select");
-						renderList();
-					});
-					chips.appendChild(b);
-				});
-				picker.appendChild(chips);
-				picker.appendChild(el("div", "mk-picker-hint",
-					"در متاتریدر، ساعت بالای پنجره‌ی Market Watch ساعت سرور است. اگر با ستون بالا نخواند، گزینه‌ی دیگری را انتخاب کن."));
-				container.appendChild(enter(picker));
-
-				container.appendChild(el("p", "footnote",
-					"ساعت‌ها با تغییر ساعت تابستانی هر کشور خودکار جابه‌جا می‌شوند. سشن‌ها از بامداد دوشنبه پس از پایان تسویه (۰۱:۳۰ به وقت ایران) تا جمعه با بسته شدن نیویورک فعال‌اند. "
-					+ "هر شب هم از " + fa(hhmmInZone(nextBreak, TEHRAN)) + " تا " + fa(hhmmInZone(nextBreak + (BREAK_END_UTC - BREAK_START_UTC) * 60000, TEHRAN))
-					+ " به وقت ایران، سشن‌ها برای تسویه‌ی روزانه یک ساعت بسته‌اند (نوار تیره روی نمودارها)."));
-
-				// The width has to be set in a later frame than the 0% it starts
-				// at, or the browser collapses the two into one value and the
-				// transition never runs.
-				if (fills.length) {
-					requestAnimationFrame(function () {
-						requestAnimationFrame(function () {
-							fills.forEach(function (f) {
-								f[0].classList.add("is-filling");
-								f[0].style.width = f[1];
-							});
-						});
-					});
-				}
 			}
 
 			// ---------- month grid ----------

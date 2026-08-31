@@ -135,11 +135,14 @@
 		</div>
 
 		<p class="footnote">
-			ساعت‌ها به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
+			ساعت‌های تقویم به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
-			<!-- Printed so a stale copy can be identified at a glance: the
-			     WebView caches this page and the URL is otherwise constant. -->
-			<span class="build">نسخه ۲۶</span>
+			<!-- Printed so a stale copy can be identified at a glance: the WebView
+			     caches this page and the URL is otherwise constant. This is the
+			     same hash the bot puts in the URL's ?v=, so a mismatch between
+			     what the page prints and what the link says is exactly the
+			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
+			<span class="build">نسخه <!-- build:version --></span>
 		</p>
 	</div>
 
