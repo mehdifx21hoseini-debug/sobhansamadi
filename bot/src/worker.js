@@ -23,6 +23,7 @@ import { writeConfig } from "./content/channel.js";
 import {
   ingestHolidays,
   handleIngestPost,
+  handleActualsPost,
   INGEST_FLAG,
   ingestEnabled,
 } from "./econ/ingest.js";
@@ -59,7 +60,7 @@ let commandsRegistered = false;
 
 // نشانه‌ی نسخه. اگر /health چیز دیگری برگرداند، یعنی کدِ روی هوا قدیمی
 // است و مشکل از تنظیمات نیست - از دیپلوی.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-35-appname";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-36-actuals";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -424,6 +425,14 @@ export default {
     // داشته باشد: این مسیر فقط یک کار می‌کند و کلید خودش را دارد.
     if (url.pathname === "/econ/ingest" && request.method === "POST") {
       const { status, body } = await handleIngestPost(request, env);
+      return json(body, status);
+    }
+
+    // عددهای واقعی از خواننده‌ی مرورگری. مسیر جداست چون کار جداست: این
+    // یکی فقط ستون actual را روی ردیف‌های موجود می‌نویسد و هرگز رویداد
+    // تازه‌ای نمی‌سازد.
+    if (url.pathname === "/econ/actuals" && request.method === "POST") {
+      const { status, body } = await handleActualsPost(request, env);
       return json(body, status);
     }
 

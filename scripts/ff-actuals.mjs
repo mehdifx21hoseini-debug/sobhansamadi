@@ -9,10 +9,18 @@
 // our own private table.
 import { chromium } from 'patchright';
 
-const WEBHOOK = 'https://96825.7host.cloud/webhook/econ/actuals';
-const KEY = process.env.FF_SYNC_KEY || '';
+// The Worker, not n8n. The calendar table moved to D1 and the Worker no
+// longer mirrors events back from n8n, so posting there would drop these
+// numbers into a table nobody reads any more — the column would just stay
+// empty and the "value released" message would never fire.
+const WEBHOOK = process.env.ACTUALS_URL
+  || 'https://sobhansamadi.mehdifx21hoseini.workers.dev/econ/actuals';
+
+// Either name, preferring the dedicated one — the same fallback the Worker
+// itself uses, so the two sides cannot disagree about which secret counts.
+const KEY = process.env.ECON_INGEST_KEY || process.env.ECON_EXPORT_KEY || '';
 if (!KEY) {
-  console.error('FF_SYNC_KEY is not set');
+  console.error('neither ECON_INGEST_KEY nor ECON_EXPORT_KEY is set');
   process.exit(1);
 }
 

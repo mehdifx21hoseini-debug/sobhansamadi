@@ -1,7 +1,11 @@
 # Reads released actual values from the ForexFactory calendar page with a
 # real browser (the site's Cloudflare challenge blocks plain HTTP clients)
-# and posts them to the calendar's ingest webhook. Read-only, two pages per
-# run, twice an hour during US release hours only.
+# and posts them to the Worker. Read-only, three day pages per run, twice an
+# hour during US release hours only.
+#
+# These numbers exist nowhere else: the public JSON feed carries forecast and
+# previous but not actual, so without this job the calendar's "actual" column
+# stays empty and the "value released" message never fires.
 name: FF Actuals Reader
 
 on:
@@ -33,6 +37,10 @@ jobs:
         run: npm install --no-save --no-audit --no-fund patchright
       - name: Read and post actuals
         env:
-          FF_SYNC_KEY: ${{ secrets.FF_SYNC_KEY }}
+          # Either name works, preferring the dedicated one. These go to the
+          # Worker now, not n8n, so FF_SYNC_KEY (n8n's own shared key) is no
+          # longer what authenticates them.
+          ECON_INGEST_KEY: ${{ secrets.ECON_INGEST_KEY }}
+          ECON_EXPORT_KEY: ${{ secrets.ECON_EXPORT_KEY }}
         # xvfb gives the headed browser a display.
         run: xvfb-run -a node scripts/ff-actuals.mjs

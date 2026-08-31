@@ -241,6 +241,53 @@ export async function ingestHolidays(env) {
 }
 
 /**
+ * عددهای «واقعی» که خواننده‌ی مرورگری از صفحه‌ی تقویم خوانده.
+ *
+ * فقط ردیف‌های موجود را به‌روز می‌کند و هرگز چیزی درج نمی‌کند - همان
+ * قاعده‌ای که نسخه‌ی n8n داشت. دلیلش این است که این خواننده عنوان را از
+ * صفحه‌ی HTML برمی‌دارد و اگر روزی متن عنوان کمی فرق کند، درج یعنی یک
+ * رویدادِ تکراریِ بی‌ساعت و بی‌اهمیت در تقویم؛ به‌روزرسانیِ نشده، فقط
+ * یعنی این عدد نرسید - که خیلی کم‌هزینه‌تر است و در پاسخ هم دیده می‌شود.
+ */
+export async function ingestActuals(env, rows) {
+  if (!(await ingestEnabled(env))) return { skipped: "خاموش" };
+  if (!Array.isArray(rows) || rows.length === 0) return { updated: 0, unmatched: 0 };
+
+  await ensureSchema(env);
+  const nowIso = new Date().toISOString();
+  let updated = 0;
+  const unmatched = [];
+
+  for (const r of rows) {
+    const date = String((r && r.date) || "").slice(0, 10);
+    const title = String((r && r.title) || "").trim();
+    const actual = String((r && r.actual) || "").trim();
+    if (!date || !title || !actual) continue;
+
+    // همان فرمولی که رویداد با آن ساخته شده. اگر این دو از هم جدا
+    // بیفتند، هیچ عددی هرگز به هیچ رویدادی نمی‌چسبد و از بیرون فقط
+    // «ستون واقعی همیشه خالی است» دیده می‌شود.
+    const eventId = "FF_" + date + "_" + slugify(title);
+
+    const res = await env.DB
+      .prepare(
+        `UPDATE econ_events
+            SET actual = ?, status = 'released', last_updated = ?
+          WHERE event_id = ?`
+      )
+      .bind(actual, nowIso, eventId)
+      .run();
+
+    if ((res && res.meta ? res.meta.changes || 0 : 0) > 0) updated++;
+    else unmatched.push(eventId);
+  }
+
+  // نامِ ردیف‌هایی که جفت نشدند برمی‌گردد، نه فقط تعدادشان: اگر عنوانی در
+  // صفحه عوض شده باشد، این تنها جایی است که لو می‌رود.
+  return { updated, unmatched: unmatched.length, unmatched_ids: unmatched.slice(0, 10) };
+}
+
+/**
  * اندپوینتی که جاب GitHub Actions به آن POST می‌کند.
  *
  * کلید در بدنه است نه در هدر، چون فرستنده یک `curl` در یک فایل YAML
@@ -248,6 +295,15 @@ export async function ingestHolidays(env) {
  * می‌گیرند - یک عادت، نه دو تا.
  */
 export async function handleIngestPost(request, env) {
+  return postHandler(request, env, (e, body) => ingestEvents(e, body.events));
+}
+
+/** همان مسیر، برای عددهای واقعی. */
+export async function handleActualsPost(request, env) {
+  return postHandler(request, env, (e, body) => ingestActuals(e, body.events));
+}
+
+async function postHandler(request, env, run) {
   const expected = env.ECON_INGEST_KEY || env.ECON_EXPORT_KEY;
   if (!expected) {
     return { status: 503, body: { success: false, error: "کلید ورودی تنظیم نشده است" } };
@@ -265,8 +321,7 @@ export async function handleIngestPost(request, env) {
   }
 
   try {
-    const res = await ingestEvents(env, body.events);
-    return { status: 200, body: { success: true, ...res } };
+    return { status: 200, body: { success: true, ...(await run(env, body)) } };
   } catch (err) {
     return { status: 500, body: { success: false, error: String(err && err.message) } };
   }
