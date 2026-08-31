@@ -371,65 +371,112 @@
 				return wrap;
 			}
 
-function eventNode(e) {
-				var node = el("button", "event");
+			// عددِ خام از رشته‌ی فید، برای حساب کردن سورپرایز. واحدها («%»،
+			// «K»، «M») و کاماها کنار گذاشته می‌شوند و علامت منفی می‌ماند.
+			function numOf(v) {
+				var n = parseFloat(String(v == null ? "" : v).replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
+				return isNaN(n) ? null : n;
+			}
+
+			function unitOf(v) {
+				var m = String(v == null ? "" : v).match(/[%KMBTkmbt]+\s*$/);
+				return m ? m[0].trim() : "";
+			}
+
+			/**
+			 * فاصله‌ی عدد واقعی از پیش‌بینی - همان چیزی که بازار را تکان
+			 * می‌دهد و کارت قبلی هرگز نشانش نمی‌داد.
+			 *
+			 * ترتیب کلمه‌ها عمدی است: اول عدد، بعد جهت. رشته‌ای که با فلش
+			 * شروع شود در راست‌به‌چپ برعکس خوانده می‌شود - «▲ ۰.۱% از
+			 * پیش‌بینی» به چشم «از پیش‌بینی ۰.۱% ▲» می‌رسد.
+			 */
+			function surpriseOf(e) {
+				var a = numOf(e.actual), f = numOf(e.forecast);
+				if (a === null || f === null) return null;
+				var d = a - f;
+				// به همان دقتی که خودِ فید نوشته گرد می‌شود، وگرنه
+				// ۰.۴ منهای ۰.۳ به‌صورت ۰.۱۰۰۰۰۰۰۰۰۰۰۰۰۰۰۰۳ چاپ می‌شد.
+				var dec = ((String(e.forecast).replace(/[^0-9.]/g, "").split(".")[1]) || "").length;
+				if (Math.abs(d) < Math.pow(10, -(dec + 1))) return { dir: "flat", text: "مطابق پیش‌بینی" };
+				// جهتِ «خوب برای دلار» را سرور در e.read گفته - جایی که
+				// برچسبِ شاخص می‌داند معکوس است یا نه. اینجا فقط بزرگی و
+				// بالا/پایین بودن گفته می‌شود.
+				return {
+					dir: d > 0 ? "up" : "down",
+					text: fa(Math.abs(d).toFixed(dec)) + unitOf(e.forecast) + (d > 0 ? " بالاتر" : " پایین‌تر")
+				};
+			}
+
+			function eventNode(e) {
+				var node = el("button", "event imp-" + (e.importance || "low"));
 				node.type = "button";
 				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
 				if (state.open[e.event_id]) node.className += " is-open";
 
+				var top = el("div", "event-top");
 				var time = el("div", "event-time");
-				var t = (e.time_tehran || "—").replace("+1", "");
-				time.appendChild(document.createTextNode(fa(t)));
+				time.appendChild(document.createTextNode(fa((e.time_tehran || "—").replace("+1", ""))));
 				if ((e.time_tehran || "").indexOf("+1") !== -1) {
 					time.appendChild(el("span", "plus", "فردا"));
 				}
-				node.appendChild(time);
+				top.appendChild(time);
 
-				var main = el("div");
-				var title = el("div", "event-title");
-				title.appendChild(el("span", "imp imp-" + (e.importance || "low")));
-				// The release's own English name, so every row is uniform; the
-				// Persian translation waits inside the expanded detail.
-				title.appendChild(el("span", "event-title-en", e.en || e.title || e.short));
-				main.appendChild(title);
-
-				// قبلی · پیش‌بینی · واقعی as one strip on the card itself. The
-				// actual cell exists even before the release - an empty waiting
-				// cell says "not out yet" louder than absence would.
-				if (e.previous || e.forecast || e.actual) {
-					var vals = el("div", "vals");
-					var cell = function (label, value, cls) {
-						var c = el("span", "val" + (cls ? " " + cls : ""));
-						c.appendChild(el("small", null, label));
-						c.appendChild(el("b", null, value));
-						return c;
-					};
-					vals.appendChild(cell("قبلی", e.previous ? fa(e.previous) : "—", e.previous ? "" : "is-wait"));
-					vals.appendChild(cell("پیش‌بینی", e.forecast ? fa(e.forecast) : "—", e.forecast ? "" : "is-wait"));
-					if (e.actual) {
-						var tone = e.read ? (e.read.good ? "is-good" : "is-bad") : "is-out";
-						var arrow = e.read ? (e.read.higher ? "▲ " : "▼ ") : "";
-						vals.appendChild(cell("واقعی", arrow + fa(e.actual), "val-actual " + tone));
-					} else {
-						vals.appendChild(cell("واقعی", "—", "val-actual is-wait"));
-					}
-					main.appendChild(vals);
+				var nm = el("div", "event-nm");
+				// نام انگلیسی همان تیتر می‌ماند؛ ترجمه‌ی فارسی که تا امروز
+				// فقط با باز کردن ردیف دیده می‌شد، یک خط ریز زیرش آمد.
+				nm.appendChild(el("div", "event-title-en", e.en || e.title || e.short || ""));
+				if (e.title && e.title !== (e.en || "")) {
+					nm.appendChild(el("div", "event-fa", e.title));
 				}
-				node.appendChild(main);
+				top.appendChild(nm);
+				node.appendChild(top);
+
+				var s = surpriseOf(e);
+				if (e.actual) {
+					var vals = el("div", "vals");
+					// رنگِ عدد از قضاوتِ سرور می‌آید (e.read) نه از بالا/پایین
+					// بودنِ خام: برای شاخص‌های معکوس مثل نرخ بیکاری، «بالاتر»
+					// یعنی بدتر.
+					var tone = e.read ? (e.read.good ? " is-up" : " is-down") : "";
+					var big = el("div", "val-big" + tone);
+					big.appendChild(el("b", null, fa(e.actual)));
+					big.appendChild(el("span", null, "واقعی"));
+					vals.appendChild(big);
+
+					if (s) {
+						var sTone = s.dir === "flat" ? "is-flat" : (e.read ? (e.read.good ? "is-up" : "is-down") : "is-flat");
+						vals.appendChild(el("div", "surprise " + sTone, s.text));
+					}
+
+					if (e.forecast) {
+						var sm = el("div", "val-small");
+						sm.appendChild(el("b", null, fa(e.forecast)));
+						sm.appendChild(el("span", null, "پیش‌بینی"));
+						vals.appendChild(sm);
+					}
+					node.appendChild(vals);
+				} else if (e.forecast || e.previous) {
+					var pend = el("div", "pending");
+					pend.appendChild(el("span", "k", "پیش‌بینی"));
+					pend.appendChild(el("b", null, fa(e.forecast || "—")));
+					pend.appendChild(el("span", "k", "· قبلی"));
+					pend.appendChild(el("b", null, fa(e.previous || "—")));
+					node.appendChild(pend);
+				}
 
 				var detail = el("div", "event-detail");
-				// The Persian translation leads the detail; when no label row
-				// matched, title equals the English name and the line is noise.
-				if (e.title && e.title !== (e.en || "")) {
-					detail.appendChild(el("div", "event-fa", e.title));
-				}
-				var chart = historyChart(e);
-				if (chart) detail.appendChild(chart);
 				if (e.read) {
 					detail.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
 						(e.read.higher ? "▲ بالاتر از پیش‌بینی — " : "▼ پایین‌تر از پیش‌بینی — ") +
 						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار")));
 				}
+				var chart = historyChart(e);
+				if (chart) detail.appendChild(chart);
+				var meta = el("div", "event-meta");
+				meta.appendChild(el("span", null, "قبلی: " + fa(e.previous || "—")));
+				meta.appendChild(el("span", null, "پیش‌بینی: " + fa(e.forecast || "—")));
+				detail.appendChild(meta);
 				detail.appendChild(el("div", null, "اهمیت: " +
 					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
 				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
@@ -659,6 +706,25 @@ function eventNode(e) {
 			var DAY_END_HOUR = 24;
 			var RISK_PAD_MINUTES = 30; // either side of a high-impact release
 
+			// افق واقعیِ همان چیزی که سرور فرستاده. پیش از این «۴۵ روز» در
+			// متن نوشته شده بود و عددش جای دیگری - در ورکر - تعریف شده؛ اگر
+			// آن عوض می‌شد، این جمله بی‌صدا دروغ می‌گفت.
+			// دقیقه‌ی روز به وقت تهران. عمداً از منطقه‌ی انتخابیِ کاربر جدا
+			// است: ساعت‌های تقویم همه tehran-based‌اند و نوار زمانی هم روی
+			// همان محور کشیده می‌شود، پس مارکرش هم باید از همان ساعت بیاید.
+			function tehranMinutesOf(instant) {
+				var t = hhmmInZone(instant, TEHRAN).split(":").map(Number);
+				return t[0] * 60 + t[1];
+			}
+
+			function horizonDays() {
+				if (!state.data || !state.data.today || !state.data.horizon_end) return 45;
+				var a = Date.parse(state.data.today + "T00:00:00Z");
+				var b = Date.parse(state.data.horizon_end + "T00:00:00Z");
+				if (isNaN(a) || isNaN(b)) return 45;
+				return Math.max(1, Math.round((b - a) / 86400000));
+			}
+
 			function minutesOfDay(e) {
 				if (!e.time_tehran) return null;
 				var t = e.time_tehran.replace("+1", "").split(":").map(Number);
@@ -711,8 +777,13 @@ function eventNode(e) {
 				});
 
 				// The marker only makes sense while the clock is inside the strip.
-				var now = new Date();
-				var nowMins = now.getHours() * 60 + now.getMinutes();
+				//
+				// تهران، نه ساعتِ دستگاه. نوارهای قرمز از ساعت‌های تهرانِ
+				// رویدادها ساخته می‌شوند؛ اگر این خط از getHours بخواند، برای
+				// هر کاربر بیرون از ایران به اندازه‌ی اختلافِ منطقه‌اش با
+				// نوارها فاصله می‌گیرد - اندازه گرفته شد: با دستگاهِ نیویورک
+				// خط روی ۱۱٪ می‌نشست، جایی که باید ۵۳٪ می‌بود.
+				var nowMins = tehranMinutesOf(Date.now());
 				if (nowMins >= DAY_START_HOUR * 60 && nowMins <= DAY_END_HOUR * 60) {
 					var nowEl = el("div", "tl-now");
 					nowEl.style.right = pctOfDay(nowMins) + "%";
@@ -1316,14 +1387,18 @@ function eventNode(e) {
 
 					cell.appendChild(el("span", "month-day", fa(d)));
 
-					var dots = el("span", "month-dots");
-					var ranked = dayEvents.slice().sort(function (a, b) {
-						return (IMPORTANCE_RANK[b.importance] || 0) - (IMPORTANCE_RANK[a.importance] || 0);
+					// یک خط، نه چند نقطه. نقطه‌ها تعداد را می‌گفتند و سه خبرِ
+					// کم‌اهمیت شلوغ‌تر از یک بیانیه‌ی فدرال رزرو به نظر
+					// می‌آمدند. حالا ضخامتِ خط مهم‌ترین خبرِ آن روز است و
+					// تعداد، عددی ریز زیرش.
+					var top = null;
+					dayEvents.forEach(function (e) {
+						if (!top || (IMPORTANCE_RANK[e.importance] || 0) > (IMPORTANCE_RANK[top] || 0)) {
+							top = e.importance || "low";
+						}
 					});
-					ranked.slice(0, 3).forEach(function (e) {
-						dots.appendChild(el("i", "month-dot imp-" + (e.importance || "low")));
-					});
-					cell.appendChild(dots);
+					cell.appendChild(el("span", "month-bar" + (top ? " imp-" + top : "")));
+					cell.appendChild(el("small", "month-n", dayEvents.length ? fa(dayEvents.length) : ""));
 
 					if (dayEvents.length > 0) {
 						(function (isoDate) {
@@ -1390,7 +1465,7 @@ function eventNode(e) {
 					var note = el("p", "search-note");
 					note.textContent = found.length === 0
 						? "چیزی پیدا نشد."
-						: "‏" + fa(found.length) + " نتیجه در ۴۵ روز آینده";
+						: "‏" + fa(found.length) + " نتیجه در " + fa(horizonDays()) + " روز آینده";
 					list.appendChild(note);
 				}
 
@@ -1423,12 +1498,37 @@ function eventNode(e) {
 					return;
 				}
 
+				// امروز، یک مرز میان «منتشر شده» و «پیش رو». اولین سؤال کسی که
+				// ظهر اپ را باز می‌کند همین است: چه چیزی را از دست داده‌ام و
+				// چه چیزی مانده - و فهرستی که فقط ردیف‌های گذشته را کم‌رنگ
+				// می‌کرد جوابش را نمی‌داد.
+				//
+				// فقط روی تب امروز و بدون جستجو: در نمای هفته و ماه، هر روز
+				// سرتیتر خودش را دارد و این مرز فقط شلوغی اضافه می‌کرد.
+				// مرز از روی «جای» اولین رویدادِ نیامده پیدا می‌شود، نه از روی
+				// «تعداد» رویدادهای گذشته. این دو همیشه یکی نیستند: خبری که
+				// ساعتش «۰۰:۳۰ فردا» است در مرتب‌سازی اولِ فهرست می‌نشیند
+				// ولی هنوز نیامده. شمردن، مرز را وسط بخش گذشته می‌انداخت.
+				//
+				// اگر فهرست دو تکه‌ی تمیز نبود، مرز اصلاً کشیده نمی‌شود -
+				// خطی که جای اشتباه بیفتد بدتر از نبودنش است.
+				var splitAt = null;
+				if (state.scope === "today" && !state.query) {
+					var now = Date.now();
+					var isPast = function (e) { return !!e.at && new Date(e.at).getTime() < now; };
+					var first = events.findIndex(function (e) { return !isPast(e); });
+					if (first > 0 && events.slice(0, first).every(isPast)) splitAt = first;
+				}
+
 				var lastDate = null;
 				var dayBuf = [];
 				var flushDay = function () {
 					if (dayBuf.length) { appendClustered(list, dayBuf); dayBuf = []; }
 				};
-				events.forEach(function (e) {
+				events.forEach(function (e, idx) {
+					// سرتیتر روز اول می‌آید، بعد مرز. برعکسش «منتشر شده» را
+					// بالای تاریخ می‌انداخت، انگار عنوانِ چیزی است که هنوز
+					// شروع نشده.
 					if (e.date !== lastDate) {
 						flushDay();
 						lastDate = e.date;
@@ -1443,6 +1543,13 @@ function eventNode(e) {
 								list.appendChild(el("div", "holiday", "🏦 تعطیلی بانکی آمریکا — " + h.name));
 							}
 						});
+					}
+					if (splitAt !== null && idx === 0) {
+						list.appendChild(el("div", "split", "منتشر شده (" + fa(splitAt) + ")"));
+					}
+					if (splitAt !== null && idx === splitAt) {
+						flushDay();
+						list.appendChild(el("div", "split", "پیش رو (" + fa(events.length - splitAt) + ")"));
 					}
 					dayBuf.push(e);
 				});

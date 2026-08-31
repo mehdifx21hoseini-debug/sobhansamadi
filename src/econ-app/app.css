@@ -1,26 +1,40 @@
-		/* The academy's own palette, taken from the logo: navy #29386c and gold
-		   #d2ae6d, the same two tokens the CRM uses. The app deliberately no
-		   longer borrows Telegram's theme colours — it only follows Telegram's
-		   light/dark choice, which the boot code stamps onto the root element
-		   as data-theme. Without that stamp the OS preference decides.
+		/* ── «تابلوی معاملاتی» ─────────────────────────────────────────────
+		   یک پالت برای همین اپ، نه برداشتی از لوگو. زمینه گرافیتِ خنثی است تا
+		   رنگ‌ها حرف بزنند، و هر رنگ دقیقاً یک معنی دارد:
 
-		   Every neutral here is biased toward the navy rather than being a
-		   pure grey, so the greys belong to the same family as the brand. */
+		     signal   «الان» و «خبر بعدی». هیچ‌جای دیگر.
+		     up/down  عدد واقعی بالاتر یا پایین‌تر از پیش‌بینی.
+		     اهمیت    هیچ رنگی ندارد - با ضخامت و وزن گفته می‌شود.
+
+		   آن سطر آخر نکته‌ی اصلی است: پیش از این قرمز هم‌زمان یعنی «خیلی مهم»
+		   بود و هم «بد برای دلار»، و با یک نگاه معلوم نمی‌شد کدام. حالا این
+		   جفت کاملاً برای عدد آزاد است.
+
+		   اسم متغیرها عمداً همان‌های قبلی است تا هیچ کامپوننتی لازم نباشد
+		   عوض شود؛ فقط مقدارها جابه‌جا شده‌اند. */
 		:root {
-			--navy: #29386c;
-			--navy-dark: #1c2850;
-			--gold: #d2ae6d;
-			--gold-dark: #b8934f;
+			/* «navy» دیگر سرمه‌ای نیست: جوهرِ خنثای همین پالت است. اسمش مانده
+			   چون سایه‌ها و واشِ پس‌زمینه از آن مشتق می‌شوند. */
+			--navy: #1f1e26;
+			--navy-dark: #121218;
+			--gold: #8a8792;
+			--gold-dark: #78767f;
 
-			--bg: #f2f4f9;
+			--bg: #f1f0ee;
 			--card: #ffffff;
-			--card-2: #f7f8fc;
-			--text: #1b2444;
-			--muted: #737ea3;
-			--line: color-mix(in srgb, var(--navy) 13%, transparent);
-			--link: var(--navy);
-			--accent: var(--navy);
+			--card-2: #f7f6f4;
+			--text: #1f1e26;
+			--muted: #78767f;
+			--line: rgba(31, 30, 38, .11);
+			--line-strong: rgba(31, 30, 38, .2);
+			--link: var(--signal);
+			/* دکمه‌ها و تب انتخاب‌شده جوهری‌اند نه رنگی: سرخابی فقط برای
+			   «الان» است و اگر روی کنترل‌ها هم بنشیند معنایش را از دست می‌دهد. */
+			--accent: #1f1e26;
 			--accent-text: #ffffff;
+
+			/* NOW. یک رنگ، یک معنی. */
+			--signal: #d81b60;
 
 			/* Elevation system lifted from open-props@1.7.23 (MIT, Adam
 			   Argyle) — the layered shadow recipes and easing curves, with the
@@ -28,7 +42,7 @@
 			   the shadows belong to the brand. Only these two variables change
 			   per theme; every shadow derives from them, which is the whole
 			   point: the dark theme no longer rewrites each shadow by hand. */
-			--shadow-color: 228 25% 22%;
+			--shadow-color: 255 15% 15%;
 			--shadow-strength: 1%;
 			--shadow-strength-3: calc(var(--shadow-strength) + 2%);
 			--shadow-strength-4: calc(var(--shadow-strength) + 3%);
@@ -52,42 +66,49 @@
 			--shadow-sm: var(--shadow-1);
 			--hairline: var(--inner-highlight);
 
-			--high: #c8323c;
-			--medium: #c8892b;
-			--low: #99a0b8;
-			--up: #1f8f63;
-			--down: #c8323c;
+			/* اهمیت فقط در چیپ‌های فیلتر و تیک‌های نوار زمانی رنگ می‌گیرد -
+			   روی ردیف‌های خبر با ضخامت لبه گفته می‌شود، نه با رنگ. */
+			--high: #c62828;
+			--medium: #b0741a;
+			--low: #8a8792;
+			--up: #00875a;
+			--down: #c62828;
 
 			/* The hairline around a flag badge: brand gold at rest, taken over
 			   by the state colour while a session is live or on its break. */
-			--flag-ring: color-mix(in srgb, var(--gold-dark) 62%, transparent);
+			--flag-ring: var(--line-strong);
 		}
 
 		/* Dark: the ground goes to a deep navy rather than neutral black, and
 		   gold takes over as the accent — navy on navy would disappear. */
 		:root[data-theme="dark"] {
-			--bg: #0d1226;
-			--card: #171f3a;
-			--card-2: #1e2748;
-			--text: #e9edf8;
-			--muted: #8d97b8;
-			--line: color-mix(in srgb, var(--gold) 15%, transparent);
-			--link: var(--gold);
-			--accent: var(--gold);
-			--accent-text: #1b2444;
+			--bg: #121218;
+			--card: #1b1b23;
+			--card-2: #23232d;
+			--text: #eceaf2;
+			--muted: #918fa0;
+			--line: rgba(255, 255, 255, .09);
+			--line-strong: rgba(255, 255, 255, .17);
+			--link: var(--signal);
+			--accent: #eceaf2;
+			--accent-text: #17161d;
+			--signal: #ff4d94;
+			--navy: #0a0a10;
+			--gold: #7d7b8a;
+			--gold-dark: #918fa0;
 
-			--shadow-color: 228 45% 2%;
+			--shadow-color: 255 40% 2%;
 			--shadow-strength: 25%;
 			--inner-highlight: inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
 			                   inset 0 .5px 0 0 rgba(0, 0, 0, .467);
 
-			--high: #ef5b62;
-			--medium: #e8a545;
-			--low: #7d859f;
-			--up: #35c48b;
-			--down: #ef5b62;
+			--high: #ff6b6b;
+			--medium: #e0a640;
+			--low: #7d7b8a;
+			--up: #2bd49a;
+			--down: #ff6b6b;
 
-			--flag-ring: color-mix(in srgb, var(--gold) 58%, transparent);
+			--flag-ring: var(--line-strong);
 		}
 
 		/* Same values again for viewers whose Telegram never reported a scheme
@@ -95,28 +116,33 @@
 		   an explicit light stamp always wins over a dark OS. */
 		@media (prefers-color-scheme: dark) {
 			:root:not([data-theme="light"]) {
-				--bg: #0d1226;
-				--card: #171f3a;
-				--card-2: #1e2748;
-				--text: #e9edf8;
-				--muted: #8d97b8;
-				--line: color-mix(in srgb, var(--gold) 15%, transparent);
-				--link: var(--gold);
-				--accent: var(--gold);
-				--accent-text: #1b2444;
+				--bg: #121218;
+				--card: #1b1b23;
+				--card-2: #23232d;
+				--text: #eceaf2;
+				--muted: #918fa0;
+				--line: rgba(255, 255, 255, .09);
+				--line-strong: rgba(255, 255, 255, .17);
+				--link: var(--signal);
+				--accent: #eceaf2;
+				--accent-text: #17161d;
+				--signal: #ff4d94;
+				--navy: #0a0a10;
+				--gold: #7d7b8a;
+				--gold-dark: #918fa0;
 
-				--shadow-color: 228 45% 2%;
+				--shadow-color: 255 40% 2%;
 				--shadow-strength: 25%;
 				--inner-highlight: inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
 				                   inset 0 .5px 0 0 rgba(0, 0, 0, .467);
 
-				--high: #ef5b62;
-				--medium: #e8a545;
-				--low: #7d859f;
-				--up: #35c48b;
-				--down: #ef5b62;
+				--high: #ff6b6b;
+				--medium: #e0a640;
+				--low: #7d7b8a;
+				--up: #2bd49a;
+				--down: #ff6b6b;
 
-				--flag-ring: color-mix(in srgb, var(--gold) 58%, transparent);
+				--flag-ring: var(--line-strong);
 			}
 		}
 
@@ -504,79 +530,54 @@
 		   of the app is the academy's navy and gold; this board is graphite
 		   with a single magenta signal, and scoping keeps the two from
 		   leaking into each other. */
+		/* پالت جدا ندارد. تب سشن‌ها اولین جایی بود که این هویت را گرفت و
+		   وقتی کپی مستقلی داشت؛ حالا که کل اپ همان است، این نام‌ها فقط
+		   نام مستعارِ توکن‌های ریشه‌اند - یعنی روشن و تاریک یک‌جا عوض
+		   می‌شوند و دو پالت نمی‌توانند از هم جدا بیفتند. */
 		.sb {
-			--sb-panel: #ffffff;
-			--sb-panel-2: #f7f6f4;
-			--sb-text: #1f1e26;
-			--sb-muted: #78767f;
-			--sb-line: rgba(31, 30, 38, .11);
-			--sb-line-strong: rgba(31, 30, 38, .2);
+			--sb-panel: var(--card);
+			--sb-panel-2: var(--card-2);
+			--sb-text: var(--text);
+			--sb-muted: var(--muted);
+			--sb-line: var(--line);
+			--sb-line-strong: var(--line-strong);
+			--sb-signal: var(--signal);
 
-			/* NOW. One colour, one meaning: the current-time line, the live
-			   countdown, the focus ring. It appears nowhere else, so wherever
-			   it shows up the eye already knows why. */
-			--sb-signal: #d81b60;
+			--sb-live: var(--up);
+			--sb-rest: var(--medium);
+			--sb-shut: var(--low);
 
-			/* Market state, kept apart from the signal so "open" and "now" are
-			   never confused for each other. */
-			--sb-live: #00875a;
-			--sb-rest: #b0741a;
-			--sb-shut: #8a8792;
-
-			/* The sun's path west: Sydney, Tokyo, London, New York, the
-			   exchange. The order of the hues carries a fact. */
+			/* مسیر خورشید به غرب. تنها رنگ‌هایی که فقط اینجا معنی دارند. */
 			--sb-sydney: #0f9b8e;
 			--sb-tokyo: #3d6fe0;
 			--sb-london: #8257d4;
 			--sb-newyork: #e07a20;
 			--sb-nyse: #c9482a;
 
-			--sb-track: rgba(31, 30, 38, .06);
-			--sb-hatch: rgba(31, 30, 38, .17);
+			--sb-track: color-mix(in srgb, var(--text) 6%, transparent);
+			--sb-hatch: color-mix(in srgb, var(--text) 17%, transparent);
 
 			color: var(--sb-text);
 			font-variant-numeric: tabular-nums;
 		}
 
+		/* :not([data-theme="light"]) روی حالت بدون مهر هم صدق می‌کند - یعنی
+		   بدون شرط رسانه، رنگ‌های تیره در تم روشن هم می‌نشستند. */
 		:root[data-theme="dark"] .sb {
-			--sb-panel: #1b1b23;
-			--sb-panel-2: #23232d;
-			--sb-text: #eceaf2;
-			--sb-muted: #918fa0;
-			--sb-line: rgba(255, 255, 255, .09);
-			--sb-line-strong: rgba(255, 255, 255, .17);
-			--sb-signal: #ff4d94;
-			--sb-live: #2bd49a;
-			--sb-rest: #e0a640;
-			--sb-shut: #7d7b8a;
 			--sb-sydney: #23c9b6;
 			--sb-tokyo: #6c9bff;
 			--sb-london: #a785ff;
 			--sb-newyork: #ffa242;
 			--sb-nyse: #ff6f52;
-			--sb-track: rgba(255, 255, 255, .06);
-			--sb-hatch: rgba(255, 255, 255, .2);
 		}
 
 		@media (prefers-color-scheme: dark) {
 			:root:not([data-theme="light"]) .sb {
-				--sb-panel: #1b1b23;
-				--sb-panel-2: #23232d;
-				--sb-text: #eceaf2;
-				--sb-muted: #918fa0;
-				--sb-line: rgba(255, 255, 255, .09);
-				--sb-line-strong: rgba(255, 255, 255, .17);
-				--sb-signal: #ff4d94;
-				--sb-live: #2bd49a;
-				--sb-rest: #e0a640;
-				--sb-shut: #7d7b8a;
 				--sb-sydney: #23c9b6;
 				--sb-tokyo: #6c9bff;
 				--sb-london: #a785ff;
 				--sb-newyork: #ffa242;
 				--sb-nyse: #ff6f52;
-				--sb-track: rgba(255, 255, 255, .06);
-				--sb-hatch: rgba(255, 255, 255, .2);
 			}
 		}
 
@@ -1029,13 +1030,16 @@
 		.tl-tick.imp-medium { background: var(--medium); }
 		.tl-tick.imp-low { background: color-mix(in srgb, var(--low) 80%, transparent); }
 
+		/* سرخابی، همان رنگی که در تابلوی سشن‌ها «الان» را می‌گوید. یک رنگ،
+		   یک معنی، در هر دو تب. */
 		.tl-now {
 			position: absolute;
 			top: -2px;
 			bottom: -2px;
 			width: 2px;
 			margin-right: -1px;
-			background: var(--text);
+			background: var(--signal);
+			z-index: 2;
 		}
 
 		.tl-now::before {
@@ -1046,7 +1050,7 @@
 			width: 8px;
 			height: 8px;
 			border-radius: 50%;
-			background: var(--text);
+			background: var(--signal);
 		}
 
 		.tl-axis {
@@ -1132,8 +1136,11 @@
 		/* Beyond the range the server sent, "no events" is unknown, not none. */
 		.month-cell.is-outside { opacity: .38; }
 
+		/* «امروز» سرخابی است، همان رنگی که همه‌جای اپ «الان» را می‌گوید؛
+		   «انتخاب‌شده» جوهری. دو حالت متفاوت با دو معنی متفاوت، و هیچ‌کدام
+		   رنگ دیگری را قرض نمی‌گیرد. */
 		.month-cell.is-today {
-			outline: 2px solid var(--accent);
+			outline: 2px solid var(--signal);
 			outline-offset: -2px;
 		}
 
@@ -1142,24 +1149,41 @@
 			color: var(--accent-text);
 		}
 
+		/* روی زمینه‌ی جوهری، خط و عدد هم باید برگردند وگرنه ناپدید می‌شوند. */
+		.month-cell.is-selected .month-bar.imp-high { background: var(--accent-text); }
+		.month-cell.is-selected .month-bar.imp-medium,
+		.month-cell.is-selected .month-bar.imp-low {
+			background: color-mix(in srgb, var(--accent-text) 55%, transparent);
+		}
+		.month-cell.is-selected .month-n { color: color-mix(in srgb, var(--accent-text) 75%, transparent); }
+
 		.month-day {
 			font-size: 0.8rem;
 			font-weight: 600;
 			font-variant-numeric: tabular-nums;
 		}
 
-		.month-dots {
-			display: flex;
-			gap: 2px;
-			height: 5px;
-			align-items: center;
+		/* ضخامت، نه تعداد: خط زیر عدد مهم‌ترین خبرِ آن روز را می‌گوید. سه
+		   نقطه‌ی کم‌اهمیت پیش از این شلوغ‌تر از یک بیانیه‌ی فدرال رزرو به
+		   نظر می‌آمدند. */
+		.month-bar {
+			display: block;
+			width: 16px;
+			height: 3px;
+			border-radius: 2px;
+			background: transparent;
 		}
 
-		.month-dot {
-			width: 5px;
-			height: 5px;
-			border-radius: 50%;
-			display: block;
+		.month-bar.imp-high { background: var(--text); }
+		.month-bar.imp-medium { background: var(--line-strong); }
+		.month-bar.imp-low { background: color-mix(in srgb, var(--muted) 40%, transparent); }
+
+		.month-n {
+			font-size: 0.55rem;
+			color: var(--muted);
+			font-weight: 700;
+			line-height: 1;
+			min-height: 0.55rem;
 		}
 
 		.month-hint {
@@ -1229,168 +1253,195 @@
 
 		.cluster .event { margin-bottom: 6px; }
 		.cluster .event:last-child { margin-bottom: 0; }
-		.cluster .event { grid-template-columns: 1fr; }
+		/* داخل خوشه ساعت یک‌بار در سرتیتر آمده؛ تکرارش روی هر ردیف فقط جا
+		   می‌گیرد و همان عدد را دو بار می‌گوید. */
 		.cluster .event-time { display: none; }
 
-		/* ---------- event rows ---------- */
+		/* ---------- the event row ----------
+		   اهمیت، لبه‌ی کناری است: ۳ پیکسل برای خیلی مهم، نازک برای مهم، هیچ
+		   برای کم‌اهمیت. یک شیبِ وزن به‌جای شیبِ رنگ، تا تنها رنگ‌های روی
+		   ردیف مالِ عدد باشند - پیش از این قرمز هم‌زمان «خیلی مهم» و «بد
+		   برای دلار» را می‌گفت و با یک نگاه معلوم نبود کدام. */
 		.event {
-			display: grid;
-			grid-template-columns: 52px 1fr;
-			gap: 11px;
+			display: block;
 			background: var(--card);
-			border-radius: 13px;
-			padding: 11px 13px;
-			margin-bottom: 7px;
+			border: 1px solid var(--line);
+			border-inline-start: 3px solid transparent;
+			border-radius: 11px;
+			padding: 10px 12px;
+			margin-bottom: 6px;
 			cursor: pointer;
-			border: 0;
 			width: 100%;
 			text-align: right;
 			font-family: inherit;
 			color: inherit;
 		}
 
-		.event.is-past { opacity: .62; }
+		.event.imp-high { border-inline-start-color: var(--text); }
+		.event.imp-medium { border-inline-start-color: var(--line-strong); }
+		.event.is-past { opacity: .74; }
+
+		.event-top { display: flex; align-items: baseline; gap: 8px; }
 
 		.event-time {
 			font-variant-numeric: tabular-nums;
 			font-weight: 700;
-			font-size: 0.88rem;
-			padding-top: 1px;
+			font-size: 0.74rem;
+			color: var(--muted);
+			flex: none;
 		}
 
 		.event-time .plus {
-			display: block;
-			font-size: 0.62rem;
-			font-weight: 500;
-			color: var(--muted);
+			font-size: 0.58rem;
+			font-weight: 700;
+			margin-inline-start: 3px;
+			color: var(--medium);
+			white-space: nowrap;
 		}
 
-		.event-title {
-			display: flex;
-			align-items: center;
-			gap: 7px;
-			font-weight: 600;
-			font-size: 0.92rem;
-		}
-
-		.imp {
-			flex: none;
-			width: 7px;
-			height: 7px;
-			border-radius: 50%;
-		}
-
-		.imp-high { background: var(--high); }
-		.imp-medium { background: var(--medium); }
-		.imp-low { background: var(--low); }
+		.event-nm { min-width: 0; flex: 1; }
 
 		/* The English release name inside an RTL row: isolated so the bidi
-		   algorithm cannot interleave it with the Persian around it. */
+		   algorithm cannot interleave it with the Persian around it, and set
+		   in the mono face so it reads as an instrument label rather than an
+		   English word dropped into a Persian sentence. */
 		.event-title-en {
 			direction: ltr;
 			unicode-bidi: isolate;
 			text-align: right;
+			font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+			font-size: 0.78rem;
+			font-weight: 500;
+			line-height: 1.35;
 			letter-spacing: .01em;
 			min-width: 0;
 			overflow-wrap: anywhere;
 		}
 
-		/* قبلی · پیش‌بینی · واقعی. Three equal cells so the eye learns one
-		   fixed geography and reads only the digits. */
-		.vals {
-			display: grid;
-			grid-template-columns: repeat(3, minmax(0, 1fr));
-			gap: 6px;
-			margin-top: 7px;
-		}
+		.event.imp-high .event-title-en { font-size: 0.84rem; font-weight: 500; }
 
-		.val {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 1px;
-			padding: 4px 4px 5px;
-			border-radius: 8px;
-			background: color-mix(in srgb, var(--muted) 9%, transparent);
-		}
-
-		.val small {
-			font-size: 0.58rem;
-			font-weight: 600;
-			letter-spacing: .04em;
+		/* پیش از این ترجمه‌ی فارسی تا باز نکردن ردیف پنهان بود. یک خط ریز
+		   اینجا، و یک تپ روی هر ردیف صرفه‌جویی می‌شود. */
+		.event-fa {
+			font-size: 0.68rem;
 			color: var(--muted);
+			font-weight: 600;
+			margin-top: 1px;
 		}
 
-		.val b {
-			font-size: 0.8rem;
+		/* ---------- the numbers ----------
+		   عدد واقعی درشت‌ترین چیز روی ردیف است و سورپرایز کنارش می‌نشیند،
+		   چون «چقدر با پیش‌بینی فرق داشت» همان سؤالی است که ردیف برایش وجود
+		   دارد - و تنها عددی بود که کارت قبلی هرگز نشان نمی‌داد. «قبلی» به
+		   جزئیات می‌رود: کم‌اهمیت‌ترینِ سه‌تاست. */
+		.vals { display: flex; align-items: flex-end; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+
+		.val-big { line-height: 1; }
+
+		.val-big b {
+			font-size: 1.3rem;
+			font-weight: 800;
+			letter-spacing: -.5px;
+			font-variant-numeric: tabular-nums;
+			direction: ltr;
+			unicode-bidi: isolate;
+			display: inline-block;
+		}
+
+		.val-big span {
+			display: block;
+			font-size: 0.6rem;
+			color: var(--muted);
+			font-weight: 700;
+			margin-top: 4px;
+		}
+
+		.val-big.is-up b { color: var(--up); }
+		.val-big.is-down b { color: var(--down); }
+
+		.surprise {
+			font-size: 0.74rem;
+			font-weight: 800;
+			border-radius: 7px;
+			padding: 4px 8px;
+			white-space: nowrap;
+			line-height: 1.2;
+		}
+
+		.surprise.is-up { color: var(--up); background: color-mix(in srgb, var(--up) 13%, transparent); }
+		.surprise.is-down { color: var(--down); background: color-mix(in srgb, var(--down) 13%, transparent); }
+		.surprise.is-flat { color: var(--muted); background: var(--card-2); }
+
+		.val-small { margin-inline-start: auto; text-align: left; line-height: 1.3; }
+
+		.val-small b {
+			font-size: 0.76rem;
 			font-weight: 700;
 			font-variant-numeric: tabular-nums;
 			direction: ltr;
 			unicode-bidi: isolate;
+			display: inline-block;
 		}
 
-		.val.is-wait b { color: var(--muted); font-weight: 500; }
+		.val-small span { display: block; font-size: 0.6rem; color: var(--muted); font-weight: 700; }
 
-		/* The actual cell carries the verdict: green when the surprise is
-		   dollar-positive, red when negative, neutral when the label has no
-		   direction to judge by. */
-		.val-actual.is-good {
-			background: color-mix(in srgb, var(--up) 16%, transparent);
+		/* خبری که هنوز نیامده عددی برای نشان دادن ندارد، پس به‌جای سه سلول
+		   خالی که ادای داده در می‌آورند، فقط انتظارش را می‌گوید. */
+		.pending { display: flex; align-items: baseline; gap: 7px; margin-top: 8px; font-size: 0.74rem; }
+		.pending b {
+			font-weight: 800;
+			font-variant-numeric: tabular-nums;
+			direction: ltr;
+			unicode-bidi: isolate;
+			display: inline-block;
 		}
-		.val-actual.is-good b { color: var(--up); }
+		.pending .k { color: var(--muted); font-weight: 700; font-size: 0.66rem; }
 
-		.val-actual.is-bad {
-			background: color-mix(in srgb, var(--down) 14%, transparent);
-		}
-		.val-actual.is-bad b { color: var(--down); }
-
-		.val-actual.is-out {
-			background: color-mix(in srgb, var(--accent) 12%, transparent);
-		}
-
-		.event-fa {
-			font-size: 0.86rem;
+		/* مرزِ «منتشر شده» و «پیش رو». اولین سؤال کسی که ظهر اپ را باز
+		   می‌کند: چه چیزی را از دست داده‌ام و چه چیزی مانده. */
+		.split {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin: 14px 2px 8px;
+			font-size: 0.66rem;
 			font-weight: 700;
-			color: var(--text);
+			color: var(--muted);
 		}
+
+		.split::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
 		.event-meta {
 			display: flex;
 			flex-wrap: wrap;
 			gap: 4px 14px;
 			margin-top: 4px;
-			font-size: 0.76rem;
+			font-size: 0.7rem;
 			color: var(--muted);
 			font-variant-numeric: tabular-nums;
 		}
 
-		.event-meta b {
-			color: var(--text);
-			font-weight: 600;
-		}
+		.event-meta b { color: var(--text); font-weight: 600; }
 
 		.read {
-			display: inline-flex;
-			align-items: center;
-			gap: 5px;
-			margin-top: 7px;
-			padding: 3px 9px;
-			border-radius: 999px;
+			display: block;
+			margin-bottom: 7px;
+			padding: 6px 9px;
+			border-radius: 7px;
 			font-size: 0.72rem;
 			font-weight: 700;
 		}
 
-		.read-good { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
-		.read-bad { background: color-mix(in srgb, var(--down) 15%, transparent); color: var(--down); }
+		.read-good { background: color-mix(in srgb, var(--up) 13%, transparent); color: var(--up); }
+		.read-bad { background: color-mix(in srgb, var(--down) 13%, transparent); color: var(--down); }
 
 		/* Expanded detail, revealed on tap. Keeps the list scannable while the
 		   full numbers stay one tap away. */
 		.event-detail {
-			grid-column: 1 / -1;
-			margin-top: 9px;
+			margin-top: 10px;
 			padding-top: 9px;
 			border-top: 1px solid var(--line);
-			font-size: 0.78rem;
+			font-size: 0.74rem;
 			color: var(--muted);
 			display: none;
 		}
