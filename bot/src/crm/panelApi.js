@@ -14,6 +14,8 @@ import {
 } from "./auth.js";
 import { ensureCrmSchema } from "./schema.js";
 import * as R from "./reads.js";
+import * as W from "./writes.js";
+import * as DASH from "./dashboards.js";
 
 // صفحه‌ها روی GitHub Pages میزبانی می‌شوند و ورکر جای دیگری است، پس هر
 // پاسخ باید سرآیندهای CORS داشته باشد - از جمله پاسخ‌های خطا، وگرنه
@@ -183,6 +185,67 @@ export async function handleCrmApi(request, url, env) {
     }
     if (path === "/crm/admin-dashboard") {
       return json(await R.adminDashboard(env, url.searchParams.get("range")));
+    }
+
+    const DASHBOARDS = {
+      "/crm/dashboard/sales-kpi": DASH.salesKpi,
+      "/crm/dashboard/consultant-performance": DASH.consultantPerformance,
+      "/crm/dashboard/funnel": DASH.funnel,
+      "/crm/dashboard/source-performance": DASH.sourcePerformance,
+    };
+    if (DASHBOARDS[path]) {
+      // جدول عملکرد مشاوران را مشاورها نمی‌بینند - همان قاعده‌ای که n8n
+      // داشت. کسی که خودش در جدول است نباید عملکرد بقیه را ببیند.
+      if (path.endsWith("consultant-performance") && session.role === "consultant") {
+        return unauthorized();
+      }
+      return json(await DASHBOARDS[path](env));
+    }
+  }
+
+  // ─── نوشتنی‌ها ─────────────────────────────────────────────────────
+  if (request.method === "POST") {
+    const b = await readBody(request);
+    const who = session.username;
+
+    // فرستنده‌ی تلگرام به writes تزریق می‌شود نه اینکه داخلش import شود:
+    // این‌طور تست می‌تواند بدونِ شبکه اجرا شود و ببیند چه چیزی قرار بوده
+    // فرستاده شود.
+    const send = async (chatId, text) => {
+      try {
+        const r = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({ chat_id: chatId, text }),
+        });
+        return r.ok;
+      } catch {
+        return false;
+      }
+    };
+
+    const WRITES = {
+      "/crm/lead/status": () => W.setLeadStatus(env, b, who),
+      "/crm/lead/note": () => W.addLeadNote(env, b, who),
+      "/crm/lead/assign": () => W.assignLead(env, b, who),
+      "/crm/lead/followup": () => W.setFollowup(env, b, who),
+      "/crm/lead/source": () => W.setLeadSource(env, b, who),
+      "/crm/calls": () => W.recordCall(env, b, who),
+      "/crm/support-ticket/status": () => W.setTicketStatus(env, b),
+      "/crm/support-ticket/reply": () => W.replyTicket(env, b, who, send),
+      "/crm/product/price": () => W.setProductPrice(env, b),
+      "/crm/error/resolve": () => W.resolveError(env, b),
+      "/crm/content-text/save": () => W.saveContentText(env, b),
+      "/crm/content-file/save": () => W.saveContentFile(env, b),
+      "/crm/econ-subscriber/unsubscribe": () => W.unsubscribeEcon(env, b),
+    };
+
+    if (WRITES[path]) {
+      const res = await WRITES[path]();
+      if (!res.ok) return json({ success: false, error: res.error }, 400);
+      const { ok, ...rest } = res;
+      return json({ success: true, ...rest });
     }
   }
 
