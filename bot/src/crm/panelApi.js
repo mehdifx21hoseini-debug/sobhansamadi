@@ -178,6 +178,12 @@ export async function handleCrmApi(request, url, env) {
     if (path === "/crm/followups/today") {
       return json(await R.followupsToday(env));
     }
+    if (path === "/crm/lead") {
+      return json(await R.leadDetail(env, url.searchParams.get("id")));
+    }
+    if (path === "/crm/admin-dashboard") {
+      return json(await R.adminDashboard(env, url.searchParams.get("range")));
+    }
   }
 
   // مسیر CRM است ولی هنوز منتقل نشده. ۵۰۱ عمدی است و نه ۴۰۴: صفحه باید

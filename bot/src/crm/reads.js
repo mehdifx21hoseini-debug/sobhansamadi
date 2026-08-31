@@ -188,3 +188,160 @@ export async function followupsToday(env) {
   );
   return bucketFollowups(rows);
 }
+
+// ─── جزئیات یک لید ───────────────────────────────────────────────────
+
+// وضعیت‌های خام به سه سطلِ نمایشی خلاصه می‌شوند - همان کاری که n8n
+// می‌کرد. صفحه روی همین سه مقدار رنگ و فیلتر می‌گذارد، ولی مقدار خام هم
+// در raw_status می‌رود چون بعضی جاها به خودش نیاز است.
+const CALLED = ["تماس گرفته شد"];
+const NOANSWER = ["پاسخ نداد"];
+
+export function statusBucket(status) {
+  if (CALLED.includes(status)) return "تماس گرفته شد";
+  if (NOANSWER.includes(status)) return "پاسخ نداد";
+  return "پاسخ‌داده‌نشده";
+}
+
+/**
+ * تاریخچه‌ی گفتگوی کاربر با دستیار هوش مصنوعی.
+ *
+ * جای عجیبی نشسته - داخل ستون JSONِ temp_data در user_state - ولی همان
+ * جایی است که ربات می‌نویسدش. هر خطای پارس بی‌صدا به آرایه‌ی خالی
+ * می‌افتد: یک temp_data خراب نباید کلِ صفحه‌ی لید را از کار بیندازد.
+ */
+async function aiHistoryFor(env, telegramUserId) {
+  if (!telegramUserId) return [];
+  try {
+    const row = await env.DB
+      .prepare("SELECT temp_data FROM user_state WHERE telegram_user_id = ?")
+      .bind(String(telegramUserId))
+      .first();
+    const td = row && row.temp_data ? JSON.parse(row.temp_data) : null;
+    return td && Array.isArray(td.ai_history) ? td.ai_history : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function leadDetail(env, leadId) {
+  const j = await env.DB
+    .prepare("SELECT * FROM crm_leads WHERE lead_id = ?")
+    .bind(String(leadId || ""))
+    .first();
+  if (!j || !j.lead_id) return NOT_FOUND;
+
+  return {
+    found: true,
+    lead_id: j.lead_id,
+    telegram_user_id: j.telegram_user_id,
+    telegram_username: j.telegram_username,
+    full_name: j.full_name,
+    phone: j.phone,
+    course: j.course,
+    request_type: j.request_type,
+    notes: j.notes,
+    status: statusBucket(j.status),
+    raw_status: j.status,
+    contact_attempts: j.contact_attempts,
+    created_at: j.created_at,
+    updated_at: j.updated_at,
+    priority: j.priority,
+    reminder_date: j.reminder_date,
+    score: j.score,
+    quality: j.quality,
+    source: j.source,
+    last_call_result: j.last_call_result,
+    assigned_to: j.assigned_to,
+    next_followup_at: j.next_followup_at,
+    ai_history: await aiHistoryFor(env, j.telegram_user_id),
+  };
+}
+
+// ─── داشبورد مدیر ────────────────────────────────────────────────────
+
+function parseDate(s) {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * شمارش‌های داشبورد.
+ *
+ * جدا از خواندنِ دیتابیس نگه داشته شده تا بشود با ورودیِ ساختگی و یک
+ * «الان»ِ ثابت سنجیدش - وگرنه هر تستی به ساعتِ اجرا وابسته می‌شد.
+ */
+export function dashboardStats(leads, users, range = "ALL", nowMs = Date.now()) {
+  const now = new Date(nowMs);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  let todayCount = 0, yesterdayCount = 0, weekCount = 0, monthCount = 0;
+  for (const r of leads) {
+    const created = parseDate(r.created_at);
+    if (!created) continue;
+    if (created >= startOfToday) todayCount++;
+    else if (created >= startOfYesterday && created < startOfToday) yesterdayCount++;
+    if (created >= sevenDaysAgo) weekCount++;
+    if (created >= startOfMonth) monthCount++;
+  }
+
+  let rangeStart = null;
+  if (range === "DAILY") rangeStart = startOfToday;
+  else if (range === "WEEKLY") rangeStart = sevenDaysAgo;
+  else if (range === "MONTHLY") rangeStart = startOfMonth;
+
+  const inRange = rangeStart
+    ? leads.filter((r) => { const d = parseDate(r.created_at); return d && d >= rangeStart; })
+    : leads;
+
+  const status_counts = {};
+  const type_counts = {};
+  for (const r of inRange) {
+    const st = r.status || "نامشخص";
+    status_counts[st] = (status_counts[st] || 0) + 1;
+    const rt = r.request_type || "نامشخص";
+    type_counts[rt] = (type_counts[rt] || 0) + 1;
+  }
+
+  let dauCount = 0, wauCount = 0;
+  for (const u of users) {
+    const lastSeen = parseDate(u.last_interaction_at);
+    if (!lastSeen) continue;
+    if (lastSeen >= startOfToday) dauCount++;
+    if (lastSeen >= sevenDaysAgo) wauCount++;
+  }
+
+  return {
+    range,
+    leads_today: todayCount,
+    leads_yesterday: yesterdayCount,
+    leads_week: weekCount,
+    leads_month: monthCount,
+    leads_in_range: inRange.length,
+    leads_total: leads.length,
+    status_counts,
+    type_counts,
+    bot_users_total: users.length,
+    bot_users_dau: dauCount,
+    bot_users_wau: wauCount,
+    generated_at: now.toISOString(),
+  };
+}
+
+export async function adminDashboard(env, range) {
+  const leads = await all(env, "SELECT lead_id, status, request_type, created_at FROM crm_leads");
+  const allUsers = await all(env, "SELECT telegram_user_id, last_interaction_at FROM user_state");
+  const admins = await all(env, "SELECT telegram_id FROM crm_admin_users");
+
+  // ادمین‌ها از شمارشِ «کاربران ربات» بیرون می‌روند. بدون این، تیمِ خودمان
+  // در آمارِ کاربرانِ فعال می‌آمد و عدد را همیشه بالاتر از واقعیت نشان
+  // می‌داد - و روی یک ربات با چند صد کاربر، این اختلاف کم نیست.
+  const adminIds = new Set(admins.map((a) => String(a.telegram_id)));
+  const users = allUsers.filter((u) => !adminIds.has(String(u.telegram_user_id)));
+
+  return dashboardStats(leads, users, range || "ALL");
+}
