@@ -42,6 +42,15 @@ async function readBody(request) {
 
 const unauthorized = () => json({ success: false, error: "unauthorized" }, 401);
 
+// مسیرهایی که زیر /crm/ هستند ولی مالِ این مسیریاب نیستند.
+//
+// /crm/phones از قبل روی ورکر بود و منبع اصلی‌اش همین D1 است، نه n8n -
+// شماره‌ها را خودِ ربات می‌گیرد. احراز هویتش هم فرق دارد: چون دانلود CSV
+// با <a download> انجام می‌شود و مرورگر رویش هدر نمی‌گذارد، توکن را از
+// کوئری هم می‌پذیرد. اگر این مسیریاب آن را می‌بلعید، صفحه‌ی شماره‌ها
+// بی‌صدا ۵۰۱ می‌گرفت.
+const NOT_OURS = ["/crm/phones"];
+
 /**
  * درخواست را می‌گیرد و اگر مسیرش مالِ CRM است جواب می‌دهد، وگرنه null -
  * تا ورکر بقیه‌ی مسیرهایش را ادامه بدهد.
@@ -50,6 +59,7 @@ const unauthorized = () => json({ success: false, error: "unauthorized" }, 401);
  */
 export async function handleCrmApi(request, url, env) {
   if (!url.pathname.startsWith("/crm/")) return null;
+  if (NOT_OURS.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"))) return null;
 
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
 

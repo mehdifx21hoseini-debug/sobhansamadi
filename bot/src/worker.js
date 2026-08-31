@@ -7,11 +7,11 @@ import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
-import { handleCrmApi } from "./crm/api.js";
+import { handleCrmApi } from "./crm/panelApi.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { syncCrmMirror } from "./crm/mirror.js";
 import { stripInstagramHandleOnce, setIntroP04CaptionOnce } from "./content/cleanup.js";
-import { handleMirrorApi, mirrorPreflight } from "./crm/api.js";
+import { handleMirrorApi, mirrorPreflight } from "./crm/mirrorApi.js";
 import { handlePhonesApi, phonesPreflight } from "./crm/phonesApi.js";
 import {
   runDailyDigest,
