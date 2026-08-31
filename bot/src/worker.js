@@ -10,7 +10,7 @@ import { importAll, importTable } from "./crm/importer.js";
 import { handleCrmApi } from "./crm/panelApi.js";
 import { crmSelfTest } from "./crm/selftest.js";
 import { recentLeads, deleteLeads } from "./crm/maintenance.js";
-import { sendDailyReport } from "./crm/report.js";
+import { sendDailyReport, buildReport } from "./crm/report.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { handlePaymentIntake } from "./intake/payment.js";
 import { syncCrmMirror } from "./crm/mirror.js";
@@ -70,7 +70,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-6";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-7";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -224,6 +224,28 @@ async function handleAdmin(request, url, env) {
         : await importAll(env);
       const failed = result.filter((r) => r.error);
       return json({ ok: failed.length === 0, build: BUILD, tables: result }, failed.length ? 502 : 200);
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
+  // پیش‌نمایش گزارش روزانه‌ی فروش.
+  //
+  // بدون این، تنها راهِ دانستنِ اینکه جای‌گزینِ WF-18 درست کار می‌کند،
+  // صبر کردن تا ساعت ۹ شب است - و اگر خراب بود، تازه فردا معلوم می‌شد.
+  // پیش‌فرض فقط متن را برمی‌گرداند؛ ?send=yes واقعاً می‌فرستد.
+  if (url.pathname === "/admin/sales-report") {
+    try {
+      if (url.searchParams.get("send") === "yes") {
+        return json({ ok: true, build: BUILD, sent: await sendDailyReport(env) });
+      }
+      const [leads, calls, orders] = await Promise.all([
+        env.DB.prepare("SELECT lead_id, created_at FROM crm_leads").all(),
+        env.DB.prepare("SELECT call_id, created_at FROM crm_calls").all(),
+        env.DB.prepare("SELECT order_id, amount, payment_status, payment_date FROM crm_orders").all(),
+      ]);
+      const report = buildReport(leads.results || [], calls.results || [], orders.results || []);
+      return json({ ok: true, build: BUILD, preview: report.text });
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
     }
@@ -417,7 +439,8 @@ export default {
       url.pathname === "/admin/crm-import" ||
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
-      url.pathname === "/admin/crm-lead-delete"
+      url.pathname === "/admin/crm-lead-delete" ||
+      url.pathname === "/admin/sales-report"
     ) {
       return handleAdmin(request, url, env);
     }
