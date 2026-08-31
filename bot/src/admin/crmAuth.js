@@ -27,6 +27,11 @@ const cache = new Map();
 // اگر خود توکن کلید می‌شد، در هر لاگ خطا یا دامپ حافظه‌ای که روزی گرفته
 // شود عیناً پیدا بود. این یک هشِ ساده است، نه رمزنگاری - فقط برای اینکه
 // توکن خام جایی ننشیند.
+// همان قاعده‌ی auth.js: هر چیزی جز یک آریِ صریح یعنی نه.
+function isActive(v) {
+  return v === 1 || v === true || v === "1" || v === "true";
+}
+
 function fingerprint(token) {
   let h = 5381;
   for (let i = 0; i < token.length; i++) h = ((h << 5) + h + token.charCodeAt(i)) >>> 0;
@@ -45,6 +50,30 @@ export async function isValidCrmSession(env, token) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.ok;
 
+  // اول D1: از سوییچ به بعد، نشست‌ها را خودِ ورکر صادر می‌کند و n8n
+  // اصلاً آن‌ها را نمی‌شناسد. بدون این، صفحه‌ی هوش مصنوعی و دفترچه‌ی
+  // شماره‌ها برای هر کسی که تازه وارد شده ۴۰۱ می‌دادند - در حالی که
+  // همان توکن در بقیه‌ی پنل کار می‌کرد.
+  try {
+    const row = await env.DB
+      .prepare(
+        `SELECT s.expires_at, a.active FROM crm_session s
+           JOIN crm_admin a ON a.username = s.username WHERE s.token = ?`
+      )
+      .bind(clean)
+      .first();
+    if (row && new Date(row.expires_at).getTime() > Date.now() && isActive(row.active)) {
+      cache.set(key, { ok: true, at: Date.now() });
+      return true;
+    }
+  } catch (err) {
+    // خواندن از D1 نشد؛ هنوز راهِ n8n مانده.
+    console.error("بررسی نشست از D1 ممکن نشد:", err && err.message);
+  }
+
+  // و بعد n8n، فقط برای توکن‌های قدیمی که پیش از سوییچ صادر شده‌اند.
+  // عمر نشست دوازده ساعت است، پس این شاخه خودش ظرف یک روز بی‌مصرف
+  // می‌شود و با خاموش شدن n8n می‌تواند برداشته شود.
   try {
     const res = await fetch(env.CRM_AUTH_VERIFY_URL || DEFAULT_VERIFY_URL, {
       method: "GET",
