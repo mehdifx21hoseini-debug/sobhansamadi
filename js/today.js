@@ -134,9 +134,15 @@
 		return null;
 	}
 
+	// منتورینگ در کارتابل نمی‌آید.
+	//
+	// تماس با درخواست‌های منتورینگ کارِ شخص دیگری است، پس آوردنشان اینجا
+	// یعنی مشاورِ مشاوره هر روز ردیف‌هایی را می‌بیند که مالِ او نیست و
+	// باید از رویشان رد شود. صفحه‌ی منتورینگ خودش شمارنده‌ی پیگیری دارد.
 	function buildItems(leads) {
 		var out = [];
 		(leads || []).forEach(function (lead) {
+			if (CrmData.isMentoringLead(lead)) return;
 			var verdict = classify(lead);
 			if (!verdict) return;
 			out.push({
@@ -148,7 +154,6 @@
 				status: lead.status || "",
 				created_at: lead.created_at,
 				updated_at: lead.updated_at,
-				isMentoring: CrmData.isMentoringLead(lead),
 				bucket: verdict.bucket,
 				icon: verdict.icon,
 				reason: verdict.reason,
@@ -185,13 +190,6 @@
 				.append($("<i>").addClass("fas " + item.icon))
 				.append(document.createTextNode(item.reason))
 		);
-		if (item.isMentoring) {
-			$meta.append(
-				$("<span>").addClass("queue-chip is-mentoring")
-					.append($("<i>").addClass("fas fa-graduation-cap"))
-					.append(document.createTextNode("منتورینگ"))
-			);
-		}
 		if (item.course) {
 			$meta.append($("<span>").addClass("queue-chip").text(item.course));
 		}

@@ -109,6 +109,7 @@
 				updated_at: lead.updated_at || r.created_at,
 				status: normalizeStatus(lead.status),
 				assigned_to: lead.assigned_to || "",
+				followup: CrmData.leadFollowupAt(lead),
 				hasLead: !!lead.lead_id
 			});
 		});
@@ -149,6 +150,24 @@
 		return hay.indexOf(q) !== -1;
 	}
 
+	// شمارشِ پیگیری‌های سررسیدشده.
+	//
+	// کارتابل امروز از این پس فقط لیدهای مشاوره را نشان می‌دهد، چون تماس
+	// با منتورینگ کارِ شخص دیگری است. ولی اگر این شمارنده اینجا نبود،
+	// پیگیریِ یک درخواست منتورینگ هیچ‌جا دیده نمی‌شد - نه در کارتابل، نه
+	// اینجا - و بی‌صدا از دست می‌رفت.
+	function dueCount(items) {
+		var endOfToday = new Date();
+		endOfToday.setHours(23, 59, 59, 999);
+		var n = 0;
+		items.forEach(function (i) {
+			if (!i.followup) return;
+			var t = new Date(i.followup).getTime();
+			if (!isNaN(t) && t <= endOfToday.getTime()) n++;
+		});
+		return n;
+	}
+
 	function renderStats(items) {
 		var pending = 0, week = 0, withAnswers = 0;
 		var weekAgo = Date.now() - 7 * 86400000;
@@ -162,6 +181,11 @@
 		$("#mt-pending").text(pending);
 		$("#mt-week").text(week);
 		$("#mt-answered").text(withAnswers);
+
+		var due = dueCount(items);
+		var $due = $("#mt-due-wrap");
+		$("#mt-due").text(due);
+		if ($due.length) $due.toggleClass("d-none", due === 0);
 	}
 
 	function statusSelectHtml(id, status, disabled) {
