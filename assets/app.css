@@ -4870,6 +4870,19 @@ td.drawer-cell {
 		white-space: nowrap;
 	}
 
+	/* نوار بالای جدول روی گوشی: هر کنترل یک خطِ کامل، وگرنه جستجو از
+	   لبه می‌زند بیرون. */
+	.toolbar-actions {
+		width: 100%;
+	}
+
+	.toolbar-actions .source-filter,
+	.toolbar-actions .search-input {
+		flex: 1 1 100%;
+		width: 100%;
+		min-width: 0;
+	}
+
 	.crm-data-table tbody tr.lead-row > td.phone-cell {
 		justify-content: space-between;
 	}

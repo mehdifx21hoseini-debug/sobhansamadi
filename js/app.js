@@ -569,7 +569,9 @@
 			$nameCell.append($tags);
 			$tr.append($nameCell);
 
-			var $phoneCell = $("<td>").attr({ dir: "ltr", "data-label": "شماره" }).addClass("mono phone-cell text-center");
+			// بدون برچسب: شماره خودش پیداست و دکمه‌ی تماس کنارش است. برچسبِ
+			// فارسی داخل سلولی که dir="ltr" است حروفش درست به هم نمی‌چسبد.
+			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
 			$phoneCell.append($("<span>").text(lead.phone || "-"));
 			if (lead.phone) {
 				$phoneCell.append($("<a>").addClass("quick-call-btn").attr({
