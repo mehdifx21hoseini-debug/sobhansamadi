@@ -87,8 +87,7 @@
 		var course = $("#courseFilter").val() || "";
 		var label = "نمایش " + rows.length.toLocaleString("fa-IR") + " از " +
 			all.length.toLocaleString("fa-IR") + " شماره";
-		if (course === NO_COURSE) label += " — بدون دوره";
-		else if (course) label += " — " + course;
+		if (course) label += " — " + courseLabel(course);
 		$("#phonesFooter").text(label);
 	}
 
@@ -101,6 +100,8 @@
 		return all.filter(function (r) {
 			if (course === NO_COURSE) {
 				if ((r.courses || []).length) return false;
+			} else if (course === ANY_COURSE) {
+				if (!(r.courses || []).length) return false;
 			} else if (course && (r.courses || []).indexOf(course) === -1) {
 				return false;
 			}
@@ -118,6 +119,15 @@
 	// نبودنِ دوره به یک مقدارِ صریح نیاز دارد.
 	var NO_COURSE = "__none__";
 
+	// «هر دوره‌ای، فرقی نمی‌کند کدام».
+	//
+	// دفترچه دو جور آدم دارد: کسی که فرمِ مشاوره یا ثبت‌نامِ یک دوره را پر
+	// کرده (پس در crm_leads دوره دارد) و کسی که فقط برای گرفتنِ اکسپرت یا
+	// دوره‌ی رایگان شماره داده. برای پیام دادن در تلگرام فقط گروه اول
+	// موضوعیت دارد. بدون این گزینه، تنها راهش گرفتنِ چند خروجیِ جدا و
+	// چسباندنشان به هم بود - و «همه» اکسپرتی‌ها را هم می‌آورد.
+	var ANY_COURSE = "__any__";
+
 	// گزینه‌های فیلتر از خودِ داده ساخته می‌شوند، نه از یک فهرستِ ثابت:
 	// اگر فردا دوره‌ای اضافه شود، همان‌جا در منو ظاهر می‌شود.
 	function populateCourseFilter() {
@@ -127,11 +137,17 @@
 		});
 		var $sel = $("#courseFilter");
 		var current = $sel.val();
-		$sel.empty().append($("<option>").val("").text("همه‌ی دوره‌ها"));
+		$sel.empty().append($("<option>").val("").text("همه (شامل اکسپرت و دوره رایگان)"));
+
+		var withCourse = all.filter(function (r) { return (r.courses || []).length; }).length;
+		if (withCourse) {
+			$sel.append($("<option>").val(ANY_COURSE)
+				.text("فقط لیدهای دوره‌ها — همه با هم (" + withCourse.toLocaleString("fa-IR") + ")"));
+		}
 		Object.keys(seen).sort().forEach(function (c) {
 			$sel.append($("<option>").val(c).text(c + " (" + seen[c].toLocaleString("fa-IR") + ")"));
 		});
-		var without = all.filter(function (r) { return !(r.courses || []).length; }).length;
+		var without = all.length - withCourse;
 		if (without) {
 			$sel.append($("<option>").val(NO_COURSE)
 				.text("بدون دوره (" + without.toLocaleString("fa-IR") + ")"));
@@ -231,9 +247,18 @@
 		{ match: "هر دو", slug: "both" }
 	];
 
+	// یک جای واحد برای نامِ فارسیِ فیلترِ فعلی: هم پاورقی، هم پیامِ تایید
+	// از همین می‌خوانند تا دو جا دو چیز نگویند.
+	function courseLabel(course) {
+		if (course === NO_COURSE) return "بدون دوره";
+		if (course === ANY_COURSE) return "همه‌ی دوره‌ها (بدون اکسپرت)";
+		return course || "همه (شامل اکسپرت)";
+	}
+
 	function fileTag(rows) {
 		var course = $("#courseFilter").val() || "";
 		if (course === NO_COURSE) return "-no-course";
+		if (course === ANY_COURSE) return "-all-courses";
 		if (course) {
 			for (var i = 0; i < COURSE_SLUG.length; i++) {
 				if (course.indexOf(COURSE_SLUG[i].match) !== -1) return "-" + COURSE_SLUG[i].slug;
@@ -261,10 +286,8 @@
 		document.body.removeChild(a);
 		// آزاد کردنِ بلافاصله در بعضی مرورگرها دانلود را قطع می‌کند.
 		setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-		var course = $("#courseFilter").val() || "";
-		var what = course === NO_COURSE ? "بدون دوره" : (course || "همه‌ی دوره‌ها");
 		CrmToast.ok("خروجی گرفته شد — " + rows.length.toLocaleString("fa-IR") +
-			" شماره از «" + what + "» در " + name);
+			" شماره از «" + courseLabel($("#courseFilter").val() || "") + "» در " + name);
 	}
 
 	$(function () {
