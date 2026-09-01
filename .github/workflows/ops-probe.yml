@@ -1,0 +1,46 @@
+name: Ops Probe
+
+# یک پنجره به ورکر، از داخل گیت‌هاب.
+#
+# چرا لازم شد: تا امروز مسیرهای تشخیصیِ ورکر را از طریق n8n صدا می‌زدیم.
+# با خاموش شدن n8n آن راه بسته شد و هیچ راهی برای دیدنِ وضعیت پروداکشن
+# نماند - نه اجرای خودآزما، نه دیدن وضعیت وبهوک، نه گرفتن گزارش.
+#
+# ─── چرا کلید ورودی نیست، Secret است ────────────────────────────────
+# ورودی‌های workflow_dispatch در تاریخچه‌ی اجراها ذخیره و نمایش داده
+# می‌شوند، و این مخزن عمومی است. کلید مدیر اگر ورودی می‌بود، در همان
+# اولین اجرا برای همیشه ثبت می‌شد.
+#
+# خروجی هم ماسک می‌شود: هر چیزی که شبیه توکن ربات باشد پیش از چاپ در
+# لاگ پاک می‌شود - یک بار همین اشتباه شد و توکن باید عوض می‌شد.
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "مسیر روی ورکر، با / شروع شود (مثلاً /admin/webhook)"
+        required: true
+        default: "/health"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the worker
+        env:
+          ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+          BASE: https://sobhansamadi.mehdifx21hoseini.workers.dev
+        run: |
+          set -e
+          case "${{ inputs.path }}" in
+            /*) ;;
+            *) echo "::error::مسیر باید با / شروع شود"; exit 1 ;;
+          esac
+          test -n "$ADMIN_KEY" || { echo "::error::WORKER_ADMIN_KEY تنظیم نشده"; exit 1; }
+
+          CODE=$(curl -sS -o body.txt -w '%{http_code}' \
+            -H "x-admin-key: $ADMIN_KEY" "$BASE${{ inputs.path }}")
+          echo "کد وضعیت: $CODE"
+          echo "--- پاسخ ---"
+          # هر رشته‌ای به شکل «عدد:حروف» می‌تواند توکن ربات باشد.
+          sed -E 's/[0-9]{6,}:[A-Za-z0-9_-]{30,}/<توکن پنهان شد>/g' body.txt
