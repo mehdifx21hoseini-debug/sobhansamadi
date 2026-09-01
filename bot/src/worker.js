@@ -73,7 +73,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-9";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-10";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -289,12 +289,20 @@ async function handleAdmin(request, url, env) {
       const current = (info && info.result) || {};
       const target = url.origin + WEBHOOK_PATH;
 
+      // آدرسِ فعلی می‌تواند خودِ توکن را داخلش داشته باشد - مسیر قدیمی
+      // دقیقاً همین شکل بود. برگرداندنِ خام آن یعنی توکن در هر لاگ و
+      // هر اسکرین‌شاتی که از این پاسخ گرفته شود پیدا باشد؛ همان چیزی
+      // که این اندپوینت قرار بود از آن جلوگیری کند. یک بار همین اتفاق
+      // افتاد و توکن باید عوض می‌شد.
+      const safeUrl = (u) =>
+        String(u || "").replace(/\/webhook\/\d+:[\w-]+/, "/webhook/<توکن پنهان شد>");
+
       if (url.searchParams.get("apply") !== "yes") {
         return json({
           ok: true,
           build: BUILD,
           secret_set: !!env.WEBHOOK_SECRET,
-          current_url: current.url || "(ثبت نشده)",
+          current_url: safeUrl(current.url) || "(ثبت نشده)",
           on_new_path: current.url === target,
           pending_updates: current.pending_update_count,
           last_error: current.last_error_message || null,
