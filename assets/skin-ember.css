@@ -1536,18 +1536,11 @@
 		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--teal) 14%, transparent), transparent),
 		var(--card);
 }
-/* سربرگ جدول در طرح نارنجی: همان ساختار، با هاله و خطِ زیرِ همین طرح.
-   ریلِ رنگیِ کنارِ ردیف‌ها اینجا هم برداشته شد. */
+/* سربرگ جدول: قاعده‌ی پایه از توکن‌های همین طرح می‌خواند، پس اینجا
+   فقط رنگِ متن می‌ماند. هاله و گرادیانِ قبلی برداشته شدند - روی
+   خاکستریِ گرم، نارنجیِ محو کدر می‌شد. */
 [data-skin="ember"] .crm-data-table thead th {
-	background:
-		radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--teal) 42%, transparent), transparent 62%),
-		linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
 	color: #fbf8f6;
-}
-[data-skin="ember"] .dark .crm-data-table thead th {
-	background:
-		radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--teal) 34%, transparent), transparent 62%),
-		linear-gradient(180deg, #5b564f 0%, var(--brand-navy-dark) 100%);
 }
 [data-skin="ember"] .quick-call-btn {
 	background: color-mix(in srgb, var(--up, #1a9e6b) 14%, transparent);

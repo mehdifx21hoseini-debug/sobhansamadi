@@ -215,6 +215,185 @@
 		return $m;
 	}
 
+	// ─── اقدام سریع: سه منوی کشویی ───────────────────────────────────
+	//
+	// هدف این است که کارِ روزمره بدون باز کردنِ پرونده انجام شود، ولی
+	// کشو نباید به یک صفحه‌ی دوم تبدیل شود. پس هر کار یک دکمه است که
+	// فهرستش را باز می‌کند، انتخاب می‌شود، و با دکمه‌ی کنارش انجام.
+	//
+	// «پیگیری» انتخاب‌شدنی-و-تمام است چون فقط یک تاریخ می‌نویسد و
+	// برگشت‌پذیر است. تماس و پیام یک قدمِ تاییدِ صریح دارند: اولی
+	// شمارنده را بالا می‌برد و دومی چیزی برای مشتری می‌فرستد که
+	// برگشت‌پذیر نیست.
+
+	var CALL_RESULTS = [
+		{ label: "جواب نداد", tone: "bad" },
+		{ label: "علاقه‌مند", tone: "" },
+		{ label: "نیاز به پیگیری", tone: "warn" },
+		{ label: "درخواست اطلاعات بیشتر", tone: "" },
+		{ label: "مخالفت", tone: "bad" },
+		{ label: "خرید کرد", tone: "good" },
+		{ label: "نامرتبط", tone: "bad" }
+	];
+
+	var FOLLOWUP_CHOICES = [
+		{ label: "فردا", days: 1 },
+		{ label: "۳ روز دیگر", days: 3 },
+		{ label: "هفته‌ی دیگر", days: 7 },
+		{ label: "پیگیری لازم نیست", days: null }
+	];
+
+	function closeMenus($except) {
+		$(".qa-menu").not($except).removeClass("is-open");
+	}
+
+	/**
+	 * یک دکمه‌ی کشویی: برچسب، فهرست گزینه‌ها، و آنچه با انتخاب می‌افتد.
+	 *
+	 * @param {object} opts
+	 * @param {string} opts.label برچسبِ اولیه
+	 * @param {string} opts.icon کلاس آیکون
+	 * @param {Array} opts.items [{label, tone}]
+	 * @param {function} opts.onPick (item, api) - api.setLabel و api.close
+	 */
+	function menuButton(opts) {
+		var $box = $('<div class="qa-menu">');
+		var $btn = $('<button type="button" class="qa-menu-btn">')
+			.append($('<i class="fas ' + opts.icon + ' ml-1">'))
+			.append($('<span class="qa-menu-label">').text(opts.label))
+			.append($('<i class="fas fa-chevron-down qa-menu-caret">'));
+		var $list = $('<div class="qa-menu-list">');
+
+		opts.items.forEach(function (item) {
+			$('<button type="button" class="qa-menu-item">')
+				.addClass(item.tone ? "tone-" + item.tone : "")
+				.text(item.label)
+				.on("click", function () {
+					$box.removeClass("is-open");
+					opts.onPick(item, {
+						setLabel: function (text) { $box.find(".qa-menu-label").text(text); },
+						markChosen: function () { $btn.addClass("is-chosen"); }
+					});
+				})
+				.appendTo($list);
+		});
+
+		$btn.on("click", function (e) {
+			e.stopPropagation();
+			var willOpen = !$box.hasClass("is-open");
+			closeMenus();
+			$box.toggleClass("is-open", willOpen);
+		});
+
+		return $box.append($btn).append($list);
+	}
+
+	function quickActionBar(lead) {
+		var $bar = $('<div class="quick-bar">');
+		$bar.append($('<div class="quick-bar-title">').text("اقدام سریع"));
+		var $row = $('<div class="quick-bar-row">');
+
+		// ۱) نتیجه‌ی تماس
+		var pickedResult = null;
+		var $callConfirm = $('<button type="button" class="btn btn-brand btn-sm quick-confirm d-none">').text("ثبت تماس");
+		var $callMenu = menuButton({
+			label: "ثبت نتیجه تماس", icon: "fa-phone-volume", items: CALL_RESULTS,
+			onPick: function (item, api) {
+				pickedResult = item.label;
+				api.setLabel(item.label);
+				api.markChosen();
+				$callConfirm.removeClass("d-none");
+			}
+		});
+		$callConfirm.on("click", function () {
+			if (!pickedResult) return;
+			var $b = $(this).prop("disabled", true).text("در حال ثبت…");
+			CrmData.recordCall(lead.lead_id, pickedResult, "", "")
+				.then(function () { quickToast(lead.lead_id, true, "نتیجه تماس ثبت شد."); loadLeads(); })
+				.catch(function (err) {
+					quickToast(lead.lead_id, false, "خطا در ثبت تماس: " + (err.message || "خطای نامشخص"));
+					$b.prop("disabled", false).text("ثبت تماس");
+				});
+		});
+		$row.append($callMenu).append($callConfirm);
+
+		// ۲) پیام آماده
+		var pickedTemplate = null;
+		var $sendBtn = $('<button type="button" class="btn btn-navy btn-sm quick-confirm d-none">').text("ارسال");
+		var templates = (CrmData.MESSAGE_TEMPLATES || []).map(function (t) {
+			return { label: t.label, text: t.text };
+		});
+		var $msgMenu = menuButton({
+			label: "پیام آماده", icon: "fa-paper-plane", items: templates,
+			onPick: function (item, api) {
+				pickedTemplate = item;
+				api.setLabel(item.label);
+				api.markChosen();
+				$sendBtn.removeClass("d-none");
+			}
+		});
+		$sendBtn.on("click", function () {
+			if (!pickedTemplate) return;
+			var $b = $(this).prop("disabled", true).text("در حال ارسال…");
+			var text = pickedTemplate.text.replace("{نام}", lead.full_name || "");
+			CrmData.sendRegistrationMessage(lead.lead_id, text)
+				.then(function (res) {
+					if (res && res.success === false) throw new Error(res.error || "ارسال ناموفق بود");
+					quickToast(lead.lead_id, true, "پیام ارسال شد.");
+				})
+				.catch(function (err) {
+					quickToast(lead.lead_id, false, "ارسال نشد: " + (err.message || "خطای نامشخص"));
+					$b.prop("disabled", false).text("ارسال");
+				});
+		});
+		$row.append($msgMenu).append($sendBtn);
+
+		// ۳) پیگیری - بدون قدمِ تایید
+		$row.append(menuButton({
+			label: "پیگیری", icon: "fa-bell", items: FOLLOWUP_CHOICES,
+			onPick: function (item) {
+				var value = "";
+				if (item.days !== null) {
+					var d = new Date();
+					d.setDate(d.getDate() + item.days);
+					d.setHours(9, 0, 0, 0);
+					value = d.toISOString();
+				}
+				CrmData.setLeadFollowup(lead.lead_id, value)
+					.then(function () {
+						quickToast(lead.lead_id, true, item.days === null ? "پیگیری بسته شد." : "پیگیری روی «" + item.label + "» ثبت شد.");
+						loadLeads();
+					})
+					.catch(function (err) {
+						quickToast(lead.lead_id, false, "خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص"));
+					});
+			}
+		}));
+
+		$bar.append($row);
+		var note = flash[lead.lead_id];
+		if (note) {
+			$bar.append($('<div class="quick-toast">').addClass(note.ok ? "is-ok" : "is-bad").text(note.text));
+		}
+		return $bar;
+	}
+
+	// نتیجه‌ی اقدام روی خودِ لید نگه داشته می‌شود، نه داخل DOM: هر
+	// موفقیتی فهرست را تازه می‌کند و ردیف دوباره ساخته می‌شود، پس پیامی
+	// که در DOM چسبانده شده باشد همان لحظه پاک می‌شود - و کاربر
+	// نمی‌فهمد کارش انجام شد یا نه.
+	var flash = {};
+
+	function quickToast(leadId, ok, text) {
+		flash[leadId] = { ok: ok, text: text };
+		renderTable();
+		clearTimeout(flash[leadId].timer);
+		flash[leadId].timer = setTimeout(function () {
+			delete flash[leadId];
+			renderTable();
+		}, 6000);
+	}
+
 	function drawerRow(lead) {
 		var answers = CrmData.botAnswers(lead);
 		var followUp = CrmData.leadFollowupAt(lead);
@@ -249,6 +428,8 @@
 		$meta.append(metaCell("شناسه لید", lead.lead_id || "—"));
 		$wrap.append($meta);
 
+		$wrap.append(quickActionBar(lead));
+
 		var $actions = $('<div class="lead-drawer-actions">');
 		$actions.append($("<a>").addClass("btn btn-brand btn-sm")
 			.attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id))
@@ -258,9 +439,6 @@
 				.attr("href", "tel:" + lead.phone.replace(/[^\d+]/g, ""))
 				.html('<i class="fas fa-phone mr-1"></i>تماس'));
 		}
-		$actions.append($('<button type="button" class="btn btn-outline-secondary btn-sm followup-tomorrow">')
-			.attr("data-lead-id", lead.lead_id)
-			.text("پیگیری برای فردا"));
 		$wrap.append($actions);
 
 		return $('<tr class="lead-drawer-row">').append($("<td>").attr("colspan", 8).append($wrap));
@@ -473,30 +651,9 @@
 			renderTable();
 		});
 
-		// پیگیری برای فردا، بدون خروج از فهرست. ساعت ۹ صبحِ محلی - شروع
-		// روز کاری - وگرنه رشته‌ی فقط-تاریخ نیمه‌شبِ UTC خوانده می‌شود و
-		// در تهران روزِ قبل می‌افتد.
-		$("#leadsTableBody").on("click", ".followup-tomorrow", function () {
-			var $btn = $(this).prop("disabled", true);
-			var leadId = $btn.data("lead-id");
-			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
-			var d = new Date();
-			d.setDate(d.getDate() + 1);
-			d.setHours(9, 0, 0, 0);
-			CrmData.setLeadFollowup(leadId, d.toISOString())
-				.then(function () {
-					if (lead) {
-						lead.next_followup_at = d.toISOString();
-						lead.reminder_date = "";
-						lead.updated_at = new Date().toISOString();
-					}
-					render();
-				})
-				.catch(function (err) {
-					alert("خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص"));
-					$btn.prop("disabled", false);
-				});
-		});
+		// کلیک بیرون، منوهای باز را می‌بندد. بدون این، دو منوی باز روی
+		// هم می‌افتند و کاربر نمی‌داند کدام‌یک را انتخاب می‌کند.
+		$(document).on("click", function () { closeMenus(); });
 
 		$("#leadsTableBody").on("change", ".status-select", function () {
 			var $select = $(this);

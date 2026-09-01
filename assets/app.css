@@ -1895,32 +1895,24 @@ body::before {
 		var(--card);
 }
 
-/* سربرگ جدول: نوارِ سرمه‌ای، ولی ساخته‌شده نه تخت.
-   سه چیز آن نوارِ تختِ قبلی را زنده می‌کند:
-   ۱. یک هاله‌ی فیروزه‌ای که از لبه‌ی راست - جایی که چشمِ فارسی‌خوان از
-      آن شروع می‌کند - محو می‌شود، همان لهجه‌ای که خودِ کارت روی گوشه‌اش
-      دارد؛ پس سربرگ به کارت وصل می‌شود نه اینکه رویش بنشیند.
-   ۲. گوشه‌های بالا گرد، هم‌اندازه‌ی گوشه‌ی کارت. نوارِ گوشه‌تیز داخل
-      کارتِ گوشه‌گرد، همیشه شبیه چیزی است که بعداً چسبانده‌اند.
-   ۳. برچسب‌ها با فاصله‌ی حروف و وزنِ ۶۰۰ به‌جای ۷۰۰: در یک نوارِ تیره،
-      وزنِ کمتر و فاصله‌ی بیشتر خواناتر است تا وزنِ بیشتر. */
+/* سربرگ جدول: یک رنگِ تخت و یک خطِ رنگی زیرش، همین.
+   گرادیان و هاله‌ی قبلی برداشته شدند - روی خاکستریِ گرمِ طرح نارنجی،
+   نارنجیِ محو کدر می‌شد و نوار کثیف به نظر می‌رسید. رنگ‌ها از توکن‌ها
+   می‌آیند، پس هر طرح خودش را می‌سازد بدون قاعده‌ی جداگانه.
+   گوشه‌های بالا گرد می‌مانند: نوارِ گوشه‌تیز داخل کارتِ گوشه‌گرد شبیه
+   چیزی است که بعداً چسبانده‌اند. */
 .crm-data-table thead th {
 	position: sticky;
 	top: 0;
 	z-index: 2;
-	background:
-		radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--teal) 42%, transparent), transparent 62%),
-		linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
+	background: var(--brand-navy-dark);
 	color: #eef2fb;
 	font-weight: 600;
 	font-size: 0.78rem;
 	letter-spacing: .02em;
 	padding-top: 13px;
 	padding-bottom: 13px;
-	box-shadow:
-		inset 0 -2px 0 color-mix(in srgb, var(--teal) 85%, transparent),
-		inset 0 1px 0 rgba(255, 255, 255, .07),
-		0 6px 14px -10px rgba(16, 24, 60, .75);
+	box-shadow: inset 0 -2px 0 var(--teal);
 }
 
 /* گوشه‌های بیرونی، با ویژگی‌های منطقی تا در راست‌به‌چپ هم درست بیفتند. */
@@ -1932,15 +1924,6 @@ body::before {
 	border-start-end-radius: 12px;
 }
 
-.dark .crm-data-table thead th {
-	background:
-		radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--teal) 34%, transparent), transparent 62%),
-		linear-gradient(180deg, #22305c 0%, var(--brand-navy-dark) 100%);
-	box-shadow:
-		inset 0 -2px 0 color-mix(in srgb, var(--teal) 85%, transparent),
-		inset 0 1px 0 rgba(255, 255, 255, .06),
-		0 6px 16px -10px rgba(0, 0, 0, .8);
-}
 
 /* Quick-call button in the phone column: same pull-to-act treatment as
    the mentoring card's call button, sized down to fit a table cell. */
@@ -4622,4 +4605,152 @@ td.drawer-cell {
 	color: var(--muted);
 	background: transparent;
 	border-style: dashed;
+}
+
+/* ═══ اقدام سریع در کشوی لید ═══════════════════════════════════════
+   سه کار بدون خروج از فهرست: ثبت نتیجه‌ی تماس، پیام آماده، پیگیری.
+   هرکدام یک دکمه‌ی کشویی است نه یک پنلِ باز - کشو نباید به صفحه‌ی
+   دومی تبدیل شود که همان کارِ صفحه‌ی پرونده را می‌کند. */
+
+.quick-bar {
+	margin-top: 13px;
+	padding-top: 12px;
+	border-top: 1px solid var(--line);
+}
+
+.quick-bar-title {
+	font-size: 0.72rem;
+	font-weight: 600;
+	letter-spacing: .04em;
+	color: var(--brand-gold-dark);
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+	gap: 9px;
+}
+
+/* خطِ طلاییِ محو کنار عنوان: تنها جای این نوار که رنگِ برند می‌آید. */
+.quick-bar-title::after {
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: linear-gradient(90deg, color-mix(in srgb, var(--brand-gold) 45%, transparent), transparent);
+}
+
+.quick-bar-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.qa-menu {
+	position: relative;
+	display: inline-block;
+}
+
+.qa-menu-btn {
+	font: inherit;
+	font-size: 0.8rem;
+	font-weight: 500;
+	cursor: pointer;
+	padding: 6px 13px;
+	border-radius: 9px;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--text);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	transition: border-color .15s, color .15s, box-shadow .15s;
+	box-shadow: var(--shadow-sm);
+}
+
+.qa-menu-btn:hover {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
+/* گزینه‌ی انتخاب‌شده: سرمه‌ای با لبه‌ی طلایی. تنها حالتی که پر می‌شود،
+   تا در یک نگاه معلوم باشد چه چیزی قرار است ثبت یا ارسال شود. */
+.qa-menu-btn.is-chosen {
+	background: var(--brand-navy);
+	border-color: color-mix(in srgb, var(--brand-gold) 60%, transparent);
+	color: #fff;
+	box-shadow: 0 3px 10px -6px rgba(16, 24, 60, .9), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+
+.qa-menu-caret {
+	font-size: 0.6rem;
+	opacity: .7;
+}
+
+.qa-menu-list {
+	display: none;
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 30;
+	min-width: 190px;
+	padding: 5px;
+	border-radius: 11px;
+	background: var(--card);
+	border: 1px solid var(--line);
+	box-shadow: var(--shadow-3, 0 12px 30px rgba(16, 24, 60, .18));
+}
+
+.qa-menu.is-open .qa-menu-list {
+	display: block;
+}
+
+.qa-menu-item {
+	display: block;
+	width: 100%;
+	text-align: right;
+	font: inherit;
+	font-size: 0.8rem;
+	padding: 7px 10px;
+	border: none;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.qa-menu-item:hover {
+	background: var(--card-2);
+	color: var(--accent);
+}
+
+/* رنگِ معنایی فقط روی گزینه‌های تصمیم‌ساز. */
+.qa-menu-item.tone-good:hover { color: var(--up, #1a9e6b); }
+.qa-menu-item.tone-bad:hover { color: var(--down, #c8323c); }
+.qa-menu-item.tone-warn:hover { color: #b3541e; }
+
+/* دکمه‌ی تایید کنار هر منو. «ارسال» عمداً هم‌رنگِ «ثبت» نیست: یکی
+   داخل CRM می‌نویسد، دیگری چیزی برای مشتری می‌فرستد که برگشت ندارد. */
+.btn-navy {
+	background: var(--brand-navy);
+	border-color: var(--brand-navy);
+	color: #fff;
+}
+
+.btn-navy:hover {
+	background: var(--brand-navy-dark);
+	border-color: var(--brand-navy-dark);
+	color: #fff;
+}
+
+.quick-toast {
+	margin-top: 9px;
+	font-size: 0.78rem;
+	font-weight: 600;
+}
+
+.quick-toast.is-ok {
+	color: var(--up, #1a9e6b);
+}
+
+.quick-toast.is-bad {
+	color: var(--down, #c8323c);
 }
