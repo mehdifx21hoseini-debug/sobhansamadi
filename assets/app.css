@@ -1895,29 +1895,51 @@ body::before {
 		var(--card);
 }
 
-/* سربرگ جدول.
-   پیش از این یک نوارِ سرمه‌ای پررنگ با متنِ سفیدِ درشت بود. در یک صفحه
-   که خودِ داده کم‌رنگ و آرام است، سنگین‌ترین چیزِ صفحه برچسبِ ستون‌ها
-   می‌شد - چیزی که آدم فقط یک بار می‌خواند. حالا زمینه‌ای آرام دارد و
-   برچسب‌ها ریز و کم‌رنگ‌اند؛ یک خطِ فیروزه‌ای زیرش می‌گوید کجا تمام
-   می‌شود، چون سربرگ چسبان است و موقع اسکرول باید از ردیف‌ها جدا بماند. */
+/* سربرگ جدول: نوارِ سرمه‌ای، ولی ساخته‌شده نه تخت.
+   سه چیز آن نوارِ تختِ قبلی را زنده می‌کند:
+   ۱. یک هاله‌ی فیروزه‌ای که از لبه‌ی راست - جایی که چشمِ فارسی‌خوان از
+      آن شروع می‌کند - محو می‌شود، همان لهجه‌ای که خودِ کارت روی گوشه‌اش
+      دارد؛ پس سربرگ به کارت وصل می‌شود نه اینکه رویش بنشیند.
+   ۲. گوشه‌های بالا گرد، هم‌اندازه‌ی گوشه‌ی کارت. نوارِ گوشه‌تیز داخل
+      کارتِ گوشه‌گرد، همیشه شبیه چیزی است که بعداً چسبانده‌اند.
+   ۳. برچسب‌ها با فاصله‌ی حروف و وزنِ ۶۰۰ به‌جای ۷۰۰: در یک نوارِ تیره،
+      وزنِ کمتر و فاصله‌ی بیشتر خواناتر است تا وزنِ بیشتر. */
 .crm-data-table thead th {
 	position: sticky;
 	top: 0;
 	z-index: 2;
-	background: var(--card-2);
-	color: var(--muted);
+	background:
+		radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--teal) 42%, transparent), transparent 62%),
+		linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
+	color: #eef2fb;
 	font-weight: 600;
-	font-size: 0.75rem;
-	letter-spacing: .01em;
-	padding-top: 11px;
-	padding-bottom: 11px;
-	border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, var(--line));
-	box-shadow: 0 4px 10px -8px rgba(16, 24, 60, .5);
+	font-size: 0.78rem;
+	letter-spacing: .02em;
+	padding-top: 13px;
+	padding-bottom: 13px;
+	box-shadow:
+		inset 0 -2px 0 color-mix(in srgb, var(--teal) 85%, transparent),
+		inset 0 1px 0 rgba(255, 255, 255, .07),
+		0 6px 14px -10px rgba(16, 24, 60, .75);
+}
+
+/* گوشه‌های بیرونی، با ویژگی‌های منطقی تا در راست‌به‌چپ هم درست بیفتند. */
+.crm-data-table thead th:first-child {
+	border-start-start-radius: 12px;
+}
+
+.crm-data-table thead th:last-child {
+	border-start-end-radius: 12px;
 }
 
 .dark .crm-data-table thead th {
-	box-shadow: 0 4px 12px -8px rgba(0, 0, 0, .7);
+	background:
+		radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--teal) 34%, transparent), transparent 62%),
+		linear-gradient(180deg, #22305c 0%, var(--brand-navy-dark) 100%);
+	box-shadow:
+		inset 0 -2px 0 color-mix(in srgb, var(--teal) 85%, transparent),
+		inset 0 1px 0 rgba(255, 255, 255, .06),
+		0 6px 16px -10px rgba(0, 0, 0, .8);
 }
 
 /* Quick-call button in the phone column: same pull-to-act treatment as
