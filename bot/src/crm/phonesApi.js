@@ -31,30 +31,31 @@ function json(body, status = 200) {
 // علامت سوال است» را می‌سازد.
 const BOM = "\uFEFF";
 
-function csvCell(value) {
+function csvCell(value, asText = false) {
   const s = String(value === null || value === undefined ? "" : value);
-  // شماره‌ها با صفر شروع می‌شوند و اکسل صفرِ اول را می‌خورد اگر سلول را
-  // عدد ببیند. نقل‌قول تنهایی جلویش را نمی‌گیرد، ولی چون همه‌ی سلول‌ها
-  // نقل‌قول‌دار می‌روند دست‌کم جداکننده و خط تازه امن است؛ برای شماره
-  // پایین‌تر یک ستون متنی صریح هم هست.
+  // شماره با صفر شروع می‌شود و اکسل صفرِ اول را می‌خورد اگر سلول را عدد
+  // ببیند - «09371234567» می‌شود «9371234567». نقل‌قول تنهایی جلویش را
+  // نمی‌گیرد؛ فرمولِ ="..." می‌گیرد.
+  if (asText && s) return '"=""' + s.replace(/"/g, '""') + '"""';
   return '"' + s.replace(/"/g, '""') + '"';
 }
 
+// همان ستون‌ها و همان ترتیبی که صفحه‌ی شماره‌ها بیرون می‌دهد، تا دو
+// خروجیِ متفاوت از یک داده وجود نداشته باشد. شناسه اول می‌آید چون
+// کلیدِ تطبیق با هر سامانه‌ی دیگری همان است.
 function toCsv(rows) {
-  const head = ["شماره موبایل", "نام", "نام کاربری", "منبع", "شناسه تلگرام", "تاریخ ثبت"];
-  const lines = [head.map(csvCell).join(",")];
+  const head = ["شناسه تلگرام", "شماره موبایل", "نام", "نام کاربری", "منبع", "تاریخ ثبت"];
+  const lines = [head.map((h) => csvCell(h)).join(",")];
   for (const r of rows) {
     lines.push(
       [
-        r.phone,
-        r.name || "",
-        r.username ? "@" + r.username : "",
-        (r.sources || []).join(" / "),
-        r.telegram_user_id,
-        r.created_at,
-      ]
-        .map(csvCell)
-        .join(",")
+        csvCell(r.telegram_user_id),
+        csvCell(r.phone, true),
+        csvCell(r.name || ""),
+        csvCell(r.username ? "@" + r.username : ""),
+        csvCell((r.sources || []).join(" / ")),
+        csvCell(r.created_at),
+      ].join(",")
     );
   }
   return BOM + lines.join("\r\n");

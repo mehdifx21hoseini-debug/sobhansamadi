@@ -628,10 +628,12 @@ var CrmQuickActions = (function ($) {
 		}
 
 		if (lead.telegram_username) {
+			var handle = String(lead.telegram_username).replace(/^@/, "");
 			$m.append($('<a class="qa-more-item" target="_blank" rel="noopener">')
-				.attr("href", "https://t.me/" + String(lead.telegram_username).replace(/^@/, ""))
+				.attr("href", "https://t.me/" + handle)
 				.append($('<i class="fas fa-paper-plane">'))
-				.append($("<span>").text("@" + String(lead.telegram_username).replace(/^@/, ""))));
+				// dir=ltr وگرنه «@» به آخر می‌پرد: «omid_nqv@».
+				.append($("<span>").attr("dir", "ltr").text("@" + handle)));
 		}
 
 		$m.append($('<a class="qa-more-item">')

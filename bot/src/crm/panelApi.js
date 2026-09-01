@@ -106,9 +106,19 @@ export function consultantMayUse(method, path) {
 // /crm/phones از قبل روی ورکر بود و منبع اصلی‌اش همین D1 است، نه n8n -
 // شماره‌ها را خودِ ربات می‌گیرد. احراز هویتش هم فرق دارد: چون دانلود CSV
 // با <a download> انجام می‌شود و مرورگر رویش هدر نمی‌گذارد، توکن را از
-// کوئری هم می‌پذیرد. اگر این مسیریاب آن را می‌بلعید، صفحه‌ی شماره‌ها
-// بی‌صدا ۵۰۱ می‌گرفت.
+// کوئری هم می‌پذیرد.
+//
+// تطبیق با پیشوند است نه مسیرِ دقیق، و نقطه هم مثل اسلش مرز حساب می‌شود:
+// مسیرِ خروجی «/crm/phones.csv» است و با تطبیقِ دقیق، این روتر آن را
+// برای خودش برمی‌داشت، در جدول‌هایش پیدا نمی‌کرد و ۵۰۱ می‌داد - مرورگر
+// همان ۵۰۱ را به‌عنوان فایل ذخیره می‌کرد و «خروجی» یک فایلِ خطا بود.
 const NOT_OURS = ["/crm/phones"];
+
+export function notOurs(pathname) {
+  return NOT_OURS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p + ".")
+  );
+}
 
 /**
  * درخواست را می‌گیرد و اگر مسیرش مالِ CRM است جواب می‌دهد، وگرنه null -
@@ -118,7 +128,7 @@ const NOT_OURS = ["/crm/phones"];
  */
 export async function handleCrmApi(request, url, env) {
   if (!url.pathname.startsWith("/crm/")) return null;
-  if (NOT_OURS.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"))) return null;
+  if (notOurs(url.pathname)) return null;
 
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
 
