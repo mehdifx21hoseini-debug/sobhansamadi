@@ -395,3 +395,169 @@ export async function unsubscribeEcon(env, body) {
   if (res && res.meta && res.meta.changes === 0) return bad("این مشترک پیدا نشد");
   return { ok: true };
 }
+
+// ─── مسیرهایی که در انتقال جا مانده بودند ────────────────────────────
+//
+// این پنج تا تا دیروز بی‌صدا به n8n می‌رفتند: مسیریابِ ما ۵۰۱ می‌داد و
+// صفحه خودش به n8n برمی‌گشت. آن برگشت کار می‌کرد، پس در تست‌ها هم چیزی
+// خراب به نظر نمی‌رسید - تا لحظه‌ای که n8n خاموش شد.
+//
+// درسش این است که «۵۰۱ به‌علاوه‌ی برگشتِ خودکار» یک تورِ ایمنیِ خوب برای
+// دوره‌ی انتقال بود، ولی همان تور، ناقص بودنِ انتقال را هم پنهان کرد.
+// مقایسه‌ی فهرستِ مسیرهای صفحه‌ها با فهرستِ پیاده‌شده‌ها، همان روز باید
+// انجام می‌شد نه بعد از خاموشی.
+
+/** پیام تلگرام به یک لید، از صفحه‌ی لید. */
+export async function sendLeadMessage(env, body, actor, send) {
+  const leadId = String(body.lead_id || "").trim();
+  const message = String(body.message || "").trim();
+  if (!leadId) return bad("lead_id لازم است");
+  if (!message) return bad("متن پیام خالی است");
+
+  const lead = await env.DB
+    .prepare("SELECT lead_id, telegram_user_id, full_name FROM crm_leads WHERE lead_id = ?")
+    .bind(leadId)
+    .first();
+  if (!lead) return bad("لید پیدا نشد");
+  if (!lead.telegram_user_id) return bad("این لید شناسه‌ی تلگرام ندارد");
+
+  const ok = await send(lead.telegram_user_id, message);
+  // شکستِ ارسال، خطا برمی‌گرداند نه موفقیت. مشاور باید بداند پیام نرفته
+  // - وگرنه منتظر جوابی می‌ماند که هرگز نمی‌آید.
+  if (!ok) return bad("تلگرام پیام را نپذیرفت (شاید کاربر ربات را بلاک کرده)");
+
+  await logActivity(env, leadId, "ارسال پیام", message.slice(0, 200), actor);
+  return { ok: true };
+}
+
+/** یادآور ساده روی لید. جای‌گزینش setFollowup است ولی ستونش هنوز هست. */
+export async function setLeadReminder(env, body, actor) {
+  const leadId = String(body.lead_id || "").trim();
+  if (!leadId) return bad("lead_id لازم است");
+  if (!(await leadExists(env, leadId))) return bad("لید پیدا نشد");
+
+  const value = String(body.reminder_date || "").trim() || null;
+  await env.DB
+    .prepare("UPDATE crm_leads SET reminder_date = ?, updated_at = ? WHERE lead_id = ?")
+    .bind(value, nowIso(), leadId)
+    .run();
+  await logActivity(env, leadId, "یادآور", value || "برداشته شد", actor);
+  return { ok: true, reminder_date: value };
+}
+
+/** مدیرهای تلگرامیِ ربات - همان‌هایی که هشدار می‌گیرند. */
+export async function saveAdminUser(env, body) {
+  const id = String(body.telegram_id || "").trim();
+  if (!id) return bad("شناسه‌ی تلگرام لازم است");
+  if (!/^\d+$/.test(id)) return bad("شناسه‌ی تلگرام باید فقط عدد باشد");
+
+  await env.DB
+    .prepare(
+      `INSERT INTO crm_admin_users (telegram_id, name, role, active) VALUES (?, ?, ?, ?)
+       ON CONFLICT(telegram_id) DO UPDATE SET
+         name = excluded.name, role = excluded.role, active = excluded.active`
+    )
+    .bind(id, String(body.name || "").trim() || null,
+          String(body.role || "admin").trim(), body.active === false ? 0 : 1)
+    .run();
+  return { ok: true, telegram_id: id };
+}
+
+// ─── پیام همگانی ─────────────────────────────────────────────────────
+
+const AUDIENCES = {
+  // ادمین‌ها کنار گذاشته می‌شوند: پیامی که برای همه می‌رود، برای تیم
+  // خودمان تکراری است و در گروهِ کاری هم دیده می‌شود.
+  all: `SELECT u.telegram_user_id AS chat_id FROM user_state u
+          WHERE u.telegram_user_id NOT IN (SELECT telegram_id FROM crm_admin_users)`,
+  econ_subscribers: `SELECT telegram_user_id AS chat_id FROM econ_subscriber`,
+};
+
+/**
+ * ارسال پیام همگانی.
+ *
+ * message_id هر گیرنده ذخیره می‌شود، چون «حذف پیام همگانی» یعنی پاک
+ * کردنِ همان پیام از چتِ تک‌تک کاربران - و بدون شناسه‌ی پیام، آن کار
+ * ممکن نیست.
+ *
+ * تلگرام روی ارسال انبوه محدودیت نرخ دارد (حدود ۳۰ پیام در ثانیه). با
+ * چند صد کاربر، فرستادنِ بی‌مکث یعنی نیمی از پیام‌ها ۴۲۹ می‌گیرند و
+ * می‌افتند؛ پس بین دسته‌ها مکث کوتاه هست.
+ */
+export async function sendBroadcast(env, body, actor, sendRaw) {
+  const message = String(body.message || "").trim();
+  const audience = String(body.audience || "all").trim();
+  if (!message) return bad("متن پیام خالی است");
+  if (!AUDIENCES[audience]) return bad("مخاطب نامعتبر است");
+
+  const { results } = await env.DB.prepare(AUDIENCES[audience]).all();
+  const targets = [...new Set((results || []).map((r) => String(r.chat_id)).filter(Boolean))];
+  if (targets.length === 0) return bad("هیچ گیرنده‌ای در این گروه نیست");
+
+  const batchId = newId("BC");
+  const created = nowIso();
+  await env.DB
+    .prepare(
+      `INSERT INTO crm_broadcasts (batch_id, message, audience, sent_count, deleted, created_at)
+       VALUES (?, ?, ?, 0, 0, ?)`
+    )
+    .bind(batchId, message, audience, created)
+    .run();
+
+  let sent = 0;
+  let rows = [];
+  for (let i = 0; i < targets.length; i++) {
+    const res = await sendRaw(targets[i], message);
+    if (res && res.ok && res.message_id) {
+      sent++;
+      rows.push(
+        env.DB
+          .prepare("INSERT INTO crm_broadcast_recipients (batch_id, chat_id, message_id) VALUES (?, ?, ?)")
+          .bind(batchId, targets[i], String(res.message_id))
+      );
+    }
+    if (rows.length >= 25) { await env.DB.batch(rows); rows = []; }
+    // مکث هر بیست پیام، برای نخوردن به سقفِ نرخِ تلگرام.
+    if (i % 20 === 19) await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (rows.length) await env.DB.batch(rows);
+
+  await env.DB
+    .prepare("UPDATE crm_broadcasts SET sent_count = ? WHERE batch_id = ?")
+    .bind(sent, batchId)
+    .run();
+
+  return { ok: true, batch_id: batchId, sent, total: targets.length };
+}
+
+/**
+ * حذف یک پیام همگانی از چتِ همه‌ی گیرنده‌ها.
+ *
+ * تلگرام فقط تا ۴۸ ساعت اجازه‌ی حذف می‌دهد؛ بعد از آن پیام‌ها می‌مانند و
+ * فقط از فهرستِ پنل پنهان می‌شوند. این را برمی‌گردانیم تا کسی فکر نکند
+ * پیامی که هنوز در گوشی کاربران است، پاک شده.
+ */
+export async function deleteBroadcast(env, body, deleteMsg) {
+  const batchId = String(body.batch_id || "").trim();
+  if (!batchId) return bad("batch_id لازم است");
+
+  const { results } = await env.DB
+    .prepare("SELECT chat_id, message_id FROM crm_broadcast_recipients WHERE batch_id = ?")
+    .bind(batchId)
+    .all();
+
+  let removed = 0;
+  let failed = 0;
+  for (const r of results || []) {
+    const ok = await deleteMsg(r.chat_id, r.message_id);
+    if (ok) removed++;
+    else failed++;
+  }
+
+  await env.DB
+    .prepare("UPDATE crm_broadcasts SET deleted = 1 WHERE batch_id = ?")
+    .bind(batchId)
+    .run();
+
+  return { ok: true, removed, failed };
+}

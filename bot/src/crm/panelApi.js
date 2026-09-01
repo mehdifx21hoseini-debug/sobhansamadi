@@ -225,6 +225,36 @@ export async function handleCrmApi(request, url, env) {
     // فرستنده‌ی تلگرام به writes تزریق می‌شود نه اینکه داخلش import شود:
     // این‌طور تست می‌تواند بدونِ شبکه اجرا شود و ببیند چه چیزی قرار بوده
     // فرستاده شود.
+    // سه شکلِ ارسال، چون سه نیازِ متفاوت است: یکی فقط می‌خواهد بداند رفت
+    // یا نه، یکی شناسه‌ی پیام را لازم دارد (برای اینکه بعداً بشود پاکش
+    // کرد)، و یکی حذف می‌کند. همه تزریق می‌شوند تا تست بدون شبکه بتواند
+    // ببیند چه چیزی قرار بوده فرستاده شود.
+    const tg = async (method, payload) => {
+      try {
+        const r = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/" + method, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify(payload),
+        });
+        return await r.json();
+      } catch {
+        return { ok: false };
+      }
+    };
+
+    const sendRaw = async (chatId, text) => {
+      const out = await tg("sendMessage", { chat_id: String(chatId), text });
+      return out && out.ok
+        ? { ok: true, message_id: out.result && out.result.message_id }
+        : { ok: false };
+    };
+
+    const deleteMsg = async (chatId, messageId) => {
+      const out = await tg("deleteMessage", { chat_id: String(chatId), message_id: Number(messageId) });
+      return !!(out && out.ok);
+    };
+
     const send = async (chatId, text) => {
       try {
         const r = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
@@ -253,6 +283,13 @@ export async function handleCrmApi(request, url, env) {
       "/crm/content-text/save": () => W.saveContentText(env, b),
       "/crm/content-file/save": () => W.saveContentFile(env, b),
       "/crm/econ-subscriber/unsubscribe": () => W.unsubscribeEcon(env, b),
+      // این پنج تا در انتقال جا مانده بودند و تا خاموش شدنِ n8n بی‌صدا
+      // به آنجا می‌رفتند.
+      "/crm/lead/send-message": () => W.sendLeadMessage(env, b, who, send),
+      "/crm/lead/reminder": () => W.setLeadReminder(env, b, who),
+      "/crm/admin/save": () => W.saveAdminUser(env, b),
+      "/crm/broadcast": () => W.sendBroadcast(env, b, who, sendRaw),
+      "/crm/broadcast/delete": () => W.deleteBroadcast(env, b, deleteMsg),
     };
 
     if (WRITES[path]) {
