@@ -48,12 +48,12 @@
 		var now = new Date();
 		var diffMins = Math.round((now - date) / 60000);
 		if (diffMins < 1) return "همین الان";
-		if (diffMins < 60) return diffMins + " دقیقه پیش";
+		if (diffMins < 60) return faNum(diffMins) + " دقیقه پیش";
 		var diffHours = Math.round(diffMins / 60);
-		if (diffHours < 24) return diffHours + " ساعت پیش";
+		if (diffHours < 24) return faNum(diffHours) + " ساعت پیش";
 		var diffDays = Math.round(diffHours / 24);
 		if (diffDays === 1) return "دیروز";
-		return diffDays + " روز پیش";
+		return faNum(diffDays) + " روز پیش";
 	}
 
 	var PAGE_SIZE = 15;
@@ -106,6 +106,76 @@
 				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
 			})
 			.sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
+	}
+
+	// ─── ستون‌های تصمیم‌ساز ───────────────────────────────────────────
+	//
+	// «چه کسی امروز باید زنگ بخورد» اولین سوالِ هر روزِ کاری است و تا
+	// امروز جوابش فقط در صفحه‌ی پیگیری‌ها و داخل پرونده بود. سه حالت
+	// از هم جدا می‌مانند: عقب‌افتاده، امروز، و آینده - چون سه کارِ
+	// متفاوت‌اند.
+
+	// ارقام فارسی، همان‌طور که تاریخ‌ها نمایش داده می‌شوند. یک سطر با
+	// «۱۴۰۵/۰۶/۰۹» کنارِ «2 روز» دو زبانِ عددی در یک خط است.
+	function faNum(n) {
+		return Number(n).toLocaleString("fa-IR");
+	}
+
+	function startOfToday() {
+		var d = new Date();
+		d.setHours(0, 0, 0, 0);
+		return d;
+	}
+
+	function followupDate(lead) {
+		var value = CrmData.leadFollowupAt(lead);
+		if (!value) return null;
+		var d = /^\d{4}-\d{2}-\d{2}$/.test(value.trim())
+			? CrmData.parseLocalDate(value.trim())
+			: new Date(value);
+		return isNaN(d.getTime()) ? null : d;
+	}
+
+	function followupCell(lead) {
+		var $td = $("<td>").addClass("followup-cell");
+		var due = followupDate(lead);
+		if (!due) {
+			$td.append($('<span class="text-muted text-sm">').text("ثبت نشده"));
+			return $td;
+		}
+		var dayStart = new Date(due);
+		dayStart.setHours(0, 0, 0, 0);
+		var days = Math.round((dayStart - startOfToday()) / 86400000);
+
+		var label;
+		var cls = "";
+		if (days < 0) {
+			label = faNum(Math.abs(days)) + " روز عقب";
+			cls = "is-overdue";
+		} else if (days === 0) {
+			label = "امروز";
+			cls = "is-today";
+		} else if (days === 1) {
+			label = "فردا";
+		} else {
+			label = faNum(days) + " روز دیگر";
+		}
+		$td.append($('<span class="followup-label">').addClass(cls).text(label));
+		$td.append($('<div class="row-subline">').text(due.toLocaleDateString("fa-IR")));
+		return $td;
+	}
+
+	// سنِ لید، نه «آخرین به‌روزرسانی». آن یکی با هر تغییرِ کوچکی تازه
+	// می‌شد، پس لیدِ ده‌روزه‌ای که همین حالا مشاورش عوض شده «۲ دقیقه
+	// پیش» نشان می‌داد - دقیقاً برعکسِ چیزی که باید هشدار می‌داد.
+	function leadAge(createdAt) {
+		if (!createdAt) return "-";
+		var d = new Date(createdAt);
+		if (isNaN(d.getTime())) return "-";
+		var days = Math.floor((startOfToday() - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+		if (days <= 0) return "امروز";
+		if (days === 1) return "دیروز";
+		return faNum(days) + " روز";
 	}
 
 	// ─── کشوی پاسخ‌های ربات ──────────────────────────────────────────
@@ -168,11 +238,14 @@
 		if (lead.course) $grid.append(qaCard("🎯 دوره‌ی انتخاب‌شده", lead.course));
 		$wrap.append($grid);
 
+		// آنچه از سطر برداشته شد اینجاست: چیزی گم نمی‌شود، فقط پشت یک
+		// کلیک می‌رود.
 		var $meta = $('<div class="qa-meta-strip">');
-		$meta.append(metaCell("پیگیری بعدی", followUp ? formatDay(followUp) : "ثبت نشده", isDueForFollowUp(lead)));
-		$meta.append(metaCell("دفعات تماس", (lead.contact_attempts != null ? lead.contact_attempts : 0) + " بار"));
-		$meta.append(metaCell("نتیجه آخرین تماس", lead.last_call_result || "—"));
+		$meta.append(metaCell("نوع درخواست", lead.request_type || "—"));
 		$meta.append(metaCell("منبع", CrmData.sourceLabel(lead.source)));
+		$meta.append(metaCell("پیگیری بعدی", followUp ? formatDay(followUp) : "ثبت نشده", isDueForFollowUp(lead)));
+		$meta.append(metaCell("نتیجه آخرین تماس", lead.last_call_result || "—"));
+		$meta.append(metaCell("آخرین تغییر", formatRelativeTime(lead.updated_at || lead.created_at)));
 		$meta.append(metaCell("شناسه لید", lead.lead_id || "—"));
 		$wrap.append($meta);
 
@@ -251,7 +324,19 @@
 					.html('<i class="fas fa-chevron-down"></i>')
 			));
 
-			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id)).addClass("lead-name-link").text(lead.full_name || "(بدون نام)")));
+			// نام، و زیرش دو نشانِ ریز: نوع درخواست و منبع. هر دو تا امروز
+			// ستونِ کامل می‌گرفتند (یا اصلاً دیده نمی‌شدند) در حالی که یک
+			// نگاهِ گذرا برایشان کافی است.
+			var $nameCell = $("<td>");
+			$nameCell.append($("<a>")
+				.attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id))
+				.addClass("lead-name-link")
+				.text(lead.full_name || "(بدون نام)"));
+			var $tags = $('<div class="row-tags">');
+			if (lead.request_type) $tags.append($('<span class="row-tag">').text(lead.request_type));
+			$tags.append($('<span class="row-tag tag-source">').text(CrmData.sourceLabel(lead.source)));
+			$nameCell.append($tags);
+			$tr.append($nameCell);
 
 			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
 			$phoneCell.append($("<span>").text(lead.phone || "-"));
@@ -263,16 +348,27 @@
 			}
 			$tr.append($phoneCell);
 
-			$tr.append($("<td>").text(lead.course || "-"));
-			$tr.append($("<td>").text(lead.request_type || "-"));
 			var $statusWrap = $("<div>").addClass("status-cell-wrap").append(statusSelectHtml(lead.lead_id, lead.status));
 			if (isAtRisk(lead)) {
 				$statusWrap.append('<span class="risk-icon" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i></span>');
 			}
 			var $statusCell = $("<td>").addClass("text-center").append($statusWrap);
+			// «تماس گرفته شد» می‌گوید کاری کرده‌ایم؛ نتیجه‌اش می‌گوید چه
+			// کرده‌ایم - و تصمیمِ بعدی از دومی می‌آید.
+			if (lead.last_call_result) {
+				$statusCell.append($('<div class="row-subline">').text(lead.last_call_result));
+			}
 			$tr.append($statusCell);
+
+			$tr.append(followupCell(lead));
+
+			var attempts = Number(lead.contact_attempts) || 0;
+			$tr.append($("<td>").addClass("text-center").append(
+				$('<span class="tries-count">').addClass(attempts ? "" : "is-zero").text(faNum(attempts))
+			));
+
 			$tr.append($("<td>").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
-			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
+			$tr.append($("<td>").addClass("text-muted text-sm").text(leadAge(lead.created_at)));
 			$body.append($tr);
 			if (open) $body.append(drawerRow(lead));
 		});

@@ -4544,3 +4544,82 @@ td.drawer-cell {
 	gap: 8px;
 	margin-top: 12px;
 }
+
+/* ═══ ستون‌های تازه‌ی فهرست لیدها ═══════════════════════════════════ */
+
+/* نشان‌های ریزِ زیر نام: نوع درخواست و منبع. جای دو ستونِ کامل را
+   می‌گیرند بدون اینکه عرضی از جدول بخورند. */
+.row-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 2px;
+}
+
+.row-tag {
+	font-size: 0.68rem;
+	line-height: 1.9;
+	padding: 0 7px;
+	border-radius: 999px;
+	background: var(--card-2);
+	color: var(--muted);
+	border: 1px solid var(--line);
+	white-space: nowrap;
+}
+
+.row-tag.tag-source {
+	background: color-mix(in srgb, var(--accent) 10%, transparent);
+	color: var(--accent);
+	border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* خطِ دومِ سلول: نتیجه‌ی آخرین تماس زیر وضعیت، تاریخ زیر پیگیری. */
+.row-subline {
+	font-size: 0.7rem;
+	color: var(--muted);
+	margin-top: 2px;
+}
+
+.followup-cell {
+	white-space: nowrap;
+}
+
+.followup-label {
+	font-size: 0.82rem;
+	font-weight: 600;
+}
+
+.followup-label.is-overdue {
+	color: var(--down, #c8323c);
+}
+
+.followup-label.is-today {
+	color: #b3541e;
+}
+
+.dark .followup-label.is-today {
+	color: #e2a86a;
+}
+
+.tries-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 26px;
+	height: 22px;
+	padding: 0 6px;
+	border-radius: 7px;
+	font-size: 0.8rem;
+	font-weight: 700;
+	background: var(--card-2);
+	border: 1px solid var(--line);
+	color: var(--text);
+}
+
+/* صفر کم‌رنگ می‌ماند تا «هنوز شروع نشده»ها در یک نگاه پیدا شوند. */
+.tries-count.is-zero {
+	font-weight: 400;
+	color: var(--muted);
+	background: transparent;
+	border-style: dashed;
+}
