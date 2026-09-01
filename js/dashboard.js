@@ -261,7 +261,7 @@
 	function renderActionCenter() {
 		var items = [
 			{ key: "atRisk", count: actionCenterState.atRisk, label: "لید در ریسک", icon: "fa-triangle-exclamation", tone: "tone-red", href: "index.html" },
-			{ key: "overdueFollowups", count: actionCenterState.overdueFollowups, label: "پیگیری عقب‌افتاده", icon: "fa-bell", tone: "tone-gold", href: "followups.html" },
+			{ key: "overdueFollowups", count: actionCenterState.overdueFollowups, label: "پیگیری عقب‌افتاده", icon: "fa-bell", tone: "tone-gold", href: "today.html" },
 			{ key: "errors", count: actionCenterState.errors, label: "خطای بررسی‌نشده", icon: "fa-circle-exclamation", tone: "tone-red", href: "javascript:void(0)", action: "openErrors" },
 			{ key: "openTickets", count: actionCenterState.openTickets, label: "تیکت پشتیبانی باز", icon: "fa-headset", tone: "tone-navy", href: "support.html" }
 		].filter(function (i) { return i.count > 0; });
