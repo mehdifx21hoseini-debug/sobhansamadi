@@ -4109,3 +4109,304 @@ a.mr-chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent)
 	color: #e2b672;
 	border-top-color: #e2b672;
 }
+
+/* ═══ صفحه‌ی لید، نسخه‌ی دوم ═══════════════════════════════════════
+   هدرِ خلاصه، فرمِ واحدِ تماس، و تایم‌لاینِ یکپارچه. کلاس‌های قدیمیِ
+   این صفحه (notes-timeline، activity-log، call-actions) هنوز در فایل
+   هستند چون صفحه‌های دیگر از آن‌ها استفاده می‌کنند. */
+
+.lead-head-top {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+	align-items: flex-start;
+	justify-content: space-between;
+}
+
+.lead-head-name {
+	font-weight: 700;
+	letter-spacing: -0.2px;
+	margin-bottom: 2px;
+}
+
+.lead-head-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	align-items: center;
+}
+
+.lead-facts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+	gap: 1px;
+	margin-top: 16px;
+	background: var(--line);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	overflow: hidden;
+}
+
+.fact {
+	background: var(--card);
+	padding: 9px 12px;
+}
+
+.fact-k {
+	font-size: 0.72rem;
+	color: var(--muted);
+}
+
+.fact-v {
+	font-size: 0.86rem;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.fact-v.fact-warn {
+	color: #b3541e;
+}
+
+.dark .fact-v.fact-warn {
+	color: #e2a86a;
+}
+
+.fact-edit {
+	background: none;
+	border: none;
+	padding: 0;
+	color: var(--muted);
+	cursor: pointer;
+	font-size: 0.72rem;
+}
+
+.fact-edit:hover {
+	color: var(--accent);
+}
+
+.followup-editor {
+	margin-top: 14px;
+	padding: 12px 14px;
+	border-radius: 10px;
+	background: var(--card-2);
+	border: 1px solid var(--line);
+}
+
+.followup-editor-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+
+.followup-editor-row .form-control {
+	flex: 1 1 180px;
+	margin: 0;
+}
+
+/* ── فرم تماس ───────────────────────────────────────────────────── */
+
+.call-card {
+	border: 1px solid rgba(26, 143, 138, .35);
+}
+
+.call-step + .call-step {
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px dashed var(--line);
+}
+
+.call-step-label {
+	font-size: 0.8rem;
+	color: var(--muted);
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.call-step-num {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--accent);
+	color: #fff;
+	font-size: 0.7rem;
+	font-weight: 700;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+}
+
+.call-step-num.call-step-buy {
+	background: var(--up);
+}
+
+.call-result-btn.call-result-buy.active {
+	background: var(--up);
+	border-color: var(--up);
+	color: #fff;
+}
+
+.purchase-box {
+	margin-top: 16px;
+	padding: 14px;
+	border-radius: 10px;
+	background: rgba(31, 143, 99, .07);
+	border: 1px solid rgba(31, 143, 99, .3);
+}
+
+.dark .purchase-box {
+	background: rgba(31, 143, 99, .12);
+}
+
+/* ── تایم‌لاین یکپارچه ──────────────────────────────────────────── */
+
+.lead-timeline {
+	position: relative;
+	padding-right: 22px;
+	max-height: 620px;
+	overflow-y: auto;
+}
+
+.lead-timeline::before {
+	content: "";
+	position: absolute;
+	right: 7px;
+	top: 6px;
+	bottom: 6px;
+	width: 2px;
+	background: var(--line);
+	border-radius: 2px;
+}
+
+.tl-item {
+	position: relative;
+	padding-bottom: 18px;
+}
+
+.tl-item:last-child {
+	padding-bottom: 0;
+}
+
+.tl-dot {
+	position: absolute;
+	right: -22px;
+	top: 2px;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--card);
+	border: 2px solid var(--line);
+	color: var(--muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.5rem;
+}
+
+.tl-item.tl-buy .tl-dot {
+	border-color: var(--up);
+	color: var(--up);
+}
+
+.tl-item.tl-cold .tl-dot {
+	border-color: var(--down);
+	color: var(--down);
+}
+
+.tl-item.tl-bot .tl-dot {
+	border-color: #7a5cc4;
+	color: #7a5cc4;
+}
+
+.tl-item.tl-ticket .tl-dot {
+	border-color: #c98a14;
+	color: #c98a14;
+}
+
+.tl-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.tl-title {
+	font-weight: 600;
+	font-size: 0.88rem;
+}
+
+.tl-time,
+.tl-actor {
+	font-size: 0.72rem;
+	color: var(--muted);
+}
+
+.tl-body {
+	margin-top: 6px;
+	padding: 9px 12px;
+	border-radius: 9px;
+	background: var(--card-2);
+	border: 1px solid var(--line);
+	font-size: 0.84rem;
+	line-height: 1.9;
+	white-space: pre-line;
+}
+
+.tl-note {
+	margin-top: 5px;
+	font-size: 0.78rem;
+	color: var(--muted);
+}
+
+.tl-kv {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 14px;
+	margin-top: 6px;
+	font-size: 0.78rem;
+	color: var(--muted);
+}
+
+/* ── جدول خریدها ────────────────────────────────────────────────── */
+
+.orders-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.84rem;
+}
+
+.orders-table th {
+	text-align: right;
+	font-size: 0.72rem;
+	font-weight: 500;
+	color: var(--muted);
+	padding: 0 8px 7px;
+	border-bottom: 1px solid var(--line);
+}
+
+.orders-table td {
+	padding: 9px 8px;
+	border-bottom: 1px solid var(--line);
+}
+
+.orders-table tr:last-child td {
+	border-bottom: none;
+}
+
+.orders-table .money {
+	font-weight: 600;
+}
+
+/* متنِ بلندِ داخل textarea نباید از کارت بزند بیرون - قالبِ متریال
+   ارتفاع را رشد نمی‌دهد، پس اسکرول خودش لازم است. */
+#messageDraft,
+#callNote,
+#internalNote {
+	overflow-y: auto;
+	resize: vertical;
+}

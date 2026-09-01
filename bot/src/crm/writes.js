@@ -236,10 +236,25 @@ export async function setLeadSource(env, body, actor) {
 
 // ─── ثبت تماس ────────────────────────────────────────────────────────
 
+/**
+ * وضعیتِ لید از روی نتیجه‌ی تماس.
+ *
+ * پیش از این، مشاور باید نتیجه را در یک فرم ثبت می‌کرد و وضعیت را با دو
+ * دکمه‌ی جدا عوض می‌کرد - و معمولاً دومی را فراموش می‌کرد، پس لیدی که
+ * سه بار با او حرف زده بودیم هنوز «در انتظار تماس» می‌ماند. حالا یک
+ * اتفاق، یک ثبت.
+ *
+ * فقط همان سه سطلی که reads.statusBucket می‌شناسد ساخته می‌شود؛ هر
+ * مقدارِ تازه‌ای اینجا یعنی لیدی که در هیچ تبِ فهرست پیدا نمی‌شود.
+ */
+export function statusForCallResult(result) {
+  return String(result || "").trim() === "جواب نداد" ? "پاسخ نداد" : "تماس گرفته شد";
+}
+
 export async function recordCall(env, body, actor) {
   const leadId = String(body.lead_id || "").trim();
   const result = String(body.result || "").trim();
-  if (!leadId) return bad("lead_id لازم است");
+  if (!leadId) return bad("نتیجه‌ی تماس بدون شناسه‌ی لید ثبت نمی‌شود");
   if (!result) return bad("نتیجه‌ی تماس لازم است");
 
   const lead = await env.DB
@@ -248,30 +263,118 @@ export async function recordCall(env, body, actor) {
     .first();
   if (!lead) return bad("لید پیدا نشد");
 
+  // پیگیری در همین فرم ست می‌شود. سه حالت دارد و هر سه باید از هم جدا
+  // بمانند: تاریخِ تازه، «پیگیری لازم نیست» (پاک کردن)، و دست‌نزدن.
+  const clearFollowup = body.clear_followup === true;
+  const { value: followup, rejected } = normalizeFollowup(body.next_step);
+  if (rejected) return bad("تاریخ پیگیری معتبر نیست");
+  const touchFollowup = clearFollowup || !!followup;
+  const followupValue = clearFollowup ? "" : followup;
+
   const callId = newId("CALL");
   const attempts = Number(lead.contact_attempts) || 0;
   const created = nowIso();
+  const status = statusForCallResult(result);
 
-  // ثبتِ تماس و به‌روزرسانیِ لید با هم می‌روند. اگر جدا بودند، یک شکست
-  // وسط کار یعنی تماسی که ثبت شده ولی شمارنده‌اش بالا نرفته - و آن
-  // ناهماهنگی بعداً در گزارش‌ها پیدا می‌شود، نه همان لحظه.
-  await env.DB.batch([
+  const writes = [
     env.DB
       .prepare(
         `INSERT INTO crm_calls (call_id, lead_id, admin_username, result, note, next_step, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(callId, leadId, actor || "", result, String(body.note || ""), String(body.next_step || ""), created),
-    env.DB
-      .prepare(
-        `UPDATE crm_leads SET contact_attempts = ?, last_call_result = ?, updated_at = ?
-          WHERE lead_id = ?`
-      )
-      .bind(attempts + 1, result, created, leadId),
-  ]);
+      .bind(callId, leadId, actor || "", result, String(body.note || ""), followupValue, created),
+  ];
+
+  // ثبتِ تماس و به‌روزرسانیِ لید با هم می‌روند. اگر جدا بودند، یک شکست
+  // وسط کار یعنی تماسی که ثبت شده ولی شمارنده‌اش بالا نرفته - و آن
+  // ناهماهنگی بعداً در گزارش‌ها پیدا می‌شود، نه همان لحظه.
+  if (touchFollowup) {
+    writes.push(
+      env.DB
+        .prepare(
+          `UPDATE crm_leads SET contact_attempts = ?, last_call_result = ?, status = ?,
+                                next_followup_at = ?, reminder_date = NULL, updated_at = ?
+            WHERE lead_id = ?`
+        )
+        .bind(attempts + 1, result, status, followupValue, created, leadId)
+    );
+  } else {
+    writes.push(
+      env.DB
+        .prepare(
+          `UPDATE crm_leads SET contact_attempts = ?, last_call_result = ?, status = ?, updated_at = ?
+            WHERE lead_id = ?`
+        )
+        .bind(attempts + 1, result, status, created, leadId)
+    );
+  }
+
+  await env.DB.batch(writes);
 
   await logActivity(env, leadId, "call", result, actor);
-  return { ok: true, call_id: callId, contact_attempts: attempts + 1 };
+  if (touchFollowup) {
+    await logActivity(env, leadId, "followup", followupValue || "پاک شد", actor);
+  }
+  return {
+    ok: true,
+    call_id: callId,
+    contact_attempts: attempts + 1,
+    status,
+    next_followup_at: touchFollowup ? followupValue : undefined,
+  };
+}
+
+// ─── ثبت خرید ────────────────────────────────────────────────────────
+
+/**
+ * خریدِ دستی.
+ *
+ * پرداخت روی سایت انجام می‌شود و هیچ‌جای CRM خبردار نمی‌شود، برای همین
+ * crm_orders خالی است و نیمی از داشبورد و گزارشِ شبانه صفر می‌ماند.
+ * تا وقتی درگاه به /intake/payment وصل نشده، این تنها راهِ ورودِ فروش
+ * به CRM است: مشاور که می‌داند طرف خریده، همان‌جا ثبتش می‌کند.
+ *
+ * source روی "manual" می‌ماند تا بعداً بشود فروشِ ثبت‌شده به‌دست آدم را
+ * از فروشِ آمده از درگاه جدا کرد.
+ */
+export async function recordPurchase(env, body, actor) {
+  const leadId = String(body.lead_id || "").trim();
+  if (!leadId) return bad("lead_id لازم است");
+
+  const amount = Math.round(Number(body.amount));
+  if (!isFinite(amount) || amount < 0) return bad("مبلغ معتبر نیست");
+
+  if (!(await leadExists(env, leadId))) return bad("لید پیدا نشد");
+
+  const productId = String(body.product_id || "").trim();
+  if (productId) {
+    const p = await env.DB
+      .prepare("SELECT product_id FROM crm_products WHERE product_id = ?")
+      .bind(productId)
+      .first();
+    if (!p) return bad("این محصول وجود ندارد");
+  }
+
+  // تاریخِ پرداخت اگر داده نشود «همین حالا» است. تاریخِ نامعتبر رد
+  // می‌شود نه اینکه بی‌صدا به حالا بیفتد - گزارشِ فروش روی همین ستون
+  // بازه می‌بندد و یک تاریخِ اشتباه، عددِ ماه را جابه‌جا می‌کند.
+  const { value: paidAt, rejected } = normalizeFollowup(body.payment_date);
+  if (rejected) return bad("تاریخ پرداخت معتبر نیست");
+  const created = nowIso();
+  const orderId = newId("ORD");
+
+  await env.DB
+    .prepare(
+      `INSERT INTO crm_orders (order_id, lead_id, product_id, amount, payment_status,
+                               payment_date, transaction_id, source, created_at)
+       VALUES (?, ?, ?, ?, 'paid', ?, ?, 'manual', ?)`
+    )
+    .bind(orderId, leadId, productId || null, amount, paidAt || created,
+          String(body.transaction_id || "").trim() || null, created)
+    .run();
+
+  await logActivity(env, leadId, "purchase", String(amount), actor);
+  return { ok: true, order_id: orderId, amount };
 }
 
 // ─── تیکت پشتیبانی ───────────────────────────────────────────────────

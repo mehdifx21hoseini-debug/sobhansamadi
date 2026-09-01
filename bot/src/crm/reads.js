@@ -255,7 +255,52 @@ export async function leadDetail(env, leadId) {
     assigned_to: j.assigned_to,
     next_followup_at: j.next_followup_at,
     ai_history: await aiHistoryFor(env, j.telegram_user_id),
+    calls: await all(
+      env,
+      "SELECT call_id, admin_username, result, note, next_step, created_at FROM crm_calls WHERE lead_id = ? ORDER BY created_at DESC",
+      j.lead_id
+    ),
+    orders: await leadOrders(env, j.lead_id),
+    tickets: await leadTickets(env, j.telegram_user_id),
   };
+}
+
+/**
+ * خریدهای همین لید، با نامِ محصول.
+ *
+ * نام در crm_orders نیست و فقط شناسه‌ی محصول ذخیره می‌شود، پس بدون این
+ * اتصال صفحه‌ی لید یک شناسه‌ی بی‌معنا نشان می‌داد. LEFT JOIN است چون
+ * خریدِ دستیِ «سایر» اصلاً محصولی ندارد.
+ */
+function leadOrders(env, leadId) {
+  return all(
+    env,
+    `SELECT o.order_id, o.product_id, o.amount, o.payment_status, o.payment_date,
+            o.transaction_id, o.source, o.created_at, p.name AS product_name
+       FROM crm_orders o
+       LEFT JOIN crm_products p ON p.product_id = o.product_id
+      WHERE o.lead_id = ?
+      ORDER BY o.created_at DESC`,
+    String(leadId || "")
+  );
+}
+
+/**
+ * تیکت‌های پشتیبانیِ همین شخص.
+ *
+ * اتصال از راه شناسه‌ی تلگرام است چون تیکت‌ها lead_id ندارند - ربات
+ * موقع ثبت تیکت نمی‌داند طرف لید هم هست. بدون شناسه‌ی تلگرام هیچ
+ * اتصالی ممکن نیست و فهرست خالی برمی‌گردد.
+ */
+function leadTickets(env, telegramUserId) {
+  const id = String(telegramUserId || "").trim();
+  if (!id) return Promise.resolve([]);
+  return all(
+    env,
+    `SELECT ticket_id, request_type, message, status, priority, assigned_to, created_at, updated_at
+       FROM crm_support_tickets WHERE telegram_user_id = ? ORDER BY created_at DESC`,
+    id
+  );
 }
 
 // ─── داشبورد مدیر ────────────────────────────────────────────────────

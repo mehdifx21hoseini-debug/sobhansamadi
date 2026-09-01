@@ -429,11 +429,38 @@
 		});
 	}
 
-	function recordCall(leadId, result, note, nextStep) {
+	// One call, one write. The endpoint also moves the lead's status and its
+	// follow-up date, so the consultant never has to remember a second step.
+	// followup: an ISO date to schedule, "" to leave the current one alone,
+	// or null to close the follow-up ("no follow-up needed").
+	function recordCall(leadId, result, note, followup) {
 		return request("/crm/calls", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ lead_id: leadId, result: result, note: note || "", next_step: nextStep || "" })
+			body: JSON.stringify({
+				lead_id: leadId,
+				result: result,
+				note: note || "",
+				next_step: followup || "",
+				clear_followup: followup === null
+			})
+		});
+	}
+
+	// Payments happen on the website and never reach the CRM, so a sale only
+	// exists here if the consultant records it. Without this, crm_orders stays
+	// empty and every revenue number in the panel reads zero.
+	function recordPurchase(leadId, payload) {
+		return request("/crm/lead/purchase", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				lead_id: leadId,
+				product_id: payload.productId || "",
+				amount: payload.amount,
+				payment_date: payload.paymentDate || "",
+				transaction_id: payload.reference || ""
+			})
 		});
 	}
 
@@ -672,6 +699,7 @@
 		fetchAdmins: fetchAdmins,
 		saveAdmin: saveAdmin,
 		recordCall: recordCall,
+		recordPurchase: recordPurchase,
 		assignLead: assignLead,
 		fetchFollowupsToday: fetchFollowupsToday,
 		fetchSalesKpi: fetchSalesKpi,

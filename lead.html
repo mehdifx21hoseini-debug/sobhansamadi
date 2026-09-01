@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=31">
+	<link rel="stylesheet" href="assets/app.css?v=32">
 	<link rel="stylesheet" href="assets/skin-ember.css?v=1">
 	<script>(function(){try{if(localStorage.getItem("crmSkin")==="ember")document.documentElement.setAttribute("data-skin","ember");}catch(e){}})();</script>
 	<link rel="stylesheet" href="assets/vendor/persian-datepicker.min.css">
@@ -112,59 +112,118 @@
 				</div>
 
 				<div id="leadContent" class="row m-1 animate-in">
-					<div class="col-md-8 p-2">
-
-						<div class="card shade mb-3">
+					<div class="col-12 p-2">
+						<div class="card shade lead-head mb-3">
 							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-start flex-wrap">
+								<div class="lead-head-top">
 									<div>
-										<h4 id="leadName" class="mb-1"></h4>
+										<h4 id="leadName" class="lead-head-name mb-1"></h4>
 										<div class="d-flex align-items-center">
 											<p id="leadPhone" class="text-muted mb-0" dir="ltr"></p>
-											<a href="#" id="btnCallLead" class="call-quick-btn d-md-none"
+											<a href="#" id="btnCallLead" class="call-quick-btn"
 												title="تماس با این شماره"><i class="fas fa-phone-alt"></i></a>
 										</div>
 									</div>
-									<div class="text-left">
-										<span id="leadStatusBadge" class="status-badge"></span>
-										<span id="leadRiskBadge" class="status-badge badge-noanswer ml-1 d-none" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i>در ریسک</span>
-									</div>
+									<div id="leadHeadBadges" class="lead-head-badges"></div>
 								</div>
 
-								<div id="leadQuickInfo" class="lead-quick-info mt-3"></div>
+								<div id="leadFacts" class="lead-facts"></div>
 
-								<div class="call-actions mt-3">
-									<button class="btn btn-call btn-called" id="btnCalled">
-										<i class="fas fa-phone mr-1"></i>تماس گرفته شد
-									</button>
-									<button class="btn btn-call btn-noanswer" id="btnNoAnswer">
-										<i class="fas fa-phone-slash mr-1"></i>پاسخ نداد
-									</button>
+								<div id="followupEditor" class="followup-editor d-none">
+									<div class="filter-tabs mb-2" id="reminderQuickPicks">
+										<button type="button" class="filter-tab" data-days="1">فردا</button>
+										<button type="button" class="filter-tab" data-days="3">۳ روز دیگر</button>
+										<button type="button" class="filter-tab" data-days="7">هفته دیگر</button>
+									</div>
+									<div class="followup-editor-row">
+										<input type="text" id="reminderDatePersian" class="form-control"
+											placeholder="انتخاب تاریخ" readonly>
+										<input type="hidden" id="reminderDate">
+										<button class="btn btn-brand btn-sm" id="btnSaveReminder">ثبت</button>
+										<button class="btn btn-outline-secondary btn-sm" id="btnClearReminder">پیگیری لازم نیست</button>
+									</div>
+									<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-info-circle mr-1"></i>در
+										این تاریخ، لید در کارتابل امروز بالا می‌آید.</p>
 								</div>
 							</div>
 						</div>
+					</div>
 
-						<div class="card shade mb-3">
+					<div class="col-lg-8 p-2">
+
+						<div class="card shade mb-3 call-card">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-phone-volume c-main mr-2"></i>ثبت نتیجه تماس فروش</h5>
-								<hr>
-								<div class="filter-tabs" id="callResultButtons">
-									<button class="filter-tab call-result-btn" data-result="جواب نداد">جواب نداد</button>
-									<button class="filter-tab call-result-btn" data-result="علاقه‌مند">علاقه‌مند</button>
-									<button class="filter-tab call-result-btn" data-result="نیاز به پیگیری">نیاز به پیگیری</button>
-									<button class="filter-tab call-result-btn" data-result="مخالفت">مخالفت</button>
-									<button class="filter-tab call-result-btn" data-result="درخواست اطلاعات بیشتر">درخواست اطلاعات بیشتر</button>
-									<button class="filter-tab call-result-btn" data-result="خرید کرد">خرید کرد</button>
-									<button class="filter-tab call-result-btn" data-result="نامرتبط">نامرتبط</button>
+								<div class="d-flex justify-content-between align-items-center flex-wrap">
+									<h5 class="card-title mb-0"><i class="fas fa-phone-volume c-main mr-2"></i>ثبت نتیجه تماس</h5>
+									<span id="lastCallHint" class="text-muted text-sm"></span>
 								</div>
-								<div id="callResultForm" class="mt-3 d-none">
-									<div class="mb-2"><span class="text-muted text-sm">نتیجه انتخاب‌شده: </span><strong id="callResultSelected"></strong></div>
-									<textarea id="callNote" class="form-control mb-2" rows="3" placeholder="یادداشت تماس (اختیاری)"></textarea>
-									<label class="text-muted text-sm mb-1" for="callNextStepPersian">تاریخ پیگیری بعدی (اختیاری)</label>
-									<input type="text" id="callNextStepPersian" class="form-control mb-2" placeholder="انتخاب تاریخ" readonly>
-									<input type="hidden" id="callNextStep">
-									<button class="btn btn-brand btn-sm" id="btnSubmitCallResult">ثبت تماس</button>
-									<button class="btn btn-outline-secondary btn-sm" id="btnCancelCallResult">انصراف</button>
+								<hr>
+
+								<div class="call-step">
+									<p class="call-step-label"><span class="call-step-num">۱</span>نتیجه‌ی تماس چه بود؟</p>
+									<div class="filter-tabs" id="callResultButtons">
+										<button class="filter-tab call-result-btn" data-result="جواب نداد">جواب نداد</button>
+										<button class="filter-tab call-result-btn" data-result="علاقه‌مند">علاقه‌مند</button>
+										<button class="filter-tab call-result-btn" data-result="نیاز به پیگیری">نیاز به پیگیری</button>
+										<button class="filter-tab call-result-btn" data-result="درخواست اطلاعات بیشتر">درخواست اطلاعات بیشتر</button>
+										<button class="filter-tab call-result-btn" data-result="مخالفت">مخالفت</button>
+										<button class="filter-tab call-result-btn call-result-buy" data-result="خرید کرد">خرید کرد</button>
+										<button class="filter-tab call-result-btn" data-result="نامرتبط">نامرتبط</button>
+									</div>
+								</div>
+
+								<div id="callResultForm" class="d-none">
+									<div class="call-step">
+										<p class="call-step-label"><span class="call-step-num">۲</span>چه گفت؟ <span class="text-muted">(اختیاری)</span></p>
+										<textarea id="callNote" class="form-control" rows="3"
+											placeholder="مثلاً: گفت تا آخر هفته تصمیم می‌گیرد."></textarea>
+									</div>
+
+									<div class="call-step">
+										<p class="call-step-label"><span class="call-step-num">۳</span>قدم بعدی</p>
+										<div class="filter-tabs mb-2" id="callNextPicks">
+											<button type="button" class="filter-tab" data-days="1">فردا</button>
+											<button type="button" class="filter-tab" data-days="3">۳ روز دیگر</button>
+											<button type="button" class="filter-tab" data-days="7">هفته دیگر</button>
+											<button type="button" class="filter-tab" data-days="custom">تاریخ دلخواه…</button>
+											<button type="button" class="filter-tab" data-days="none">پیگیری لازم نیست</button>
+										</div>
+										<input type="text" id="callNextStepPersian" class="form-control d-none"
+											placeholder="انتخاب تاریخ" readonly>
+										<input type="hidden" id="callNextStep">
+										<p id="callNextHint" class="text-muted text-sm mt-2 mb-0"></p>
+									</div>
+
+									<div id="purchaseBox" class="purchase-box d-none">
+										<p class="call-step-label"><span class="call-step-num call-step-buy"><i class="fas fa-check"></i></span>ثبت خرید</p>
+										<div class="row">
+											<div class="col-sm-6 mb-2">
+												<label class="text-muted text-sm mb-1" for="purchaseProduct">دوره / محصول</label>
+												<select id="purchaseProduct" class="form-control"></select>
+											</div>
+											<div class="col-sm-6 mb-2">
+												<label class="text-muted text-sm mb-1" for="purchaseAmount">مبلغ پرداختی (تومان)</label>
+												<input type="text" id="purchaseAmount" class="form-control" inputmode="numeric" dir="ltr" placeholder="0">
+											</div>
+											<div class="col-sm-6 mb-2">
+												<label class="text-muted text-sm mb-1" for="purchaseDatePersian">تاریخ پرداخت</label>
+												<input type="text" id="purchaseDatePersian" class="form-control" placeholder="امروز" readonly>
+												<input type="hidden" id="purchaseDate">
+											</div>
+											<div class="col-sm-6 mb-2">
+												<label class="text-muted text-sm mb-1" for="purchaseRef">شماره پیگیری (اختیاری)</label>
+												<input type="text" id="purchaseRef" class="form-control" dir="ltr" placeholder="رسید، کارت‌به‌کارت، …">
+											</div>
+										</div>
+										<p class="text-muted text-sm mb-0"><i class="fas fa-info-circle mr-1"></i>پرداخت
+											روی سایت انجام می‌شود و به CRM نمی‌رسد؛ تا وصل شدن درگاه، فروش فقط از
+											همین‌جا وارد داشبورد و گزارش شبانه می‌شود.</p>
+									</div>
+
+									<div class="mt-3">
+										<button class="btn btn-brand btn-sm" id="btnSubmitCallResult">ثبت تماس</button>
+										<button class="btn btn-outline-secondary btn-sm" id="btnCancelCallResult">انصراف</button>
+									</div>
 								</div>
 								<div id="callResultMsg" class="text-sm mt-2 d-none"></div>
 							</div>
@@ -172,140 +231,75 @@
 
 						<div class="card shade mb-3">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-book-open c-main mr-2"></i>اطلاعات ثبت‌شده در
-									ربات تلگرام</h5>
-								<hr>
-								<div class="row">
-									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">دوره درخواستی</div>
-										<div id="leadCourse"></div>
-									</div>
-									<div class="col-sm-6 mb-2">
-										<div class="text-muted text-sm">نوع درخواست</div>
-										<div id="leadRequestType"></div>
+								<div class="d-flex justify-content-between align-items-center flex-wrap">
+									<h5 class="card-title mb-0"><i class="fas fa-stream c-main mr-2"></i>تاریخچه‌ی این فرد</h5>
+									<div class="filter-tabs mb-0" id="timelineTabs">
+										<button class="filter-tab active" data-group="all">همه</button>
+										<button class="filter-tab" data-group="team">تماس و یادداشت</button>
+										<button class="filter-tab" data-group="bot">از ربات</button>
+										<button class="filter-tab" data-group="ticket">پشتیبانی</button>
 									</div>
 								</div>
+								<hr>
+								<div id="leadTimeline" class="lead-timeline"></div>
 							</div>
 						</div>
 
 						<div class="card shade mb-3">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-comments c-main mr-2"></i>سوالات مشاوره و پیام‌های تلگرام</h5>
-								<hr>
-								<div id="leadNotesTimeline" class="notes-timeline"></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3 d-none" id="aiHistoryCard">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-robot c-main mr-2"></i>مکالمه با ربات هوشمند (FAQ)</h5>
-								<hr>
-								<div id="aiHistoryBox" class="ai-history-box"></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-center">
-									<h5 class="card-title mb-0"><i class="fas fa-paper-plane c-main mr-2"></i>ارسال
-										پیام به تلگرام</h5>
-									<button class="btn btn-sm btn-brand" id="btnOpenComposer">ارسال پیام</button>
+								<div class="d-flex justify-content-between align-items-center flex-wrap">
+									<h5 class="card-title mb-0"><i class="fas fa-sack-dollar c-main mr-2"></i>خریدها</h5>
+									<button class="btn btn-outline-secondary btn-sm" id="btnAddPurchase">ثبت خرید</button>
 								</div>
 								<hr>
-
-								<div class="filter-tabs mb-2" id="messageTemplateButtons"></div>
-
-								<div id="composerBox" class="d-none">
-									<textarea id="messageDraft" class="form-control" rows="8"></textarea>
-									<div class="mt-2">
-										<button class="btn btn-brand btn-sm" id="btnSendMessage">ارسال به
-											تلگرام</button>
-										<button class="btn btn-outline-secondary btn-sm"
-											id="btnCancelComposer">انصراف</button>
-									</div>
-									<p class="text-muted text-sm mt-2">پیام مستقیماً از طریق ربات تلگرام برای این
-										فرد ارسال می‌شود.</p>
-								</div>
-
-								<div id="sendResult" class="d-none"></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-history c-main mr-2"></i>تایم‌لاین کامل مشتری</h5>
-								<hr>
-								<div id="activityLog" class="activity-log"></div>
+								<div id="ordersBox"></div>
 							</div>
 						</div>
 
 					</div>
 
-					<div class="col-md-4 p-2">
+					<div class="col-lg-4 p-2">
 						<div class="card shade mb-3">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-clock c-main mr-2"></i>وضعیت</h5>
+								<h5 class="card-title"><i class="fas fa-paper-plane c-main mr-2"></i>ارسال پیام تلگرام</h5>
 								<hr>
-								<div class="info-row"><span class="text-muted">شناسه لید</span><span
-										id="leadId" class="mono"></span></div>
-								<div class="info-row"><span class="text-muted">دفعات تماس</span><span
-										id="leadContactAttempts"></span></div>
-								<div class="info-row"><span class="text-muted">تاریخ ثبت</span><span
-										id="leadCreatedAt"></span></div>
-								<div class="info-row"><span class="text-muted">آخرین به‌روزرسانی</span><span
-										id="leadUpdatedAt"></span></div>
-								<div class="info-row"><span class="text-muted">امتیاز لید</span><span id="leadScore"></span></div>
-								<div class="info-row"><span class="text-muted">کیفیت</span><span id="leadQuality"></span></div>
-								<div class="info-row"><span class="text-muted">منبع</span><select id="leadSourceSelect" class="source-select"></select></div>
-								<div class="info-row"><span class="text-muted">نتیجه آخرین تماس</span><span id="leadLastCallResult"></span></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-user-tag c-main mr-2"></i>ارجاع لید</h5>
-								<hr>
-								<select id="assignSelect" class="form-control mb-2">
-									<option value="">— بدون ارجاع —</option>
-								</select>
-								<button class="btn btn-brand btn-sm" id="btnSaveAssign">ثبت ارجاع</button>
-								<div id="assignMsg" class="text-sm mt-2 d-none"></div>
-							</div>
-						</div>
-
-						<div class="card shade mb-3">
-							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-bell c-main mr-2"></i>پیگیری بعدی</h5>
-								<hr>
-								<div class="filter-tabs mb-2" id="reminderQuickPicks">
-									<button type="button" class="filter-tab" data-days="1">فردا</button>
-									<button type="button" class="filter-tab" data-days="3">۳ روز دیگه</button>
-									<button type="button" class="filter-tab" data-days="7">هفته دیگه</button>
-								</div>
-								<input type="text" id="reminderDatePersian" class="form-control" placeholder="انتخاب تاریخ" readonly>
-								<input type="hidden" id="reminderDate">
+								<div class="filter-tabs mb-2" id="messageTemplateButtons"></div>
+								<textarea id="messageDraft" class="form-control" rows="6"></textarea>
 								<div class="mt-2">
-									<button class="btn btn-brand btn-sm" id="btnSaveReminder">ثبت یادآوری</button>
-									<button class="btn btn-outline-secondary btn-sm" id="btnClearReminder">حذف</button>
+									<button class="btn btn-brand btn-sm" id="btnSendMessage">ارسال</button>
 								</div>
-								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-info-circle mr-1"></i>در این
-									تاریخ، این لید هم در تب «نیاز به پیگیری» و هم در صفحه‌ی «پیگیری‌های امروز»
-									نمایش داده می‌شود. با دکمه «حذف» پیگیری بسته می‌شود.</p>
+								<div id="sendResult" class="text-sm mt-2 d-none"></div>
 							</div>
 						</div>
 
-						<div class="card shade">
+						<div class="card shade mb-3">
 							<div class="card-body">
-								<h5 class="card-title"><i class="fas fa-sticky-note c-main mr-2"></i>افزودن یادداشت
-									داخلی</h5>
+								<h5 class="card-title"><i class="fas fa-sticky-note c-main mr-2"></i>یادداشت داخلی</h5>
 								<hr>
-								<textarea id="internalNote" class="form-control" rows="5"
-									placeholder="مثلاً: با رضا تماس گرفتم، علاقه‌مند بود..."></textarea>
+								<textarea id="internalNote" class="form-control" rows="3"
+									placeholder="چیزی که فقط تیم می‌بیند…"></textarea>
 								<div class="mt-2">
 									<button class="btn btn-brand btn-sm" id="btnSaveNote">ثبت یادداشت</button>
 								</div>
-								<p class="text-muted text-sm mt-2 mb-0"><i class="fas fa-comment-alt mr-1"></i>این
-									یادداشت فقط برای تیم داخلی است و برای فرد ارسال نمی‌شود.</p>
+							</div>
+						</div>
+
+						<div class="card shade mb-3">
+							<div class="card-body">
+								<h5 class="card-title"><i class="fas fa-id-card c-main mr-2"></i>مشخصات پرونده</h5>
+								<hr>
+								<div class="info-row"><span class="text-muted">مسئول</span><span>
+										<select id="assignSelect" class="source-select">
+											<option value="">— بدون ارجاع —</option>
+										</select></span></div>
+								<div id="assignMsg" class="text-sm mb-2 d-none"></div>
+								<div class="info-row"><span class="text-muted">منبع</span><select id="leadSourceSelect" class="source-select"></select></div>
+								<div class="info-row"><span class="text-muted">نوع درخواست</span><span id="leadRequestType"></span></div>
+								<div class="info-row"><span class="text-muted">دوره درخواستی</span><span id="leadCourse"></span></div>
+								<div class="info-row"><span class="text-muted">شناسه لید</span><span id="leadId" class="mono"></span></div>
+								<div class="info-row"><span class="text-muted">تلگرام</span><span id="leadTelegram" class="mono"></span></div>
+								<div class="info-row"><span class="text-muted">تاریخ ثبت</span><span id="leadCreatedAt"></span></div>
+								<div class="info-row"><span class="text-muted">آخرین به‌روزرسانی</span><span id="leadUpdatedAt"></span></div>
 							</div>
 						</div>
 					</div>
@@ -416,11 +410,11 @@
 
 	<script src="js/theme.js?v=2"></script>
 	<script src="js/skin.js?v=1"></script>
-	<script src="js/data.js?v=14"></script>
+	<script src="js/data.js?v=15"></script>
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/lead.js?v=6"></script>
+	<script src="js/lead.js?v=7"></script>
 </body>
 
 </html>
