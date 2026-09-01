@@ -48,6 +48,9 @@ const INGEST_CRON = "17 * * * *";
 // ندارد، پس این نگاشت تمام سال ثابت است.
 const SALES_REPORT_CRON = "30 17 * * *";
 
+// مسیر ثابتِ وبهوک. عمداً توکن در آن نیست - توضیحش کنار خودِ مسیر.
+const WEBHOOK_PATH = "/webhook/tg";
+
 // grammy طبیعتاً روی اولین استفاده از بات یک درخواست getMe به تلگرام
 // می‌زند تا اطلاعات خود بات را بگیرد. چون این Worker برای هر پیام یک
 // نمونه‌ی تازه از Bot می‌سازد (روی Cloudflare Workers نمی‌شود حالت
@@ -70,7 +73,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-8";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-9";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -102,6 +105,47 @@ async function ensureChannelPostsAllowed(bot) {
   // drop_pending_updates عمداً false است تا پیامی در صف از بین نرود.
   await bot.api.setWebhook(info.url, { allowed_updates: next, drop_pending_updates: false });
   console.log("allowed_updates اصلاح شد:", JSON.stringify(next));
+}
+
+
+// پردازش یک آپدیت تلگرام. از دو مسیر صدا زده می‌شود، پس یک‌جا نوشته
+// شده - وگرنه روزی یکی‌شان اصلاح می‌شد و دیگری نه.
+//
+// تلگرام آپدیت‌ها را برای هر بات پشت‌سرهم می‌فرستد و اگر پاسخ ۲۰۰ نگیرد،
+// همان آپدیت را دوباره و دوباره می‌فرستد. یعنی یک آپدیتِ مسموم که همیشه
+// خطا می‌دهد، صف را کامل می‌بندد و هیچ پیام دیگری از هیچ کاربری پردازش
+// نمی‌شود - رباتی که کاملاً مرده به نظر می‌رسد، به‌خاطر یک پیام.
+//
+// پس هر خطای پیش‌بینی‌نشده اینجا گرفته می‌شود و باز ۲۰۰ برمی‌گردد: آن یک
+// آپدیت از دست می‌رود، ولی بقیه راه می‌افتند.
+//
+// مهم: این حفاظ کلِ تابع را می‌گیرد، نه فقط پردازش آپدیت را. نسخه‌ی قبلی
+// فقط دور webhookCallback بود و bot.init() بیرونش می‌ماند - یک getMe که
+// به تلگرام نمی‌رسید، ورکر را ۵۰۰ می‌کرد و همان صف را می‌بست که این حفاظ
+// قرار بود باز نگه دارد.
+async function handleTelegramUpdate(request, env) {
+  try {
+    const bot = createBot(env.BOT_TOKEN, env, cachedBotInfo, BUILD);
+    if (!cachedBotInfo) {
+      await bot.init();
+      cachedBotInfo = bot.botInfo;
+    }
+    // شکستش نباید جلوی پردازش پیام را بگیرد: یک فهرست دستور، به‌اندازه‌ی
+    // پاسخ ندادن به کاربر مهم نیست.
+    if (!commandsRegistered) {
+      commandsRegistered = true;
+      await bot.api
+        .setMyCommands(PUBLIC_COMMANDS)
+        .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
+      await ensureChannelPostsAllowed(bot).catch((err) =>
+        console.error("بررسی allowed_updates شکست خورد:", err && err.message)
+      );
+    }
+    return await webhookCallback(bot, "cloudflare-mod")(request);
+  } catch (err) {
+    console.error("پردازش آپدیت شکست خورد:", err && (err.stack || err.message));
+    return new Response("ok", { status: 200 });
+  }
 }
 
 function json(body, status = 200) {
@@ -224,6 +268,65 @@ async function handleAdmin(request, url, env) {
         : await importAll(env);
       const failed = result.filter((r) => r.error);
       return json({ ok: failed.length === 0, build: BUILD, tables: result }, failed.length ? 502 : 200);
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
+  // ثبت وبهوک روی مسیر ثابت.
+  //
+  // چرا اندپوینت و نه یک آدرس در مرورگر: راه دستی یعنی توکن ربات را در
+  // نوار آدرس تایپ کنی، که همان‌جا در تاریخچه‌ی مرورگر می‌ماند و در هر
+  // اسکرین‌شاتی پیداست. اینجا توکن از Secret خوانده می‌شود و هیچ‌جا
+  // نوشته نمی‌شود.
+  //
+  // بدون پارامتر فقط وضعیت فعلی را نشان می‌دهد؛ ?apply=yes ثبتش می‌کند.
+  if (url.pathname === "/admin/webhook") {
+    if (!env.BOT_TOKEN) return json({ ok: false, error: "BOT_TOKEN تنظیم نشده" }, 503);
+    const api = "https://api.telegram.org/bot" + env.BOT_TOKEN + "/";
+    try {
+      const info = await (await fetch(api + "getWebhookInfo")).json();
+      const current = (info && info.result) || {};
+      const target = url.origin + WEBHOOK_PATH;
+
+      if (url.searchParams.get("apply") !== "yes") {
+        return json({
+          ok: true,
+          build: BUILD,
+          secret_set: !!env.WEBHOOK_SECRET,
+          current_url: current.url || "(ثبت نشده)",
+          on_new_path: current.url === target,
+          pending_updates: current.pending_update_count,
+          last_error: current.last_error_message || null,
+          target,
+          hint: "برای ثبت: همین آدرس را با ?apply=yes صدا بزنید",
+        });
+      }
+
+      if (!env.WEBHOOK_SECRET) {
+        return json({ ok: false, error: "اول WEBHOOK_SECRET را در Secrets بگذارید" }, 400);
+      }
+
+      // allowed_updates فعلی حفظ می‌شود و دو نوع لازم به آن اضافه -
+      // بازنویسی‌اش با فهرست خالی یعنی پست‌های کانال دوباره قطع شوند.
+      const allowed = Array.isArray(current.allowed_updates) && current.allowed_updates.length
+        ? [...new Set([...current.allowed_updates, ...REQUIRED_UPDATES])]
+        : undefined;
+
+      const res = await fetch(api + "setWebhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: target,
+          secret_token: env.WEBHOOK_SECRET,
+          // درخواست‌های در صف نباید دور ریخته شوند: هرکدام یک پیام
+          // واقعی از یک کاربر واقعی است.
+          drop_pending_updates: false,
+          ...(allowed ? { allowed_updates: allowed } : {}),
+        }),
+      });
+      const out = await res.json();
+      return json({ ok: out.ok === true, build: BUILD, target, telegram: out }, out.ok ? 200 : 502);
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
     }
@@ -441,7 +544,8 @@ export default {
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
       url.pathname === "/admin/crm-lead-delete" ||
-      url.pathname === "/admin/sales-report"
+      url.pathname === "/admin/sales-report" ||
+      url.pathname === "/admin/webhook"
     ) {
       return handleAdmin(request, url, env);
     }
@@ -536,43 +640,28 @@ export default {
       return json(body, status);
     }
 
-    if (url.pathname === `/webhook/${env.BOT_TOKEN}`) {
-      // تلگرام آپدیت‌ها را برای هر بات پشت‌سرهم می‌فرستد و اگر پاسخ ۲۰۰
-      // نگیرد، همان آپدیت را دوباره و دوباره می‌فرستد. یعنی یک آپدیتِ
-      // مسموم که همیشه خطا می‌دهد، صف را کامل می‌بندد و هیچ پیام دیگری
-      // از هیچ کاربری پردازش نمی‌شود - رباتی که کاملاً مرده به نظر
-      // می‌رسد، به‌خاطر یک پیام.
-      //
-      // پس هر خطای پیش‌بینی‌نشده اینجا گرفته می‌شود و باز ۲۰۰ برمی‌گردد:
-      // آن یک آپدیت از دست می‌رود، ولی بقیه راه می‌افتند. خطا در لاگ
-      // می‌ماند تا علتش پیدا شود.
-      //
-      // مهم: این حفاظ کلِ شاخه را می‌گیرد، نه فقط پردازش آپدیت را.
-      // نسخه‌ی قبلی فقط دور webhookCallback بود و bot.init() بیرونش
-      // می‌ماند - یک getMe که به تلگرام نمی‌رسید، ورکر را ۵۰۰ می‌کرد و
-      // همان صف را می‌بست که این حفاظ قرار بود باز نگه دارد.
-      try {
-        const bot = createBot(env.BOT_TOKEN, env, cachedBotInfo, BUILD);
-        if (!cachedBotInfo) {
-          await bot.init();
-          cachedBotInfo = bot.botInfo;
-        }
-        // شکستش نباید جلوی پردازش پیام را بگیرد: یک فهرست دستور،
-        // به‌اندازه‌ی پاسخ ندادن به کاربر مهم نیست.
-        if (!commandsRegistered) {
-          commandsRegistered = true;
-          await bot.api
-            .setMyCommands(PUBLIC_COMMANDS)
-            .catch((err) => console.error("ثبت فهرست دستورها شکست خورد:", err && err.message));
-          await ensureChannelPostsAllowed(bot).catch((err) =>
-            console.error("بررسی allowed_updates شکست خورد:", err && err.message)
-          );
-        }
-        return await webhookCallback(bot, "cloudflare-mod")(request);
-      } catch (err) {
-        console.error("پردازش آپدیت شکست خورد:", err && (err.stack || err.message));
-        return new Response("ok", { status: 200 });
+    // دو در برای یک اتاق.
+    //
+    // مسیر ثابت، راه تازه است: توکن دیگر در آدرس نیست و به‌جایش تلگرام
+    // یک هدر مخفی می‌فرستد که با WEBHOOK_SECRET سنجیده می‌شود. فایده‌اش
+    // این است که عوض کردن توکن دیگر آدرس را عوض نمی‌کند - پیش از این،
+    // هر تعویض توکن یعنی ثبت دوباره‌ی وبهوک، و اگر کسی آن مرحله را جا
+    // می‌انداخت ربات بی‌صدا ساکت می‌شد.
+    //
+    // مسیر قدیمیِ توکن‌دار عمداً باز مانده تا تا وقتی وبهوک روی آدرس
+    // تازه ثبت نشده، ربات از کار نیفتد. بعد از سوییچ می‌شود برداشتش.
+    if (url.pathname === WEBHOOK_PATH) {
+      const given = request.headers.get("x-telegram-bot-api-secret-token") || "";
+      // بسته‌شکست: اگر رازی تنظیم نشده، این در اصلاً باز نمی‌شود. یک
+      // مسیر ثابتِ بی‌محافظ یعنی هر کسی می‌تواند آپدیت جعلی بفرستد.
+      if (!env.WEBHOOK_SECRET || given !== env.WEBHOOK_SECRET) {
+        return new Response("unauthorized", { status: 401 });
       }
+      return handleTelegramUpdate(request, env);
+    }
+
+    if (url.pathname === `/webhook/${env.BOT_TOKEN}`) {
+      return handleTelegramUpdate(request, env);
     }
 
     return new Response("not found", { status: 404 });
