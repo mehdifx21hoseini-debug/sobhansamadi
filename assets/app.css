@@ -1895,47 +1895,29 @@ body::before {
 		var(--card);
 }
 
+/* سربرگ جدول.
+   پیش از این یک نوارِ سرمه‌ای پررنگ با متنِ سفیدِ درشت بود. در یک صفحه
+   که خودِ داده کم‌رنگ و آرام است، سنگین‌ترین چیزِ صفحه برچسبِ ستون‌ها
+   می‌شد - چیزی که آدم فقط یک بار می‌خواند. حالا زمینه‌ای آرام دارد و
+   برچسب‌ها ریز و کم‌رنگ‌اند؛ یک خطِ فیروزه‌ای زیرش می‌گوید کجا تمام
+   می‌شود، چون سربرگ چسبان است و موقع اسکرول باید از ردیف‌ها جدا بماند. */
 .crm-data-table thead th {
 	position: sticky;
 	top: 0;
 	z-index: 2;
-	background: linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
-	color: #f3f5fb;
-	font-weight: 700;
-	font-size: 0.82rem;
-	padding-top: 12px;
-	padding-bottom: 12px;
-	box-shadow: inset 0 -2px 0 var(--teal), 0 2px 6px rgba(16, 24, 60, .12);
+	background: var(--card-2);
+	color: var(--muted);
+	font-weight: 600;
+	font-size: 0.75rem;
+	letter-spacing: .01em;
+	padding-top: 11px;
+	padding-bottom: 11px;
+	border-bottom: 2px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+	box-shadow: 0 4px 10px -8px rgba(16, 24, 60, .5);
 }
 
 .dark .crm-data-table thead th {
-	background: linear-gradient(180deg, #1f2c56 0%, var(--brand-navy-dark) 100%);
-	color: #f3f5fb;
-	box-shadow: inset 0 -2px 0 var(--teal), 0 2px 8px rgba(0, 0, 0, .35);
-}
-
-/* A colored rail on the leading cell echoes the same at-a-glance queue
-   the mentoring cards use: what still needs a call jumps out without
-   reading the status column. */
-.lead-row td:first-child {
-	border-right: 3px solid transparent;
-	transition: border-color .15s;
-}
-
-.lead-row.row-badge-pending td:first-child {
-	border-right-color: color-mix(in srgb, var(--accent) 55%, transparent);
-}
-
-.lead-row.row-badge-called td:first-child {
-	border-right-color: color-mix(in srgb, var(--up, #1a9e6b) 55%, transparent);
-}
-
-.lead-row.row-badge-noanswer td:first-child {
-	border-right-color: color-mix(in srgb, var(--down, #d84343) 55%, transparent);
-}
-
-.lead-row.row-at-risk td:first-child {
-	border-right-color: var(--down, #d84343);
+	box-shadow: 0 4px 12px -8px rgba(0, 0, 0, .7);
 }
 
 /* Quick-call button in the phone column: same pull-to-act treatment as
@@ -4453,9 +4435,10 @@ td.drawer-cell {
 	background: var(--card-2);
 }
 
+/* کشو با زمینه‌ی متفاوت از ردیف‌ها جدا می‌شود، نه با خطِ رنگیِ کناری -
+   هیچ خطِ عمودی‌ای در این جدول نمی‌ماند. */
 .lead-drawer {
 	padding: 14px 16px 16px;
-	border-right: 3px solid var(--accent);
 }
 
 .lead-drawer-head {

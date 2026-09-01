@@ -1536,27 +1536,16 @@
 		radial-gradient(140% 60px at 15% 0%, color-mix(in srgb, var(--teal) 14%, transparent), transparent),
 		var(--card);
 }
+/* سربرگ جدول در طرح نارنجی هم همان سربرگِ آرام است؛ فقط رنگِ خطِ زیرش
+   از توکنِ همین طرح می‌آید. ریلِ رنگیِ کنار ردیف‌ها برداشته شد. */
 [data-skin="ember"] .crm-data-table thead th {
-	background: linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%);
-	color: #fbf8f6;
-	box-shadow: inset 0 -2px 0 var(--teal), 0 2px 6px rgba(60, 57, 54, .12);
+	background: var(--card-2);
+	color: var(--muted);
+	border-bottom-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+	box-shadow: 0 4px 10px -8px rgba(60, 57, 54, .5);
 }
 [data-skin="ember"] .dark .crm-data-table thead th {
-	background: linear-gradient(180deg, #56524e 0%, var(--brand-navy-dark) 100%);
-	color: #fbf8f6;
-	box-shadow: inset 0 -2px 0 var(--teal), 0 2px 8px rgba(0, 0, 0, .35);
-}
-[data-skin="ember"] .lead-row.row-badge-pending td:first-child {
-	border-right-color: color-mix(in srgb, var(--accent) 55%, transparent);
-}
-[data-skin="ember"] .lead-row.row-badge-called td:first-child {
-	border-right-color: color-mix(in srgb, var(--up, #1a9e6b) 55%, transparent);
-}
-[data-skin="ember"] .lead-row.row-badge-noanswer td:first-child {
-	border-right-color: color-mix(in srgb, var(--down, #d8434d) 55%, transparent);
-}
-[data-skin="ember"] .lead-row.row-at-risk td:first-child {
-	border-right-color: var(--down, #d8434d);
+	box-shadow: 0 4px 12px -8px rgba(0, 0, 0, .7);
 }
 [data-skin="ember"] .quick-call-btn {
 	background: color-mix(in srgb, var(--up, #1a9e6b) 14%, transparent);
