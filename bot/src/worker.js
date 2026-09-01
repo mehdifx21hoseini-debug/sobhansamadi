@@ -70,7 +70,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-7";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-8";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -236,8 +236,9 @@ async function handleAdmin(request, url, env) {
   // پیش‌فرض فقط متن را برمی‌گرداند؛ ?send=yes واقعاً می‌فرستد.
   if (url.pathname === "/admin/sales-report") {
     try {
-      if (url.searchParams.get("send") === "yes") {
-        return json({ ok: true, build: BUILD, sent: await sendDailyReport(env) });
+      const send = url.searchParams.get("send");
+      if (send === "yes" || send === "owner") {
+        return json({ ok: true, build: BUILD, sent: await sendDailyReport(env, send === "owner" ? "owner" : "admins") });
       }
       const [leads, calls, orders] = await Promise.all([
         env.DB.prepare("SELECT lead_id, created_at FROM crm_leads").all(),

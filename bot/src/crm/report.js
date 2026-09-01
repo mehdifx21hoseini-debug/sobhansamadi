@@ -10,6 +10,7 @@
 
 import { computeSalesKpi } from "./dashboards.js";
 import { notifyAdmins } from "./intake.js";
+import { OWNER_ID } from "../owner.js";
 
 const TEHRAN = "Asia/Tehran";
 
@@ -70,8 +71,14 @@ export function buildReport(leads, calls, orders, now = new Date()) {
   };
 }
 
-/** خواندن، ساختن، فرستادن. */
-export async function sendDailyReport(env) {
+/**
+ * خواندن، ساختن، فرستادن.
+ *
+ * @param {"admins"|"owner"} to گیرنده. «owner» برای آزمودنِ خودِ مسیر
+ *   است بدون اینکه کلِ تیم نیمه‌شب پیام بگیرد - یک گزارشِ آزمایشی که
+ *   برای هفت نفر برود، از نفرستادنش بدتر است.
+ */
+export async function sendDailyReport(env, to = "admins") {
   const [leads, calls, orders] = await Promise.all([
     env.DB.prepare("SELECT lead_id, created_at FROM crm_leads").all(),
     env.DB.prepare("SELECT call_id, created_at FROM crm_calls").all(),
@@ -81,8 +88,20 @@ export async function sendDailyReport(env) {
   const report = buildReport(
     leads.results || [], calls.results || [], orders.results || []
   );
-  const out = await notifyAdmins(env, report.text);
+  const out = to === "owner"
+    ? await sendTo(env, OWNER_ID, report.text)
+    : await notifyAdmins(env, report.text);
   return { ...out, leads_today: report.leads_today, purchases_today: report.purchases_today };
+}
+
+async function sendTo(env, chatId, text) {
+  const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(10000),
+    body: JSON.stringify({ chat_id: String(chatId), text }),
+  });
+  return res.ok ? { sent: 1, failed: 0 } : { sent: 0, failed: 1 };
 }
 
 // برای پیوند دادنِ این ماژول به داشبورد، تا اگر روزی فرمول عوض شد در دو
