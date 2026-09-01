@@ -452,7 +452,7 @@
 				renderStats(state.items);
 				render();
 			}).catch(function (err) {
-				alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
+				CrmToast.error("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
 				$select.val(previous);
 			}).finally(function () { $select.removeClass("is-saving"); });
 		});
@@ -469,7 +469,7 @@
 				item.updated_at = new Date().toISOString();
 				render();
 			}).catch(function (err) {
-				alert("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
+				CrmToast.error("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
 				$select.val(previous);
 			}).finally(function () { $select.removeClass("is-saving"); });
 		});

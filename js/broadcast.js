@@ -51,17 +51,24 @@
 			} else if (hoursSince(b.created_at) < DELETE_WINDOW_HOURS) {
 				var $btn = $('<button class="btn btn-sm btn-outline-secondary"><i class="fas fa-trash mr-1"></i>حذف برای همه</button>');
 				$btn.on("click", function () {
-					if (!confirm("این پیام برای همه‌ی " + b.sent_count + " گیرنده حذف بشه؟ این کار قابل بازگشت نیست.")) return;
-					$btn.prop("disabled", true);
-					CrmData.deleteBroadcast(b.batch_id)
-						.then(function (res) {
-							alert("حذف شد — " + res.deleted + " موفق، " + res.failed + " ناموفق.");
-							loadHistory();
-						})
-						.catch(function (err) {
-							alert("خطا در حذف: " + (err.message || "خطای نامشخص"));
-							$btn.prop("disabled", false);
-						});
+					// حذفِ پیام از چتِ چند صد نفر برگشت‌پذیر نیست، پس این
+					// یکی هنوز تایید می‌گیرد - ولی نه با پنجره‌ی مرورگر.
+					CrmToast.confirm(
+						"این پیام از چتِ همه‌ی " + b.sent_count + " گیرنده پاک می‌شود و برگشتی ندارد.",
+						{ title: "حذف پیام همگانی؟", confirmLabel: "حذف کن", danger: true }
+					).then(function (yes) {
+						if (!yes) return;
+						$btn.prop("disabled", true);
+						CrmData.deleteBroadcast(b.batch_id)
+							.then(function (res) {
+								CrmToast.ok("حذف شد — " + res.deleted + " موفق، " + res.failed + " ناموفق.");
+								loadHistory();
+							})
+							.catch(function (err) {
+								CrmToast.error("خطا در حذف: " + (err.message || "خطای نامشخص"));
+								$btn.prop("disabled", false);
+							});
+					});
 				});
 				$actionCell.append($btn);
 			} else {
@@ -74,6 +81,7 @@
 
 	function loadHistory() {
 		if (typeof CrmData.fetchBroadcasts !== "function") return;
+		CrmData.showTableLoading("#broadcastHistoryBody", 5, 3);
 		CrmData.fetchBroadcasts()
 			.then(renderHistory)
 			.catch(function () {
@@ -87,10 +95,17 @@
 		var audience = $("input[name='audience']:checked").val();
 		var audienceLabel = AUDIENCE_LABELS[audience] || audience;
 
-		if (!confirm("این پیام همین الان برای «" + audienceLabel + "» ارسال می‌شود. مطمئنی؟")) {
-			return;
-		}
+		// ارسالِ همگانی هم برگشت‌ناپذیر است (حذفش فقط ۴۸ ساعت ممکن است و
+		// همه را هم پاک نمی‌کند)، پس تایید می‌ماند.
+		CrmToast.confirm(
+			"این پیام همین الان برای «" + audienceLabel + "» فرستاده می‌شود.",
+			{ title: "ارسال پیام همگانی؟", confirmLabel: "بفرست" }
+		).then(function (yes) {
+			if (yes) doSend(message, audience);
+		});
+	}
 
+	function doSend(message, audience) {
 		var $btn = $("#btnSendBroadcast").prop("disabled", true);
 		CrmData.sendBroadcast(message, audience)
 			.then(function (res) {

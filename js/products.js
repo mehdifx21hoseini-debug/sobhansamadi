@@ -40,7 +40,7 @@
 		$saveBtn.on("click", function () {
 			var newPrice = Number($priceInput.val());
 			if (isNaN(newPrice) || newPrice < 0) {
-				alert("قیمت نامعتبر است.");
+				CrmToast.error("قیمت نامعتبر است.");
 				return;
 			}
 			$saveBtn.prop("disabled", true);
@@ -51,7 +51,7 @@
 					$cancelBtn.click();
 				})
 				.catch(function (err) {
-					alert("خطا در ثبت قیمت: " + (err.message || "خطای نامشخص"));
+					CrmToast.error("خطا در ثبت قیمت: " + (err.message || "خطای نامشخص"));
 				})
 				.finally(function () {
 					$saveBtn.prop("disabled", false);

@@ -208,6 +208,7 @@
 	}
 
 	function loadTexts() {
+		CrmData.showTableLoading("#textsTableBody", 4, 3);
 		CrmData.fetchContentTexts()
 			.then(function (res) {
 				texts = Array.isArray(res) ? res : [];
@@ -223,6 +224,7 @@
 	}
 
 	function loadFiles() {
+		CrmData.showTableLoading("#filesTableBody", 5, 3);
 		CrmData.fetchContentFiles()
 			.then(function (res) {
 				files = Array.isArray(res) ? res : [];

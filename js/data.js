@@ -521,12 +521,65 @@
 	// The one writer for a lead's follow-up. Pass an empty value to clear it
 	// ("done"). The endpoint also clears the legacy reminder_date, so the old
 	// field can never resurrect a follow-up that was just closed.
-	function setLeadFollowup(leadId, nextFollowupAt) {
+	function setLeadFollowup(leadId, nextFollowupAt, reason) {
+		var payload = { lead_id: leadId, next_followup_at: nextFollowupAt || "" };
+		if (reason !== undefined) payload.followup_reason = reason || "";
 		return request("/crm/lead/followup", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ lead_id: leadId, next_followup_at: nextFollowupAt || "" })
+			body: JSON.stringify(payload)
 		});
+	}
+
+	// دلیلِ یک پیگیریِ ثبت‌شده، بدون دست زدن به تاریخش. نوارِ اقدام سریع
+	// اول تاریخ را می‌نویسد (یک کلیک، بدون تایید) و دلیل را بعد - اگر
+	// مشاور بنویسد. جدا نگه داشتنشان یعنی آن یک‌کلیک دست‌نخورده می‌ماند.
+	function setFollowupReason(leadId, reason) {
+		return request("/crm/lead/followup", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ lead_id: leadId, followup_reason: reason || "" })
+		});
+	}
+
+	// ─── حالتِ «در حال بارگذاری» ───────────────────────────────────────
+	//
+	// هفت صفحه بینِ باز شدن و رسیدنِ داده کاملاً خالی بودند. روی
+	// اینترنتِ کند این دقیقاً شبیهِ «چیزی ندارد» به نظر می‌رسد - و
+	// مشاور فکر می‌کند تیکتی نیست، نه اینکه هنوز نیامده.
+	//
+	// اسکلتِ ردیف‌ها به‌جای یک اسپینرِ تنها: جای همان چیزی را می‌گیرد که
+	// قرار است بیاید، پس وقتی داده رسید صفحه نمی‌پرد.
+
+	function skeletonRows(cols, rows) {
+		var out = "";
+		for (var r = 0; r < (rows || 4); r++) {
+			out += '<tr class="is-skeleton" aria-hidden="true">';
+			for (var c = 0; c < cols; c++) out += '<td><span class="skeleton-bar"></span></td>';
+			out += "</tr>";
+		}
+		return out;
+	}
+
+	// این فایل عمداً به jQuery وابسته نیست - بقیه‌اش هم با DOM خام کار
+	// می‌کند. selector رشته‌ای یا خودِ المان، هر دو قبول است.
+	function el(target) {
+		return typeof target === "string" ? document.querySelector(target) : (target && target[0]) || target;
+	}
+
+	/** اسکلت را داخل tbody می‌گذارد. */
+	function showTableLoading(target, cols, rows) {
+		var node = el(target);
+		if (node) node.innerHTML = skeletonRows(cols, rows);
+	}
+
+	/** برای جایی که جدول نیست: فهرست، کارت، نمودار. */
+	function showBlockLoading(target, text) {
+		var node = el(target);
+		if (!node) return;
+		node.innerHTML =
+			'<div class="loading-block"><i class="fas fa-spinner fa-spin"></i><span></span></div>';
+		node.querySelector(".loading-block span").textContent = text || "در حال بارگذاری…";
 	}
 
 	// ─── وضعیتِ لید، یک تعریف ─────────────────────────────────────────
@@ -733,6 +786,9 @@
 		normalizeSource: normalizeSource,
 		setLeadSource: setLeadSource,
 		setLeadFollowup: setLeadFollowup,
+		setFollowupReason: setFollowupReason,
+		showTableLoading: showTableLoading,
+		showBlockLoading: showBlockLoading,
 		botAnswers: botAnswers,
 		LEAD_STATUSES: LEAD_STATUSES,
 		leadStatusMeta: leadStatusMeta,

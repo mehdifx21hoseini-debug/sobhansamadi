@@ -74,6 +74,7 @@
 	}
 
 	function load() {
+		CrmData.showTableLoading("#phonesTableBody", 6);
 		fetch(BASE, { headers: { Authorization: "Bearer " + token() } })
 			.then(function (res) {
 				if (res.status === 401) throw new Error("نشست شما منقضی شده؛ دوباره وارد شوید.");

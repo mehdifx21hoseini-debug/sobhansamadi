@@ -1817,6 +1817,18 @@ body::before {
 .queue-today .queue-reason { color: var(--teal-dark); }
 .dark .queue-today .queue-reason { color: var(--accent); }
 
+.queue-chip.is-reason {
+	background: color-mix(in srgb, var(--brand-gold) 16%, transparent);
+	color: var(--brand-gold-dark);
+	font-weight: 600;
+	max-width: 320px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.dark .queue-chip.is-reason { color: var(--brand-gold); }
+
 .queue-chip {
 	display: inline-flex;
 	align-items: center;
@@ -4591,6 +4603,31 @@ td.drawer-cell {
 	margin-top: 2px;
 }
 
+/* دلیلِ پیگیری در سلولِ باریکِ جدول: یک خط، با «…» و tooltip برای
+   بقیه‌اش. دو خطی شدنش ارتفاعِ کلِ ردیف را بالا می‌برد. */
+.followup-reason {
+	max-width: 160px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--text);
+	opacity: .85;
+}
+
+/* تاریخِ دلخواه و فیلدِ دلیل در نوارِ اقدام سریع. */
+.quick-date {
+	font: inherit;
+	font-size: 0.78rem;
+	padding: 6px 9px;
+	border-radius: 9px;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--text);
+}
+
+/* دلیلِ پیگیری همان شکلِ یادداشتِ تماس را دارد. */
+.quick-reason { max-width: 260px; }
+
 .followup-cell {
 	white-space: nowrap;
 }
@@ -4785,7 +4822,8 @@ td.drawer-cell {
 
 /* یادداشت تماس داخل نوار اقدام سریع. تک‌خطی است چون نباید به یک فرم
    تبدیل شود؛ یادداشت بلند جایش صفحه‌ی پرونده است. */
-.quick-note {
+.quick-note,
+.quick-reason {
 	font: inherit;
 	font-size: 0.8rem;
 	padding: 6px 11px;
@@ -4951,4 +4989,189 @@ td.drawer-cell {
 	.toolbar-actions {
 		flex-wrap: wrap;
 	}
+}
+
+/* ═══ پیام‌ها و تاییدها ════════════════════════════════════════════
+   جای‌گزینِ alert() و confirm() مرورگر. پیام پایینِ چپ می‌نشیند - دور
+   از دستِ راستِ کاربر و دور از منوی کناری - و روی هم انباشته می‌شود
+   تا دو پیامِ پشت‌سرِ هم همدیگر را پاک نکنند. */
+
+.crm-toast-stack {
+	position: fixed;
+	bottom: 20px;
+	left: 20px;
+	z-index: 1200;
+	display: flex;
+	flex-direction: column;
+	gap: 9px;
+	max-width: min(420px, calc(100vw - 40px));
+	pointer-events: none;
+}
+
+.crm-toast {
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 11px 13px;
+	border-radius: 12px;
+	background: var(--card);
+	color: var(--text);
+	border: 1px solid var(--line);
+	/* منطقی، نه فیزیکی: نوارِ رنگی باید سمتِ شروعِ خواندن باشد - در
+	   فارسی سمتِ راست، کنارِ آیکون. */
+	border-inline-start: 3px solid var(--muted);
+	box-shadow: 0 10px 30px rgba(16, 24, 60, .16);
+	font-size: 0.84rem;
+	line-height: 1.6;
+	animation: crmFadeInUp .22s ease both;
+	transition: opacity .2s ease, transform .2s ease;
+}
+
+.crm-toast.is-leaving {
+	opacity: 0;
+	transform: translateY(8px);
+}
+
+.crm-toast-text { flex: 1; }
+.crm-toast-icon { font-size: 0.95rem; }
+
+.crm-toast.tone-ok { border-inline-start-color: var(--up); }
+.crm-toast.tone-ok .crm-toast-icon { color: var(--up); }
+.crm-toast.tone-bad { border-inline-start-color: var(--down); }
+.crm-toast.tone-bad .crm-toast-icon { color: var(--down); }
+.crm-toast.tone-info { border-inline-start-color: var(--teal); }
+.crm-toast.tone-info .crm-toast-icon { color: var(--teal); }
+
+.crm-toast-undo {
+	flex: none;
+	font: inherit;
+	font-size: 0.8rem;
+	font-weight: 600;
+	padding: 4px 10px;
+	border-radius: 8px;
+	border: 1px solid var(--line);
+	background: var(--card-2);
+	color: var(--brand-navy);
+	cursor: pointer;
+}
+
+.crm-toast-undo:hover { background: var(--brand-navy); color: #fff; border-color: var(--brand-navy); }
+.dark .crm-toast-undo { color: #cdd7f7; }
+
+.crm-toast-close {
+	flex: none;
+	border: none;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	padding: 2px 4px;
+	font-size: 0.85rem;
+}
+
+.crm-toast-close:hover { color: var(--text); }
+
+/* تاییدِ کارِ برگشت‌ناپذیر. تنها جایی که هنوز مسدود می‌کند - چون
+   ارسالِ پیام همگانی واقعاً برگشت‌پذیر نیست. */
+.crm-modal-back {
+	position: fixed;
+	inset: 0;
+	z-index: 1300;
+	background: rgba(11, 17, 40, .45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	animation: crmFadeIn .15s ease both;
+}
+
+.crm-modal {
+	/* صریح، چون بعضی قالب‌های والد جهت را عوض می‌کنند و دکمه‌ها به
+	   لبه‌ی اشتباه می‌چسبند. */
+	direction: rtl;
+	width: min(430px, 100%);
+	background: var(--card);
+	color: var(--text);
+	border-radius: 16px;
+	padding: 20px;
+	box-shadow: 0 24px 60px rgba(16, 24, 60, .3);
+	animation: crmFadeInUp .2s ease both;
+}
+
+.crm-modal-title {
+	font-weight: 700;
+	font-size: 1rem;
+	margin-bottom: 8px;
+}
+
+.crm-modal-body {
+	color: var(--muted);
+	font-size: 0.87rem;
+	line-height: 1.9;
+	margin-bottom: 18px;
+}
+
+.crm-modal-actions {
+	display: flex;
+	gap: 9px;
+	justify-content: flex-start;
+}
+
+/* دکمه‌ی کارِ خطرناک باید پر باشد نه توخالی: در یک پنجره‌ی دو دکمه‌ای،
+   دکمه‌ی کم‌رنگ‌تر شبیهِ «انصراف» دیده می‌شود. */
+.crm-modal .btn-danger {
+	background: var(--down);
+	border-color: var(--down);
+	color: #fff;
+}
+
+.crm-modal .btn-danger:hover {
+	filter: brightness(.93);
+	color: #fff;
+}
+
+@keyframes crmFadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+/* ═══ در حال بارگذاری ══════════════════════════════════════════════
+   اسکلتِ ردیف‌ها جای همان چیزی را می‌گیرد که قرار است بیاید، پس
+   صفحه با رسیدنِ داده نمی‌پرد - و مهم‌تر: «خالی» با «هنوز نیامده»
+   اشتباه گرفته نمی‌شود. */
+
+.skeleton-bar {
+	display: block;
+	height: 11px;
+	border-radius: 6px;
+	background: linear-gradient(90deg,
+		var(--card-2) 0%,
+		color-mix(in srgb, var(--line) 70%, transparent) 50%,
+		var(--card-2) 100%);
+	background-size: 200% 100%;
+	animation: crmShimmer 1.3s ease-in-out infinite;
+}
+
+tr.is-skeleton td { padding-top: 15px; padding-bottom: 15px; }
+tr.is-skeleton td:nth-child(2) .skeleton-bar { width: 70%; }
+tr.is-skeleton td:nth-child(3) .skeleton-bar { width: 55%; }
+tr.is-skeleton td:last-child .skeleton-bar { width: 40%; }
+
+.loading-block {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 9px;
+	padding: 34px 16px;
+	color: var(--muted);
+	font-size: 0.85rem;
+}
+
+@keyframes crmShimmer {
+	from { background-position: 200% 0; }
+	to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.skeleton-bar { animation: none; }
 }

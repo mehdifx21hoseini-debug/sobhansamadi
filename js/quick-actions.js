@@ -30,8 +30,27 @@ var CrmQuickActions = (function ($) {
 		{ label: "فردا", days: 1 },
 		{ label: "۳ روز دیگر", days: 3 },
 		{ label: "هفته‌ی دیگر", days: 7 },
+		// «آخر هفته‌ی بعد» یا «بعد از عید» در سه گزینه‌ی ثابت جا نمی‌شود، و
+		// تا امروز یعنی باز کردن پرونده فقط برای یک تاریخ.
+		{ label: "تاریخ دلخواه…", days: "custom" },
 		{ label: "پیگیری لازم نیست", days: null }
 	];
+
+	/** تاریخِ n روز بعد، ساعت ۹ صبحِ محلی. */
+	function inDays(n) {
+		var d = new Date();
+		d.setDate(d.getDate() + n);
+		d.setHours(9, 0, 0, 0);
+		return d.toISOString();
+	}
+
+	/** yyyy-mm-dd از یک input[type=date] به ساعت ۹ صبحِ همان روز. */
+	function fromDateInput(v) {
+		var parts = String(v || "").split("-");
+		if (parts.length !== 3) return "";
+		var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 9, 0, 0, 0);
+		return isNaN(d.getTime()) ? "" : d.toISOString();
+	}
 
 	function closeMenus($except) {
 		$(".qa-menu").not($except).removeClass("is-open");
@@ -89,7 +108,14 @@ var CrmQuickActions = (function ($) {
 	 */
 	function bar(lead, opts) {
 		opts = opts || {};
-		var notify = opts.notify || function () {};
+		// پیش‌فرض، همان توستِ مشترکِ صفحه است.
+		//
+		// پیش از این هر صفحه پیام را خودش نشان می‌داد و فهرست را دوباره
+		// می‌ساخت - که یعنی فیلدِ «دلیل پیگیری» همان لحظه‌ی ظاهر شدن پاک
+		// می‌شد. پیام باید بیرونِ چیزی باشد که بازسازی می‌شود.
+		var notify = opts.notify || function (leadId, isOk, text) {
+			if (isOk) CrmToast.ok(text); else CrmToast.error(text);
+		};
 		var refresh = opts.refresh || function () {};
 
 		var $bar = $('<div class="quick-bar">');
@@ -159,26 +185,82 @@ var CrmQuickActions = (function ($) {
 		$row.append($msgMenu).append($sendBtn);
 
 		// ۳) پیگیری - بدون قدمِ تایید
+		//
+		// تاریخ همان لحظه‌ی انتخاب ثبت می‌شود؛ «دلیل» بعدش می‌آید و اختیاری
+		// است. اگر دلیل را هم شرطِ ثبت می‌کردیم، ساده‌ترین کارِ این نوار -
+		// یک کلیک برای «فردا» - سه کلیک می‌شد.
+		// کلاسِ خودش را دارد، نه quick-note: هر دو یک‌شکل‌اند ولی یکی
+		// یادداشتِ تماس است و دیگری دلیلِ پیگیری، و قاطی شدنشان هم در
+		// کد و هم در تست گیج‌کننده است.
+		var $reason = $('<input type="text" class="quick-reason d-none">')
+			.attr("placeholder", "دلیل پیگیری؟ (اختیاری)")
+			.attr("maxlength", "200");
+		var $customDate = $('<input type="date" class="quick-date d-none">');
+
+		function saveFollowup(value, label) {
+			CrmData.setLeadFollowup(lead.lead_id, value)
+				.then(function () {
+					notify(lead.lead_id, true, value === "" ? "پیگیری بسته شد." : "پیگیری روی «" + label + "» ثبت شد.");
+					if (value === "") {
+						$reason.addClass("d-none").val("");
+						refresh();
+						return;
+					}
+					// عمداً refresh نمی‌کنیم تا فیلدِ دلیل زیرِ دستِ مشاور
+					// بماند. بازسازیِ فهرست، همان لحظه پاکش می‌کرد.
+					$reason.removeClass("d-none").focus();
+				})
+				.catch(function (err) {
+					notify(lead.lead_id, false, "خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص"));
+				});
+		}
+
+		$reason.on("keydown", function (e) {
+			if (e.key !== "Enter") return;
+			saveReason();
+		}).on("blur", function () {
+			if ($reason.val().trim()) saveReason();
+		});
+
+		function saveReason() {
+			var text = $reason.val().trim();
+			if (!text) return;
+			$reason.prop("disabled", true);
+			CrmData.setFollowupReason(lead.lead_id, text)
+				.then(function () {
+					notify(lead.lead_id, true, "دلیل پیگیری ثبت شد.");
+					refresh();
+				})
+				.catch(function (err) {
+					$reason.prop("disabled", false);
+					notify(lead.lead_id, false, "دلیل ثبت نشد: " + (err.message || "خطای نامشخص"));
+				});
+		}
+
+		$customDate.on("change", function () {
+			var value = fromDateInput($customDate.val());
+			if (!value) return;
+			$customDate.addClass("d-none");
+			saveFollowup(value, new Date(value).toLocaleDateString("fa-IR"));
+		});
+
 		$row.append(menuButton({
 			label: "پیگیری", icon: "fa-bell", items: FOLLOWUP_CHOICES,
 			onPick: function (item) {
-				var value = "";
-				if (item.days !== null) {
-					var d = new Date();
-					d.setDate(d.getDate() + item.days);
-					d.setHours(9, 0, 0, 0);
-					value = d.toISOString();
+				if (item.days === "custom") {
+					$customDate.removeClass("d-none");
+					// showPicker در همه‌ی مرورگرها نیست؛ نبودنش یعنی کاربر
+					// خودش روی فیلد می‌زند، نه اینکه چیزی خراب شود.
+					var el = $customDate[0];
+					if (el && typeof el.showPicker === "function") {
+						try { el.showPicker(); } catch (e) { /* تعاملِ کاربر لازم بوده */ }
+					}
+					return;
 				}
-				CrmData.setLeadFollowup(lead.lead_id, value)
-					.then(function () {
-						notify(lead.lead_id, true, item.days === null ? "پیگیری بسته شد." : "پیگیری روی «" + item.label + "» ثبت شد.");
-						refresh();
-					})
-					.catch(function (err) {
-						notify(lead.lead_id, false, "خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص"));
-					});
+				saveFollowup(item.days === null ? "" : inDays(item.days), item.label);
 			}
 		}));
+		$row.append($customDate).append($reason);
 
 		$bar.append($row);
 		return $bar;

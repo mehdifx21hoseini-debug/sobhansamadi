@@ -28,8 +28,17 @@
 			var $toggleBtn = $('<button class="btn btn-sm btn-outline-secondary"></button>');
 			if (a.active !== false) {
 				$toggleBtn.html('<i class="fas fa-ban"></i>').attr("title", "غیرفعال کردن").on("click", function () {
-					if (!confirm("این ادمین دیگه هشدارها رو دریافت نکنه؟")) return;
-					CrmData.saveAdmin({ telegram_id: a.telegram_id, name: a.name, role: a.role, active: false }).then(loadAdmins);
+					CrmData.saveAdmin({ telegram_id: a.telegram_id, name: a.name, role: a.role, active: false })
+						.then(function () {
+							loadAdmins();
+							CrmToast.undo("«" + (a.name || a.telegram_id) + "» دیگر هشدار نمی‌گیرد.", function () {
+								CrmData.saveAdmin({ telegram_id: a.telegram_id, name: a.name, role: a.role, active: true })
+									.then(loadAdmins);
+							});
+						})
+						.catch(function (err) {
+							CrmToast.error("خطا: " + (err.message || "خطای نامشخص"));
+						});
 				});
 			} else {
 				$toggleBtn.html('<i class="fas fa-check"></i>').attr("title", "فعال کردن").on("click", function () {
@@ -44,6 +53,7 @@
 	}
 
 	function loadAdmins() {
+		CrmData.showTableLoading("#adminsTableBody", 6);
 		CrmData.fetchAdmins()
 			.then(function (res) {
 				admins = Array.isArray(res) ? res : [];

@@ -155,6 +155,7 @@
 				status: lead.status || "",
 				created_at: lead.created_at,
 				updated_at: lead.updated_at,
+				followup_reason: lead.followup_reason || "",
 				bucket: verdict.bucket,
 				icon: verdict.icon,
 				reason: verdict.reason,
@@ -191,7 +192,13 @@
 				.append($("<i>").addClass("fas " + item.icon))
 				.append(document.createTextNode(item.reason))
 		);
-		if (item.course) {
+		// دلیلِ پیگیری جای اسمِ دوره را می‌گیرد: سررسیدِ امروز یعنی مشاور
+		// باید بداند قرار بوده چه بگوید، نه اینکه کدام دوره را دیده.
+		if (item.followup_reason) {
+			$meta.append($("<span>").addClass("queue-chip is-reason")
+				.append($("<i>").addClass("fas fa-quote-right"))
+				.append(document.createTextNode(item.followup_reason)));
+		} else if (item.course) {
 			$meta.append($("<span>").addClass("queue-chip").text(item.course));
 		}
 		if (state.scope === "all") {
@@ -219,15 +226,25 @@
 			var $done = $('<button type="button" class="btn btn-sm btn-outline-success queue-done-btn">')
 				.html('<i class="fas fa-check mr-1"></i>انجام شد');
 			$done.on("click", function () {
-				if (!confirm("پیگیری «" + item.name + "» بسته بشه؟")) return;
+				// تاییدِ قبلی برداشته شد: بستنِ پیگیری برگشت‌پذیر است و
+				// «بازگرداندن» بعدی هم جلوی اشتباه را می‌گیرد و هم به هر
+				// بارِ درست یک کلیک اضافه نمی‌کند.
+				var previous = item.followup;
 				$done.prop("disabled", true);
 				CrmData.setLeadFollowup(item.lead_id, "")
 					.then(function () {
 						CrmData.invalidateLeadsCache();
+						CrmToast.undo("پیگیری «" + item.name + "» بسته شد.", function () {
+							CrmData.setLeadFollowup(item.lead_id, previous)
+								.then(function () { CrmData.invalidateLeadsCache(); load(); })
+								.catch(function (err) {
+									CrmToast.error("بازگرداندن نشد: " + (err.message || "خطای نامشخص"));
+								});
+						});
 						load();
 					})
 					.catch(function (err) {
-						alert("خطا در بستن پیگیری: " + (err.message || "خطای نامشخص"));
+						CrmToast.error("خطا در بستن پیگیری: " + (err.message || "خطای نامشخص"));
 						$done.prop("disabled", false);
 					});
 			});
@@ -251,7 +268,6 @@
 				built = true;
 				$qaWrap.append(CrmQuickActions.bar(item.lead, {
 					compact: true,
-					notify: function (leadId, ok, text) { queueToast($qaWrap, ok, text); },
 					refresh: function () { CrmData.invalidateLeadsCache(); load(); }
 				}));
 			}
@@ -271,15 +287,6 @@
 		return $item;
 	}
 
-	// پیام نتیجه داخل خودِ مورد می‌ماند. در فهرست لیدها این کار روی state
-	// انجام می‌شود چون جدول کامل بازسازی می‌شود؛ اینجا لازم نیست، چون
-	// بازسازی فقط بعد از تغییرِ داده اتفاق می‌افتد.
-	function queueToast($wrap, ok, text) {
-		$wrap.find(".quick-toast").remove();
-		var $t = $('<div class="quick-toast">').addClass(ok ? "is-ok" : "is-bad").text(text);
-		$wrap.append($t);
-		setTimeout(function () { $t.remove(); }, 6000);
-	}
 
 	function renderSummary(visibleCount) {
 		var $summary = $("#todayHeroSummary");

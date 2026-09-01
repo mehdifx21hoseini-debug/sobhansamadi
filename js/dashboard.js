@@ -239,6 +239,11 @@
 	}
 
 	function loadLeads() {
+		// شمارنده‌ها تا رسیدنِ داده «…» می‌مانند، نه صفر: صفرِ نمایشی از
+		// خالی بودنِ صفحه هم بدتر است، چون شبیهِ یک عددِ واقعی است.
+		$("#d-total, #d-today, #bot-total-users, #bot-dau, #bot-wau, #report-lead-count")
+			.filter(function () { return !$(this).text().trim() || $(this).text().trim() === "0"; })
+			.text("…");
 		CrmData.fetchLeads()
 			.then(function (leads) {
 				state.leads = leads;
@@ -405,7 +410,7 @@
 			var $actions = $('<div class="mt-1">');
 			$actions.append($('<button class="btn btn-sm btn-outline-secondary">').text("علامت به‌عنوان بررسی‌شده").on("click", function () {
 				CrmData.resolveError(e.log_id).then(function () { loadErrors(); }).catch(function (err) {
-					alert("خطا در ثبت: " + (err.message || "خطای نامشخص"));
+					CrmToast.error("خطا در ثبت: " + (err.message || "خطای نامشخص"));
 				});
 			}));
 			$body.append($actions);
@@ -476,6 +481,7 @@
 
 	function loadConsultantPerformance() {
 		if (typeof CrmData.fetchConsultantPerformance !== "function") return;
+		CrmData.showTableLoading("#consultantPerfTableBody", 5, 3);
 		CrmData.fetchConsultantPerformance()
 			.then(renderConsultantPerformance)
 			.catch(function (err) {
@@ -537,6 +543,7 @@
 
 	function loadSourcePerformance() {
 		if (typeof CrmData.fetchSourcePerformance !== "function") return;
+		CrmData.showTableLoading("#sourcePerfTableBody", 4, 3);
 		CrmData.fetchSourcePerformance()
 			.then(renderSourcePerformance)
 			.catch(function (err) {

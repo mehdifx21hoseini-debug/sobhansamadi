@@ -220,9 +220,13 @@
 
 			var $deleteBtn = $('<button class="btn btn-sm btn-outline-danger" title="حذف"><i class="fas fa-trash"></i></button>');
 			$deleteBtn.on("click", function () {
-				if (!confirm('مدخل «' + (r.question || "") + '» از پایگاه دانش حذف بشه؟')) return;
-				CrmAi.deleteKnowledge(r.id).then(loadKb).catch(function (err) {
-					alert("خطا در حذف: " + (err.message || "خطای نامشخص"));
+				CrmToast.confirm("مدخل «" + (r.question || "") + "» از پایگاه دانش پاک می‌شود.",
+					{ title: "حذف مدخل؟", confirmLabel: "حذف کن", danger: true }
+				).then(function (yes) {
+					if (!yes) return;
+					CrmAi.deleteKnowledge(r.id).then(loadKb).catch(function (err) {
+						CrmToast.error("خطا در حذف: " + (err.message || "خطای نامشخص"));
+					});
 				});
 			});
 
@@ -303,7 +307,15 @@
 			$("#kbBulkSaveResult").removeClass("d-none text-success").addClass("text-danger").text("متن خالیه یا هیچ مدخل معتبری توش پیدا نشد؛ چیزی ذخیره نشد.");
 			return;
 		}
-		if (!confirm("کل پایگاه دانش (" + kbRows.length + " مدخل فعلی) با این متن (" + entries.length + " مدخل) جایگزین می‌شه. مطمئنی؟")) return;
+		CrmToast.confirm(
+			"کلِ پایگاه دانش (" + kbRows.length + " مدخل فعلی) با این متن (" + entries.length + " مدخل) جای‌گزین می‌شود.",
+			{ title: "جای‌گزینی کل پایگاه دانش؟", confirmLabel: "جای‌گزین کن", danger: true }
+		).then(function (yes) {
+			if (yes) doSaveKbText(entries);
+		});
+	}
+
+	function doSaveKbText(entries) {
 		var $btn = $("#btnSaveKbText").prop("disabled", true);
 		CrmAi.bulkSaveKnowledge(entries)
 			.then(function () {
@@ -534,8 +546,11 @@
 		$("#kbFullText").on("input", updateKbTextEntryCount);
 		$("#btnSaveKbText").on("click", saveKbText);
 		$("#btnReloadKbText").on("click", function () {
-			if (!confirm("تغییرات ذخیره‌نشده توی این متن از بین می‌ره و دوباره از سرور خونده می‌شه. ادامه بدم؟")) return;
-			loadKb().then(fillKbTextFromRows);
+			CrmToast.confirm("هرچه در این متن ذخیره نشده از بین می‌رود و نسخه‌ی سرور دوباره خوانده می‌شود.",
+				{ title: "خواندن دوباره از سرور؟", confirmLabel: "بخوان" }
+			).then(function (yes) {
+				if (yes) loadKb().then(fillKbTextFromRows);
+			});
 		});
 
 		var curatorSuggestion = null;

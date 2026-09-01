@@ -34,10 +34,16 @@
 			if (s.subscribed) {
 				var $btn = $('<button class="btn btn-sm btn-outline-secondary">لغو عضویت</button>');
 				$btn.on("click", function () {
-					if (!confirm("عضویت این کاربر در هشدارهای تقویم اقتصادی لغو شود؟")) return;
+					$btn.prop("disabled", true);
 					CrmData.unsubscribeEconSubscriber(s.telegram_user_id)
-						.then(loadSubs)
-						.catch(function (err) { alert("خطا: " + (err.message || "خطای نامشخص")); });
+						.then(function () {
+							loadSubs();
+							CrmToast.ok("عضویت لغو شد.");
+						})
+						.catch(function (err) {
+							$btn.prop("disabled", false);
+							CrmToast.error("خطا: " + (err.message || "خطای نامشخص"));
+						});
 				});
 				$actionCell.append($btn);
 			}
@@ -48,6 +54,7 @@
 	}
 
 	function loadSubs() {
+		CrmData.showTableLoading("#econSubsTableBody", 7);
 		CrmData.fetchEconSubscribers()
 			.then(renderSubs)
 			.catch(function () {

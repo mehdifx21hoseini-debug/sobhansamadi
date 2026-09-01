@@ -308,7 +308,9 @@
 		}
 
 		var facts = [
-			{ k: "پیگیری بعدی", v: followUp ? formatDay(followUp) : "ثبت نشده",
+			{ k: "پیگیری بعدی",
+				v: (followUp ? formatDay(followUp) : "ثبت نشده") +
+					(followUp && lead.followup_reason ? " — " + lead.followup_reason : ""),
 				warn: overdue, edit: true },
 			{ k: "دفعات تماس", v: (lead.contact_attempts != null ? lead.contact_attempts : 0) + " بار" },
 			{ k: "نتیجه آخرین تماس", v: lead.last_call_result || "—" },
@@ -557,7 +559,7 @@
 		var $btn = $("#btnSaveNote").prop("disabled", true);
 		CrmData.addLeadNote(leadId, note)
 			.then(function () { $("#internalNote").val(""); loadLead(); })
-			.catch(function (err) { alert("خطا در ثبت یادداشت: " + (err.message || "خطای نامشخص")); })
+			.catch(function (err) { CrmToast.error("خطا در ثبت یادداشت: " + (err.message || "خطای نامشخص")); })
 			.finally(function () { $btn.prop("disabled", false); });
 	}
 
@@ -600,9 +602,9 @@
 		if (!leadId) return;
 		// تنها نویسنده‌ی next_followup_at بیرون از فرمِ تماس. مقدارِ خالی
 		// یعنی پیگیری بسته شد.
-		CrmData.setLeadFollowup(leadId, followupIsoFromDateOnly(dateValue))
+		CrmData.setLeadFollowup(leadId, followupIsoFromDateOnly(dateValue), $("#followupReason").val().trim())
 			.then(function () { $("#followupEditor").addClass("d-none"); loadLead(); })
-			.catch(function (err) { alert("خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص")); });
+			.catch(function (err) { CrmToast.error("خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص")); });
 	}
 
 	function renderSourceSelect(source) {
@@ -632,7 +634,7 @@
 			})
 			.catch(function (err) {
 				renderSourceSelect(previous);
-				alert("خطا در ثبت منبع لید: " + (err.message || "خطای نامشخص"));
+				CrmToast.error("خطا در ثبت منبع لید: " + (err.message || "خطای نامشخص"));
 			})
 			.finally(function () { $sel.removeClass("is-saving"); });
 	}
@@ -744,12 +746,15 @@
 		});
 
 		$("#leadFacts").on("click", ".fact-edit", function () {
+			// دلیلِ فعلی پیش‌نویس می‌شود، وگرنه هر بار که کسی فقط تاریخ را
+			// جابه‌جا می‌کرد، دلیلِ نوشته‌شده بی‌صدا پاک می‌شد.
+			$("#followupReason").val((currentLead && currentLead.followup_reason) || "");
 			$("#followupEditor").toggleClass("d-none");
 		});
 
 		$("#btnSaveReminder").on("click", function () {
 			var val = $("#reminderDate").val();
-			if (!val) { alert("لطفاً یک تاریخ انتخاب کنید."); return; }
+			if (!val) { CrmToast.info("لطفاً یک تاریخ انتخاب کنید."); return; }
 			saveReminder(val);
 		});
 		$("#btnClearReminder").on("click", function () {

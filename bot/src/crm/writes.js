@@ -269,12 +269,32 @@ export async function setFollowup(env, body, actor) {
   if (rejected) return bad("تاریخ پیگیری معتبر نیست");
   if (!(await leadExists(env, leadId))) return bad("لید پیدا نشد");
 
+  // دلیل با تاریخ می‌آید و با پاک شدنِ تاریخ هم پاک می‌شود - «دلیلِ
+  // پیگیری» بدونِ پیگیری معنایی ندارد و اگر می‌ماند، دفعه‌ی بعد دلیلِ
+  // یک قرارِ تمام‌شده را کنارِ تاریخِ تازه نشان می‌داد.
+  //
+  // reason می‌تواند اصلاً نیاید: نوارِ اقدام سریع اول تاریخ را ثبت
+  // می‌کند و دلیل را بعد، اگر مشاور بنویسد. آن حالت نباید تاریخ را
+  // دست بزند، پس undefined با «رشته‌ی خالی» یکی نیست.
+  const hasReason = body.followup_reason !== undefined;
+  const given = String(body.followup_reason || "").trim().slice(0, 200);
+  const reason = value ? given : "";
+
+  if (hasReason && !body.next_followup_at) {
+    // فقط دلیل آمده، بدون تاریخ: یعنی به‌روزرسانیِ دلیلِ پیگیریِ موجود.
+    await env.DB
+      .prepare("UPDATE crm_leads SET followup_reason = ?, updated_at = ? WHERE lead_id = ?")
+      .bind(given, nowIso(), leadId)
+      .run();
+    return { ok: true, followup_reason: given };
+  }
+
   await env.DB
-    .prepare("UPDATE crm_leads SET next_followup_at = ?, updated_at = ? WHERE lead_id = ?")
-    .bind(value, nowIso(), leadId)
+    .prepare("UPDATE crm_leads SET next_followup_at = ?, followup_reason = ?, updated_at = ? WHERE lead_id = ?")
+    .bind(value, reason, nowIso(), leadId)
     .run();
-  await logActivity(env, leadId, "followup", value || "پاک شد", actor);
-  return { ok: true, next_followup_at: value };
+  await logActivity(env, leadId, "followup", value ? value + (reason ? " — " + reason : "") : "پاک شد", actor);
+  return { ok: true, next_followup_at: value, followup_reason: reason };
 }
 
 // ─── منبع جذب ────────────────────────────────────────────────────────
@@ -335,6 +355,9 @@ export async function recordCall(env, body, actor) {
   if (rejected) return bad("تاریخ پیگیری معتبر نیست");
   const touchFollowup = clearFollowup || !!followup;
   const followupValue = clearFollowup ? "" : followup;
+  // دلیلِ پیگیری همان‌جا ثبت می‌شود که تاریخش. بستنِ پیگیری دلیل را هم
+  // پاک می‌کند.
+  const followupReason = followupValue ? String(body.followup_reason || "").trim().slice(0, 200) : "";
 
   const callId = newId("CALL");
   const attempts = Number(lead.contact_attempts) || 0;
@@ -358,10 +381,11 @@ export async function recordCall(env, body, actor) {
       env.DB
         .prepare(
           `UPDATE crm_leads SET contact_attempts = ?, last_call_result = ?, status = ?,
-                                next_followup_at = ?, reminder_date = NULL, updated_at = ?
+                                next_followup_at = ?, followup_reason = ?,
+                                reminder_date = NULL, updated_at = ?
             WHERE lead_id = ?`
         )
-        .bind(attempts + 1, result, status, followupValue, created, leadId)
+        .bind(attempts + 1, result, status, followupValue, followupReason, created, leadId)
     );
   } else {
     writes.push(
@@ -378,7 +402,8 @@ export async function recordCall(env, body, actor) {
 
   await logActivity(env, leadId, "call", result, actor);
   if (touchFollowup) {
-    await logActivity(env, leadId, "followup", followupValue || "پاک شد", actor);
+    await logActivity(env, leadId, "followup",
+      followupValue ? followupValue + (followupReason ? " — " + followupReason : "") : "پاک شد", actor);
   }
   return {
     ok: true,
@@ -386,6 +411,7 @@ export async function recordCall(env, body, actor) {
     contact_attempts: attempts + 1,
     status,
     next_followup_at: touchFollowup ? followupValue : undefined,
+    followup_reason: touchFollowup ? followupReason : undefined,
   };
 }
 

@@ -15,7 +15,7 @@ const DDL = [
      status TEXT, contact_attempts INTEGER DEFAULT 0, created_at TEXT,
      updated_at TEXT, score INTEGER, priority TEXT, assigned_to TEXT,
      reminder_date TEXT, source TEXT, quality TEXT, last_call_result TEXT,
-     next_followup_at TEXT, level TEXT, topic TEXT)`,
+     next_followup_at TEXT, level TEXT, topic TEXT, followup_reason TEXT)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_leads_created ON crm_leads (created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_leads_status ON crm_leads (status)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_leads_assigned ON crm_leads (assigned_to)`,
@@ -128,6 +128,9 @@ const ADD_COLUMNS = [
   // متنِ notes بودند و هیچ‌جا قابل فیلتر یا جستجو نبودند.
   "ALTER TABLE crm_leads ADD COLUMN level TEXT",
   "ALTER TABLE crm_leads ADD COLUMN topic TEXT",
+  // دلیلِ پیگیری. تاریخ به‌تنهایی نمی‌گوید قرار بوده چه بگوییم، و
+  // مشاور برای فهمیدنش باید پرونده را باز کند و یادداشت‌ها را بخواند.
+  "ALTER TABLE crm_leads ADD COLUMN followup_reason TEXT",
 ];
 
 let ensured = false;

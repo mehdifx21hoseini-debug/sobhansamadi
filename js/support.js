@@ -90,6 +90,9 @@
 	}
 
 	function loadTickets(preserveSelection, force) {
+		// فقط بارِ اول: تازه‌سازیِ خودکارِ هر چند ثانیه نباید فهرستی را که
+		// مشاور دارد نگاه می‌کند با اسکلت جای‌گزین کند.
+		if (!tickets.length) CrmData.showBlockLoading("#ticketList", "در حال بارگذاری ارجاع‌ها…");
 		return CrmData.fetchSupportTickets(force)
 			.then(function (res) {
 				tickets = Array.isArray(res) ? res : [];
@@ -175,7 +178,7 @@
 				selectTicket(ticketId);
 			})
 			.catch(function (err) {
-				alert("خطا در تغییر وضعیت: " + (err.message || "خطای نامشخص"));
+				CrmToast.error("خطا در تغییر وضعیت: " + (err.message || "خطای نامشخص"));
 			});
 	}
 

@@ -198,7 +198,13 @@
 			label = faNum(days) + " روز دیگر";
 		}
 		$td.append($('<span class="followup-label">').addClass(cls).text(label));
-		$td.append($('<div class="row-subline">').text(due.toLocaleDateString("fa-IR")));
+		// دلیل جای تاریخِ کامل را می‌گیرد وقتی هست: «چرا» بیشتر از «کِی»
+		// به کار می‌آید، و هر دو در یک سلولِ باریک جا نمی‌شوند.
+		var reason = String(lead.followup_reason || "").trim();
+		$td.append($('<div class="row-subline">')
+			.addClass(reason ? "followup-reason" : "")
+			.attr("title", reason || "")
+			.text(reason || due.toLocaleDateString("fa-IR")));
 		return $td;
 	}
 
@@ -259,31 +265,10 @@
 	// چیزی تازه شود.
 
 	function quickActionBar(lead) {
-		var $bar = CrmQuickActions.bar(lead, {
-			notify: quickToast,
-			refresh: loadLeads
-		});
-		var note = flash[lead.lead_id];
-		if (note) {
-			$bar.append($('<div class="quick-toast">').addClass(note.ok ? "is-ok" : "is-bad").text(note.text));
-		}
-		return $bar;
-	}
-
-	// نتیجه‌ی اقدام روی خودِ لید نگه داشته می‌شود، نه داخل DOM: هر
-	// موفقیتی فهرست را تازه می‌کند و ردیف دوباره ساخته می‌شود، پس پیامی
-	// که در DOM چسبانده شده باشد همان لحظه پاک می‌شود - و کاربر
-	// نمی‌فهمد کارش انجام شد یا نه.
-	var flash = {};
-
-	function quickToast(leadId, ok, text) {
-		flash[leadId] = { ok: ok, text: text };
-		renderTable();
-		clearTimeout(flash[leadId].timer);
-		flash[leadId].timer = setTimeout(function () {
-			delete flash[leadId];
-			renderTable();
-		}, 6000);
+		// نتیجه با توستِ مشترکِ صفحه گفته می‌شود، نه داخل خودِ کشو: پیامی
+		// که در ردیف بنشیند با اولین بازسازیِ جدول پاک می‌شود - و بدتر،
+		// خودِ آن بازسازی فیلدهای نیمه‌پرشده‌ی کشو را هم می‌برد.
+		return CrmQuickActions.bar(lead, { refresh: loadLeads });
 	}
 
 	function drawerRow(lead) {
@@ -629,7 +614,7 @@
 					render();
 				})
 				.catch(function (err) {
-					alert("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
+					CrmToast.error("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
 					$select.val(previousStatus);
 				})
 				.finally(function () {
@@ -652,7 +637,7 @@
 					render();
 				})
 				.catch(function (err) {
-					alert("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
+					CrmToast.error("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
 					$select.val(previous);
 				})
 				.finally(function () {
