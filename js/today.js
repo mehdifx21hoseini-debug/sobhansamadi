@@ -221,6 +221,7 @@
 					.attr({ href: "tel:" + item.phone.replace(/[^\d+]/g, ""), title: "تماس با " + item.name })
 					.html('<i class="fas fa-phone"></i>')
 			);
+			$actions.append(CrmQuickActions.copyPhoneButton(item.phone));
 		}
 		if (item.followup) {
 			var $done = $('<button type="button" class="btn btn-sm btn-outline-success queue-done-btn">')

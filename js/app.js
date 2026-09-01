@@ -208,6 +208,17 @@
 		return $td;
 	}
 
+	/** «۲ روز پیش» برای تاریخِ آخرین تماس. */
+	function sinceLabel(iso) {
+		var d = new Date(iso);
+		if (isNaN(d.getTime())) return "";
+		var days = Math.floor((startOfToday() - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+		if (days <= 0) return "امروز";
+		if (days === 1) return "دیروز";
+		if (days < 30) return faNum(days) + " روز پیش";
+		return d.toLocaleDateString("fa-IR");
+	}
+
 	// سنِ لید، نه «آخرین به‌روزرسانی». آن یکی با هر تغییرِ کوچکی تازه
 	// می‌شد، پس لیدِ ده‌روزه‌ای که همین حالا مشاورش عوض شده «۲ دقیقه
 	// پیش» نشان می‌داد - دقیقاً برعکسِ چیزی که باید هشدار می‌داد.
@@ -405,6 +416,10 @@
 					href: "tel:" + lead.phone.replace(/[^\d+]/g, ""),
 					title: "تماس با " + (lead.full_name || "این لید")
 				}).on("click", function (e) { e.stopPropagation(); }).html('<i class="fas fa-phone"></i>'));
+				// tel: فقط روی گوشی کار می‌کند. مشاورِ پشتِ دسکتاپ تا امروز
+				// شماره را از روی صفحه می‌خواند و در نرم‌افزار تماس تایپ
+				// می‌کرد - جایی که یک رقمِ اشتباه یعنی زنگ زدن به غریبه.
+				$phoneCell.append(CrmQuickActions.copyPhoneButton(lead.phone));
 			}
 			$tr.append($phoneCell);
 
@@ -423,9 +438,15 @@
 			$tr.append(followupCell(lead));
 
 			var attempts = Number(lead.contact_attempts) || 0;
-			$tr.append($("<td>").attr("data-label", "تماس‌ها").addClass("text-center").append(
+			var $tries = $("<td>").attr("data-label", "تماس‌ها").addClass("text-center").append(
 				$('<span class="tries-count">').addClass(attempts ? "" : "is-zero").text(faNum(attempts))
-			));
+			);
+			// «سه تماس» به‌تنهایی گمراه‌کننده است: سه تماسِ دیروز و سه
+			// تماسِ ماه پیش دو وضعیتِ کاملاً متفاوت‌اند.
+			if (attempts && lead.last_call_at) {
+				$tries.append($('<div class="row-subline">').text(sinceLabel(lead.last_call_at)));
+			}
+			$tr.append($tries);
 
 			$tr.append($("<td>").attr("data-label", "مشاور").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
 			$tr.append($("<td>").attr("data-label", "سن لید").addClass("text-muted text-sm").text(leadAge(lead.created_at)));

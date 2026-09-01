@@ -58,6 +58,19 @@ export async function crmSelfTest(env) {
     counts.__status_breakdown = "خطا: " + String(err && err.message);
   }
 
+  // ستون‌های crm_leads.
+  //
+  // مهاجرت‌ها با ALTER جداگانه اجرا می‌شوند و خطای «ستون تکراری» بی‌صدا
+  // بلعیده می‌شود - که یعنی یک مهاجرتِ شکست‌خورده هم بی‌صدا می‌ماند.
+  // بدون این فهرست، تنها راهِ فهمیدنش این بود که کاربر ببیند چیزی ذخیره
+  // نمی‌شود.
+  try {
+    const { results } = await env.DB.prepare("PRAGMA table_info(crm_leads)").all();
+    counts.__lead_columns = (results || []).map((r) => r.name).sort();
+  } catch (err) {
+    counts.__lead_columns = "خطا: " + String(err && err.message);
+  }
+
   try {
     await cleanup(env); // بازمانده‌ی اجرای قبلی، اگر وسط کار قطع شده بود
     const password = randomPassword();

@@ -368,6 +368,12 @@
 		currentLead = lead;
 		$("#leadName").text(lead.full_name || "(بدون نام)");
 		$("#leadPhone").text(lead.phone || "-");
+		$("#leadPhoneCopy").remove();
+		if (lead.phone) {
+			$("#leadPhone").after(
+				CrmQuickActions.copyPhoneButton(lead.phone).attr("id", "leadPhoneCopy")
+			);
+		}
 		if (lead.phone) {
 			$("#btnCallLead").attr("href", "tel:" + lead.phone.replace(/[^\d+]/g, "")).removeClass("d-none");
 		} else {

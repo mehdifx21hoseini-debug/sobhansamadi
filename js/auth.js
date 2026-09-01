@@ -26,29 +26,26 @@
 		return;
 	}
 
+	// منو برای مشاور کوتاه می‌شود، نه اینکه پر از آیتمِ قفل باشد.
+	//
+	// تا امروز آیتم‌های ممنوع دیده می‌شدند و با کلیک پیامِ «دسترسی ندارید»
+	// می‌دادند - یعنی هر روز شش گزینه‌ای که هیچ‌وقت به کارش نمی‌آیند.
+	// حالا که تصمیم سمت سرور هم گرفته می‌شود (panelApi.js)، پنهان کردنشان
+	// امن است: مسیرِ مستقیم هم بالاتر به index برمی‌گردد.
+	//
+	// گروهِ خالی‌شده هم می‌رود، وگرنه یک عنوانِ بی‌آیتم می‌ماند.
 	if (role === "consultant") {
 		document.addEventListener("DOMContentLoaded", function () {
 			document.querySelectorAll(".side-item a[href]").forEach(function (link) {
 				var href = link.getAttribute("href").split("?")[0].split("#")[0];
 				if (RESTRICTED_PAGES.indexOf(href) === -1) return;
-				link.addEventListener("click", function (e) {
-					e.preventDefault();
-					showAccessDeniedToast();
-				});
+				var item = link.closest(".side-item");
+				if (item) item.remove();
+			});
+			document.querySelectorAll(".side-group").forEach(function (group) {
+				var next = group.nextElementSibling;
+				if (!next || next.classList.contains("side-group")) group.remove();
 			});
 		});
-	}
-
-	function showAccessDeniedToast() {
-		var existing = document.querySelector(".access-denied-toast");
-		if (existing) existing.remove();
-		var toast = document.createElement("div");
-		toast.className = "new-lead-toast access-denied-toast";
-		toast.innerHTML = '<i class="fas fa-lock mr-2"></i><span>شما به این بخش دسترسی ندارید.</span>';
-		document.body.appendChild(toast);
-		setTimeout(function () {
-			toast.classList.add("hide");
-			setTimeout(function () { toast.remove(); }, 400);
-		}, 3000);
 	}
 })();

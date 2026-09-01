@@ -266,12 +266,62 @@ var CrmQuickActions = (function ($) {
 		return $bar;
 	}
 
+	/**
+	 * دکمه‌ی کپیِ شماره.
+	 *
+	 * tel: فقط روی گوشی کار می‌کند؛ مشاورِ پشتِ دسکتاپ تا امروز شماره را
+	 * از روی صفحه می‌خواند و در نرم‌افزارِ تماس تایپ می‌کرد - جایی که یک
+	 * رقمِ اشتباه یعنی زنگ زدن به غریبه.
+	 */
+	function copyPhoneButton(phone) {
+		return $('<button type="button" class="quick-copy-btn">')
+			.attr("title", "کپی شماره")
+			.html('<i class="fas fa-copy"></i>')
+			.on("click", function (e) {
+				e.stopPropagation();
+				var $b = $(this);
+				copyText(phone).then(function () {
+					$b.addClass("is-done").html('<i class="fas fa-check"></i>');
+					CrmToast.ok("شماره کپی شد: " + phone);
+					setTimeout(function () {
+						$b.removeClass("is-done").html('<i class="fas fa-copy"></i>');
+					}, 1600);
+				}, function () {
+					CrmToast.error("کپی نشد؛ شماره را دستی بردارید.");
+				});
+			});
+	}
+
+	// clipboard.writeText در context ناامن یا بدونِ اجازه رد می‌شود، پس
+	// راهِ قدیمیِ textarea+execCommand هم می‌ماند - وگرنه دکمه بی‌صدا هیچ
+	// کاری نمی‌کند و کاربر فکر می‌کند کپی شده.
+	function copyText(text) {
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			return navigator.clipboard.writeText(text);
+		}
+		return new Promise(function (resolve, reject) {
+			var ta = document.createElement("textarea");
+			ta.value = text;
+			ta.setAttribute("readonly", "");
+			ta.style.position = "fixed";
+			ta.style.opacity = "0";
+			document.body.appendChild(ta);
+			ta.select();
+			var okay = false;
+			try { okay = document.execCommand("copy"); } catch (err) { okay = false; }
+			document.body.removeChild(ta);
+			if (okay) resolve(); else reject(new Error("copy failed"));
+		});
+	}
+
 	// هر کلیکِ بیرون، همه‌ی کشوها را می‌بندد. یک‌بار برای کلِ صفحه بسته
 	// می‌شود، نه یک‌بار به ازای هر نوار.
 	$(document).on("click", function () { closeMenus(); });
 
 	return {
 		bar: bar,
+		copyPhoneButton: copyPhoneButton,
+		copyText: copyText,
 		menuButton: menuButton,
 		closeMenus: closeMenus,
 		CALL_RESULTS: CALL_RESULTS,

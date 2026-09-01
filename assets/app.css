@@ -799,7 +799,9 @@ body::before {
 	-moz-appearance: none;
 	border: none;
 	border-radius: 20px;
-	padding: 5px 28px 5px 12px;
+	/* فلش سمتِ چپ می‌نشیند، پس جای خالی هم باید همان‌جا باشد. برعکسش -
+	   که تا امروز بود - یعنی فلش روی آخرین حرفِ «تماس گرفته شد» می‌افتاد. */
+	padding: 5px 12px 5px 28px;
 	font-size: 0.78rem;
 	font-weight: 600;
 	cursor: pointer;
@@ -5174,4 +5176,103 @@ tr.is-skeleton td:last-child .skeleton-bar { width: 40%; }
 
 @media (prefers-reduced-motion: reduce) {
 	.skeleton-bar { animation: none; }
+}
+
+/* ═══ سرگروه‌های منو ═══════════════════════════════════════════════
+   منو ده آیتمِ تخت داشت و کارِ روزانه با تنظیمات در یک سطح بود. دو
+   گروه، با همان مرزی که دسترسیِ نقش‌ها دارد: «کارِ روزانه» همان چیزی
+   است که مشاور می‌بیند، و برای او گروهِ دوم اصلاً ساخته نمی‌شود. */
+
+.side-group {
+	list-style: none;
+	padding: 0 18px;
+	margin: 16px 0 6px;
+	font-size: 0.66rem;
+	font-weight: 700;
+	letter-spacing: .08em;
+	color: color-mix(in srgb, currentColor 55%, transparent);
+	opacity: .75;
+}
+
+.side-item-container > .side-group:first-child { margin-top: 4px; }
+
+/* ═══ کپی شماره ════════════════════════════════════════════════════
+   دوقلوی دکمه‌ی تماس: آن یکی روی گوشی کار می‌کند، این یکی روی دسکتاپ. */
+
+.quick-copy-btn {
+	flex: none;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--card-2);
+	color: var(--muted);
+	font-size: 0.7rem;
+	cursor: pointer;
+	transition: background .15s, color .15s, transform .1s;
+}
+
+.quick-copy-btn:hover {
+	background: color-mix(in srgb, var(--brand-navy) 12%, transparent);
+	color: var(--brand-navy);
+	transform: translateY(-1px);
+}
+
+.quick-copy-btn.is-done {
+	background: color-mix(in srgb, var(--up) 16%, transparent);
+	color: var(--up);
+}
+
+.dark .quick-copy-btn:hover { color: #cdd7f7; }
+
+/* ═══ هدفِ لمس روی موبایل ═══════════════════════════════════════════
+   استانداردِ لمس ۴۴ پیکسل است و این دکمه‌ها ۲۴ تا ۲۸ بودند. اندازه‌ی
+   دیداری همان می‌ماند و فقط ناحیه‌ی قابلِ زدن بزرگ می‌شود - وگرنه
+   ردیف‌ها بی‌دلیل بلند می‌شدند. */
+
+@media (max-width: 760px) {
+	.drawer-toggle,
+	.quick-call-btn,
+	.quick-copy-btn,
+	.queue-qa-toggle,
+	.fact-edit {
+		position: relative;
+	}
+
+	.drawer-toggle::after,
+	.quick-call-btn::after,
+	.quick-copy-btn::after,
+	.fact-edit::after {
+		content: "";
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 44px;
+		height: 44px;
+		transform: translate(-50%, -50%);
+	}
+
+	.queue-qa-toggle,
+	.queue-done-btn { min-height: 44px; }
+}
+
+/* ═══ حالتِ فوکوس ══════════════════════════════════════════════════
+   ناوبری با کیبورد روی چیپ‌ها و کشوها هیچ نشانه‌ای نداشت. */
+
+.filter-tab:focus-visible,
+.qa-menu-btn:focus-visible,
+.qa-menu-item:focus-visible,
+.drawer-toggle:focus-visible,
+.quick-copy-btn:focus-visible,
+.quick-call-btn:focus-visible,
+.queue-qa-toggle:focus-visible,
+.crm-toast-undo:focus-visible,
+.side-item a:focus-visible {
+	outline: 2px solid var(--teal);
+	outline-offset: 2px;
+	border-radius: 8px;
 }

@@ -33,7 +33,16 @@ async function all(env, sql, ...binds) {
  * هر جایی که به مقدارِ اصلی نیاز دارد همچنان به آن دسترسی دارد.
  */
 export async function listLeads(env) {
-  const rows = await all(env, "SELECT * FROM crm_leads ORDER BY created_at DESC");
+  // تاریخِ آخرین تماس با یک زیرپرس‌وجو می‌آید نه با JOIN: شمارنده‌ی
+  // contact_attempts می‌گفت «سه تماس» ولی نه اینکه سه تماسِ دیروز بوده
+  // یا سه تماسِ ماه پیش - و آن دو حالت کاملاً متفاوت‌اند.
+  const rows = await all(
+    env,
+    `SELECT l.*,
+            (SELECT MAX(c.created_at) FROM crm_calls c WHERE c.lead_id = l.lead_id) AS last_call_at
+       FROM crm_leads l
+      ORDER BY l.created_at DESC`
+  );
   return rows.map((r) => ({ ...r, status: statusBucket(r.status), raw_status: r.status }));
 }
 
