@@ -52,7 +52,17 @@ jobs:
             grep -q "CREATE TABLE.*$t" dump.sql || {
               echo "::error::جدول $t در دامپ نیست."; exit 1; }
           done
-          echo "شمار ردیف‌های لید در دامپ: $(grep -c 'INSERT INTO crm_leads' dump.sql || true)"
+
+          # و مهم‌تر: خودِ ردیف‌ها. یک دامپِ فقط-ساختار همه‌ی بررسی‌های
+          # بالا را پاس می‌کند و کاملاً بی‌فایده است. نام جدول در خروجی
+          # wrangler داخل کوتیشن می‌آید، پس الگو باید هر دو حالت را
+          # بگیرد - نسخه‌ی اول همین را جا انداخته بود و صفر می‌شمرد.
+          LEADS=$(grep -cE 'INSERT INTO [`"]?crm_leads[`"]?' dump.sql || true)
+          echo "شمار دستورهای درجِ لید: $LEADS"
+          if [ "$LEADS" -lt 1 ]; then
+            echo "::error::دامپ هیچ ردیف لیدی ندارد - احتمالاً فقط ساختار است."
+            exit 1
+          fi
 
       - name: Encrypt
         env:
