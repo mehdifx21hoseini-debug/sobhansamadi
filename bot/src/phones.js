@@ -116,20 +116,59 @@ export async function savePhone(env, { telegramUserId, phone, name, username, so
 }
 
 /** تازه‌ترین بالا. برای صفحه‌ی CRM و خروجی. */
+/**
+ * دفترچه‌ی شماره‌ها، به‌علاوه‌ی دوره‌ای که هر نفر درباره‌اش فرم پر کرده.
+ *
+ * دوره در phone_book نیست و نباید هم باشد - این جدول فقط «چه کسی شماره
+ * داده» را می‌داند. دوره در crm_leads است، پس با یک زیرپرس‌وجو روی
+ * شناسه‌ی تلگرام کنارِ هم می‌آیند.
+ *
+ * یک نفر می‌تواند چند لید داشته باشد (یک بار مشاوره، یک بار ثبت‌نام)، پس
+ * دوره‌ها یکتا و در یک رشته جمع می‌شوند نه اینکه ردیف تکرار شود.
+ * GROUP_CONCAT در sqlite با DISTINCT جداکننده‌ی دلخواه نمی‌گیرد و «,»
+ * می‌گذارد؛ نامِ دوره‌ها کاما ندارند پس امن است.
+ *
+ * LEFT JOIN عمداً نیست: با JOIN، کسی که هنوز لیدی برایش ساخته نشده از
+ * فهرست می‌افتاد - و همان‌ها تازه‌ترین شماره‌ها هستند.
+ */
 export async function listPhones(env, { limit = 2000 } = {}) {
   await ensurePhoneSchema(env);
   const { results } = await env.DB
     .prepare(
-      `SELECT telegram_user_id, phone, name, username, sources, created_at, updated_at
-         FROM phone_book ORDER BY created_at DESC LIMIT ?`
+      `SELECT p.telegram_user_id, p.phone, p.name, p.username, p.sources,
+              p.created_at, p.updated_at,
+              (SELECT GROUP_CONCAT(DISTINCT l.course)
+                 FROM crm_leads l
+                WHERE l.telegram_user_id = p.telegram_user_id
+                  AND l.course IS NOT NULL AND TRIM(l.course) <> '') AS courses,
+              (SELECT GROUP_CONCAT(DISTINCT l.request_type)
+                 FROM crm_leads l
+                WHERE l.telegram_user_id = p.telegram_user_id
+                  AND l.request_type IS NOT NULL AND TRIM(l.request_type) <> '') AS request_types
+         FROM phone_book p
+        ORDER BY p.created_at DESC LIMIT ?`
     )
     .bind(Math.min(Number(limit) || 2000, 5000))
     .all();
 
   return (results || []).map((r) => ({
-    ...r,
+    telegram_user_id: r.telegram_user_id,
+    phone: r.phone,
+    name: r.name,
+    username: r.username,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
     sources: safeList(r.sources),
+    courses: splitList(r.courses),
+    request_types: splitList(r.request_types),
   }));
+}
+
+function splitList(value) {
+  return String(value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export async function phoneStats(env) {

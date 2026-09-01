@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=48">
+	<link rel="stylesheet" href="assets/app.css?v=49">
 	<link rel="stylesheet" href="assets/skin-ember.css?v=4">
 	<script>(function(){try{if(localStorage.getItem("crmSkin")==="ember")document.documentElement.setAttribute("data-skin","ember");}catch(e){}})();</script>
 </head>
@@ -135,9 +135,18 @@
 					<div class="col-12 p-2">
 						<div class="card shade animate-in">
 							<div class="card-body">
-								<div class="d-flex align-items-center mb-3">
-									<input type="search" id="phoneSearch" class="form-control" style="margin-inline-end:.75rem"
-										placeholder="جست‌وجو در شماره، نام، نام کاربری یا شناسه…" autocomplete="off">
+								<!-- فیلترِ دوره: برای وقتی که می‌خواهیم فقط به مخاطبانِ
+								     یک دوره پیام بدهیم، نه به همه. دوره از پرونده‌ی لیدِ
+								     همان شخص می‌آید، نه از خودِ دفترچه. -->
+								<div class="phones-toolbar mb-3">
+									<div class="search-box">
+										<i class="fas fa-search"></i>
+										<input type="search" id="phoneSearch" class="search-input"
+											placeholder="جست‌وجو در شماره، نام، نام کاربری یا شناسه…" autocomplete="off">
+									</div>
+									<select id="courseFilter" class="form-control phones-course-filter">
+										<option value="">همه‌ی دوره‌ها</option>
+									</select>
 									<button class="btn btn-brand btn-sm flex-shrink-0" id="btnExportPhones">
 										<i class="fas fa-file-csv mr-1"></i>خروجی اکسل
 									</button>
@@ -150,6 +159,7 @@
 												<th>نام</th>
 												<th>نام کاربری</th>
 												<th>شناسه تلگرام</th>
+												<th>دوره</th>
 												<th>منبع</th>
 												<th>تاریخ ثبت</th>
 											</tr>
@@ -271,7 +281,7 @@
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
 	<script src="js/quick-actions.js?v=5"></script>
-	<script src="js/phones.js?v=4"></script>
+	<script src="js/phones.js?v=5"></script>
 </body>
 
 </html>
