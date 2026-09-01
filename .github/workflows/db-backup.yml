@@ -1,0 +1,88 @@
+name: Weekly DB Backup
+
+# نسخه‌ی پشتیبانِ دیتابیس، بیرون از Cloudflare.
+#
+# چرا لازم است در حالی که D1 خودش Time Travel دارد: Time Travel داخل
+# همان حسابِ Cloudflare است. اگر حساب از دست برود - تعلیق، مشکل پرداخت،
+# دسترسیِ ازدست‌رفته - هم دیتابیس می‌رود هم نسخه‌ی بازگردانی‌اش. این جاب
+# تنها چیزی است که آن حالت را پوشش می‌دهد.
+#
+# ─── چرا در مخزنِ دیگر و رمزگذاری‌شده ────────────────────────────────
+# این مخزن عمومی است و دامپ شامل شماره‌ی تلفن مشتری‌ها و هشِ رمزهاست.
+# پس فایل با AES-256 رمز می‌شود و در یک مخزن خصوصیِ جدا می‌نشیند. حتی
+# اگر روزی آن مخزن هم به‌اشتباه عمومی شود، محتوا بدون عبارت عبور
+# خواندنی نیست.
+#
+# ─── چیزی که این جاب عمداً انجام می‌دهد ──────────────────────────────
+# پیش از ذخیره، اندازه و محتوای دامپ بررسی می‌شود. یک فایل خالی یا
+# نصفه هم «موفق» به نظر می‌رسد و بی‌صدا جای نسخه‌ی سالم قبلی را
+# می‌گیرد - و این را فقط روزی می‌فهمیم که به بازگردانی نیاز داریم.
+
+on:
+  schedule:
+    # جمعه‌ها ۰۳:۰۰ UTC (۰۶:۳۰ تهران) - کم‌ترافیک‌ترین ساعت هفته.
+    - cron: "0 3 * * 5"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@latest d1 export sobhan-bot-db \
+            --remote --output dump.sql
+
+      - name: Sanity-check the dump
+        run: |
+          set -e
+          BYTES=$(stat -c%s dump.sql)
+          echo "اندازه‌ی دامپ: $BYTES بایت"
+          # یک دیتابیسِ سالمِ این پروژه ده‌ها کیلوبایت است. هر چیزی
+          # کوچک‌تر از ۵۰ کیلوبایت یعنی export نصفه مانده.
+          if [ "$BYTES" -lt 51200 ]; then
+            echo "::error::دامپ خیلی کوچک است - احتمالاً ناقص. ذخیره نمی‌شود."
+            exit 1
+          fi
+          # جدول‌هایی که نبودشان یعنی دامپ به داده‌ی واقعی نرسیده.
+          for t in crm_leads user_state phone_book econ_subscriber; do
+            grep -q "CREATE TABLE.*$t" dump.sql || {
+              echo "::error::جدول $t در دامپ نیست."; exit 1; }
+          done
+          echo "شمار ردیف‌های لید در دامپ: $(grep -c 'INSERT INTO crm_leads' dump.sql || true)"
+
+      - name: Encrypt
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -e
+          test -n "$PASSPHRASE" || { echo "::error::BACKUP_PASSPHRASE تنظیم نشده"; exit 1; }
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$PASSPHRASE" --output dump.sql.gpg dump.sql
+          rm -f dump.sql
+          ls -lh dump.sql.gpg
+
+      - name: Push to the private backup repo
+        env:
+          TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+          REPO: ${{ secrets.BACKUP_REPO }}
+        run: |
+          set -e
+          STAMP=$(date -u +%Y-%m-%d)
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${REPO}.git" store
+          mkdir -p store/backups
+          mv dump.sql.gpg "store/backups/${STAMP}.sql.gpg"
+          cd store
+          # فقط دوازده نسخه‌ی آخر نگه داشته می‌شود - سه ماه. بیشتر از
+          # این، مخزن را بی‌دلیل سنگین می‌کند و نسخه‌ی چهار ماه پیشِ یک
+          # CRM عملاً به کار کسی نمی‌آید.
+          ls -1 backups/*.sql.gpg | sort | head -n -12 | xargs -r git rm -q
+          git config user.name "backup-bot"
+          git config user.email "backup@users.noreply.github.com"
+          git add backups
+          git commit -q -m "بک‌آپ دیتابیس ${STAMP}" || { echo "تغییری نبود"; exit 0; }
+          git push -q
+          echo "ذخیره شد: backups/${STAMP}.sql.gpg"
