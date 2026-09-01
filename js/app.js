@@ -88,11 +88,50 @@
 		return CrmData.isAtRisk(lead);
 	}
 
+	function currentUser() {
+		try {
+			return sessionStorage.getItem("crmUsername") || "";
+		} catch (e) {
+			return "";
+		}
+	}
+
+	function isMine(lead) {
+		var me = currentUser();
+		return !!me && String(lead.assigned_to || "") === me;
+	}
+
+	/**
+	 * ترتیبِ فهرست از فیلترِ فعال می‌آید، نه یک قاعده‌ی ثابت.
+	 *
+	 * پیش از این همه‌جا بر اساس آخرین تغییر مرتب می‌شد. یعنی حتی در تبِ
+	 * «نیاز به پیگیری»، لیدی که ده روز عقب افتاده می‌توانست صفحه‌ی سوم
+	 * باشد - درست همان‌جایی که فوریت باید ترتیب را تعیین کند.
+	 */
+	function sortRows(rows) {
+		if (state.statusFilter === "یادآوری") {
+			return rows.sort(function (a, b) {
+				var da = followupDate(a), db = followupDate(b);
+				return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
+			});
+		}
+		if (state.statusFilter === "در_ریسک") {
+			// قدیمی‌ترین اول: لیدی که بیشتر منتظر مانده، بیشتر در خطر است.
+			return rows.sort(function (a, b) {
+				return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+			});
+		}
+		return rows.sort(function (a, b) {
+			return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
+		});
+	}
+
 	function getFilteredRows() {
 		var q = state.query.trim();
-		return state.leads
+		return sortRows(state.leads
 			.filter(function (l) {
 				if (state.statusFilter === "همه") return true;
+				if (state.statusFilter === "مالِ_من") return isMine(l);
 				if (state.statusFilter === "یادآوری") return isDueForFollowUp(l);
 				if (state.statusFilter === "در_ریسک") return isAtRisk(l);
 				return l.status === state.statusFilter;
@@ -103,9 +142,14 @@
 			})
 			.filter(function (l) {
 				if (!q) return true;
-				return (l.full_name || "").indexOf(q) !== -1 || (l.phone || "").indexOf(q) !== -1;
-			})
-			.sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
+				// جستجو حالا پاسخ‌های ربات و شناسه را هم می‌گیرد: از وقتی
+				// «سطح» و «هدف» ستون واقعی شدند، جستجوی «مدیریت سرمایه»
+				// هیچ نتیجه‌ای نمی‌داد در حالی که داده‌اش موجود بود.
+				var answers = CrmData.botAnswers(l);
+				var hay = [l.full_name, l.phone, l.lead_id, answers.level, answers.topic]
+					.map(function (x) { return String(x || ""); }).join(" ");
+				return hay.indexOf(q) !== -1;
+			}));
 	}
 
 	// ─── ستون‌های تصمیم‌ساز ───────────────────────────────────────────
@@ -137,7 +181,7 @@
 	}
 
 	function followupCell(lead) {
-		var $td = $("<td>").addClass("followup-cell");
+		var $td = $("<td>").attr("data-label", "پیگیری بعدی").addClass("followup-cell");
 		var due = followupDate(lead);
 		if (!due) {
 			$td.append($('<span class="text-muted text-sm">').text("ثبت نشده"));
@@ -295,6 +339,11 @@
 
 		// ۱) نتیجه‌ی تماس
 		var pickedResult = null;
+		// یادداشتِ تماس، همان‌جا. بدون این، مشاور نتیجه را ثبت می‌کرد ولی
+		// «چه گفت» هیچ‌جا نمی‌ماند مگر با باز کردن پرونده - یعنی دقیقاً
+		// همان کاری که این نوار قرار بود لازم نکند.
+		var $callNote = $('<input type="text" class="quick-note d-none">')
+			.attr("placeholder", "چه گفت؟ (اختیاری)");
 		var $callConfirm = $('<button type="button" class="btn btn-brand btn-sm quick-confirm d-none">').text("ثبت تماس");
 		var $callMenu = menuButton({
 			label: "ثبت نتیجه تماس", icon: "fa-phone-volume", items: CALL_RESULTS,
@@ -302,20 +351,21 @@
 				pickedResult = item.label;
 				api.setLabel(item.label);
 				api.markChosen();
+				$callNote.removeClass("d-none");
 				$callConfirm.removeClass("d-none");
 			}
 		});
 		$callConfirm.on("click", function () {
 			if (!pickedResult) return;
 			var $b = $(this).prop("disabled", true).text("در حال ثبت…");
-			CrmData.recordCall(lead.lead_id, pickedResult, "", "")
+			CrmData.recordCall(lead.lead_id, pickedResult, $callNote.val().trim(), "")
 				.then(function () { quickToast(lead.lead_id, true, "نتیجه تماس ثبت شد."); loadLeads(); })
 				.catch(function (err) {
 					quickToast(lead.lead_id, false, "خطا در ثبت تماس: " + (err.message || "خطای نامشخص"));
 					$b.prop("disabled", false).text("ثبت تماس");
 				});
 		});
-		$row.append($callMenu).append($callConfirm);
+		$row.append($callMenu).append($callNote).append($callConfirm);
 
 		// ۲) پیام آماده
 		var pickedTemplate = null;
@@ -457,6 +507,9 @@
 		var dueCount = state.leads.filter(isDueForFollowUp).length;
 		$("#reminderTabCount").text(dueCount > 0 ? "(" + dueCount + ")" : "");
 
+		var mineCount = state.leads.filter(isMine).length;
+		$("#mineTabCount").text(mineCount > 0 ? "(" + faNum(mineCount) + ")" : "");
+
 		var atRiskCount = state.leads.filter(isAtRisk).length;
 		$("#atRiskTabCount").text(atRiskCount > 0 ? "(" + atRiskCount + ")" : "");
 	}
@@ -516,7 +569,7 @@
 			$nameCell.append($tags);
 			$tr.append($nameCell);
 
-			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
+			var $phoneCell = $("<td>").attr({ dir: "ltr", "data-label": "شماره" }).addClass("mono phone-cell text-center");
 			$phoneCell.append($("<span>").text(lead.phone || "-"));
 			if (lead.phone) {
 				$phoneCell.append($("<a>").addClass("quick-call-btn").attr({
@@ -530,7 +583,7 @@
 			if (isAtRisk(lead)) {
 				$statusWrap.append('<span class="risk-icon" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i></span>');
 			}
-			var $statusCell = $("<td>").addClass("text-center").append($statusWrap);
+			var $statusCell = $("<td>").attr("data-label", "وضعیت").addClass("text-center").append($statusWrap);
 			// «تماس گرفته شد» می‌گوید کاری کرده‌ایم؛ نتیجه‌اش می‌گوید چه
 			// کرده‌ایم - و تصمیمِ بعدی از دومی می‌آید.
 			if (lead.last_call_result) {
@@ -541,12 +594,12 @@
 			$tr.append(followupCell(lead));
 
 			var attempts = Number(lead.contact_attempts) || 0;
-			$tr.append($("<td>").addClass("text-center").append(
+			$tr.append($("<td>").attr("data-label", "تماس‌ها").addClass("text-center").append(
 				$('<span class="tries-count">').addClass(attempts ? "" : "is-zero").text(faNum(attempts))
 			));
 
-			$tr.append($("<td>").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
-			$tr.append($("<td>").addClass("text-muted text-sm").text(leadAge(lead.created_at)));
+			$tr.append($("<td>").attr("data-label", "مشاور").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
+			$tr.append($("<td>").attr("data-label", "سن لید").addClass("text-muted text-sm").text(leadAge(lead.created_at)));
 			$body.append($tr);
 			if (open) $body.append(drawerRow(lead));
 		});
@@ -643,6 +696,69 @@
 		$("#btnNextPage").on("click", function () {
 			state.page += 1;
 			renderTable();
+		});
+
+		// ─── لید جدید ────────────────────────────────────────────────
+		CrmData.LEAD_SOURCES.forEach(function (src) {
+			// فرم منتورینگ سایت را خودِ سایت پر می‌کند؛ انتخابش اینجا
+			// یعنی لیدی که در صفحه‌ی منتورینگ دیده می‌شود ولی از آنجا
+			// نیامده.
+			if (src.key === CrmData.MENTORING_SOURCE) return;
+			$("#nlSource").append($("<option>").val(src.key).text(src.label));
+		});
+		$("#nlSource").val("instagram");
+
+		$("#btnNewLead").on("click", function () {
+			$("#newLeadResult").addClass("d-none").empty();
+			$("#newLeadModal").modal("show");
+			setTimeout(function () { $("#nlName").focus(); }, 250);
+		});
+
+		$("#btnSaveNewLead").on("click", function () {
+			var $btn = $(this);
+			var $out = $("#newLeadResult").removeClass("d-none text-success text-danger");
+			var payload = {
+				full_name: $("#nlName").val().trim(),
+				phone: $("#nlPhone").val().trim(),
+				source: $("#nlSource").val(),
+				request_type: $("#nlRequestType").val(),
+				course: $("#nlCourse").val(),
+				level: $("#nlLevel").val().trim(),
+				topic: $("#nlTopic").val().trim(),
+				note: $("#nlNote").val().trim()
+			};
+			if (!payload.full_name || !payload.phone) {
+				$out.addClass("text-danger").text("نام و شماره لازم است.");
+				return;
+			}
+			$btn.prop("disabled", true).text("در حال ثبت…");
+			CrmData.createLead(payload)
+				.then(function (res) {
+					if (res && res.ok === false) {
+						// شماره‌ی تکراری: به‌جای خطای خشک، راهِ رفتن به
+						// پرونده‌ی موجود داده می‌شود.
+						$out.addClass("text-danger").text(res.error || "ثبت نشد.");
+						if (res.existing_lead_id) {
+							$out.append($("<a>").addClass("mr-2")
+								.attr("href", "lead.html?id=" + encodeURIComponent(res.existing_lead_id))
+								.text("باز کردن پرونده‌ی موجود"));
+						}
+						return;
+					}
+					$out.addClass("text-success").text("لید ثبت شد.");
+					["#nlName", "#nlPhone", "#nlLevel", "#nlTopic", "#nlNote"].forEach(function (sel) {
+						$(sel).val("");
+					});
+					CrmData.invalidateLeadsCache();
+					loadLeads();
+					setTimeout(function () { $("#newLeadModal").modal("hide"); }, 900);
+				})
+				.catch(function (err) {
+					$out.addClass("text-danger").text("خطا: " + (err.message || "خطای نامشخص"));
+				})
+				.finally(function () {
+					$btn.prop("disabled", false).text("ثبت لید");
+				});
 		});
 
 		$("#leadsTableBody").on("click", ".drawer-toggle", function () {

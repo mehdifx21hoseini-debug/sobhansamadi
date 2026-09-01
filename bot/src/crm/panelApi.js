@@ -276,6 +276,7 @@ export async function handleCrmApi(request, url, env) {
       "/crm/lead/followup": () => W.setFollowup(env, b, who),
       "/crm/lead/source": () => W.setLeadSource(env, b, who),
       "/crm/lead/purchase": () => W.recordPurchase(env, b, who),
+      "/crm/lead/create": () => W.createManualLead(env, b, who),
       "/crm/calls": () => W.recordCall(env, b, who),
       "/crm/support-ticket/status": () => W.setTicketStatus(env, b),
       "/crm/support-ticket/reply": () => W.replyTicket(env, b, who, send),

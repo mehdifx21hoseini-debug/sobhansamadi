@@ -6,6 +6,8 @@
 // بودند - نتیجه‌اش تایم‌لاینی بود که بعضی اتفاق‌ها را نداشت و کسی
 // نمی‌فهمید چرا. اینجا از یک تابع می‌گذرد، پس جا انداختنش سخت‌تر است.
 
+import { normalizePhone } from "./intake.js";
+
 const nowIso = () => new Date().toISOString();
 
 /** شناسه‌ی یکتا با پیشوندِ خوانا. همان الگویی که n8n می‌ساخت. */
@@ -96,6 +98,69 @@ export async function insertBotLead(env, lead) {
 
   await logActivity(env, leadId, "ثبت لید", "از ربات تلگرام", "bot");
   return leadId;
+}
+
+// ─── لیدِ دستی ───────────────────────────────────────────────────────
+
+/**
+ * لیدی که مشاور خودش وارد می‌کند.
+ *
+ * تا امروز تنها درِ ورودِ لید، ربات و فرم سایت بود. یعنی شماره‌ای که در
+ * دایرکت اینستاگرام گرفته می‌شد هیچ راهی به CRM نداشت - فیلترِ
+ * «اینستاگرام» وجود داشت ولی چیزی که پرش کند نه.
+ *
+ * شماره تکراری رد می‌شود و شناسه‌ی پرونده‌ی موجود برگردانده می‌شود، نه
+ * اینکه ردیف دوم ساخته شود: همان قاعده‌ای که ربات دارد. دو پرونده برای
+ * یک شماره یعنی دو مشاور به یک نفر زنگ می‌زنند.
+ *
+ * لید به سازنده‌اش تخصیص داده می‌شود - کسی که شماره را گرفته، صاحبِ
+ * پیگیری‌اش است.
+ */
+export async function createManualLead(env, body, actor) {
+  const name = String(body.full_name || "").trim();
+  const phone = normalizePhone(body.phone);
+  if (!name) return bad("نام لازم است");
+  if (!phone || phone.length < 10) return bad("شماره‌ی موبایل معتبر نیست");
+
+  const existing = await env.DB
+    .prepare("SELECT lead_id, full_name FROM crm_leads WHERE phone = ? LIMIT 1")
+    .bind(phone)
+    .first();
+  if (existing) {
+    return {
+      ok: false,
+      error: "این شماره از قبل در CRM هست: " + (existing.full_name || existing.lead_id),
+      existing_lead_id: existing.lead_id,
+    };
+  }
+
+  const source = ALLOWED_SOURCES.includes(String(body.source || "").trim())
+    ? String(body.source).trim()
+    : "instagram";
+  const now = nowIso();
+  const leadId = newLeadId();
+  const note = String(body.note || "").trim();
+
+  await env.DB
+    .prepare(
+      `INSERT INTO crm_leads
+         (lead_id, full_name, phone, course, request_type, notes, status,
+          contact_attempts, created_at, updated_at, source, assigned_to, level, topic)
+       VALUES (?, ?, ?, ?, ?, ?, 'جدید', 0, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      leadId, name, phone,
+      String(body.course || "").trim() || null,
+      String(body.request_type || "").trim() || "مشاوره",
+      note ? "[" + tehranStamp() + " - یادداشت مشاور] " + note : null,
+      now, now, source, actor || "",
+      String(body.level || "").trim() || null,
+      String(body.topic || "").trim() || null
+    )
+    .run();
+
+  await logActivity(env, leadId, "ثبت لید", "ورود دستی از پنل", actor);
+  return { ok: true, lead_id: leadId };
 }
 
 // ─── وضعیت لید ───────────────────────────────────────────────────────

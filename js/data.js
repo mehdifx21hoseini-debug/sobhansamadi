@@ -447,6 +447,17 @@
 		});
 	}
 
+	// The only way a lead that never touched the bot can enter the CRM:
+	// an Instagram DM, a number a colleague passed on. Everything else
+	// comes in through the bot or the site form.
+	function createLead(payload) {
+		return request("/crm/lead/create", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload)
+		});
+	}
+
 	// Payments happen on the website and never reach the CRM, so a sale only
 	// exists here if the consultant records it. Without this, crm_orders stays
 	// empty and every revenue number in the panel reads zero.
@@ -723,6 +734,7 @@
 		saveAdmin: saveAdmin,
 		recordCall: recordCall,
 		recordPurchase: recordPurchase,
+		createLead: createLead,
 		assignLead: assignLead,
 		fetchFollowupsToday: fetchFollowupsToday,
 		fetchSalesKpi: fetchSalesKpi,

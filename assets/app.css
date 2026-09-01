@@ -4754,3 +4754,160 @@ td.drawer-cell {
 .quick-toast.is-bad {
 	color: var(--down, #c8323c);
 }
+
+/* یادداشت تماس داخل نوار اقدام سریع. تک‌خطی است چون نباید به یک فرم
+   تبدیل شود؛ یادداشت بلند جایش صفحه‌ی پرونده است. */
+.quick-note {
+	font: inherit;
+	font-size: 0.8rem;
+	padding: 6px 11px;
+	border-radius: 9px;
+	border: 1px solid var(--line);
+	background: var(--card-2);
+	color: var(--text);
+	min-width: 220px;
+	flex: 1 1 220px;
+	max-width: 340px;
+}
+
+.quick-note:focus {
+	outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
+	outline-offset: 1px;
+	border-color: var(--accent);
+}
+
+/* ═══ فهرست لیدها روی موبایل: کارت، نه جدولِ افقی ═══════════════════
+   جدول در عرضِ ۳۹۰ پیکسل ۷۷۱ پیکسل جا می‌خواست، یعنی مشاور فقط نام و
+   شماره را می‌دید و وضعیت و پیگیری و تعداد تماس بیرونِ کادر می‌ماندند.
+   اسکرولِ افقی هم روی گوشی کسی را جایی نمی‌برد: با یک نگاه معلوم نیست
+   که چیزی آن‌طرف هست. پس هر ردیف یک کارت می‌شود و هر سلول برچسبِ
+   خودش را از data-label می‌گیرد. */
+@media (max-width: 760px) {
+	/* جدول کاملاً از حالتِ جدول بیرون می‌آید. اگر فقط ردیف‌ها grid شوند
+	   و خودِ table جدول بماند، عرضِ جدول را همان چیدمانِ ستونیِ قبلی
+	   تعیین می‌کند و ردیف‌ها از کارت می‌زنند بیرون - سلول‌ها در
+	   راست‌به‌چپ به سمت چپ سرریز می‌کنند و بی‌صدا بریده می‌شوند. */
+	.crm-data-table,
+	.crm-data-table tbody {
+		display: block;
+		width: 100%;
+		min-width: 0;
+	}
+
+	.table-responsive {
+		overflow-x: visible;
+	}
+
+	.crm-data-table thead {
+		display: none;
+	}
+
+	.crm-data-table tbody tr.lead-row {
+		display: grid;
+		grid-template-columns: 34px 1fr;
+		gap: 2px 8px;
+		padding: 10px 12px 12px;
+		margin-bottom: 10px;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--card);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.crm-data-table tbody tr.lead-row > td {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 4px 0;
+		border: none;
+		grid-column: 2;
+		text-align: right !important;
+	}
+
+	/* دکمه‌ی کشو و نام، کنار هم در سطر اول کارت. */
+	.crm-data-table tbody tr.lead-row > td.drawer-cell {
+		grid-column: 1;
+		grid-row: 1;
+		width: auto;
+		padding: 0;
+	}
+
+	/* سلولِ نام بلوکی می‌ماند تا نشان‌ها زیر نام بنشینند، نه کنارش -
+	   وگرنه در عرضِ کارت به بیرون رانده و بریده می‌شوند. */
+	.crm-data-table tbody tr.lead-row > td:nth-child(2) {
+		grid-row: 1;
+		display: block;
+		font-size: 0.95rem;
+	}
+
+	/* هیچ سلولی حق ندارد از کارت بزند بیرون: در راست‌به‌چپ، سرریز به
+	   سمت چپ می‌رود و بی‌صدا بریده می‌شود. */
+	.crm-data-table tbody tr.lead-row > td > * {
+		min-width: 0;
+	}
+
+	.crm-data-table tbody tr.lead-row .status-select,
+	.crm-data-table tbody tr.lead-row .assign-select {
+		max-width: 70%;
+		font-size: 0.74rem;
+	}
+
+	.crm-data-table tbody tr.lead-row .status-cell-wrap {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		min-width: 0;
+		max-width: 70%;
+	}
+
+	/* برچسبِ ستون، حالا داخل خودِ سلول. */
+	.crm-data-table tbody tr.lead-row > td[data-label]::before {
+		content: attr(data-label);
+		font-size: 0.72rem;
+		color: var(--muted);
+		flex: 0 0 auto;
+		white-space: nowrap;
+	}
+
+	.crm-data-table tbody tr.lead-row > td.phone-cell {
+		justify-content: space-between;
+	}
+
+	.lead-drawer-row > td {
+		padding: 0 !important;
+	}
+
+	.crm-data-table tbody tr.lead-drawer-row {
+		display: block;
+		margin: -6px 0 12px;
+	}
+
+	.qa-meta-strip {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	.quick-bar-row {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.qa-menu,
+	.qa-menu-btn,
+	.quick-confirm,
+	.quick-note {
+		width: 100%;
+		max-width: none;
+		justify-content: center;
+	}
+
+	.qa-menu-list {
+		right: auto;
+		left: 0;
+		width: 100%;
+	}
+
+	.toolbar-actions {
+		flex-wrap: wrap;
+	}
+}

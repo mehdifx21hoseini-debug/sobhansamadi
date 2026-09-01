@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=37">
+	<link rel="stylesheet" href="assets/app.css?v=42">
 	<link rel="stylesheet" href="assets/skin-ember.css?v=4">
 	<script>(function(){try{if(localStorage.getItem("crmSkin")==="ember")document.documentElement.setAttribute("data-skin","ember");}catch(e){}})();</script>
 </head>
@@ -152,6 +152,9 @@
 								<div class="toolbar-row">
 									<div class="filter-tabs" id="filterTabs">
 										<button class="filter-tab active" data-status="همه">همه</button>
+										<button class="filter-tab" data-status="مالِ_من"><i
+												class="fas fa-user-check mr-1"></i>لیدهای من <span
+												id="mineTabCount"></span></button>
 										<button class="filter-tab" data-status="پاسخ‌داده‌نشده">در انتظار تماس</button>
 										<button class="filter-tab" data-status="تماس گرفته شد">تماس گرفته شد</button>
 										<button class="filter-tab" data-status="پاسخ نداد">پاسخ نداد</button>
@@ -167,7 +170,9 @@
 											<option value="">همه منابع</option>
 										</select>
 										<input type="text" id="searchInput" class="form-control search-input"
-											placeholder="جستجوی نام یا شماره...">
+											placeholder="جستجوی نام، شماره، سطح یا هدف...">
+										<button type="button" class="btn btn-brand btn-sm" id="btnNewLead"><i
+												class="fas fa-plus mr-1"></i>لید جدید</button>
 									</div>
 								</div>
 
@@ -231,6 +236,69 @@
 			});
 		});
 	</script>
+
+	<!-- لیدی که از ربات نیامده: دایرکت اینستاگرام، شماره‌ای که دست‌به‌دست
+	     رسیده، تماسی که خودش گرفته. تا امروز هیچ راهی به CRM نداشت. -->
+	<div class="modal fade" id="newLeadModal" tabindex="-1" role="dialog" aria-labelledby="newLeadModalLabel" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="newLeadModalLabel"><i class="fas fa-user-plus c-main mr-2"></i>لید جدید</h5>
+					<button type="button" class="close" data-dismiss="modal" aria-label="بستن"><span aria-hidden="true">&times;</span></button>
+				</div>
+				<div class="modal-body">
+					<div class="row">
+						<div class="col-sm-6 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlName">نام و نام خانوادگی *</label>
+							<input type="text" id="nlName" class="form-control" placeholder="مثلاً مریم رضایی">
+						</div>
+						<div class="col-sm-6 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlPhone">شماره موبایل *</label>
+							<input type="text" id="nlPhone" class="form-control" dir="ltr" inputmode="tel" placeholder="09121234567">
+						</div>
+						<div class="col-sm-6 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlSource">از کجا آمده</label>
+							<select id="nlSource" class="form-control"></select>
+						</div>
+						<div class="col-sm-6 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlRequestType">نوع درخواست</label>
+							<select id="nlRequestType" class="form-control">
+								<option value="مشاوره">مشاوره</option>
+								<option value="ثبت‌نام">ثبت‌نام</option>
+							</select>
+						</div>
+						<div class="col-12 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlCourse">دوره‌ی موردنظر</label>
+							<select id="nlCourse" class="form-control">
+								<option value="">— نامشخص —</option>
+								<option value="📚 مجموعه آموزشی پیشرفته">📚 مجموعه آموزشی پیشرفته</option>
+								<option value="🧠 دوره روانشناسی">🧠 دوره روانشناسی</option>
+								<option value="📘 هر دو دوره">📘 هر دو دوره</option>
+							</select>
+						</div>
+						<div class="col-12 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlLevel">سطح معامله‌گری</label>
+							<textarea id="nlLevel" class="form-control" rows="2" placeholder="اگر پرسیدید، همان‌طور که گفت بنویسید"></textarea>
+						</div>
+						<div class="col-12 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlTopic">هدف از مشاوره</label>
+							<textarea id="nlTopic" class="form-control" rows="2" placeholder="چه چیزی می‌خواهد"></textarea>
+						</div>
+						<div class="col-12 mb-2">
+							<label class="text-muted text-sm mb-1" for="nlNote">یادداشت اولیه</label>
+							<textarea id="nlNote" class="form-control" rows="2" placeholder="مثلاً: از دایرکت اینستاگرام، پیج آموزشی"></textarea>
+						</div>
+					</div>
+					<div id="newLeadResult" class="text-sm mb-2 d-none"></div>
+					<p class="text-muted text-sm mb-0"><i class="fas fa-info-circle mr-1"></i>لید به نام خودتان ثبت می‌شود. اگر این شماره از قبل در CRM باشد، پرونده‌ی موجود نشان داده می‌شود.</p>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-brand btn-sm" id="btnSaveNewLead">ثبت لید</button>
+					<button type="button" class="btn btn-outline-secondary btn-sm" data-dismiss="modal">انصراف</button>
+				</div>
+			</div>
+		</div>
+	</div>
 
 	<div class="modal fade" id="profileModal" tabindex="-1" role="dialog" aria-labelledby="profileModalLabel" aria-hidden="true">
 		<div class="modal-dialog" role="document">
@@ -308,11 +376,11 @@
 
 	<script src="js/theme.js?v=2"></script>
 	<script src="js/skin.js?v=1"></script>
-	<script src="js/data.js?v=16"></script>
+	<script src="js/data.js?v=17"></script>
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/app.js?v=10"></script>
+	<script src="js/app.js?v=11"></script>
 </body>
 
 </html>
