@@ -127,6 +127,32 @@ function botNote(lead, when) {
 }
 
 /**
+ * پاسخ‌های ربات را از متنِ یادداشت‌ها بیرون می‌کشد.
+ *
+ * دو نسل قالب وجود دارد و هیچ‌کدام حذف نشده: آنچه n8n می‌نوشت
+ * («سطح: … | موضوع: … | زمان مناسب تماس: …») و آنچه ربات حالا می‌نویسد
+ * («[تاریخ] از ربات تلگرام — سطح: … | موضوع: …»). هر دو یک شکل دارند،
+ * پس یک الگو هر دو را می‌گیرد.
+ *
+ * آخرین مقدار برنده است: لیدی که دو بار فرم را پر کرده، پاسخ تازه‌اش
+ * همان چیزی است که باید دیده شود.
+ *
+ * این تنها جای پارس کردن است. پنل ستون‌ها را می‌خواند، نه متن را - تا
+ * دو تعبیرِ متفاوت از یک داده نداشته باشیم.
+ */
+export function parseBotAnswers(notes) {
+  const text = String(notes || "");
+  const grab = (label) => {
+    const re = new RegExp(label + "\\s*:\\s*([^|\\n]+)", "g");
+    let m;
+    let last = "";
+    while ((m = re.exec(text)) !== null) last = m[1].trim();
+    return last;
+  };
+  return { level: grab("سطح"), topic: grab("موضوع") };
+}
+
+/**
  * لیدی که ربات گرفته، در crm_leads.
  *
  * اگر شماره‌اش از قبل هست، همان پرونده به‌روز می‌شود و یادداشت تازه به
@@ -148,13 +174,16 @@ export async function upsertBotLead(env, lead) {
            telegram_user_id = COALESCE(NULLIF(?, ''), telegram_user_id),
            telegram_username = COALESCE(NULLIF(?, ''), telegram_username),
            full_name = COALESCE(NULLIF(?, ''), full_name),
-           course = COALESCE(NULLIF(?, ''), course)
+           course = COALESCE(NULLIF(?, ''), course),
+           level = COALESCE(NULLIF(?, ''), level),
+           topic = COALESCE(NULLIF(?, ''), topic)
          WHERE lead_id = ?`
       )
       .bind(
         notes, now.toISOString(),
         lead.telegram_user_id == null ? "" : String(lead.telegram_user_id),
         lead.username || "", lead.name || "", lead.course || "",
+        lead.level || "", lead.topic || "",
         existing.lead_id
       )
       .run();
@@ -167,15 +196,17 @@ export async function upsertBotLead(env, lead) {
     .prepare(
       `INSERT INTO crm_leads
          (lead_id, telegram_user_id, telegram_username, full_name, phone, course,
-          request_type, notes, status, contact_attempts, created_at, updated_at, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'جدید', 0, ?, ?, ?)`
+          request_type, notes, status, contact_attempts, created_at, updated_at, source,
+          level, topic)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'جدید', 0, ?, ?, ?, ?, ?)`
     )
     .bind(
       leadId,
       lead.telegram_user_id == null ? null : String(lead.telegram_user_id),
       lead.username || null, lead.name || null, phone || null, lead.course || null,
       lead.request_type || "مشاوره", note,
-      now.toISOString(), now.toISOString(), lead.source || "telegram_bot"
+      now.toISOString(), now.toISOString(), lead.source || "telegram_bot",
+      lead.level || null, lead.topic || null
     )
     .run();
   await logActivity(env, leadId, "ثبت لید", "از ربات تلگرام", "bot");

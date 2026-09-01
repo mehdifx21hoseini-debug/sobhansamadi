@@ -1,3 +1,5 @@
+import { parseBotAnswers } from "./intake.js";
+
 // کارهای نگهداریِ دستی روی جدول‌های CRM.
 //
 // فقط با کلید مدیر صدا زده می‌شوند و در جریان عادیِ پنل هیچ‌جا استفاده
@@ -59,4 +61,65 @@ export async function deleteLeads(env, ids, dry = true) {
   ]);
 
   return { ok: true, deleted: found, missing };
+}
+
+// ─── پر کردنِ ستون‌های سطح و موضوع ───────────────────────────────────
+
+/**
+ * پاسخ‌های ربات برای ردیف‌های قدیمی، از متنِ یادداشت به ستونِ واقعی.
+ *
+ * تا امروز سطح معامله‌گری و هدف از مشاوره فقط داخل متنِ notes بودند.
+ * حالا ستون دارند و ربات مستقیم پرشان می‌کند، ولی ۱۷۵ ردیفِ موجود
+ * خالی‌اند - و پنل که ستون را می‌خواند، برایشان «پرسیده نشده» نشان
+ * می‌دهد، که دروغ است.
+ *
+ * فقط ردیف‌هایی که ستونشان خالی است دست می‌خورند: اجرای دوباره‌اش
+ * بی‌ضرر است و چیزی را که ربات تازه نوشته بازنویسی نمی‌کند.
+ *
+ * @param {boolean} dry فقط بشمار، ننویس.
+ */
+export async function backfillBotAnswers(env, dry = true) {
+  const { results } = await env.DB
+    .prepare(
+      `SELECT lead_id, notes FROM crm_leads
+        WHERE (level IS NULL OR level = '') AND (topic IS NULL OR topic = '')
+          AND notes IS NOT NULL AND notes <> ''`
+    )
+    .all();
+
+  const rows = results || [];
+  const updates = [];
+  for (const row of rows) {
+    const { level, topic } = parseBotAnswers(row.notes);
+    if (!level && !topic) continue;
+    updates.push({ lead_id: row.lead_id, level, topic });
+  }
+
+  const sample = updates.slice(0, 5).map((u) => ({
+    lead_id: u.lead_id,
+    level: u.level.slice(0, 60),
+    topic: u.topic.slice(0, 60),
+  }));
+
+  if (dry) {
+    return { ok: true, dry: true, scanned: rows.length, would_update: updates.length, sample };
+  }
+
+  // دسته‌های کوچک: D1 روی batchِ بزرگ محدودیت دارد و یک شکستِ وسط کار
+  // یعنی ندانستن اینکه چه چیزی نوشته شد.
+  const CHUNK = 25;
+  let written = 0;
+  for (let i = 0; i < updates.length; i += CHUNK) {
+    const chunk = updates.slice(i, i + CHUNK);
+    await env.DB.batch(
+      chunk.map((u) =>
+        env.DB
+          .prepare("UPDATE crm_leads SET level = ?, topic = ? WHERE lead_id = ?")
+          .bind(u.level || null, u.topic || null, u.lead_id)
+      )
+    );
+    written += chunk.length;
+  }
+
+  return { ok: true, scanned: rows.length, updated: written, sample };
 }

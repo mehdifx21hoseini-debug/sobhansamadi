@@ -9,7 +9,8 @@ import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
 import { handleCrmApi } from "./crm/panelApi.js";
 import { crmSelfTest } from "./crm/selftest.js";
-import { recentLeads, deleteLeads } from "./crm/maintenance.js";
+import { ensureCrmSchema } from "./crm/schema.js";
+import { recentLeads, deleteLeads, backfillBotAnswers } from "./crm/maintenance.js";
 import { sendDailyReport, buildReport } from "./crm/report.js";
 import { handleMentoringIntake } from "./intake/mentoringForm.js";
 import { handlePaymentIntake } from "./intake/payment.js";
@@ -73,7 +74,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-12";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-13";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -387,6 +388,15 @@ async function handleAdmin(request, url, env) {
     return json({ build: BUILD, ...res }, res.ok ? 200 : 400);
   }
 
+  // پر کردنِ ستون‌های تازه‌ی سطح و موضوع از روی متنِ یادداشت‌ها.
+  // بدون confirm=yes فقط می‌شمارد. یک بار لازم است، ولی اجرای دوباره
+  // بی‌ضرر است چون فقط ردیف‌های خالی را دست می‌زند.
+  if (url.pathname === "/admin/crm-backfill") {
+    await ensureCrmSchema(env);
+    const res = await backfillBotAnswers(env, url.searchParams.get("confirm") !== "yes");
+    return json({ build: BUILD, ...res }, res.ok ? 200 : 400);
+  }
+
   // کلید ارسال تقویم از ورکر - همان کاری که /econsender در تلگرام
   // می‌کند، از بیرون.
   //
@@ -552,6 +562,7 @@ export default {
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
       url.pathname === "/admin/crm-lead-delete" ||
+      url.pathname === "/admin/crm-backfill" ||
       url.pathname === "/admin/sales-report" ||
       url.pathname === "/admin/webhook"
     ) {

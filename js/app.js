@@ -108,6 +108,91 @@
 			.sort(function (a, b) { return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at); });
 	}
 
+	// ─── کشوی پاسخ‌های ربات ──────────────────────────────────────────
+	//
+	// چیزی که مشاور پیش از برداشتن گوشی لازم دارد و تا امروز فقط داخل
+	// صفحه‌ی پرونده بود: سطح معامله‌گری و هدف از مشاوره، همان دو پرسشی
+	// که ربات می‌پرسد. چند ردیف می‌توانند هم‌زمان باز باشند.
+
+	var expanded = {};
+
+	function formatDay(value) {
+		if (!value) return "";
+		var d = /^\d{4}-\d{2}-\d{2}$/.test(String(value).trim())
+			? CrmData.parseLocalDate(String(value).trim())
+			: new Date(value);
+		return isNaN(d.getTime()) ? "" : d.toLocaleDateString("fa-IR");
+	}
+
+	function qaCard(question, answer) {
+		var $box = $('<div class="qa-card">');
+		$box.append($('<div class="qa-q">').text(question));
+		// خالی بودن، «پرسیده نشده» است نه «داده گم شده»: لید اینستاگرام و
+		// سایت هرگز از ربات رد نشده‌اند. یک خانه‌ی خالی این تفاوت را
+		// پنهان می‌کند.
+		$box.append(
+			answer
+				? $('<div class="qa-a">').text(answer)
+				: $('<div class="qa-a is-empty">').text("پرسیده نشده")
+		);
+		return $box;
+	}
+
+	function metaCell(key, value, warn) {
+		var $m = $('<div class="qa-meta">');
+		$m.append($('<div class="qa-meta-k">').text(key));
+		$m.append($('<div class="qa-meta-v">').addClass(warn ? "warn" : "").text(value));
+		return $m;
+	}
+
+	function drawerRow(lead) {
+		var answers = CrmData.botAnswers(lead);
+		var followUp = CrmData.leadFollowupAt(lead);
+		var $wrap = $('<div class="lead-drawer">');
+
+		var $head = $('<div class="lead-drawer-head">');
+		if (answers.level || answers.topic) {
+			$head.append($('<span class="info-pill pill-source">').text("پاسخ‌های ثبت‌شده در ربات"));
+		} else {
+			$head.append($('<span class="info-pill">').text("بدون پاسخ ربات"));
+			$head.append($("<span>").text("این لید فرم ربات را پر نکرده است."));
+		}
+		if (lead.telegram_username) {
+			$head.append($('<span class="info-pill mono">').text("@" + String(lead.telegram_username).replace(/^@/, "")));
+		}
+		$wrap.append($head);
+
+		var $grid = $('<div class="qa-grid">');
+		$grid.append(qaCard("📊 سطح فعلی معامله‌گری", answers.level));
+		$grid.append(qaCard("💬 هدف از مشاوره", answers.topic));
+		if (lead.course) $grid.append(qaCard("🎯 دوره‌ی انتخاب‌شده", lead.course));
+		$wrap.append($grid);
+
+		var $meta = $('<div class="qa-meta-strip">');
+		$meta.append(metaCell("پیگیری بعدی", followUp ? formatDay(followUp) : "ثبت نشده", isDueForFollowUp(lead)));
+		$meta.append(metaCell("دفعات تماس", (lead.contact_attempts != null ? lead.contact_attempts : 0) + " بار"));
+		$meta.append(metaCell("نتیجه آخرین تماس", lead.last_call_result || "—"));
+		$meta.append(metaCell("منبع", CrmData.sourceLabel(lead.source)));
+		$meta.append(metaCell("شناسه لید", lead.lead_id || "—"));
+		$wrap.append($meta);
+
+		var $actions = $('<div class="lead-drawer-actions">');
+		$actions.append($("<a>").addClass("btn btn-brand btn-sm")
+			.attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id))
+			.text("باز کردن پرونده"));
+		if (lead.phone) {
+			$actions.append($("<a>").addClass("btn btn-outline-secondary btn-sm")
+				.attr("href", "tel:" + lead.phone.replace(/[^\d+]/g, ""))
+				.html('<i class="fas fa-phone mr-1"></i>تماس'));
+		}
+		$actions.append($('<button type="button" class="btn btn-outline-secondary btn-sm followup-tomorrow">')
+			.attr("data-lead-id", lead.lead_id)
+			.text("پیگیری برای فردا"));
+		$wrap.append($actions);
+
+		return $('<tr class="lead-drawer-row">').append($("<td>").attr("colspan", 8).append($wrap));
+	}
+
 	function renderStats() {
 		var total = state.leads.length;
 		var pending = state.leads.filter(function (l) { return l.status === "پاسخ‌داده‌نشده"; }).length;
@@ -130,18 +215,18 @@
 		$("#pagination").addClass("d-none");
 
 		if (state.loading) {
-			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
+			$body.append('<tr><td colspan="8"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
 			return;
 		}
 		if (state.error) {
-			$body.append('<tr><td colspan="7" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
+			$body.append('<tr><td colspan="8" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
 			return;
 		}
 
 		var rows = getFilteredRows();
 
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
+			$body.append('<tr><td colspan="8"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
 			return;
 		}
 
@@ -154,6 +239,18 @@
 			var statusMeta = STATUS_META[lead.status] || STATUS_META["پاسخ‌داده‌نشده"];
 			var $tr = $("<tr>").addClass("lead-row row-" + statusMeta.cls).attr("data-id", lead.lead_id);
 			if (isAtRisk(lead)) $tr.addClass("row-at-risk");
+
+			// The drawer opens from its own button, not from the row.
+			// The row carries a status menu, a consultant menu and a call
+			// link; if the whole row toggled, every one of those clicks
+			// would open a drawer nobody asked for.
+			var open = expanded[lead.lead_id] === true;
+			$tr.append($("<td>").addClass("drawer-cell").append(
+				$('<button type="button" class="drawer-toggle">')
+					.attr({ "aria-expanded": String(open), title: "پاسخ‌های ثبت‌شده در ربات", "data-lead-id": lead.lead_id })
+					.html('<i class="fas fa-chevron-down"></i>')
+			));
+
 			$tr.append($("<td>").append($("<a>").attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id)).addClass("lead-name-link").text(lead.full_name || "(بدون نام)")));
 
 			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
@@ -177,6 +274,7 @@
 			$tr.append($("<td>").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
 			$tr.append($("<td>").addClass("text-muted text-sm").text(formatRelativeTime(lead.updated_at || lead.created_at)));
 			$body.append($tr);
+			if (open) $body.append(drawerRow(lead));
 		});
 
 		if (rows.length > PAGE_SIZE) {
@@ -271,6 +369,37 @@
 		$("#btnNextPage").on("click", function () {
 			state.page += 1;
 			renderTable();
+		});
+
+		$("#leadsTableBody").on("click", ".drawer-toggle", function () {
+			var leadId = $(this).data("lead-id");
+			expanded[leadId] = !expanded[leadId];
+			renderTable();
+		});
+
+		// پیگیری برای فردا، بدون خروج از فهرست. ساعت ۹ صبحِ محلی - شروع
+		// روز کاری - وگرنه رشته‌ی فقط-تاریخ نیمه‌شبِ UTC خوانده می‌شود و
+		// در تهران روزِ قبل می‌افتد.
+		$("#leadsTableBody").on("click", ".followup-tomorrow", function () {
+			var $btn = $(this).prop("disabled", true);
+			var leadId = $btn.data("lead-id");
+			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
+			var d = new Date();
+			d.setDate(d.getDate() + 1);
+			d.setHours(9, 0, 0, 0);
+			CrmData.setLeadFollowup(leadId, d.toISOString())
+				.then(function () {
+					if (lead) {
+						lead.next_followup_at = d.toISOString();
+						lead.reminder_date = "";
+						lead.updated_at = new Date().toISOString();
+					}
+					render();
+				})
+				.catch(function (err) {
+					alert("خطا در ثبت پیگیری: " + (err.message || "خطای نامشخص"));
+					$btn.prop("disabled", false);
+				});
 		});
 
 		$("#leadsTableBody").on("change", ".status-select", function () {

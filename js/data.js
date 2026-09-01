@@ -513,6 +513,28 @@
 		});
 	}
 
+	// The three answers the Telegram bot collects. They now have real
+	// columns, filled by the bot on the way in and backfilled for older
+	// rows, so the panel reads columns instead of re-parsing note text.
+	//
+	// The regex fallback only covers the gap between a bot write and the
+	// backfill; without it such a row would claim the question was never
+	// asked, which is worse than a slightly slower read.
+	function botAnswers(lead) {
+		if (!lead) return { level: "", topic: "" };
+		if (lead.level || lead.topic) {
+			return { level: lead.level || "", topic: lead.topic || "" };
+		}
+		var notes = String(lead.notes || "");
+		function grab(label) {
+			var re = new RegExp(label + "\\s*:\\s*([^|\\n]+)", "g");
+			var m, last = "";
+			while ((m = re.exec(notes)) !== null) last = m[1].trim();
+			return last;
+		}
+		return { level: grab("سطح"), topic: grab("موضوع") };
+	}
+
 	// Legacy rows only have reminder_date; new writes only set
 	// next_followup_at. Every reader goes through this.
 	function leadFollowupAt(lead) {
@@ -669,6 +691,7 @@
 		normalizeSource: normalizeSource,
 		setLeadSource: setLeadSource,
 		setLeadFollowup: setLeadFollowup,
+		botAnswers: botAnswers,
 		leadFollowupAt: leadFollowupAt,
 		mirrorInfo: mirrorInfo,
 		fetchLeads: fetchLeads,

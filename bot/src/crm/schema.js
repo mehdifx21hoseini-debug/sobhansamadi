@@ -15,7 +15,7 @@ const DDL = [
      status TEXT, contact_attempts INTEGER DEFAULT 0, created_at TEXT,
      updated_at TEXT, score INTEGER, priority TEXT, assigned_to TEXT,
      reminder_date TEXT, source TEXT, quality TEXT, last_call_result TEXT,
-     next_followup_at TEXT)`,
+     next_followup_at TEXT, level TEXT, topic TEXT)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_leads_created ON crm_leads (created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_leads_status ON crm_leads (status)`,
   `CREATE INDEX IF NOT EXISTS idx_crm_leads_assigned ON crm_leads (assigned_to)`,
@@ -112,6 +112,24 @@ const DDL = [
      lead_id TEXT, created_at TEXT)`,
 ];
 
+/**
+ * ستون‌هایی که بعد از ساختِ اولیه‌ی جدول اضافه شده‌اند.
+ *
+ * CREATE TABLE IF NOT EXISTS روی جدولی که از قبل هست هیچ کاری نمی‌کند،
+ * پس ستونِ تازه هرگز به دیتابیسِ موجود اضافه نمی‌شود مگر صریح. sqlite
+ * هم «ADD COLUMN IF NOT EXISTS» ندارد، پس اجرای دوباره خطای «duplicate
+ * column name» می‌دهد و همان خطا اینجا بلعیده می‌شود - این ارزان‌ترین
+ * راهِ idempotent بودن است، ارزان‌تر از خواندن PRAGMA در هر درخواست.
+ *
+ * جدا از batch اجرا می‌شوند چون یک خطا کلِ batch را برمی‌گرداند.
+ */
+const ADD_COLUMNS = [
+  // پاسخ‌های ربات: سطح معامله‌گری و هدف از مشاوره. تا امروز فقط داخل
+  // متنِ notes بودند و هیچ‌جا قابل فیلتر یا جستجو نبودند.
+  "ALTER TABLE crm_leads ADD COLUMN level TEXT",
+  "ALTER TABLE crm_leads ADD COLUMN topic TEXT",
+];
+
 let ensured = false;
 
 /**
@@ -122,6 +140,18 @@ let ensured = false;
 export async function ensureCrmSchema(env) {
   if (ensured) return;
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
+  for (const sql of ADD_COLUMNS) {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch (err) {
+      // فقط «ستون از قبل هست» قابل چشم‌پوشی است؛ هر چیز دیگری باید
+      // دیده شود، وگرنه یک مهاجرتِ شکست‌خورده بی‌صدا می‌ماند.
+      const msg = String((err && err.message) || err);
+      if (!/duplicate column name/i.test(msg)) {
+        console.error("افزودن ستون شکست خورد:", sql, msg);
+      }
+    }
+  }
   ensured = true;
 }
 
