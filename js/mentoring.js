@@ -32,12 +32,6 @@
 		return String(lead.notes || "").indexOf(NOTE_SIGN) !== -1;
 	}
 
-	var STATUS_META = {
-		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock", label: "در انتظار تماس" },
-		"تماس گرفته شد": { cls: "badge-called", icon: "fa-phone", label: "تماس گرفته شد" },
-		"پاسخ نداد": { cls: "badge-noanswer", icon: "fa-phone-slash", label: "پاسخ نداد" }
-	};
-
 	function normalizeStatus(s) {
 		if (!s || s === "جدید") return "پاسخ‌داده‌نشده";
 		return s;
@@ -189,10 +183,10 @@
 	}
 
 	function statusSelectHtml(id, status, disabled) {
-		var meta = STATUS_META[status] || STATUS_META["پاسخ‌داده‌نشده"];
-		var options = Object.keys(STATUS_META).map(function (key) {
-			var selected = key === status ? " selected" : "";
-			return '<option value="' + key + '"' + selected + '>' + STATUS_META[key].label + '</option>';
+		var meta = CrmData.leadStatusMeta(status);
+		var options = CrmData.LEAD_STATUSES.map(function (s) {
+			var selected = s.key === meta.key ? " selected" : "";
+			return '<option value="' + s.key + '"' + selected + '>' + s.label + '</option>';
 		}).join("");
 		return '<select class="status-select ' + meta.cls + '" data-id="' + id + '"' + (disabled ? " disabled" : "") + '>' + options + '</select>';
 	}

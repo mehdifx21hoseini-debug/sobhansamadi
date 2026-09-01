@@ -15,12 +15,6 @@
 (function () {
 	"use strict";
 
-	var STATUS_META = {
-		"پاسخ‌داده‌نشده": { cls: "badge-pending", icon: "fa-clock", label: "در انتظار تماس" },
-		"تماس گرفته شد": { cls: "badge-called", icon: "fa-phone", label: "تماس گرفته شد" },
-		"پاسخ نداد": { cls: "badge-noanswer", icon: "fa-phone-slash", label: "پاسخ نداد" }
-	};
-
 	var leadId = getLeadId();
 	var currentLead = null;
 	var reminderPicker = null;
@@ -280,7 +274,7 @@
 
 	function renderBadges(lead) {
 		var $box = $("#leadHeadBadges").empty();
-		var meta = STATUS_META[lead.status] || STATUS_META["پاسخ‌داده‌نشده"];
+		var meta = CrmData.leadStatusMeta(lead.status);
 		$box.append($('<span class="status-badge ' + meta.cls + '">')
 			.append($('<i class="fas ' + meta.icon + '">'), document.createTextNode(meta.label)));
 

@@ -44,6 +44,62 @@ async function readBody(request) {
 }
 
 const unauthorized = () => json({ success: false, error: "unauthorized" }, 401);
+const forbidden = () => json({ success: false, error: "forbidden" }, 403);
+
+// ─── دسترسیِ نقشِ «مشاور» ────────────────────────────────────────────
+//
+// دو فهرستِ صریح، نه یک قاعده‌ی هوشمند: هر مسیرِ تازه‌ای که اضافه شود،
+// به‌طور پیش‌فرض برای مشاور بسته است و باید آگاهانه باز شود. عکسش -
+// «هرچه در فهرستِ ممنوع نیست آزاد است» - همان اشتباهی است که یک بار
+// اتفاق افتاد.
+
+// خواندنی‌هایی که فقط در صفحه‌های مخصوصِ ادمین به کار می‌روند
+// (js/auth.js:RESTRICTED_PAGES). عمداً /crm/support-tickets اینجا نیست:
+// جستجوی سراسری در همه‌ی صفحه‌ها - از جمله صفحه‌های مشاور - آن را
+// می‌خواند و بستنش جستجو را برای مشاور خراب می‌کند.
+const CONSULTANT_BLOCKED_READS = new Set([
+  "/crm/admins",
+  "/crm/broadcasts",
+  "/crm/econ-subscribers",
+  "/crm/errors",
+  "/crm/content-texts",
+  "/crm/content-files",
+  "/crm/admin-dashboard",
+  "/crm/dashboard/consultant-performance",
+]);
+
+// نوشتنی‌هایی که مشاور اجازه دارد: هر چیزی که کارِ روزانه‌ی خودش با لید
+// است. تنظیمات، محتوا، همگانی، قیمت و کاربرانِ ادمین بیرون‌اند.
+const CONSULTANT_WRITES = new Set([
+  "/crm/lead/status",
+  "/crm/lead/note",
+  "/crm/lead/assign",
+  "/crm/lead/followup",
+  "/crm/lead/source",
+  "/crm/lead/purchase",
+  "/crm/lead/create",
+  "/crm/lead/send-message",
+  "/crm/lead/reminder",
+  "/crm/calls",
+]);
+
+// مسیرهای حسابِ شخصی برای همه باز است - عوض کردن رمز و نام خودش.
+const SELF_SERVICE = new Set([
+  "/crm/auth/me",
+  "/crm/auth/logout",
+  "/crm/auth/logout-all",
+  "/crm/auth/change-password",
+  "/crm/auth/update-name",
+  "/crm/auth/update-username",
+  "/crm/auth/update-avatar",
+]);
+
+export function consultantMayUse(method, path) {
+  if (SELF_SERVICE.has(path)) return true;
+  if (method === "GET") return !CONSULTANT_BLOCKED_READS.has(path);
+  if (method === "POST") return CONSULTANT_WRITES.has(path);
+  return true; // OPTIONS و مانندش پیش‌تر جواب گرفته‌اند
+}
 
 // مسیرهایی که زیر /crm/ هستند ولی مالِ این مسیریاب نیستند.
 //
@@ -117,6 +173,16 @@ export async function handleCrmApi(request, url, env) {
   // ─── از اینجا به بعد، نشست لازم است ────────────────────────────────
   const session = await requireSession(env, request);
   if (!session) return unauthorized();
+
+  // ─── دسترسیِ نقش‌ها ────────────────────────────────────────────────
+  // تا امروز محدودیتِ مشاور فقط در مرورگر بود (js/auth.js): منوها پنهان
+  // می‌شد ولی سرور هر درخواستی را می‌پذیرفت. یعنی یک توکنِ مشاور با یک
+  // fetch ساده می‌توانست همگانی بفرستد یا قیمت محصول را عوض کند.
+  // تصمیم از اینجا به بعد سمت سرور است؛ کنترلِ مرورگر می‌ماند چون تجربه‌ی
+  // بهتری می‌دهد، ولی دیگر تنها خط دفاع نیست.
+  if (session.role === "consultant" && !consultantMayUse(request.method, path)) {
+    return forbidden();
+  }
 
   if (path === "/crm/auth/change-password" && request.method === "POST") {
     const b = await readBody(request);
@@ -208,11 +274,9 @@ export async function handleCrmApi(request, url, env) {
       "/crm/dashboard/source-performance": DASH.sourcePerformance,
     };
     if (DASHBOARDS[path]) {
-      // جدول عملکرد مشاوران را مشاورها نمی‌بینند - همان قاعده‌ای که n8n
-      // داشت. کسی که خودش در جدول است نباید عملکرد بقیه را ببیند.
-      if (path.endsWith("consultant-performance") && session.role === "consultant") {
-        return unauthorized();
-      }
+      // جدولِ عملکرد مشاوران را مشاورها نمی‌بینند - کسی که خودش در جدول
+      // است نباید عملکرد بقیه را ببیند. این قاعده حالا بالاتر، در
+      // CONSULTANT_BLOCKED_READS، اعمال می‌شود تا یک‌جا باشد.
       return json(await DASHBOARDS[path](env));
     }
   }

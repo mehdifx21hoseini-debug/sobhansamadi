@@ -146,6 +146,7 @@
 			var verdict = classify(lead);
 			if (!verdict) return;
 			out.push({
+				lead: lead,
 				lead_id: lead.lead_id,
 				name: lead.full_name || "(بدون نام)",
 				phone: lead.phone || "",
@@ -232,9 +233,52 @@
 			});
 			$actions.append($done);
 		}
+		// نوارِ اقدام سریع - همان چیزی که در فهرست لیدها هست.
+		//
+		// بسته باز می‌شود تا صف کوتاه بماند: کارتابل جایی است که مشاور
+		// از بالا به پایین می‌رود، و اگر هر مورد سه کشو را باز نشان بدهد
+		// دیگر یک صف نیست. یک کلیک، همان‌جا، بدون رفتن به پرونده.
+		var $toggle = $('<button type="button" class="btn btn-sm btn-outline-secondary queue-qa-toggle">')
+			.html('<i class="fas fa-bolt mr-1"></i>اقدام سریع');
+		$actions.append($toggle);
 		$item.append($actions);
 
+		var $qaWrap = $('<div class="queue-item-qa d-none">');
+		var built = false;
+		$toggle.on("click", function (e) {
+			e.stopPropagation();
+			if (!built) {
+				built = true;
+				$qaWrap.append(CrmQuickActions.bar(item.lead, {
+					compact: true,
+					notify: function (leadId, ok, text) { queueToast($qaWrap, ok, text); },
+					refresh: function () { CrmData.invalidateLeadsCache(); load(); }
+				}));
+			}
+			$qaWrap.toggleClass("d-none");
+			var open = !$qaWrap.hasClass("d-none");
+			$toggle.toggleClass("is-open", open);
+			// موردِ باز باید روی گروه‌های بعدی بیفتد، وگرنه کشوها پشتِ
+			// عنوانِ گروهِ بعدی می‌روند و کلیک به آن‌ها نمی‌رسد.
+			$item.toggleClass("has-qa-open", open);
+			// گروه هم بالا می‌آید: هر گروه به‌خاطر انیمیشنِ ورودش یک
+			// لایه‌ی مستقل است، پس بالا بردنِ خودِ مورد از گروهِ بعدی رد
+			// نمی‌شود.
+			$item.closest(".queue-group").toggleClass("has-qa-open", open);
+		});
+		$item.append($qaWrap);
+
 		return $item;
+	}
+
+	// پیام نتیجه داخل خودِ مورد می‌ماند. در فهرست لیدها این کار روی state
+	// انجام می‌شود چون جدول کامل بازسازی می‌شود؛ اینجا لازم نیست، چون
+	// بازسازی فقط بعد از تغییرِ داده اتفاق می‌افتد.
+	function queueToast($wrap, ok, text) {
+		$wrap.find(".quick-toast").remove();
+		var $t = $('<div class="quick-toast">').addClass(ok ? "is-ok" : "is-bad").text(text);
+		$wrap.append($t);
+		setTimeout(function () { $t.remove(); }, 6000);
 	}
 
 	function renderSummary(visibleCount) {

@@ -1848,6 +1848,34 @@ body::before {
 
 .queue-done-btn { white-space: nowrap; }
 
+/* اقدام سریع در کارتابل.
+   همان نوارِ فهرست لیدها، ولی بسته: صف باید صف بماند. مورد از حالتِ
+   یک خطی بیرون می‌آید و ستونی می‌شود تا نوار زیرِ آن جا بگیرد. */
+.queue-item { flex-wrap: wrap; }
+.queue-qa-toggle { white-space: nowrap; }
+.queue-qa-toggle.is-open {
+	background: var(--brand-navy);
+	border-color: var(--brand-navy);
+	color: #fff;
+}
+
+.queue-item-qa {
+	flex-basis: 100%;
+	width: 100%;
+}
+
+/* موردِ باز - و گروهش - روی بقیه می‌نشیند تا کشوها زیر گروهِ بعدی
+   نروند. */
+.queue-item.has-qa-open,
+.queue-group.has-qa-open {
+	position: relative;
+	z-index: 20;
+}
+
+/* عنوانِ «اقدام سریع» اینجا لازم نیست - دکمه‌ای که بازش کرده همان را
+   گفته. فقط فاصله‌ی بالا می‌ماند تا از خطِ مورد جدا باشد. */
+.queue-item-qa .quick-bar { margin-top: 10px; }
+
 /* The reward state. An empty queue is the goal, so it gets a real
    moment rather than the generic "no rows" line. */
 .today-allclear .card-body {

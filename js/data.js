@@ -157,6 +157,11 @@
 				window.location.href = "login.html";
 				throw new Error("نشست منقضی شده است، لطفاً دوباره وارد شوید.");
 			}
+			// ۴۰۳ یعنی نشست معتبر است ولی نقش اجازه ندارد. برخلاف ۴۰۱
+			// نباید کاربر را بیرون بیندازد - فقط باید بفهمد چرا نشد.
+			if (res.status === 403) {
+				throw new Error("شما به این بخش دسترسی ندارید.");
+			}
 			if (!res.ok) {
 				return res.json().catch(function () { return null; }).then(function (body) {
 					throw new Error((body && body.error) || ("درخواست ناموفق بود (" + res.status + ")"));
@@ -524,6 +529,32 @@
 		});
 	}
 
+	// ─── وضعیتِ لید، یک تعریف ─────────────────────────────────────────
+	//
+	// تا امروز این نگاشت در چهار فایل تکرار شده بود و از هم فاصله گرفته
+	// بودند - فقط نسخه‌ی منتورینگ «جدید» را می‌شناخت. همان‌جور تکراری که
+	// باعث شد ۱۴۵ لید در شمارنده‌ها نامرئی بمانند.
+	var LEAD_STATUSES = [
+		{ key: "پاسخ‌داده‌نشده", label: "در انتظار تماس", cls: "badge-pending", icon: "fa-clock" },
+		{ key: "تماس گرفته شد", label: "تماس گرفته شد", cls: "badge-called", icon: "fa-phone" },
+		{ key: "پاسخ نداد", label: "پاسخ نداد", cls: "badge-noanswer", icon: "fa-phone-slash" }
+	];
+
+	// نگهبانِ دوم. سرور از این به بعد وضعیت را نرمال‌شده می‌فرستد، ولی
+	// یک ردیفِ قدیمی یا پاسخِ کش‌شده هنوز می‌تواند مقدارِ خام داشته باشد؛
+	// هر چیزی که در فهرست نباشد «در انتظار تماس» است.
+	function leadStatusMeta(status) {
+		for (var i = 0; i < LEAD_STATUSES.length; i++) {
+			if (LEAD_STATUSES[i].key === status) return LEAD_STATUSES[i];
+		}
+		return LEAD_STATUSES[0];
+	}
+
+	function leadStatusBadge(status) {
+		var m = leadStatusMeta(status);
+		return '<span class="status-badge ' + m.cls + '"><i class="fas ' + m.icon + '"></i>' + m.label + '</span>';
+	}
+
 	// The three answers the Telegram bot collects. They now have real
 	// columns, filled by the bot on the way in and backfilled for older
 	// rows, so the panel reads columns instead of re-parsing note text.
@@ -703,6 +734,9 @@
 		setLeadSource: setLeadSource,
 		setLeadFollowup: setLeadFollowup,
 		botAnswers: botAnswers,
+		LEAD_STATUSES: LEAD_STATUSES,
+		leadStatusMeta: leadStatusMeta,
+		leadStatusBadge: leadStatusBadge,
 		leadFollowupAt: leadFollowupAt,
 		mirrorInfo: mirrorInfo,
 		fetchLeads: fetchLeads,

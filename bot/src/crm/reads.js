@@ -20,8 +20,21 @@ async function all(env, sql, ...binds) {
 
 // ─── فهرست‌های ساده ──────────────────────────────────────────────────
 
-export function listLeads(env) {
-  return all(env, "SELECT * FROM crm_leads ORDER BY created_at DESC");
+/**
+ * فهرست لیدها، با وضعیتِ نرمال‌شده.
+ *
+ * ربات لیدِ تازه را با «جدید» می‌نویسد، ولی صفحه‌ها با نامِ سه سطلی
+ * مقایسه می‌کنند که statusBucket می‌سازد. تا امروز این ترجمه فقط در
+ * leadDetail انجام می‌شد و در فهرست نه - نتیجه‌اش این بود که از ۱۸۰
+ * لیدِ واقعی، ۱۴۵ تا در هیچ شمارنده‌ای شمرده نمی‌شدند و لیدِ تازه تا
+ * هفت روز در کارتابل به‌عنوان کارِ انجام‌نشده دیده نمی‌شد.
+ *
+ * مقدارِ خام در raw_status می‌ماند: هیچ ردیفی در دیتابیس عوض نمی‌شود و
+ * هر جایی که به مقدارِ اصلی نیاز دارد همچنان به آن دسترسی دارد.
+ */
+export async function listLeads(env) {
+  const rows = await all(env, "SELECT * FROM crm_leads ORDER BY created_at DESC");
+  return rows.map((r) => ({ ...r, status: statusBucket(r.status), raw_status: r.status }));
 }
 
 export function listCalls(env) {
@@ -346,7 +359,9 @@ export function dashboardStats(leads, users, range = "ALL", nowMs = Date.now()) 
   const status_counts = {};
   const type_counts = {};
   for (const r of inRange) {
-    const st = r.status || "نامشخص";
+    // همان سه سطلِ فهرستِ لیدها. اگر اینجا خام بشماریم، نمودارِ داشبورد
+    // با جدولِ لیدها یکی درنمی‌آید و «جدید» جایی شمرده نمی‌شود.
+    const st = statusBucket(r.status);
     status_counts[st] = (status_counts[st] || 0) + 1;
     const rt = r.request_type || "نامشخص";
     type_counts[rt] = (type_counts[rt] || 0) + 1;
