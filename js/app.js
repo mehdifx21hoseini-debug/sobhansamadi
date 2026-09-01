@@ -5,35 +5,9 @@
 	// بود و از هم فاصله گرفته بودند.
 	function statusMeta(status) { return CrmData.leadStatusMeta(status); }
 
-	function statusSelectHtml(leadId, status) {
-		var meta = statusMeta(status);
-		var options = CrmData.LEAD_STATUSES.map(function (s) {
-			var selected = s.key === meta.key ? " selected" : "";
-			return '<option value="' + s.key + '"' + selected + '>' + s.label + '</option>';
-		}).join("");
-		return '<select class="status-select ' + meta.cls + '" data-lead-id="' + leadId + '">' + options + '</select>';
-	}
-
-	// Consultants are fetched once and reused for every row's dropdown, so the
-	// table does not fire one request per lead.
+	// Consultants are fetched once and reused for the row chip and the
+	// "تغییر مشاور" menu, so the table does not fire one request per lead.
 	var consultants = [];
-
-	function consultantSelectHtml(leadId, assignedTo) {
-		var current = assignedTo || "";
-		var options = ['<option value=""' + (current ? "" : " selected") + ">بدون مشاور</option>"];
-		var known = false;
-		consultants.forEach(function (c) {
-			var selected = c.username === current ? " selected" : "";
-			if (selected) known = true;
-			options.push('<option value="' + c.username + '"' + selected + ">" + (c.display_name || c.username) + "</option>");
-		});
-		// A lead can be assigned to someone who is no longer in the list; keep
-		// the value visible instead of silently showing "بدون مشاور".
-		if (current && !known) {
-			options.push('<option value="' + current + '" selected>' + current + "</option>");
-		}
-		return '<select class="assign-select' + (current ? "" : " is-unassigned") + '" data-lead-id="' + leadId + '">' + options.join("") + "</select>";
-	}
 
 	function formatRelativeTime(iso) {
 		if (!iso) return "-";
@@ -54,6 +28,7 @@
 	var state = {
 		leads: [],
 		statusFilter: "همه",
+		statusValue: "",
 		sourceFilter: "",
 		query: "",
 		loading: true,
@@ -102,13 +77,13 @@
 	 * باشد - درست همان‌جایی که فوریت باید ترتیب را تعیین کند.
 	 */
 	function sortRows(rows) {
-		if (state.statusFilter === "یادآوری") {
+		if (state.statusFilter === "امروز" || state.statusFilter === "عقب‌افتاده") {
 			return rows.sort(function (a, b) {
 				var da = followupDate(a), db = followupDate(b);
 				return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
 			});
 		}
-		if (state.statusFilter === "در_ریسک") {
+		if (state.statusFilter === "تازه") {
 			// قدیمی‌ترین اول: لیدی که بیشتر منتظر مانده، بیشتر در خطر است.
 			return rows.sort(function (a, b) {
 				return new Date(a.created_at || 0) - new Date(b.created_at || 0);
@@ -119,15 +94,45 @@
 		});
 	}
 
+	/**
+	 * صف‌های کار.
+	 *
+	 * تب‌ها تا امروز فیلترِ وضعیت بودند («تماس گرفته شد» چه کاری از من
+	 * می‌خواهد؟ هیچ). حالا هر تب یک سوالِ واقعیِ روزِ کاری است. فیلترِ
+	 * وضعیت و منبع نرفته‌اند - به منوی «فیلترها» منتقل شده‌اند، پس هیچ
+	 * توانایی‌ای کم نشده.
+	 */
+	var QUEUES = {
+		"همه": function () { return true; },
+		"مالِ_من": isMine,
+		"تازه": function (l) {
+			return (Number(l.contact_attempts) || 0) === 0 && !CrmData.leadFollowupAt(l);
+		},
+		"امروز": function (l) {
+			var d = followupDate(l);
+			if (!d) return false;
+			var day = new Date(d); day.setHours(0, 0, 0, 0);
+			return day.getTime() === startOfToday().getTime();
+		},
+		"عقب‌افتاده": function (l) {
+			var d = followupDate(l);
+			if (d) {
+				var day = new Date(d); day.setHours(0, 0, 0, 0);
+				if (day < startOfToday()) return true;
+			}
+			return isAtRisk(l);
+		},
+		"بی‌صاحب": function (l) { return !String(l.assigned_to || "").trim(); }
+	};
+
 	function getFilteredRows() {
 		var q = state.query.trim();
+		var queue = QUEUES[state.statusFilter] || QUEUES["همه"];
 		return sortRows(state.leads
+			.filter(queue)
 			.filter(function (l) {
-				if (state.statusFilter === "همه") return true;
-				if (state.statusFilter === "مالِ_من") return isMine(l);
-				if (state.statusFilter === "یادآوری") return isDueForFollowUp(l);
-				if (state.statusFilter === "در_ریسک") return isAtRisk(l);
-				return l.status === state.statusFilter;
+				if (!state.statusValue) return true;
+				return l.status === state.statusValue;
 			})
 			.filter(function (l) {
 				if (!state.sourceFilter) return true;
@@ -135,11 +140,11 @@
 			})
 			.filter(function (l) {
 				if (!q) return true;
-				// جستجو حالا پاسخ‌های ربات و شناسه را هم می‌گیرد: از وقتی
-				// «سطح» و «هدف» ستون واقعی شدند، جستجوی «مدیریت سرمایه»
-				// هیچ نتیجه‌ای نمی‌داد در حالی که داده‌اش موجود بود.
+				// جستجو پاسخ‌های ربات و شناسه را هم می‌گیرد: از وقتی «سطح»
+				// و «هدف» ستون واقعی شدند، جستجوی «مدیریت سرمایه» هیچ
+				// نتیجه‌ای نمی‌داد در حالی که داده‌اش موجود بود.
 				var answers = CrmData.botAnswers(l);
-				var hay = [l.full_name, l.phone, l.lead_id, answers.level, answers.topic]
+				var hay = [l.full_name, l.phone, l.lead_id, answers.level, answers.topic, l.followup_reason]
 					.map(function (x) { return String(x || ""); }).join(" ");
 				return hay.indexOf(q) !== -1;
 			}));
@@ -173,38 +178,67 @@
 		return isNaN(d.getTime()) ? null : d;
 	}
 
-	function followupCell(lead) {
-		var $td = $("<td>").attr("data-label", "پیگیری بعدی").addClass("followup-cell");
+	/**
+	 * «قدم بعدی» - جوابِ سوالی که مشاور واقعاً می‌پرسد.
+	 *
+	 * تا امروز سه ستونِ جدا بود (وضعیت، پیگیری بعدی، تماس‌ها) و مشاور
+	 * باید خودش از کنارِ هم گذاشتنشان نتیجه می‌گرفت. حالا یک ستون است و
+	 * خودش می‌گوید چه کاری مانده. ترتیبِ شرط‌ها همان ترتیبِ فوریت است.
+	 *
+	 * @returns {{key, label, sub, tone}} tone فقط برای رنگ است؛ متن
+	 *          همیشه معنا را کامل می‌گوید، پس رنگ تنها حاملِ اطلاعات نیست.
+	 */
+	function nextStep(lead) {
 		var due = followupDate(lead);
-		if (!due) {
-			$td.append($('<span class="text-muted text-sm">').text("ثبت نشده"));
-			return $td;
-		}
-		var dayStart = new Date(due);
-		dayStart.setHours(0, 0, 0, 0);
-		var days = Math.round((dayStart - startOfToday()) / 86400000);
-
-		var label;
-		var cls = "";
-		if (days < 0) {
-			label = faNum(Math.abs(days)) + " روز عقب";
-			cls = "is-overdue";
-		} else if (days === 0) {
-			label = "امروز";
-			cls = "is-today";
-		} else if (days === 1) {
-			label = "فردا";
-		} else {
-			label = faNum(days) + " روز دیگر";
-		}
-		$td.append($('<span class="followup-label">').addClass(cls).text(label));
-		// دلیل جای تاریخِ کامل را می‌گیرد وقتی هست: «چرا» بیشتر از «کِی»
-		// به کار می‌آید، و هر دو در یک سلولِ باریک جا نمی‌شوند.
+		var attempts = Number(lead.contact_attempts) || 0;
 		var reason = String(lead.followup_reason || "").trim();
-		$td.append($('<div class="row-subline">')
-			.addClass(reason ? "followup-reason" : "")
-			.attr("title", reason || "")
-			.text(reason || due.toLocaleDateString("fa-IR")));
+
+		if (due) {
+			var dayStart = new Date(due);
+			dayStart.setHours(0, 0, 0, 0);
+			var days = Math.round((dayStart - startOfToday()) / 86400000);
+			if (days < 0) {
+				return { key: "overdue", tone: "danger",
+					label: "پیگیری " + faNum(Math.abs(days)) + " روز عقب",
+					sub: reason || due.toLocaleDateString("fa-IR") };
+			}
+			if (days === 0) {
+				return { key: "today", tone: "warn", label: "پیگیری امروز",
+					sub: reason || timeLabel(due) };
+			}
+			if (days === 1) {
+				return { key: "soon", tone: "", label: "پیگیری فردا", sub: reason || "" };
+			}
+			return { key: "later", tone: "quiet",
+				label: "پیگیری " + faNum(days) + " روز دیگر", sub: reason || "" };
+		}
+
+		if (attempts === 0) {
+			// لیدی که هرگز زنگ نخورده، مهم‌ترین کارِ نکرده‌ی این صفحه است.
+			return { key: "new", tone: "call", label: "تماس گرفته نشده",
+				sub: leadAge(lead.created_at) + " از ثبتش گذشته" };
+		}
+
+		if (isAtRisk(lead)) {
+			return { key: "risk", tone: "danger", label: "رها شده",
+				sub: lead.last_call_at ? "آخرین تماس " + sinceLabel(lead.last_call_at) : "" };
+		}
+
+		return { key: "idle", tone: "quiet", label: "پیگیری ثبت نشده",
+			sub: lead.last_call_at ? "آخرین تماس " + sinceLabel(lead.last_call_at) : "" };
+	}
+
+	function timeLabel(d) {
+		var h = d.getHours(), m = d.getMinutes();
+		if (!h && !m) return "";
+		return "ساعت " + faNum(h) + ":" + (m < 10 ? "۰" : "") + faNum(m);
+	}
+
+	function nextStepCell(lead) {
+		var step = nextStep(lead);
+		var $td = $("<td>").attr("data-label", "قدم بعدی").addClass("next-cell");
+		$td.append($('<span class="next-label">').addClass("tone-" + (step.tone || "plain")).text(step.label));
+		if (step.sub) $td.append($('<div class="next-sub">').attr("title", step.sub).text(step.sub));
 		return $td;
 	}
 
@@ -282,22 +316,15 @@
 		return CrmQuickActions.bar(lead, { refresh: loadLeads });
 	}
 
+	/**
+	 * حالتِ باز شده‌ی ردیف.
+	 *
+	 * چیزی که در ردیف جا نشد اینجاست - نه یک نسخه‌ی دومِ ردیف. اقدام‌ها
+	 * در خودِ ردیف بالای همین کشو هستند، پس اینجا فقط اطلاعات می‌آید.
+	 */
 	function drawerRow(lead) {
 		var answers = CrmData.botAnswers(lead);
-		var followUp = CrmData.leadFollowupAt(lead);
 		var $wrap = $('<div class="lead-drawer">');
-
-		var $head = $('<div class="lead-drawer-head">');
-		if (answers.level || answers.topic) {
-			$head.append($('<span class="info-pill pill-source">').text("پاسخ‌های ثبت‌شده در ربات"));
-		} else {
-			$head.append($('<span class="info-pill">').text("بدون پاسخ ربات"));
-			$head.append($("<span>").text("این لید فرم ربات را پر نکرده است."));
-		}
-		if (lead.telegram_username) {
-			$head.append($('<span class="info-pill mono">').text("@" + String(lead.telegram_username).replace(/^@/, "")));
-		}
-		$wrap.append($head);
 
 		var $grid = $('<div class="qa-grid">');
 		$grid.append(qaCard("📊 سطح فعلی معامله‌گری", answers.level));
@@ -305,70 +332,193 @@
 		if (lead.course) $grid.append(qaCard("🎯 دوره‌ی انتخاب‌شده", lead.course));
 		$wrap.append($grid);
 
-		// آنچه از سطر برداشته شد اینجاست: چیزی گم نمی‌شود، فقط پشت یک
-		// کلیک می‌رود.
 		var $meta = $('<div class="qa-meta-strip">');
 		$meta.append(metaCell("نوع درخواست", lead.request_type || "—"));
 		$meta.append(metaCell("منبع", CrmData.sourceLabel(lead.source)));
-		$meta.append(metaCell("پیگیری بعدی", followUp ? formatDay(followUp) : "ثبت نشده", isDueForFollowUp(lead)));
+		$meta.append(metaCell("دفعات تماس", faNum(Number(lead.contact_attempts) || 0)));
+		$meta.append(metaCell("آخرین تماس", lead.last_call_at ? sinceLabel(lead.last_call_at) : "—"));
 		$meta.append(metaCell("نتیجه آخرین تماس", lead.last_call_result || "—"));
+		$meta.append(metaCell("سن لید", leadAge(lead.created_at)));
 		$meta.append(metaCell("آخرین تغییر", formatRelativeTime(lead.updated_at || lead.created_at)));
 		$meta.append(metaCell("شناسه لید", lead.lead_id || "—"));
+		if (lead.telegram_username) {
+			$meta.append(metaCell("تلگرام", "@" + String(lead.telegram_username).replace(/^@/, "")));
+		}
 		$wrap.append($meta);
 
-		$wrap.append(quickActionBar(lead));
+		$wrap.append($('<div class="lead-drawer-actions">')
+			.append($("<a>").addClass("btn btn-brand btn-sm")
+				.attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id))
+				.html('<i class="fas fa-folder-open mr-1"></i>پرونده و تاریخچه‌ی کامل')));
 
-		var $actions = $('<div class="lead-drawer-actions">');
-		$actions.append($("<a>").addClass("btn btn-brand btn-sm")
+		return $('<tr class="lead-drawer-row">').append($("<td>").attr("colspan", 5).append($wrap));
+	}
+
+	/**
+	 * یک ردیفِ لید - پنج ستون، به‌ترتیبِ سوالی که مشاور می‌پرسد:
+	 * کیست و شماره‌اش چند است / چرا آمده / کجای کار است / قدم بعدی چیست /
+	 * چه کاری می‌توانم بکنم / مالِ کیست.
+	 *
+	 * ستون‌های قبلی که رفتند جایی نرفته‌اند: سن لید و شمارنده‌ی تماس زیرِ
+	 * نام و در «قدم بعدی» آمده‌اند، و منوی وضعیت به «⋯ ← اصلاح وضعیت»
+	 * رفته - چون وضعیت از ثبتِ تماس می‌آید و تغییرِ دستی فقط برای اصلاح
+	 * است.
+	 */
+	function leadRow(lead) {
+		var meta = statusMeta(lead.status);
+		var step = nextStep(lead);
+		var open = expanded[lead.lead_id] === true;
+
+		var $tr = $("<tr>").addClass("lead-row row-" + meta.cls + " urg-" + step.key)
+			.attr("data-id", lead.lead_id);
+		if (open) $tr.addClass("is-open");
+
+		// ─── لید: نام، شماره، و «چرا» ───────────────────────────────
+		var $who = $("<td>").addClass("who-cell");
+		var $top = $('<div class="who-top">');
+		$top.append($('<button type="button" class="drawer-toggle">')
+			.attr({ "aria-expanded": String(open), title: "جزئیات بیشتر", "data-lead-id": lead.lead_id })
+			.html('<i class="fas fa-chevron-down"></i>'));
+		$top.append($("<a>")
 			.attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id))
-			.text("باز کردن پرونده"));
+			.addClass("lead-name-link")
+			.text(lead.full_name || "(بدون نام)"));
+		if (lead.request_type) $top.append($('<span class="row-tag">').text(lead.request_type));
+		$who.append($top);
+
 		if (lead.phone) {
-			$actions.append($("<a>").addClass("btn btn-outline-secondary btn-sm")
-				.attr("href", "tel:" + lead.phone.replace(/[^\d+]/g, ""))
-				.html('<i class="fas fa-phone mr-1"></i>تماس'));
+			var $phone = $('<div class="who-phone">');
+			$phone.append($('<span class="phone-num mono" dir="ltr">').text(lead.phone));
+			$phone.append(CrmQuickActions.copyPhoneButton(lead.phone));
+			$who.append($phone);
 		}
-		$wrap.append($actions);
 
-		return $('<tr class="lead-drawer-row">').append($("<td>").attr("colspan", 8).append($wrap));
+		// «چرا آمده» - تنها چیزی که پیش از برداشتنِ گوشی واقعاً لازم است و
+		// تا امروز فقط داخل کشو بود.
+		var answers = CrmData.botAnswers(lead);
+		var why = answers.topic || lead.course || "";
+		if (why) {
+			$who.append($('<div class="who-why">').attr("title", why)
+				.append($('<i class="fas fa-quote-right">'))
+				.append(document.createTextNode(why)));
+		}
+		$tr.append($who);
+
+		// ─── وضعیت ──────────────────────────────────────────────────
+		var $statusCell = $("<td>").attr("data-label", "وضعیت").addClass("status-cell");
+		$statusCell.append($('<span class="lead-badge">').addClass(meta.cls)
+			.append($('<i class="fas ' + meta.icon + '">'))
+			.append($("<span>").text(meta.label)));
+		if (lead.last_call_result) {
+			$statusCell.append($('<div class="row-subline">').text(lead.last_call_result));
+		}
+		var attempts = Number(lead.contact_attempts) || 0;
+		if (attempts) {
+			$statusCell.append($('<div class="row-subline is-quiet">')
+				.text(faNum(attempts) + " تماس" + (lead.last_call_at ? " · " + sinceLabel(lead.last_call_at) : "")));
+		}
+		$tr.append($statusCell);
+
+		// ─── قدم بعدی ───────────────────────────────────────────────
+		$tr.append(nextStepCell(lead));
+
+		// ─── اقدام ──────────────────────────────────────────────────
+		$tr.append($("<td>").attr("data-label", "اقدام").addClass("act-cell")
+			.append(CrmQuickActions.compactBar(lead, {
+				refresh: reloadKeepingScroll,
+				consultants: consultants
+			})));
+
+		// ─── مشاور ──────────────────────────────────────────────────
+		var $owner = $("<td>").attr("data-label", "مشاور").addClass("owner-cell");
+		var name = ownerName(lead.assigned_to);
+		var $dot = $('<span class="owner-dot">');
+		// حرفِ اولِ «بدون مشاور» یعنی «ب» - که هیچ معنایی ندارد؛ نبودنِ
+		// صاحب با یک آیکون گفته می‌شود نه با حرفِ اولِ یک جمله.
+		if (lead.assigned_to) $dot.text(name.slice(0, 1));
+		else $dot.html('<i class="fas fa-user-slash"></i>');
+		$owner.append($('<span class="owner-chip">').addClass(lead.assigned_to ? "" : "is-unassigned")
+			.attr("title", lead.assigned_to ? name : "این لید هنوز صاحب ندارد")
+			.append($dot)
+			.append($("<span>").text(name)));
+		$tr.append($owner);
+
+		return $tr;
 	}
 
+	function ownerName(username) {
+		if (!username) return "بدون مشاور";
+		var found = consultants.find(function (c) { return c.username === username; });
+		return (found && found.display_name) || username;
+	}
+
+	// تازه‌سازی بعد از یک اقدام، بدون پریدنِ صفحه به بالا: مشاور وسطِ
+	// فهرست است و هر بار برگشتن به اولِ لیست یعنی گم کردنِ جای کار.
+	function reloadKeepingScroll() {
+		var y = window.scrollY;
+		CrmData.invalidateLeadsCache();
+		loadLeads(function () { window.scrollTo(0, y); });
+	}
+
+	// شمارنده‌ی هر صف روی خودِ تب. کارت‌های آمارِ بالای صفحه همین چهار
+	// عدد را می‌گفتند، دو برابرِ ارتفاعِ یک صفحه‌ی موبایل می‌گرفتند و
+	// کلیک‌پذیر هم نبودند؛ عددها اینجا آمدند و کارت‌ها رفتند.
 	function renderStats() {
-		var total = state.leads.length;
-		var pending = state.leads.filter(function (l) { return l.status === "پاسخ‌داده‌نشده"; }).length;
-		var called = state.leads.filter(function (l) { return l.status === "تماس گرفته شد"; }).length;
-		var noAnswer = state.leads.filter(function (l) { return l.status === "پاسخ نداد"; }).length;
-		$("#stat-total").text(total);
-		$("#stat-pending").text(pending);
-		$("#stat-called").text(called);
-		$("#stat-noanswer").text(noAnswer);
-
-		var dueCount = state.leads.filter(isDueForFollowUp).length;
-		$("#reminderTabCount").text(dueCount > 0 ? "(" + dueCount + ")" : "");
-
-		var mineCount = state.leads.filter(isMine).length;
-		$("#mineTabCount").text(mineCount > 0 ? "(" + faNum(mineCount) + ")" : "");
-
-		var atRiskCount = state.leads.filter(isAtRisk).length;
-		$("#atRiskTabCount").text(atRiskCount > 0 ? "(" + atRiskCount + ")" : "");
+		Object.keys(QUEUES).forEach(function (key) {
+			var n = key === "همه" ? state.leads.length : state.leads.filter(QUEUES[key]).length;
+			var $badge = $('.filter-tab[data-status="' + key + '"] .tab-count');
+			if (!$badge.length) return;
+			$badge.text(n ? faNum(n) : "").toggleClass("d-none", !n);
+		});
 	}
+
+	var EMPTY_TEXT = {
+		"مالِ_من": "لیدی به نام شما ثبت نشده",
+		"تازه": "همه‌ی لیدها یک بار تماس گرفته‌اند",
+		"امروز": "پیگیریِ امروز تمام شد",
+		"عقب‌افتاده": "هیچ پیگیریِ عقب‌افتاده‌ای نمانده",
+		"بی‌صاحب": "همه‌ی لیدها مشاور دارند"
+	};
 
 	function renderTable() {
 		var $body = $("#leadsTableBody").empty();
 		$("#pagination").addClass("d-none");
 
 		if (state.loading) {
-			$body.append('<tr><td colspan="8"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>در حال بارگذاری...</p></div></td></tr>');
+			// اسکلت، نه اسپینر: جای همان ردیف‌هایی را می‌گیرد که قرار است
+			// بیایند، پس فهرست موقع رسیدنِ داده نمی‌پرد.
+			CrmData.showTableLoading("#leadsTableBody", 5, 6);
 			return;
 		}
 		if (state.error) {
-			$body.append('<tr><td colspan="8" class="text-center py-4" style="color:#c81e4b">خطا در دریافت اطلاعات: ' + state.error + '</td></tr>');
+			$body.append($("<tr>").append($("<td>").attr("colspan", 5).append(
+				$('<div class="leads-empty">')
+					.append('<i class="fas fa-triangle-exclamation"></i>')
+					.append($("<h4>").text("اطلاعات نیامد"))
+					.append($("<p>").text(state.error))
+					.append($('<button type="button" class="btn btn-brand btn-sm" id="btnRetryLeads">').text("تلاش دوباره"))
+			)));
 			return;
 		}
 
 		var rows = getFilteredRows();
 
 		if (rows.length === 0) {
-			$body.append('<tr><td colspan="8"><div class="empty-state"><i class="fas fa-inbox"></i><p>موردی یافت نشد.</p></div></td></tr>');
+			// پیامِ خالی به همان صفی که کاربر باز کرده اشاره می‌کند. یک
+			// «موردی یافت نشد» عمومی نمی‌گوید صف خالی است یا فیلتر همه را
+			// گرفته.
+			var hasFilter = !!(state.query || state.statusValue || state.sourceFilter);
+			$body.append($("<tr>").append($("<td>").attr("colspan", 5).append(
+				$('<div class="leads-empty">')
+					.append('<i class="fas ' + (hasFilter ? "fa-magnifying-glass" : "fa-mug-hot") + '"></i>')
+					.append($("<h4>").text(hasFilter ? "چیزی با این فیلترها پیدا نشد" : EMPTY_TEXT[state.statusFilter] || "این صف خالی است"))
+					.append($("<p>").text(hasFilter
+						? "جستجو یا فیلترها را بردارید تا دوباره ببینید."
+						: "کارِ این بخش تمام است."))
+					.append(hasFilter
+						? $('<button type="button" class="btn btn-outline-secondary btn-sm" id="btnClearAll">').text("پاک کردن جستجو و فیلترها")
+						: $())
+			)));
 			return;
 		}
 
@@ -378,80 +528,8 @@
 		var pageRows = rows.slice(start, start + PAGE_SIZE);
 
 		pageRows.forEach(function (lead) {
-			var meta = statusMeta(lead.status);
-			var $tr = $("<tr>").addClass("lead-row row-" + meta.cls).attr("data-id", lead.lead_id);
-			if (isAtRisk(lead)) $tr.addClass("row-at-risk");
-
-			// The drawer opens from its own button, not from the row.
-			// The row carries a status menu, a consultant menu and a call
-			// link; if the whole row toggled, every one of those clicks
-			// would open a drawer nobody asked for.
-			var open = expanded[lead.lead_id] === true;
-			$tr.append($("<td>").addClass("drawer-cell").append(
-				$('<button type="button" class="drawer-toggle">')
-					.attr({ "aria-expanded": String(open), title: "پاسخ‌های ثبت‌شده در ربات", "data-lead-id": lead.lead_id })
-					.html('<i class="fas fa-chevron-down"></i>')
-			));
-
-			// نام، و زیرش دو نشانِ ریز: نوع درخواست و منبع. هر دو تا امروز
-			// ستونِ کامل می‌گرفتند (یا اصلاً دیده نمی‌شدند) در حالی که یک
-			// نگاهِ گذرا برایشان کافی است.
-			var $nameCell = $("<td>");
-			$nameCell.append($("<a>")
-				.attr("href", "lead.html?id=" + encodeURIComponent(lead.lead_id))
-				.addClass("lead-name-link")
-				.text(lead.full_name || "(بدون نام)"));
-			var $tags = $('<div class="row-tags">');
-			if (lead.request_type) $tags.append($('<span class="row-tag">').text(lead.request_type));
-			$tags.append($('<span class="row-tag tag-source">').text(CrmData.sourceLabel(lead.source)));
-			$nameCell.append($tags);
-			$tr.append($nameCell);
-
-			// بدون برچسب: شماره خودش پیداست و دکمه‌ی تماس کنارش است. برچسبِ
-			// فارسی داخل سلولی که dir="ltr" است حروفش درست به هم نمی‌چسبد.
-			var $phoneCell = $("<td>").attr("dir", "ltr").addClass("mono phone-cell text-center");
-			$phoneCell.append($("<span>").text(lead.phone || "-"));
-			if (lead.phone) {
-				$phoneCell.append($("<a>").addClass("quick-call-btn").attr({
-					href: "tel:" + lead.phone.replace(/[^\d+]/g, ""),
-					title: "تماس با " + (lead.full_name || "این لید")
-				}).on("click", function (e) { e.stopPropagation(); }).html('<i class="fas fa-phone"></i>'));
-				// tel: فقط روی گوشی کار می‌کند. مشاورِ پشتِ دسکتاپ تا امروز
-				// شماره را از روی صفحه می‌خواند و در نرم‌افزار تماس تایپ
-				// می‌کرد - جایی که یک رقمِ اشتباه یعنی زنگ زدن به غریبه.
-				$phoneCell.append(CrmQuickActions.copyPhoneButton(lead.phone));
-			}
-			$tr.append($phoneCell);
-
-			var $statusWrap = $("<div>").addClass("status-cell-wrap").append(statusSelectHtml(lead.lead_id, lead.status));
-			if (isAtRisk(lead)) {
-				$statusWrap.append('<span class="risk-icon" title="این لید مدتی است بدون پیگیری مانده"><i class="fas fa-triangle-exclamation"></i></span>');
-			}
-			var $statusCell = $("<td>").attr("data-label", "وضعیت").addClass("text-center").append($statusWrap);
-			// «تماس گرفته شد» می‌گوید کاری کرده‌ایم؛ نتیجه‌اش می‌گوید چه
-			// کرده‌ایم - و تصمیمِ بعدی از دومی می‌آید.
-			if (lead.last_call_result) {
-				$statusCell.append($('<div class="row-subline">').text(lead.last_call_result));
-			}
-			$tr.append($statusCell);
-
-			$tr.append(followupCell(lead));
-
-			var attempts = Number(lead.contact_attempts) || 0;
-			var $tries = $("<td>").attr("data-label", "تماس‌ها").addClass("text-center").append(
-				$('<span class="tries-count">').addClass(attempts ? "" : "is-zero").text(faNum(attempts))
-			);
-			// «سه تماس» به‌تنهایی گمراه‌کننده است: سه تماسِ دیروز و سه
-			// تماسِ ماه پیش دو وضعیتِ کاملاً متفاوت‌اند.
-			if (attempts && lead.last_call_at) {
-				$tries.append($('<div class="row-subline">').text(sinceLabel(lead.last_call_at)));
-			}
-			$tr.append($tries);
-
-			$tr.append($("<td>").attr("data-label", "مشاور").addClass("text-center").html(consultantSelectHtml(lead.lead_id, lead.assigned_to)));
-			$tr.append($("<td>").attr("data-label", "سن لید").addClass("text-muted text-sm").text(leadAge(lead.created_at)));
-			$body.append($tr);
-			if (open) $body.append(drawerRow(lead));
+			$body.append(leadRow(lead));
+			if (expanded[lead.lead_id] === true) $body.append(drawerRow(lead));
 		});
 
 		if (rows.length > PAGE_SIZE) {
@@ -467,7 +545,7 @@
 		renderTable();
 	}
 
-	function loadLeads() {
+	function loadLeads(done) {
 		state.loading = true;
 		state.error = null;
 		render();
@@ -479,6 +557,7 @@
 				state.leads = leads.filter(function (l) { return !CrmData.isMentoringLead(l); });
 				state.loading = false;
 				render();
+				if (typeof done === "function") done();
 			})
 			.catch(function (err) {
 				state.loading = false;
@@ -501,23 +580,74 @@
 			});
 	}
 
-	function populateSourceFilter() {
-		var $sel = $("#sourceFilter");
+	function populateFilters() {
+		var $src = $("#sourceFilter");
 		CrmData.LEAD_SOURCES.forEach(function (s) {
 			// The mentoring source is excluded from this list entirely, so
 			// offering it here would only ever select nothing.
 			if (s.key === CrmData.MENTORING_SOURCE) return;
-			$sel.append($("<option>").val(s.key).text(s.label));
+			$src.append($("<option>").val(s.key).text(s.label));
+		});
+		var $st = $("#statusFilter");
+		CrmData.LEAD_STATUSES.forEach(function (st) {
+			$st.append($("<option>").val(st.key).text(st.label));
 		});
 	}
 
+	// نقطه‌ی کنارِ «فیلترها» تنها نشانه‌ی این است که فهرست دارد چیزی را
+	// پنهان می‌کند. بدونش، مشاور می‌تواند نیم ساعت دنبالِ لیدی بگردد که
+	// یک فیلترِ فراموش‌شده کنارش گذاشته.
+	function syncFilterDot() {
+		var on = !!(state.statusValue || state.sourceFilter);
+		$(".filters-dot").toggleClass("d-none", !on);
+		$("#btnFilters").toggleClass("is-on", on);
+	}
+
 	$(function () {
-		populateSourceFilter();
+		populateFilters();
 		loadLeads();
 		loadConsultants();
 
 		$("#sourceFilter").on("change", function () {
 			state.sourceFilter = $(this).val();
+			state.page = 1;
+			syncFilterDot();
+			renderTable();
+		});
+
+		$("#statusFilter").on("change", function () {
+			state.statusValue = $(this).val();
+			state.page = 1;
+			syncFilterDot();
+			renderTable();
+		});
+
+		$("#btnResetFilters").on("click", function () {
+			state.statusValue = "";
+			state.sourceFilter = "";
+			$("#statusFilter, #sourceFilter").val("");
+			state.page = 1;
+			syncFilterDot();
+			renderTable();
+		});
+
+		// منوی فیلترها همان popoverِ کامپوننتِ مشترک است، پس با کلیکِ
+		// بیرون و Escape بسته می‌شود بدون کدِ تازه.
+		$("#btnFilters").on("click", function (e) {
+			e.stopPropagation();
+			var $box = $("#filtersPop");
+			var willOpen = !$box.hasClass("is-open");
+			CrmQuickActions.closePops();
+			$box.toggleClass("is-open", willOpen);
+		});
+		$("#filtersPop .qa-pop-panel").on("click", function (e) { e.stopPropagation(); });
+
+		$("#searchInput").on("input", function () {
+			$("#btnClearSearch").toggleClass("d-none", !$(this).val());
+		});
+		$("#btnClearSearch").on("click", function () {
+			$("#searchInput").val("").trigger("input").focus();
+			state.query = "";
 			state.page = 1;
 			renderTable();
 		});
@@ -611,6 +741,22 @@
 				});
 		});
 
+		$("#leadsTableBody").on("click", "#btnRetryLeads", function () {
+			CrmData.invalidateLeadsCache();
+			loadLeads();
+		});
+
+		$("#leadsTableBody").on("click", "#btnClearAll", function () {
+			state.query = "";
+			state.statusValue = "";
+			state.sourceFilter = "";
+			$("#searchInput").val("").trigger("input");
+			$("#statusFilter, #sourceFilter").val("");
+			state.page = 1;
+			syncFilterDot();
+			renderTable();
+		});
+
 		$("#leadsTableBody").on("click", ".drawer-toggle", function () {
 			var leadId = $(this).data("lead-id");
 			expanded[leadId] = !expanded[leadId];
@@ -619,51 +765,5 @@
 
 		// کلیک بیرون، منوهای باز را می‌بندد. بدون این، دو منوی باز روی
 		// هم می‌افتند و کاربر نمی‌داند کدام‌یک را انتخاب می‌کند.
-
-		$("#leadsTableBody").on("change", ".status-select", function () {
-			var $select = $(this);
-			var leadId = $select.data("lead-id");
-			var newStatus = $select.val();
-			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
-			if (!lead) return;
-			var previousStatus = lead.status;
-			$select.addClass("is-saving");
-			CrmData.updateLeadStatus(leadId, newStatus)
-				.then(function () {
-					lead.status = newStatus;
-					lead.updated_at = new Date().toISOString();
-					render();
-				})
-				.catch(function (err) {
-					CrmToast.error("خطا در ثبت وضعیت: " + (err.message || "خطای نامشخص"));
-					$select.val(previousStatus);
-				})
-				.finally(function () {
-					$select.removeClass("is-saving");
-				});
-		});
-
-		$("#leadsTableBody").on("change", ".assign-select", function () {
-			var $select = $(this);
-			var leadId = $select.data("lead-id");
-			var newAssignee = $select.val();
-			var lead = state.leads.find(function (l) { return String(l.lead_id) === String(leadId); });
-			if (!lead) return;
-			var previous = lead.assigned_to || "";
-			$select.addClass("is-saving");
-			CrmData.assignLead(leadId, newAssignee)
-				.then(function () {
-					lead.assigned_to = newAssignee;
-					lead.updated_at = new Date().toISOString();
-					render();
-				})
-				.catch(function (err) {
-					CrmToast.error("خطا در ثبت مشاور: " + (err.message || "خطای نامشخص"));
-					$select.val(previous);
-				})
-				.finally(function () {
-					$select.removeClass("is-saving");
-				});
-		});
 	});
 })();

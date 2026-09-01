@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="assets/vendor/bootstrap-material-design.min.css">
 	<link rel="stylesheet" href="assets/vendor/bootstrap.min.css">
 	<link rel="stylesheet" href="assets/nozha-main.css">
-	<link rel="stylesheet" href="assets/app.css?v=47">
+	<link rel="stylesheet" href="assets/app.css?v=48">
 	<link rel="stylesheet" href="assets/skin-ember.css?v=4">
 	<script>(function(){try{if(localStorage.getItem("crmSkin")==="ember")document.documentElement.setAttribute("data-skin","ember");}catch(e){}})();</script>
 </head>
@@ -107,83 +107,67 @@
 					</div>
 				</div>
 
-				<div class="row m-1 mb-2">
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-1">
-							<i class="fas fa-users b-first" aria-hidden="true"></i>
-							<span class="c-first">کل لیدها</span>
-							<span id="stat-total">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-2">
-							<i class="fas fa-clock b-second" aria-hidden="true"></i>
-							<span class="c-second">در انتظار تماس</span>
-							<span id="stat-pending">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-3">
-							<i class="fas fa-phone b-third" aria-hidden="true"></i>
-							<span class="c-third">تماس گرفته شد</span>
-							<span id="stat-called">0</span>
-						</div>
-					</div>
-					<div class="col-xl-3 col-md-6 col-sm-6 p-2">
-						<div class="box-card mini animate-in d-4">
-							<i class="fas fa-phone-slash b-forth" aria-hidden="true"></i>
-							<span class="c-forth">پاسخ نداد</span>
-							<span id="stat-noanswer">0</span>
-						</div>
-					</div>
-				</div>
-
 				<div class="row m-1">
 					<div class="col-12 p-2">
 						<div class="card shade animate-in table-card">
 							<div class="card-body">
 
-								<div class="toolbar-row">
-									<div class="filter-tabs" id="filterTabs">
-										<button class="filter-tab active" data-status="همه">همه</button>
-										<button class="filter-tab" data-status="مالِ_من"><i
-												class="fas fa-user-check mr-1"></i>لیدهای من <span
-												id="mineTabCount"></span></button>
-										<button class="filter-tab" data-status="پاسخ‌داده‌نشده">در انتظار تماس</button>
-										<button class="filter-tab" data-status="تماس گرفته شد">تماس گرفته شد</button>
-										<button class="filter-tab" data-status="پاسخ نداد">پاسخ نداد</button>
-										<button class="filter-tab" data-status="یادآوری"><i
-												class="fas fa-bell mr-1"></i>نیاز به پیگیری <span
-												id="reminderTabCount"></span></button>
-										<button class="filter-tab" data-status="در_ریسک"><i
-												class="fas fa-triangle-exclamation mr-1"></i>در ریسک <span
-												id="atRiskTabCount"></span></button>
+								<!-- صفِ کار، نه فیلترِ وضعیت: هر تب یک سوالِ واقعیِ
+								     روزِ کاری است. فیلترِ وضعیت و منبع در «فیلترها». -->
+								<div class="leads-toolbar">
+									<div class="filter-tabs" id="filterTabs" role="tablist">
+										<button class="filter-tab active" data-status="همه" role="tab">همه <span class="tab-count d-none"></span></button>
+										<button class="filter-tab" data-status="مالِ_من" role="tab"><i class="fas fa-user-check"></i>لیدهای من <span class="tab-count d-none"></span></button>
+										<button class="filter-tab" data-status="تازه" role="tab"><i class="fas fa-star"></i>تازه <span class="tab-count d-none"></span></button>
+										<button class="filter-tab" data-status="امروز" role="tab"><i class="fas fa-bell"></i>پیگیری امروز <span class="tab-count d-none"></span></button>
+										<button class="filter-tab" data-status="عقب‌افتاده" role="tab"><i class="fas fa-triangle-exclamation"></i>عقب‌افتاده <span class="tab-count d-none"></span></button>
+										<button class="filter-tab" data-status="بی‌صاحب" role="tab"><i class="fas fa-user-slash"></i>بدون مشاور <span class="tab-count d-none"></span></button>
 									</div>
+
 									<div class="toolbar-actions">
-										<select id="sourceFilter" class="form-control source-filter">
-											<option value="">همه منابع</option>
-										</select>
-										<input type="text" id="searchInput" class="form-control search-input"
-											placeholder="جستجوی نام، شماره، سطح یا هدف...">
+										<div class="search-box">
+											<i class="fas fa-search"></i>
+											<input type="text" id="searchInput" class="search-input"
+												placeholder="نام، شماره، شناسه یا هدف مشاوره…" aria-label="جستجوی لید">
+											<button type="button" id="btnClearSearch" class="search-clear d-none" aria-label="پاک کردن جستجو"><i class="fas fa-xmark"></i></button>
+										</div>
+
+										<div class="qa-pop" id="filtersPop">
+											<button type="button" class="btn-filters" id="btnFilters">
+												<i class="fas fa-sliders"></i><span>فیلترها</span>
+												<span class="filters-dot d-none"></span>
+											</button>
+											<div class="qa-pop-panel">
+												<div class="qa-pop-title">فیلترهای بیشتر</div>
+												<div class="qa-form">
+													<label class="qa-field-label" for="statusFilter">وضعیت</label>
+													<select id="statusFilter" class="qa-input">
+														<option value="">همه‌ی وضعیت‌ها</option>
+													</select>
+													<label class="qa-field-label" for="sourceFilter">منبع</label>
+													<select id="sourceFilter" class="qa-input">
+														<option value="">همه‌ی منابع</option>
+													</select>
+													<button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetFilters">پاک کردن فیلترها</button>
+												</div>
+											</div>
+										</div>
+
 										<button type="button" class="btn btn-brand btn-sm" id="btnNewLead"><i
 												class="fas fa-plus mr-1"></i>لید جدید</button>
 									</div>
 								</div>
 
-								<hr>
-
+								
 								<div class="table-responsive table-scroll">
-									<table class="table table-striped table-hover crm-data-table">
+									<table class="table crm-data-table leads-table">
 										<thead>
 											<tr>
-												<th class="drawer-cell"></th>
-												<th>نام</th>
-												<th class="text-center">شماره تماس</th>
-												<th class="text-center">وضعیت</th>
-												<th>پیگیری بعدی</th>
-												<th class="text-center">تماس‌ها</th>
-												<th class="text-center">مشاور</th>
-												<th>سن لید</th>
+												<th>لید</th>
+												<th>وضعیت</th>
+												<th>قدم بعدی</th>
+												<th class="act-col">اقدام</th>
+												<th>مشاور</th>
 											</tr>
 										</thead>
 										<tbody id="leadsTableBody"></tbody>
@@ -315,8 +299,7 @@
 						</div>
 						<div id="avatarUpdateResult" class="text-sm mt-1 d-none"></div>
 					</div>
-					<hr>
-					<div class="mb-2">
+										<div class="mb-2">
 						<div class="text-muted text-sm mb-1">نام نمایشی</div>
 						<div id="profileNameView" class="d-flex align-items-center justify-content-between">
 							<span id="profileDisplayName" class="font-weight-bold">مشاور فروش</span>
@@ -348,8 +331,7 @@
 							<div id="updateUsernameResult" class="text-sm mt-1 d-none"></div>
 						</div>
 					</div>
-					<hr>
-					<h6 class="mb-2"><i class="fas fa-key c-main mr-2"></i>تغییر رمز عبور</h6>
+										<h6 class="mb-2"><i class="fas fa-key c-main mr-2"></i>تغییر رمز عبور</h6>
 					<form id="changePasswordForm">
 						<div class="form-group">
 							<input type="password" id="currentPasswordInput" class="form-control" placeholder="رمز عبور فعلی" autocomplete="current-password">
@@ -370,13 +352,13 @@
 
 	<script src="js/theme.js?v=2"></script>
 	<script src="js/skin.js?v=1"></script>
-	<script src="js/data.js?v=20"></script>
+	<script src="js/data.js?v=21"></script>
 	<script src="js/toast.js?v=1"></script>
 	<script src="js/global-search.js?v=2"></script>
 	<script src="js/notify.js?v=2"></script>
 	<script src="js/profile.js?v=2"></script>
-	<script src="js/quick-actions.js?v=3"></script>
-	<script src="js/app.js?v=15"></script>
+	<script src="js/quick-actions.js?v=4"></script>
+	<script src="js/app.js?v=16"></script>
 </body>
 
 </html>

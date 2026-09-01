@@ -215,6 +215,12 @@ body,
 }
 
 /* ===== entrance animation ===== */
+/* آخرین فریم عمداً transform: none است، نه translateY(0).
+   با fill-mode: both، مقدارِ آخرین فریم روی عنصر می‌ماند - و یک
+   transformِ همانی هم عنصر را به بلوکِ دربرگیرنده‌ی هر فرزندِ
+   position: fixed تبدیل می‌کند. نتیجه‌اش این بود که bottom sheetِ موبایل
+   به‌جای پایینِ صفحه، به پایینِ همان کارت می‌چسبید و ۱۵۰ پیکسل زیر
+   لبه‌ی نمایشگر می‌رفت. */
 @keyframes crmFadeInUp {
 	from {
 		opacity: 0;
@@ -223,12 +229,19 @@ body,
 
 	to {
 		opacity: 1;
-		transform: translateY(0);
+		transform: none;
 	}
 }
 
+/* fill-mode عمداً backwards است نه both.
+   با both، انیمیشن بعد از تمام شدن هم مقدارِ آخرین فریم را نگه می‌دارد و
+   عنصر برای همیشه «transform-دار» می‌ماند - حتی اگر آن مقدار همانی باشد.
+   یک عنصرِ transform-دار، بلوکِ دربرگیرنده‌ی هر فرزندِ position: fixed
+   می‌شود: bottom sheetِ موبایل به‌جای پایینِ صفحه به پایینِ کارت
+   می‌چسبید و ۱۵۰ پیکسل زیر لبه‌ی نمایشگر می‌رفت.
+   backwards همان ورودِ نرم را می‌دهد و بعدش عنصر را رها می‌کند. */
 .animate-in {
-	animation: crmFadeInUp .25s ease both;
+	animation: crmFadeInUp .25s ease backwards;
 }
 
 .animate-in.d-1 {
@@ -251,8 +264,21 @@ body,
 	transition: transform .18s ease, box-shadow .18s ease, background-color .25s ease;
 }
 
-.card.shade:hover {
-	transform: translateY(-2px);
+/* بالا آمدنِ کارت زیرِ نشانگر، فقط جایی که نشانگر واقعاً وجود دارد.
+   روی لمس، :hover بعد از هر تپ می‌چسبد و کارت بی‌دلیل جابه‌جا می‌شود. */
+@media (hover: hover) {
+	.card.shade:hover {
+		transform: translateY(-2px);
+	}
+}
+
+/* و تا وقتی یک bottom sheet باز است، هیچ کارتی transform نمی‌گیرد:
+   یک عنصرِ transform-دار، بلوکِ دربرگیرنده‌ی هر فرزندِ position: fixed
+   می‌شود - و شیت به‌جای پایینِ صفحه به پایینِ کارت می‌چسبید و زیر
+   لبه‌ی نمایشگر می‌رفت. */
+body.has-qa-sheet .card.shade,
+body.has-qa-sheet .card.shade:hover {
+	transform: none;
 }
 
 .box-card.mini {
@@ -4851,10 +4877,11 @@ td.drawer-cell {
    که چیزی آن‌طرف هست. پس هر ردیف یک کارت می‌شود و هر سلول برچسبِ
    خودش را از data-label می‌گیرد. */
 @media (max-width: 760px) {
-	/* جدول کاملاً از حالتِ جدول بیرون می‌آید. اگر فقط ردیف‌ها grid شوند
-	   و خودِ table جدول بماند، عرضِ جدول را همان چیدمانِ ستونیِ قبلی
-	   تعیین می‌کند و ردیف‌ها از کارت می‌زنند بیرون - سلول‌ها در
-	   راست‌به‌چپ به سمت چپ سرریز می‌کنند و بی‌صدا بریده می‌شوند. */
+	/* جدول‌های دیگرِ پنل (منتورینگ، محصولات، پشتیبانی…) روی گوشی از
+	   حالتِ جدول بیرون می‌آیند و هر سلول برچسبِ خودش را می‌گیرد.
+	   فهرستِ لیدها از این قاعده مستثناست: چیدمانِ کارتِ خودش را در بلاکِ
+	   LEADS WORKSPACE دارد، و برچسب‌گذاریِ عمومی آنجا فقط متن‌ها را به هم
+	   می‌چسباند. */
 	.crm-data-table,
 	.crm-data-table tbody {
 		display: block;
@@ -4870,10 +4897,8 @@ td.drawer-cell {
 		display: none;
 	}
 
-	.crm-data-table tbody tr.lead-row {
-		display: grid;
-		grid-template-columns: 34px 1fr;
-		gap: 2px 8px;
+	.crm-data-table:not(.leads-table) tbody tr {
+		display: block;
 		padding: 10px 12px 12px;
 		margin-bottom: 10px;
 		border: 1px solid var(--line);
@@ -4882,114 +4907,29 @@ td.drawer-cell {
 		box-shadow: var(--shadow-sm);
 	}
 
-	.crm-data-table tbody tr.lead-row > td {
+	.crm-data-table:not(.leads-table) tbody tr > td {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 10px;
 		padding: 4px 0;
 		border: none;
-		grid-column: 2;
 		text-align: right !important;
+		max-width: 100%;
+		overflow: hidden;
 	}
 
-	/* دکمه‌ی کشو و نام، کنار هم در سطر اول کارت. */
-	.crm-data-table tbody tr.lead-row > td.drawer-cell {
-		grid-column: 1;
-		grid-row: 1;
-		width: auto;
-		padding: 0;
-	}
-
-	/* سلولِ نام بلوکی می‌ماند تا نشان‌ها زیر نام بنشینند، نه کنارش -
-	   وگرنه در عرضِ کارت به بیرون رانده و بریده می‌شوند. */
-	.crm-data-table tbody tr.lead-row > td:nth-child(2) {
-		grid-row: 1;
-		display: block;
-		font-size: 0.95rem;
-	}
-
-	/* هیچ سلولی حق ندارد از کارت بزند بیرون: در راست‌به‌چپ، سرریز به
-	   سمت چپ می‌رود و بی‌صدا بریده می‌شود. */
-	.crm-data-table tbody tr.lead-row > td > * {
-		min-width: 0;
-	}
-
-	.crm-data-table tbody tr.lead-row .status-select,
-	.crm-data-table tbody tr.lead-row .assign-select {
-		max-width: 70%;
-		font-size: 0.74rem;
-	}
-
-	.crm-data-table tbody tr.lead-row .status-cell-wrap {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		min-width: 0;
-		max-width: 70%;
-	}
-
-	/* برچسبِ ستون، حالا داخل خودِ سلول. */
-	.crm-data-table tbody tr.lead-row > td[data-label]::before {
+	.crm-data-table:not(.leads-table) tbody tr > td[data-label]::before {
 		content: attr(data-label);
+		flex: none;
 		font-size: 0.72rem;
+		font-weight: 600;
 		color: var(--muted);
-		flex: 0 0 auto;
-		white-space: nowrap;
 	}
 
-	/* نوار بالای جدول روی گوشی: هر کنترل یک خطِ کامل، وگرنه جستجو از
-	   لبه می‌زند بیرون. */
-	.toolbar-actions {
-		width: 100%;
-	}
-
-	.toolbar-actions .source-filter,
-	.toolbar-actions .search-input {
-		flex: 1 1 100%;
-		width: 100%;
-		min-width: 0;
-	}
-
-	.crm-data-table tbody tr.lead-row > td.phone-cell {
-		justify-content: space-between;
-	}
-
-	.lead-drawer-row > td {
-		padding: 0 !important;
-	}
-
-	.crm-data-table tbody tr.lead-drawer-row {
-		display: block;
-		margin: -6px 0 12px;
-	}
-
-	.qa-meta-strip {
-		grid-template-columns: 1fr 1fr;
-	}
-
-	.quick-bar-row {
-		flex-direction: column;
-		align-items: stretch;
-	}
-
-	.qa-menu,
-	.qa-menu-btn,
-	.quick-confirm,
-	.quick-note {
-		width: 100%;
-		max-width: none;
-		justify-content: center;
-	}
-
-	.qa-menu-list {
-		right: auto;
-		left: 0;
-		width: 100%;
-	}
-
-	.toolbar-actions {
-		flex-wrap: wrap;
+	.crm-data-table:not(.leads-table) tbody tr > td select {
+		max-width: 60%;
+		font-size: 0.78rem;
 	}
 }
 
@@ -5275,4 +5215,667 @@ tr.is-skeleton td:last-child .skeleton-bar { width: 40%; }
 	outline: 2px solid var(--teal);
 	outline-offset: 2px;
 	border-radius: 8px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LEADS WORKSPACE
+   ══════════════════════════════════════════════════════════════════
+   میزِ کارِ مشاور، نه یک جدولِ اطلاعاتی.
+
+   قاعده‌ی این بلاک: هر ردیف باید در یک نگاه پنج چیز را بگوید - کیست،
+   شماره‌اش چند است، کجای کار است، قدم بعدی چیست، و چه کاری می‌توانم
+   همین‌جا بکنم. هرچه این پنج‌تا نیست، پشتِ یک کلیک می‌رود.
+
+   توکن‌ها از پوسته‌ی موجود می‌آیند (--brand-*, --card, --line, --up,
+   --down, --teal) تا هر دو پوسته و حالتِ تیره خودبه‌خود درست بمانند؛
+   فقط چیزهایی که این بخش لازم دارد اینجا تعریف می‌شوند.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+	--lead-gap: 10px;
+	--lead-radius: 12px;
+	--lead-rail: 3px;
+	--lead-row-pad: 12px;
+	--lead-shadow: 0 1px 2px rgba(16, 24, 60, .05);
+	--lead-shadow-hover: 0 6px 18px rgba(16, 24, 60, .1);
+
+	/* فوریت: چهار سطح، و هر سطح متنِ خودش را هم دارد - رنگ هیچ‌وقت
+	   تنها حاملِ معنا نیست. */
+	--urg-overdue: var(--down);
+	--urg-today: var(--brand-gold, #d8a33a);
+	--urg-new: var(--teal);
+	--urg-idle: transparent;
+}
+
+/* ─── نوار ابزار ─────────────────────────────────────────────────── */
+
+.leads-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 14px;
+}
+
+.leads-toolbar .filter-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	background: transparent;
+	padding: 0;
+}
+
+.leads-toolbar .filter-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--muted);
+	border-radius: 999px;
+	padding: 7px 13px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background .15s, color .15s, border-color .15s;
+}
+
+.leads-toolbar .filter-tab i { font-size: 0.72rem; opacity: .8; }
+.leads-toolbar .filter-tab:hover { color: var(--text); border-color: var(--muted); }
+
+.leads-toolbar .filter-tab.active {
+	background: var(--brand-navy);
+	border-color: var(--brand-navy);
+	color: #fff;
+}
+
+.tab-count {
+	font-size: 0.7rem;
+	font-weight: 700;
+	padding: 1px 7px;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--muted) 18%, transparent);
+	color: inherit;
+}
+
+.filter-tab.active .tab-count { background: rgba(255, 255, 255, .22); }
+
+.toolbar-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* قالبِ material هر input را در یک .bmd-form-group می‌پیچد که بالایش
+   جا برای برچسبِ شناور باز می‌کند. اینجا برچسبِ شناور نداریم، پس آن جای
+   خالی فقط فیلد را ۲۸ پیکسل بلندتر می‌کرد. */
+.leads-toolbar .bmd-form-group,
+.qa-pop-panel .bmd-form-group {
+	display: block;
+	width: 100%;
+	padding: 0;
+	margin: 0;
+}
+
+.search-box {
+	position: relative;
+	display: flex;
+	align-items: center;
+	min-width: 260px;
+}
+
+.search-box > i {
+	position: absolute;
+	top: 50%;
+	right: 12px;
+	transform: translateY(-50%);
+	color: var(--muted);
+	font-size: 0.8rem;
+	pointer-events: none;
+	z-index: 1;
+}
+
+.search-box .search-input {
+	width: 100%;
+	margin: 0;
+	height: 40px;
+	line-height: 1.4;
+	font: inherit;
+	font-size: 0.83rem;
+	padding: 9px 34px 9px 30px;
+	border-radius: 10px;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--text);
+}
+
+.search-box .search-input:focus {
+	outline: none;
+	border-color: var(--teal);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 15%, transparent);
+}
+
+.search-clear {
+	position: absolute;
+	top: 50%;
+	left: 8px;
+	transform: translateY(-50%);
+	border: none;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	padding: 4px;
+	font-size: 0.8rem;
+}
+
+.btn-filters {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	position: relative;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--text);
+	border-radius: 10px;
+	padding: 9px 13px;
+	font-size: 0.82rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.btn-filters:hover { border-color: var(--muted); }
+.btn-filters.is-on { border-color: var(--teal); color: var(--teal); }
+
+.filters-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--teal);
+}
+
+.qa-field-label {
+	font-size: 0.74rem;
+	font-weight: 600;
+	color: var(--muted);
+	margin: 0;
+}
+
+/* ─── جدولِ لیدها ─────────────────────────────────────────────────── */
+
+.leads-table { border-collapse: separate; border-spacing: 0; }
+
+.leads-table thead th {
+	font-size: 0.72rem;
+	letter-spacing: .04em;
+	text-align: right;
+}
+
+.leads-table thead th.act-col { text-align: center; }
+
+.leads-table tbody tr.lead-row > td {
+	padding: var(--lead-row-pad) 14px;
+	border-bottom: 1px solid var(--line);
+	vertical-align: middle;
+	background: var(--card);
+	transition: background .12s ease;
+}
+
+.leads-table tbody tr.lead-row:hover > td { background: var(--card-2); }
+
+/* نوارِ فوریت: باریک، در ابتدای ردیف، و همیشه کنارِ متنی که همان را
+   می‌گوید. */
+.leads-table tbody tr.lead-row > td:first-child {
+	border-inline-start: var(--lead-rail) solid transparent;
+}
+
+/* هم‌سطحِ قاعده‌ی پایه نوشته می‌شوند، وگرنه آن یکی - که specificity
+   بیشتری دارد - رنگ را به transparent برمی‌گرداند و نوار نامرئی می‌ماند. */
+.leads-table tbody tr.lead-row.urg-overdue > td:first-child,
+.leads-table tbody tr.lead-row.urg-risk > td:first-child { border-inline-start-color: var(--urg-overdue); }
+.leads-table tbody tr.lead-row.urg-today > td:first-child { border-inline-start-color: var(--urg-today); }
+.leads-table tbody tr.lead-row.urg-new > td:first-child { border-inline-start-color: var(--urg-new); }
+
+.lead-row.is-open > td { background: var(--card-2); }
+
+/* ─── ستونِ «لید» ─────────────────────────────────────────────────── */
+
+.who-cell { min-width: 260px; }
+
+.who-top {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.who-cell .lead-name-link {
+	font-size: 0.95rem;
+	font-weight: 700;
+	color: var(--text);
+	text-decoration: none;
+}
+
+.who-cell .lead-name-link:hover { color: var(--brand-navy); text-decoration: underline; }
+.dark .who-cell .lead-name-link:hover { color: #cdd7f7; }
+
+.who-phone {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	margin-top: 3px;
+}
+
+.phone-num {
+	font-size: 0.86rem;
+	font-weight: 600;
+	color: var(--text);
+	letter-spacing: .02em;
+}
+
+.who-why {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	margin-top: 4px;
+	font-size: 0.76rem;
+	color: var(--muted);
+	max-width: 340px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.who-why i { font-size: 0.6rem; opacity: .5; flex: none; }
+
+/* ─── وضعیت ──────────────────────────────────────────────────────── */
+
+.status-cell { min-width: 150px; }
+
+.lead-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 11px;
+	border-radius: 999px;
+	font-size: 0.78rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.lead-badge i { font-size: 0.7rem; }
+.lead-badge.badge-pending { background: color-mix(in srgb, var(--brand-gold, #d8a33a) 16%, transparent); color: var(--brand-gold-dark, #9a6f14); }
+.lead-badge.badge-called { background: color-mix(in srgb, var(--up) 15%, transparent); color: var(--up); }
+.lead-badge.badge-noanswer { background: color-mix(in srgb, var(--down) 13%, transparent); color: var(--down); }
+.dark .lead-badge.badge-pending { color: var(--brand-gold, #e6bd63); }
+
+.row-subline.is-quiet { opacity: .75; }
+
+/* ─── قدم بعدی ───────────────────────────────────────────────────── */
+
+.next-cell { min-width: 170px; }
+
+.next-label {
+	display: inline-flex;
+	align-items: center;
+	font-size: 0.83rem;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.next-label.tone-danger { color: var(--down); }
+.next-label.tone-warn { color: var(--brand-gold-dark, #9a6f14); }
+.dark .next-label.tone-warn { color: var(--brand-gold, #e6bd63); }
+.next-label.tone-call { color: var(--teal); }
+.next-label.tone-quiet { color: var(--muted); font-weight: 500; }
+
+.next-sub {
+	font-size: 0.72rem;
+	color: var(--muted);
+	margin-top: 2px;
+	max-width: 200px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ─── مشاور ──────────────────────────────────────────────────────── */
+
+.owner-cell { min-width: 130px; }
+
+.owner-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 0.79rem;
+	color: var(--text);
+	white-space: nowrap;
+}
+
+.owner-dot {
+	width: 24px;
+	height: 24px;
+	flex: none;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--brand-navy) 12%, transparent);
+	color: var(--brand-navy);
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+
+.dark .owner-dot { background: rgba(255, 255, 255, .1); color: #cdd7f7; }
+
+.owner-chip.is-unassigned { color: var(--muted); }
+.owner-chip.is-unassigned .owner-dot {
+	background: transparent;
+	border: 1px dashed var(--line);
+	color: var(--muted);
+	font-size: 0.62rem;
+}
+
+/* ─── نوارِ اقدامِ ردیف ───────────────────────────────────────────── */
+
+.act-cell { width: 1%; white-space: nowrap; }
+
+.qa-bar {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.qa-act {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--text);
+	border-radius: 9px;
+	padding: 7px 11px;
+	font: inherit;
+	font-size: 0.78rem;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+	transition: background .13s, border-color .13s, color .13s;
+}
+
+.qa-act:hover { border-color: var(--muted); background: var(--card-2); color: var(--text); }
+.qa-act i { font-size: 0.78rem; }
+
+/* تماس مهم‌ترین کارِ این صفحه است و تنها دکمه‌ای است که پر رنگ می‌شود. */
+.qa-act.tone-call {
+	background: var(--up);
+	border-color: var(--up);
+	color: #fff;
+}
+
+.qa-act.tone-call:hover { filter: brightness(.94); color: #fff; background: var(--up); }
+
+.qa-act.tone-primary { border-color: color-mix(in srgb, var(--brand-navy) 35%, transparent); color: var(--brand-navy); }
+.qa-act.tone-primary:hover { background: var(--brand-navy); border-color: var(--brand-navy); color: #fff; }
+.dark .qa-act.tone-primary { color: #cdd7f7; }
+
+.qa-pop-more .qa-act { padding: 7px 10px; }
+.qa-pop-more .qa-act-label { display: none; }
+
+/* ─── popover: در دسکتاپ چسبیده، در موبایل bottom sheet ──────────── */
+
+.qa-pop { position: relative; display: inline-block; }
+
+.qa-pop-panel {
+	display: none;
+	position: absolute;
+	top: calc(100% + 8px);
+	inset-inline-end: 0;
+	z-index: 60;
+	width: 310px;
+	padding: 14px;
+	border-radius: var(--lead-radius);
+	background: var(--card);
+	border: 1px solid var(--line);
+	box-shadow: 0 16px 40px rgba(16, 24, 60, .2);
+	white-space: normal;
+	text-align: start;
+}
+
+.qa-pop.is-open .qa-pop-panel,
+.qa-pop-panel.is-open-panel { display: block; }
+.qa-pop.is-open > .qa-act { border-color: var(--teal); color: var(--teal); }
+
+.qa-pop-title {
+	font-size: 0.8rem;
+	font-weight: 700;
+	margin-bottom: 10px;
+	padding-inline-end: 24px;
+	color: var(--text);
+}
+
+.qa-pop-close {
+	position: absolute;
+	top: 10px;
+	/* در راست‌به‌چپ، inline-start همان سمتِ راست است - یعنی جایی که
+	   عنوان می‌نشیند. دکمه‌ی بستن باید انتهای خط باشد. */
+	inset-inline-end: 10px;
+	border: none;
+	background: transparent;
+	color: var(--muted);
+	cursor: pointer;
+	font-size: 0.85rem;
+	padding: 2px 5px;
+}
+
+.qa-form { display: flex; flex-direction: column; gap: 9px; }
+
+.qa-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.qa-chip {
+	border: 1px solid var(--line);
+	background: var(--card-2);
+	color: var(--text);
+	border-radius: 8px;
+	padding: 6px 10px;
+	font: inherit;
+	font-size: 0.78rem;
+	cursor: pointer;
+	transition: background .12s, border-color .12s, color .12s;
+}
+
+.qa-chip:hover { border-color: var(--muted); }
+.qa-chip.is-picked { background: var(--brand-navy); border-color: var(--brand-navy); color: #fff; }
+.qa-chip.tone-good { color: var(--up); }
+.qa-chip.tone-bad { color: var(--down); }
+.qa-chip.tone-warn { color: var(--brand-gold-dark, #9a6f14); }
+.qa-chip.tone-quiet { color: var(--muted); }
+.qa-chip.is-picked.tone-good,
+.qa-chip.is-picked.tone-bad,
+.qa-chip.is-picked.tone-warn { color: #fff; }
+
+.qa-input {
+	font: inherit;
+	font-size: 0.82rem;
+	padding: 8px 11px;
+	border-radius: 9px;
+	border: 1px solid var(--line);
+	background: var(--card);
+	color: var(--text);
+	width: 100%;
+}
+
+.qa-input:focus {
+	outline: none;
+	border-color: var(--teal);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 15%, transparent);
+}
+
+.qa-form-save { align-self: flex-start; }
+.qa-form-save:disabled { opacity: .5; cursor: not-allowed; }
+
+.qa-more { display: flex; flex-direction: column; gap: 2px; }
+
+.qa-more-item {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	width: 100%;
+	border: none;
+	background: transparent;
+	color: var(--text);
+	text-align: start;
+	font: inherit;
+	font-size: 0.82rem;
+	padding: 8px 9px;
+	border-radius: 8px;
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.qa-more-item:hover { background: var(--card-2); color: var(--text); text-decoration: none; }
+.qa-more-item i { width: 16px; text-align: center; color: var(--muted); font-size: 0.8rem; }
+
+.qa-sub {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 8px 9px 10px;
+	margin-bottom: 4px;
+	border-radius: 8px;
+	background: var(--card-2);
+}
+
+/* ─── حالت‌ها ─────────────────────────────────────────────────────── */
+
+.leads-table tbody tr.is-saving > td { opacity: .55; pointer-events: none; }
+
+.leads-empty {
+	text-align: center;
+	padding: 48px 20px;
+	color: var(--muted);
+}
+
+.leads-empty i { font-size: 2rem; opacity: .35; display: block; margin-bottom: 12px; }
+.leads-empty h4 { font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.leads-empty p { font-size: 0.85rem; margin-bottom: 14px; }
+
+/* ─── موبایل: کارت، نه جدولِ کوچک‌شده ────────────────────────────── */
+
+@media (max-width: 900px) {
+	.leads-toolbar { flex-direction: column; align-items: stretch; }
+	.leads-toolbar .filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+	.leads-toolbar .filter-tab { flex: none; }
+	.toolbar-actions { flex-wrap: wrap; }
+	.search-box { flex: 1 1 100%; min-width: 0; }
+
+	.leads-table, .leads-table tbody { display: block; }
+	.leads-table thead { display: none; }
+
+	.leads-table tbody tr.lead-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 6px 10px;
+		margin-bottom: var(--lead-gap);
+		padding: 13px 14px;
+		border-radius: var(--lead-radius);
+		background: var(--card);
+		border: 1px solid var(--line);
+		border-inline-start: var(--lead-rail) solid transparent;
+		box-shadow: var(--lead-shadow);
+	}
+
+	.lead-row.urg-overdue, .lead-row.urg-risk { border-inline-start-color: var(--urg-overdue); }
+	.lead-row.urg-today { border-inline-start-color: var(--urg-today); }
+	.lead-row.urg-new { border-inline-start-color: var(--urg-new); }
+
+	.leads-table tbody tr.lead-row > td {
+		display: block;
+		padding: 0;
+		border: none;
+		background: transparent;
+		/* گریدآیتم پیش‌فرض min-width:auto دارد، یعنی حاضر نیست کوچک‌تر از
+		   محتوایش شود. بدون این، نوارِ اقدام (۴۲۰px) از کارتِ ۲۷۶ پیکسلی
+		   می‌زد بیرون و در راست‌به‌چپ دو دکمه‌ی آخر بی‌صدا بریده می‌شدند. */
+		min-width: 0;
+	}
+
+	.leads-table tbody tr.lead-row > td.who-cell { grid-column: 1; }
+	.leads-table tbody tr.lead-row > td.status-cell { grid-column: 2; text-align: end; }
+	.leads-table tbody tr.lead-row > td.next-cell { grid-column: 1 / -1; }
+	.leads-table tbody tr.lead-row > td.owner-cell { grid-column: 1 / -1; }
+
+	/* نوارِ اقدام تمامِ عرض را می‌گیرد و دکمه‌ها هم‌اندازه می‌شوند: روی
+	   گوشی، هدفِ لمس مهم‌تر از فشردگی است. */
+	.leads-table tbody tr.lead-row > td.act-cell {
+		grid-column: 1 / -1;
+		width: auto;
+		margin-top: 4px;
+		padding-top: 9px;
+		border-top: 1px solid var(--line);
+	}
+
+	.act-cell .qa-bar { display: flex; width: 100%; gap: 6px; }
+	.act-cell .qa-bar > * { min-width: 0; }
+	.act-cell .qa-bar > .qa-act,
+	.act-cell .qa-bar > .qa-pop { flex: 1 1 0; }
+	.act-cell .qa-bar > .qa-pop > .qa-act { width: 100%; justify-content: center; }
+	.act-cell .qa-bar > .qa-act { justify-content: center; min-height: 42px; }
+	.act-cell .qa-bar > .qa-pop > .qa-act { min-height: 42px; }
+	/* «⋯» عرضِ ثابت می‌گیرد و سه دکمه‌ی دیگر بقیه را تقسیم می‌کنند؛
+	   وگرنه چهار دکمه با متن در ۳۳۰ پیکسل جا نمی‌شوند و آخری بیرون
+	   می‌افتد. */
+	.act-cell .qa-bar > .qa-pop-more { flex: 0 0 48px; }
+	.act-cell .qa-act { padding: 7px 8px; font-size: 0.76rem; }
+	.act-cell .qa-act i { font-size: 0.85rem; }
+
+	.who-why { max-width: none; white-space: normal; }
+	.next-sub { max-width: none; }
+	.status-cell .lead-badge { max-width: 100%; }
+
+	/* روی کارت، ستونِ وضعیت فقط نشان و نتیجه‌ی آخرین تماس را می‌گوید؛
+	   شمارنده‌ی تماس همان‌جا در «قدم بعدی» هم هست و تکرارش سطرِ اولِ کارت
+	   را بلند می‌کرد و نام را پایین می‌انداخت. */
+	.status-cell { align-self: start; }
+	.status-cell .row-subline.is-quiet { display: none; }
+
+	/* کارت روی گوشیِ ۳۹۰ پیکسلی فقط ۲۷۶ پیکسل عرض داشت؛ بقیه‌اش
+	   حاشیه‌های تودرتوی قالب بود. */
+	.table-card > .card-body { padding: 12px 10px; }
+	.leads-table tbody tr.lead-row { padding: 12px 11px; }
+
+	/* popover روی گوشی از پایین می‌آید: انگشت پایینِ صفحه است، و پنلِ
+	   چسبیده به دکمه اغلب زیرِ لبه‌ی صفحه می‌افتاد. */
+	.qa-pop-panel.is-open-panel {
+		position: fixed;
+		inset: auto 0 0 0;
+		width: 100%;
+		max-height: 78vh;
+		overflow-y: auto;
+		border-radius: 18px 18px 0 0;
+		padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+		box-shadow: 0 -12px 40px rgba(16, 24, 60, .28);
+		animation: crmSheetUp .2s ease both;
+		z-index: 1250;
+	}
+
+	body.has-qa-sheet::after {
+		content: "";
+		position: fixed;
+		inset: 0;
+		background: rgba(11, 17, 40, .35);
+		z-index: 1240;
+	}
+
+	.qa-pop-panel .qa-chip { padding: 9px 12px; font-size: 0.82rem; }
+	.qa-pop-close { top: 14px; inset-inline-end: 14px; font-size: 1rem; }
+}
+
+@keyframes crmSheetUp {
+	from { transform: translateY(14px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.qa-pop-panel.is-open-panel { animation: none; }
 }
