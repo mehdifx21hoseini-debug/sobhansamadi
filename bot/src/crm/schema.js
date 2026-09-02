@@ -147,6 +147,39 @@ const ADD_COLUMNS = [
   // ارسال بتواند تکه‌تکه انجام شود و از جایی که مانده ادامه پیدا کند.
   "ALTER TABLE crm_broadcast_recipients ADD COLUMN status TEXT",
   "ALTER TABLE crm_broadcasts ADD COLUMN total INTEGER",
+  // شمارنده‌های روی خودِ ردیفِ ارسال.
+  //
+  // چرا لازم شد: هم صفحه‌ی پیشرفت و هم کرانِ هر پنج دقیقه، جوابشان را
+  // با اسکنِ جدولِ گیرنده‌ها می‌گرفتند. یک ارسالِ ۷٬۷۰۰ نفره یعنی ۱۵۵
+  // تکه و هر تکه یک اسکنِ کامل - بیش از یک میلیون ردیف‌خوانی برای
+  // شمردنِ چیزی که خودمان همان لحظه می‌دانیم. سقفِ روزانه‌ی D1 یک بار
+  // به همین دلیل پر شد و دیتابیس تا نیمه‌شب UTC از کار افتاد.
+  //
+  // حالا هر تکه فقط عددها را جمع و تفریق می‌کند و هیچ‌کس جدولِ
+  // گیرنده‌ها را نمی‌شمارد.
+  "ALTER TABLE crm_broadcasts ADD COLUMN failed_count INTEGER",
+  "ALTER TABLE crm_broadcasts ADD COLUMN pending_count INTEGER",
+];
+
+/**
+ * پر کردنِ یک‌باره‌ی شمارنده‌ها برای ارسال‌هایی که پیش از این ستون‌ها
+ * ساخته شده‌اند.
+ *
+ * فقط ردیف‌هایی را می‌خواند که هنوز NULL‌اند، پس بعد از اولین اجرا
+ * عملاً یک اسکنِ سیزده‌ردیفی است و نه بیشتر. بدونِ این، کران برای
+ * ارسال‌های قدیمی تصمیمِ اشتباه می‌گرفت.
+ */
+const BACKFILL = [
+  `UPDATE crm_broadcasts SET pending_count = (
+       SELECT COUNT(*) FROM crm_broadcast_recipients r
+        WHERE r.batch_id = crm_broadcasts.batch_id
+          AND r.message_id IS NULL
+          AND (r.status IS NULL OR r.status = 'pending'))
+     WHERE pending_count IS NULL`,
+  `UPDATE crm_broadcasts SET failed_count = (
+       SELECT COUNT(*) FROM crm_broadcast_recipients r
+        WHERE r.batch_id = crm_broadcasts.batch_id AND r.status = 'failed')
+     WHERE failed_count IS NULL`,
 ];
 
 // روی ستونِ تازه، پس بعد از ADD_COLUMNS اجرا می‌شود نه با بقیه‌ی DDL.
@@ -180,6 +213,11 @@ export async function ensureCrmSchema(env) {
   for (const sql of LATE_INDEXES) {
     await env.DB.prepare(sql).run().catch((err) =>
       console.error("ساخت ایندکس شکست خورد:", sql, err && err.message)
+    );
+  }
+  for (const sql of BACKFILL) {
+    await env.DB.prepare(sql).run().catch((err) =>
+      console.error("پر کردنِ شمارنده‌ها شکست خورد:", err && err.message)
     );
   }
   ensured = true;

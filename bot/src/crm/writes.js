@@ -706,10 +706,12 @@ export async function sendBroadcast(env, body, actor, sendRaw) {
   const batchId = newId("BC");
   await env.DB
     .prepare(
-      `INSERT INTO crm_broadcasts (batch_id, message, audience, sent_count, deleted, created_at, total)
-       VALUES (?, ?, ?, 0, 0, ?, ?)`
+      `INSERT INTO crm_broadcasts
+         (batch_id, message, audience, sent_count, failed_count, pending_count,
+          deleted, created_at, total)
+       VALUES (?, ?, ?, 0, 0, ?, 0, ?, ?)`
     )
-    .bind(batchId, message, audience, nowIso(), targets.length)
+    .bind(batchId, message, audience, targets.length, nowIso(), targets.length)
     .run();
 
   // صف در دسته‌های صدتایی نوشته می‌شود: یک INSERT به‌ازای هر نفر یعنی
@@ -744,7 +746,10 @@ export async function sendBroadcast(env, body, actor, sendRaw) {
  */
 export async function drainBatch(env, batchId, sendRaw) {
   const batch = await env.DB
-    .prepare("SELECT message, total, deleted FROM crm_broadcasts WHERE batch_id = ?")
+    .prepare(
+      `SELECT message, total, deleted, sent_count, failed_count, pending_count
+         FROM crm_broadcasts WHERE batch_id = ?`
+    )
     .bind(batchId)
     .first();
   if (!batch) return bad("این ارسال پیدا نشد");
@@ -803,34 +808,37 @@ export async function drainBatch(env, batchId, sendRaw) {
     );
   }
 
-  const counts = await env.DB
-    .prepare(
-      `SELECT
-         SUM(CASE WHEN status = 'sent' OR message_id IS NOT NULL THEN 1 ELSE 0 END) AS sent,
-         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
-         SUM(CASE WHEN message_id IS NULL
-                       AND (status IS NULL OR status = 'pending')
-                  THEN 1 ELSE 0 END) AS remaining
-       FROM crm_broadcast_recipients WHERE batch_id = ?`
-    )
-    .bind(batchId)
-    .first();
+  // شمارش با حساب، نه با اسکن.
+  //
+  // پیشتر بعد از هر تکه یک SUM روی همه‌ی ردیف‌های این دسته اجرا می‌شد.
+  // برای یک ارسالِ ۷٬۷۰۰ نفره یعنی ۱۵۵ اسکنِ کامل و بیش از یک میلیون
+  // ردیف‌خوانی - که سقفِ روزانه‌ی D1 را پر کرد و دیتابیس را از کار
+  // انداخت. عددها همین‌جا در دست‌اند: چند تا رفت، چند تا رد شد.
+  //
+  // pending_count از تعدادِ واقعیِ پردازش‌شده کم می‌شود و نه از اندازه‌ی
+  // تکه: اگر وسطِ تکه به سقف بخوریم، بقیه هنوز در صف‌اند.
+  const totalSent = (batch.sent_count || 0) + sent;
+  const totalFailed = (batch.failed_count || 0) + failed;
+  const remaining = Math.max(0, (batch.pending_count || 0) - done.length);
 
-  const totalSent = (counts && counts.sent) || 0;
-  await env.DB
-    .prepare("UPDATE crm_broadcasts SET sent_count = ? WHERE batch_id = ?")
-    .bind(totalSent, batchId)
-    .run();
-
-  const remaining = (counts && counts.remaining) || 0;
+  if (done.length) {
+    await env.DB
+      .prepare(
+        `UPDATE crm_broadcasts
+            SET sent_count = ?, failed_count = ?, pending_count = ?
+          WHERE batch_id = ?`
+      )
+      .bind(totalSent, totalFailed, remaining, batchId)
+      .run();
+  }
   return {
     ok: true,
     batch_id: batchId,
     // شمارشِ کلِ این ارسال، نه فقط این تکه: صفحه باید پیشرفت را نشان
     // بدهد نه آخرین تکه را.
     sent: totalSent,
-    failed: (counts && counts.failed) || 0,
-    total: batch.total || totalSent + ((counts && counts.failed) || 0) + remaining,
+    failed: totalFailed,
+    total: batch.total || totalSent + totalFailed + remaining,
     remaining,
     done: remaining === 0,
     // اگر وسطِ تکه ایستادیم، صفحه بهتر است کمی صبر کند نه اینکه بلافاصله
@@ -850,13 +858,13 @@ export async function drainBatch(env, batchId, sendRaw) {
 export async function drainPendingBroadcasts(env, sendRaw) {
   const row = await env.DB
     .prepare(
-      `SELECT b.batch_id FROM crm_broadcasts b
-        WHERE b.deleted = 0
-          AND EXISTS (SELECT 1 FROM crm_broadcast_recipients r
-                       WHERE r.batch_id = b.batch_id
-                         AND r.message_id IS NULL
-                         AND (r.status IS NULL OR r.status = 'pending'))
-        ORDER BY b.created_at LIMIT 1`
+      // پیشتر اینجا یک EXISTS روی جدولِ گیرنده‌ها بود که برای هر ارسال
+      // اجرا می‌شد - هر پنج دقیقه، ۲۸۸ بار در روز، حتی وقتی هیچ کارِ
+      // نیمه‌کاره‌ای نبود. حالا فقط یک ستونِ عددی روی همین جدولِ
+      // کوچک خوانده می‌شود.
+      `SELECT batch_id FROM crm_broadcasts
+        WHERE deleted = 0 AND COALESCE(pending_count, 0) > 0
+        ORDER BY created_at LIMIT 1`
     )
     .first();
   if (!row) return { idle: true };
