@@ -4,7 +4,7 @@ import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendSection, resolveSection, sendChannelFile, editWithText } from "./content/sectionText.js";
-import { supportChatUrl, supportPrefill, supportUsername } from "./supportContact.js";
+import { supportChatUrl, supportPrefill } from "./supportContact.js";
 import { savePhone } from "./phones.js";
 
 const COURSE_LABELS = {
@@ -475,8 +475,16 @@ function buildConfirmText(flow, temp) {
   // کاربر باید تایید کند. کسی که آن جمله را می‌خواند فکر می‌کرد کارش
   // تمام است و دکمه‌ی تایید را نمی‌زد - لیدی که تا آخر آمده بود و در
   // آخرین قدم گم می‌شد، بدون اینکه هیچ‌جا دیده شود.
-  const lines = ["📋 لطفاً اطلاعات زیر را بررسی کنید:", ""];
+  return [
+    "📋 لطفاً اطلاعات زیر را بررسی کنید:",
+    "",
+    ...answerLines(temp),
+    "",
+    "اگر اطلاعات صحیح است، روی «✅ تایید نهایی» بزنید.",
+  ].join("\n");
+}
 
+function answerLines(temp) {
   const fields = [
     ["👤 نام", temp.name],
     ["📱 موبایل", temp.phone],
@@ -487,13 +495,19 @@ function buildConfirmText(flow, temp) {
     ["📈 وضعیت ترید", temp.trade_status],
     ["🎯 هدف از دوره", temp.topic],
   ];
-  for (const [label, value] of fields) {
-    if (value) lines.push(label + ": " + value);
-  }
+  return fields.filter(([, v]) => v).map(([label, v]) => label + ": " + v);
+}
 
-  lines.push("");
-  lines.push("اگر اطلاعات صحیح است، روی «✅ تایید نهایی» بزنید.");
-  return lines.join("\n");
+/**
+ * همان صفحه‌ی بازبینی، بعد از تایید.
+ *
+ * پیامِ تایید در جای خودش ویرایش می‌شود و پاسخ‌ها سرِ جایشان می‌مانند -
+ * جمله‌ی راهنمای پایین می‌رود و به‌جایش می‌گوید ثبت شد. این‌طور کاربر
+ * همیشه می‌تواند برگردد و ببیند چه چیزی فرستاده، و هیچ پیامِ تازه‌ای هم
+ * برای گفتنِ «تایید شد» لازم نیست.
+ */
+function buildSubmittedText(temp) {
+  return ["✅ اطلاعات زیر برای ما ثبت شد:", "", ...answerLines(temp)].join("\n");
 }
 
 /**
@@ -828,7 +842,12 @@ async function acceptPhone(ctx, state, phone) {
     source: state.current_flow === "registration" ? "ثبت‌نام" : "مشاوره",
   }).catch((err) => console.error("ثبت شماره در دفترچه شکست خورد:", err && err.message));
 
-  await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: { remove_keyboard: true } });
+  // کیبوردِ «ارسال شماره» می‌رود و منوی اصلی جایش می‌نشیند.
+  //
+  // پیشتر اینجا remove_keyboard بود و منو در پیامِ پایانِ ثبت‌نام
+  // برمی‌گشت. آن پیام حذف شد (حرفش با دعوتِ پشتیبانی یکی بود) و اگر منو
+  // هم با آن می‌رفت، کاربر تا زدنِ /start بدونِ کیبورد می‌ماند.
+  await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: mainMenuKeyboard() });
 
   // ویرایش از صفحه‌ی تایید: فقط همین شماره عوض می‌شد، پس بقیه‌ی فرم
   // دوباره پرسیده نمی‌شود.
@@ -896,8 +915,12 @@ export async function handleConfirm(ctx) {
 
   await clearUserState(ctx.env, ctx.from.id);
 
-  await ctx.editMessageText("✅ اطلاعات شما تایید و ثبت شد.", { reply_markup: undefined });
-  await sendLeadDone(ctx);
+  // پیامِ تاییدْ خودش «ثبت شد» را می‌گوید و یک پیامِ تازه هم پشتش
+  // می‌رود: دعوتِ پشتیبانی. پیشتر سه‌تا بودند - همین ویرایش، «پیام
+  // پایان»، و دعوتِ پشتیبانی - و هر سه یک حرف می‌زدند: «ثبت شد، طی ۲۴
+  // ساعت تماس می‌گیریم». دو پیامِ تکراری، دکمه‌ی پشتیبانی را پایین
+  // می‌راندند؛ همان دکمه‌ای که کلِ این بخش برایش ساخته شده.
+  await ctx.editMessageText(buildSubmittedText(temp), { reply_markup: undefined });
   await sendSupportInvite(ctx, {
     leadId: saved && saved.lead_id,
     name: temp.name,
@@ -915,12 +938,11 @@ export async function handleCancel(ctx) {
   await ctx.reply("فرآیند لغو شد. به منوی اصلی برگشتید.", { reply_markup: mainMenuKeyboard() });
 }
 
-// پیام پایان، بدون parse_mode: متنش قابل ویرایش است و یک «<» در چیزی که
-// مدیر می‌نویسد کل پیام را رد می‌کند.
-async function sendLeadDone(ctx) {
-  const { text } = await resolveSection(ctx.env, "LEAD_DONE");
-  await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
-}
+// «پیام پایان» (LEAD_DONE) اینجا فرستاده می‌شد و برداشته شد: حرفش با
+// دعوتِ پشتیبانی یکی بود و فقط یک پیامِ اضافه می‌ساخت.
+//
+// کیبوردِ منوی اصلی که همراهش برمی‌گشت، حالا سرِ ثبتِ شماره برمی‌گردد -
+// جایی که آخرین بار برداشته شده بود.
 
 /**
  * دعوت به پشتیبانی، درست بعد از «ثبت شد».
@@ -936,8 +958,10 @@ async function sendSupportInvite(ctx, info) {
   try {
     const { text } = await resolveSection(ctx.env, "LEAD_SUPPORT");
     const url = supportChatUrl(ctx.env, supportPrefill(info));
-    const body = text + "\n\n🆔 @" + supportUsername(ctx.env);
-    await ctx.reply(body, {
+    // آیدیِ پشتیبانی از متن برداشته شد: خودِ دکمه همان چت را باز می‌کند،
+    // و نوشتنِ آیدی کنارش یعنی دو راه برای یک کار - که یکی‌شان (کپی
+    // کردنِ آیدی و جست‌وجویش) از آن یکی بدتر است.
+    await ctx.reply(text, {
       reply_markup: new InlineKeyboard().url("✅ پیام به پشتیبانی آکادمی", url),
       // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
       link_preview_options: { is_disabled: true },
