@@ -359,11 +359,17 @@
 		});
 	}
 
-	function sendBroadcast(message, audience) {
+	// batchId خالی یعنی «یک ارسال تازه بساز»؛ پرشده یعنی «همان را ادامه
+	// بده». صفحه با همین یک تابع هم شروع می‌کند و هم تکه‌های بعدی را
+	// می‌گیرد.
+	function sendBroadcast(message, audience, batchId) {
+		var body = batchId
+			? { batch_id: batchId }
+			: { message: message, audience: audience };
 		return request("/crm/broadcast", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ message: message, audience: audience })
+			body: JSON.stringify(body)
 		});
 	}
 

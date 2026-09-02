@@ -9,6 +9,8 @@ import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
 import { handleCrmApi } from "./crm/panelApi.js";
 import { crmSelfTest } from "./crm/selftest.js";
+import { drainPendingBroadcasts } from "./crm/writes.js";
+import { telegramSender } from "./crm/telegramSend.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { recentLeads, deleteLeads, backfillBotAnswers } from "./crm/maintenance.js";
 import { sendDailyReport, buildReport } from "./crm/report.js";
@@ -74,7 +76,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-26";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-27";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -742,6 +744,17 @@ export default {
     }
 
     if (cron === ALERT_CRON) {
+      // صفِ پیام همگانی. تبِ مرورگر ارسال را شروع می‌کند و تند پیش
+      // می‌برد، ولی اگر بسته شود این هر پنج دقیقه ادامه‌اش می‌دهد - پس
+      // هیچ ارسالی نصفه رها نمی‌ماند.
+      ctx.waitUntil(
+        ensureCrmSchema(env)
+          .then(() => drainPendingBroadcasts(env, telegramSender(env)))
+          .then((r) => {
+            if (r && !r.idle) console.log("صف پیام همگانی:", JSON.stringify(r));
+          })
+          .catch((err) => console.error("درِین صف همگانی شکست خورد:", err && err.message))
+      );
       ctx.waitUntil(
         runAlertSweep(env)
           .then((n) => {

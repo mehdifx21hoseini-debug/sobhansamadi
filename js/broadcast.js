@@ -105,17 +105,56 @@
 		});
 	}
 
+	function faNum(n) { return Number(n || 0).toLocaleString("fa-IR"); }
+
+	function showProgress(res) {
+		var pct = res.total ? Math.round(((res.sent + res.failed) / res.total) * 100) : 0;
+		showResult(true,
+			"در حال ارسال… " + faNum(res.sent) + " از " + faNum(res.total) +
+			" (" + faNum(pct) + "٪)" + (res.failed ? " — " + faNum(res.failed) + " ناموفق" : ""));
+	}
+
+	/**
+	 * ارسال تکه‌تکه تا تمام شدن.
+	 *
+	 * چرا حلقه: مخاطبِ «همه» هزاران نفر است و یک درخواست هرگز به آخرش
+	 * نمی‌رسد - سرور وسط کار متوقف می‌شود. هر بار یک تکه می‌رود و سرور
+	 * می‌گوید چقدر مانده.
+	 *
+	 * بستنِ تب ارسال را از بین نمی‌برد: صف در سرور است و کرانِ هر پنج
+	 * دقیقه ادامه‌اش می‌دهد. این حلقه فقط تندترش می‌کند و پیشرفت را نشان
+	 * می‌دهد.
+	 */
 	function doSend(message, audience) {
 		var $btn = $("#btnSendBroadcast").prop("disabled", true);
-		CrmData.sendBroadcast(message, audience)
-			.then(function (res) {
-				showResult(true, "ارسال شد — " + res.sent + " موفق، " + res.failed + " ناموفق (از " + res.total + " مخاطب).");
-				$("#broadcastMessage").val("");
-				updateCharCount();
-				loadHistory();
-			})
+
+		function step(batchId) {
+			return CrmData.sendBroadcast(message, audience, batchId).then(function (res) {
+				showProgress(res);
+				if (res.done) {
+					showResult(true,
+						"ارسال کامل شد — " + faNum(res.sent) + " موفق" +
+						(res.failed ? "، " + faNum(res.failed) + " ناموفق" : "") +
+						" (از " + faNum(res.total) + " مخاطب).");
+					$("#broadcastMessage").val("");
+					updateCharCount();
+					loadHistory();
+					return;
+				}
+				// اگر سرور به سقفش خورده، کمی نفس بکشد؛ وگرنه بلافاصله
+				// همان دیوار را دوباره می‌زنیم.
+				var wait = res.throttled ? 3000 : 300;
+				return new Promise(function (r) { setTimeout(r, wait); })
+					.then(function () { return step(res.batch_id); });
+			});
+		}
+
+		step("")
 			.catch(function (err) {
-				showResult(false, "خطا در ارسال: " + (err.message || "خطای نامشخص"));
+				showResult(false,
+					"ارسال نیمه‌کاره ماند: " + (err.message || "خطای نامشخص") +
+					" — بقیه‌ی پیام‌ها خودکار در پس‌زمینه فرستاده می‌شوند.");
+				loadHistory();
 			})
 			.finally(function () {
 				$btn.prop("disabled", false);

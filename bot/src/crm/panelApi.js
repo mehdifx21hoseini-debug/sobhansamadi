@@ -13,6 +13,7 @@ import {
   updateDisplayName, updateUsername, updateAvatar, pruneSessions, revokeSessions,
 } from "./auth.js";
 import { ensureCrmSchema } from "./schema.js";
+import { telegramSender, telegramDeleter } from "./telegramSend.js";
 import * as R from "./reads.js";
 import * as W from "./writes.js";
 import * as DASH from "./dashboards.js";
@@ -303,31 +304,8 @@ export async function handleCrmApi(request, url, env) {
     // یا نه، یکی شناسه‌ی پیام را لازم دارد (برای اینکه بعداً بشود پاکش
     // کرد)، و یکی حذف می‌کند. همه تزریق می‌شوند تا تست بدون شبکه بتواند
     // ببیند چه چیزی قرار بوده فرستاده شود.
-    const tg = async (method, payload) => {
-      try {
-        const r = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/" + method, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(15000),
-          body: JSON.stringify(payload),
-        });
-        return await r.json();
-      } catch {
-        return { ok: false };
-      }
-    };
-
-    const sendRaw = async (chatId, text) => {
-      const out = await tg("sendMessage", { chat_id: String(chatId), text });
-      return out && out.ok
-        ? { ok: true, message_id: out.result && out.result.message_id }
-        : { ok: false };
-    };
-
-    const deleteMsg = async (chatId, messageId) => {
-      const out = await tg("deleteMessage", { chat_id: String(chatId), message_id: Number(messageId) });
-      return !!(out && out.ok);
-    };
+    const sendRaw = telegramSender(env);
+    const deleteMsg = telegramDeleter(env);
 
     const send = async (chatId, text) => {
       try {

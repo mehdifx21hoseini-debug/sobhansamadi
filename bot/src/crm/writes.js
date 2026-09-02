@@ -668,17 +668,32 @@ const AUDIENCES = {
 };
 
 /**
- * ارسال پیام همگانی.
+ * ارسال پیام همگانی - تکه‌تکه و قابلِ ادامه.
  *
- * message_id هر گیرنده ذخیره می‌شود، چون «حذف پیام همگانی» یعنی پاک
- * کردنِ همان پیام از چتِ تک‌تک کاربران - و بدون شناسه‌ی پیام، آن کار
- * ممکن نیست.
+ * چرا یکجا نمی‌شود: مخاطبِ «همه» هزاران نفر است و هر نفر یک درخواست به
+ * تلگرام. کلادفلر روی هر اجرای ورکر سقفِ تعدادِ درخواستِ بیرونی دارد، و
+ * تلگرام هم سقفِ نرخ. نسخه‌ی قبلی همه را در یک درخواست می‌فرستاد و
+ * دقیقاً روی همان سقف می‌مرد: از ۷۴۹۲ نفر، ۴۹ نفر پیام می‌گرفتند و صفحه
+ * «ارسال شد» نشان می‌داد.
  *
- * تلگرام روی ارسال انبوه محدودیت نرخ دارد (حدود ۳۰ پیام در ثانیه). با
- * چند صد کاربر، فرستادنِ بی‌مکث یعنی نیمی از پیام‌ها ۴۲۹ می‌گیرند و
- * می‌افتند؛ پس بین دسته‌ها مکث کوتاه هست.
+ * حالا:
+ *   ۱ - همه‌ی گیرنده‌ها یک‌بار در جدول ثبت می‌شوند، بی‌آنکه چیزی فرستاده
+ *       شود. این «صف» است.
+ *   ۲ - هر فراخوانی یک تکه از صف را می‌فرستد و می‌گوید چقدر مانده.
+ *   ۳ - صفحه تا تمام شدن ادامه می‌دهد، و کرانِ هر پنج دقیقه هم همان صف
+ *       را می‌خورد - پس بستنِ تب یا قطع شدنِ نت، ارسال را نصفه رها
+ *       نمی‌کند.
+ *
+ * اندازه‌ی تکه ثابت نیست: حلقه تا وقتی می‌فرستد که پلتفرم اجازه بدهد و
+ * به‌محضِ اولین خطای زیرساختی می‌ایستد و بقیه را برای دفعه‌ی بعد
+ * می‌گذارد. این‌طور هر سقفی که باشد، خودش را با آن جور می‌کند.
  */
+const CHUNK_HARD_CAP = 60;
+
 export async function sendBroadcast(env, body, actor, sendRaw) {
+  const resume = String(body.batch_id || "").trim();
+  if (resume) return drainBatch(env, resume, sendRaw);
+
   const message = String(body.message || "").trim();
   const audience = String(body.audience || "all").trim();
   if (!message) return bad("متن پیام خالی است");
@@ -689,44 +704,153 @@ export async function sendBroadcast(env, body, actor, sendRaw) {
   if (targets.length === 0) return bad("هیچ گیرنده‌ای در این گروه نیست");
 
   const batchId = newId("BC");
-  const created = nowIso();
   await env.DB
     .prepare(
-      `INSERT INTO crm_broadcasts (batch_id, message, audience, sent_count, deleted, created_at)
-       VALUES (?, ?, ?, 0, 0, ?)`
+      `INSERT INTO crm_broadcasts (batch_id, message, audience, sent_count, deleted, created_at, total)
+       VALUES (?, ?, ?, 0, 0, ?, ?)`
     )
-    .bind(batchId, message, audience, created)
+    .bind(batchId, message, audience, nowIso(), targets.length)
     .run();
 
+  // صف در دسته‌های صدتایی نوشته می‌شود: یک INSERT به‌ازای هر نفر یعنی
+  // هفت هزار رفت‌وبرگشت به پایگاه داده، که خودش از همان سقف رد می‌شود.
+  for (let i = 0; i < targets.length; i += 100) {
+    await env.DB.batch(
+      targets.slice(i, i + 100).map((chat) =>
+        env.DB
+          .prepare(
+            `INSERT INTO crm_broadcast_recipients (batch_id, chat_id, message_id, status)
+             VALUES (?, ?, NULL, 'pending')`
+          )
+          .bind(batchId, chat)
+      )
+    );
+  }
+
+  return drainBatch(env, batchId, sendRaw);
+}
+
+/**
+ * یک تکه از صفِ یک پیام را می‌فرستد.
+ *
+ * سه سرنوشت برای هر گیرنده: sent (رفت)، failed (تلگرام رد کرد - بلاک
+ * کرده یا چت را پاک کرده، پس تکرارش فایده ندارد)، و pending که دست
+ * نخورده می‌ماند تا دفعه‌ی بعد.
+ *
+ * تفاوتِ «تلگرام رد کرد» و «ما به سقف خوردیم» مهم‌ترین نکته‌ی این تابع
+ * است: اولی permanent است و دومی موقت. اگر هر دو یکی حساب می‌شدند، یک
+ * سقفِ زودهنگام کلِ بقیه‌ی فهرست را «ناموفق» علامت می‌زد و هرگز فرستاده
+ * نمی‌شدند.
+ */
+export async function drainBatch(env, batchId, sendRaw) {
+  const batch = await env.DB
+    .prepare("SELECT message, total, deleted FROM crm_broadcasts WHERE batch_id = ?")
+    .bind(batchId)
+    .first();
+  if (!batch) return bad("این ارسال پیدا نشد");
+  if (batch.deleted) return bad("این پیام حذف شده است");
+
+  const { results } = await env.DB
+    .prepare(
+      `SELECT id, chat_id FROM crm_broadcast_recipients
+        WHERE batch_id = ? AND (status IS NULL OR status = 'pending')
+        ORDER BY id LIMIT ?`
+    )
+    .bind(batchId, CHUNK_HARD_CAP)
+    .all();
+
+  const done = [];
   let sent = 0;
   let failed = 0;
-  let rows = [];
-  for (let i = 0; i < targets.length; i++) {
-    const res = await sendRaw(targets[i], message);
-    if (!(res && res.ok && res.message_id)) failed++;
+  let stopped = false;
+
+  for (let i = 0; i < (results || []).length; i++) {
+    const r = results[i];
+    let res;
+    try {
+      res = await sendRaw(r.chat_id, batch.message);
+    } catch {
+      // زیرساخت جواب نداد - سقفِ درخواست، شبکه، یا تایم‌اوت. بقیه‌ی
+      // فهرست دست‌نخورده می‌ماند.
+      stopped = true;
+      break;
+    }
     if (res && res.ok && res.message_id) {
       sent++;
-      rows.push(
-        env.DB
-          .prepare("INSERT INTO crm_broadcast_recipients (batch_id, chat_id, message_id) VALUES (?, ?, ?)")
-          .bind(batchId, targets[i], String(res.message_id))
-      );
+      done.push({ id: r.id, status: "sent", messageId: String(res.message_id) });
+    } else {
+      failed++;
+      done.push({ id: r.id, status: "failed", messageId: null });
     }
-    if (rows.length >= 25) { await env.DB.batch(rows); rows = []; }
     // مکث هر بیست پیام، برای نخوردن به سقفِ نرخِ تلگرام.
-    if (i % 20 === 19) await new Promise((r) => setTimeout(r, 1000));
+    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
   }
-  if (rows.length) await env.DB.batch(rows);
 
+  if (done.length) {
+    await env.DB.batch(
+      done.map((d) =>
+        env.DB
+          .prepare("UPDATE crm_broadcast_recipients SET status = ?, message_id = ? WHERE id = ?")
+          .bind(d.status, d.messageId, d.id)
+      )
+    );
+  }
+
+  const counts = await env.DB
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+         SUM(CASE WHEN status IS NULL OR status = 'pending' THEN 1 ELSE 0 END) AS remaining
+       FROM crm_broadcast_recipients WHERE batch_id = ?`
+    )
+    .bind(batchId)
+    .first();
+
+  const totalSent = (counts && counts.sent) || 0;
   await env.DB
     .prepare("UPDATE crm_broadcasts SET sent_count = ? WHERE batch_id = ?")
-    .bind(sent, batchId)
+    .bind(totalSent, batchId)
     .run();
 
-  // failed هم برمی‌گردد چون صفحه آن را می‌خواند و بدونش «undefined
-  // ناموفق» می‌نوشت - یعنی درست همان لحظه‌ای که کاربر باید بفهمد چند نفر
-  // پیام را نگرفتند، یک کلمه‌ی بی‌معنی می‌دید.
-  return { ok: true, batch_id: batchId, sent, failed, total: targets.length };
+  const remaining = (counts && counts.remaining) || 0;
+  return {
+    ok: true,
+    batch_id: batchId,
+    // شمارشِ کلِ این ارسال، نه فقط این تکه: صفحه باید پیشرفت را نشان
+    // بدهد نه آخرین تکه را.
+    sent: totalSent,
+    failed: (counts && counts.failed) || 0,
+    total: batch.total || totalSent + ((counts && counts.failed) || 0) + remaining,
+    remaining,
+    done: remaining === 0,
+    // اگر وسطِ تکه ایستادیم، صفحه بهتر است کمی صبر کند نه اینکه بلافاصله
+    // دوباره بزند و باز به همان سقف بخورد.
+    throttled: stopped,
+    chunk_sent: sent,
+    chunk_failed: failed,
+  };
+}
+
+/**
+ * صفِ همه‌ی ارسال‌های ناتمام - برای کران.
+ *
+ * تبِ مرورگر ممکن است بسته شود؛ این تضمین می‌کند ارسال به هر حال تمام
+ * می‌شود. قدیمی‌ترین ارسالِ ناتمام اول، تا چیزی برای همیشه ته صف نماند.
+ */
+export async function drainPendingBroadcasts(env, sendRaw) {
+  const row = await env.DB
+    .prepare(
+      `SELECT b.batch_id FROM crm_broadcasts b
+        WHERE b.deleted = 0
+          AND EXISTS (SELECT 1 FROM crm_broadcast_recipients r
+                       WHERE r.batch_id = b.batch_id
+                         AND (r.status IS NULL OR r.status = 'pending'))
+        ORDER BY b.created_at LIMIT 1`
+    )
+    .first();
+  if (!row) return { idle: true };
+  return drainBatch(env, row.batch_id, sendRaw);
 }
 
 /**
@@ -741,7 +865,12 @@ export async function deleteBroadcast(env, body, deleteMsg) {
   if (!batchId) return bad("batch_id لازم است");
 
   const { results } = await env.DB
-    .prepare("SELECT chat_id, message_id FROM crm_broadcast_recipients WHERE batch_id = ?")
+    // فقط آن‌هایی که واقعاً پیام گرفته‌اند: ردیفِ در صف مانده message_id
+    // ندارد و حذفش از تلگرام بی‌معنی است.
+    .prepare(
+      `SELECT chat_id, message_id FROM crm_broadcast_recipients
+        WHERE batch_id = ? AND message_id IS NOT NULL`
+    )
     .bind(batchId)
     .all();
 

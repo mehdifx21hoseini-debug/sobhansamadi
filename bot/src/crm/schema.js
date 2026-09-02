@@ -139,6 +139,20 @@ const ADD_COLUMNS = [
   "ALTER TABLE crm_leads ADD COLUMN experience TEXT",
   "ALTER TABLE crm_leads ADD COLUMN has_real_account TEXT",
   "ALTER TABLE crm_leads ADD COLUMN trade_status TEXT",
+  // صفِ پیام همگانی.
+  //
+  // تا امروز ردیفِ گیرنده فقط بعد از ارسالِ موفق ساخته می‌شد، پس هیچ‌جا
+  // نوشته نبود «این نفر هنوز مانده». حالا همه‌ی گیرنده‌ها از اول ثبت
+  // می‌شوند و همین ستون می‌گوید کدامشان فرستاده شده - تنها راهی که
+  // ارسال بتواند تکه‌تکه انجام شود و از جایی که مانده ادامه پیدا کند.
+  "ALTER TABLE crm_broadcast_recipients ADD COLUMN status TEXT",
+  "ALTER TABLE crm_broadcasts ADD COLUMN total INTEGER",
+];
+
+// روی ستونِ تازه، پس بعد از ADD_COLUMNS اجرا می‌شود نه با بقیه‌ی DDL.
+const LATE_INDEXES = [
+  `CREATE INDEX IF NOT EXISTS idx_crm_bcast_pending
+     ON crm_broadcast_recipients (batch_id, status)`,
 ];
 
 let ensured = false;
@@ -162,6 +176,11 @@ export async function ensureCrmSchema(env) {
         console.error("افزودن ستون شکست خورد:", sql, msg);
       }
     }
+  }
+  for (const sql of LATE_INDEXES) {
+    await env.DB.prepare(sql).run().catch((err) =>
+      console.error("ساخت ایندکس شکست خورد:", sql, err && err.message)
+    );
   }
   ensured = true;
 }
