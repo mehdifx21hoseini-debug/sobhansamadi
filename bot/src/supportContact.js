@@ -21,6 +21,23 @@
 // پشتیبانی چیزی است که ممکن است وسط یک روز شلوغ جابه‌جا شود.
 const DEFAULT_SUPPORT = "sobhansforex";
 
+/**
+ * ایموجیِ ابتدای یک پاسخ را برمی‌دارد.
+ *
+ * متنِ دکمه‌های فرم ایموجی دارند («📗 مقدماتی - اصول را می‌دانم») و هر
+ * جا که این پاسخ‌ها زیرِ یک برچسبِ ایموجی‌دار نوشته شوند، دو نشان پشتِ
+ * سر هم می‌نشیند: «📊 دانش در مارکت: 📗 مقدماتی…». هیچ‌کدام چیزی اضافه
+ * نمی‌کند و خط را شلوغ می‌کند.
+ *
+ * اینجا زندگی می‌کند و نه در فرم، چون هر دو جا - پیامِ آماده‌ی پشتیبانی
+ * و رسیدِ خودِ ربات - به همین یک قاعده نیاز دارند.
+ */
+export function stripLeadingIcon(v) {
+  return String(v === null || v === undefined ? "" : v)
+    .trim()
+    .replace(/^[^؀-ۿ0-9A-Za-z]+/, "");
+}
+
 export function supportUsername(env) {
   const raw = String((env && env.SUPPORT_USERNAME) || DEFAULT_SUPPORT).trim();
   return raw.replace(/^@/, "").replace(/^https?:\/\/t\.me\//i, "");
@@ -93,14 +110,7 @@ export function supportPrefill({
   const lines = ["سلام، وقت بخیر 🌹", ""];
   lines.push(who ? OPENERS[kind](who) : "فرم مشاوره و ثبت‌نام را تکمیل کردم.");
 
-  // ایموجیِ ابتدای گزینه‌ها برداشته می‌شود.
-  //
-  // متنِ دکمه‌ها ایموجی دارد («📗 مقدماتی…») و بدونِ این پاک‌سازی، وسطِ
-  // یک پیامِ ساده یک نشانِ بی‌ربط می‌نشست.
-  const clean = (v) =>
-    String(v === null || v === undefined ? "" : v)
-      .trim()
-      .replace(/^[^؀-ۿ0-9A-Za-z]+/, "");
+  const clean = stripLeadingIcon;
 
   // خط‌های داده، بدونِ ایموجی و زیرِ یک سرخط.
   //

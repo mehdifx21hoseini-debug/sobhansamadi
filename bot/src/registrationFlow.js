@@ -4,7 +4,7 @@ import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendSection, resolveSection, sendChannelFile, editWithText } from "./content/sectionText.js";
-import { supportChatUrl, supportPrefill } from "./supportContact.js";
+import { supportChatUrl, supportPrefill, stripLeadingIcon } from "./supportContact.js";
 import { savePhone } from "./phones.js";
 
 const COURSE_LABELS = {
@@ -514,18 +514,43 @@ function buildConfirmText(flow, temp) {
   ].join("\n");
 }
 
+/**
+ * خط‌های «برچسب: پاسخ» - همان فهرستی که هم در صفحه‌ی بازبینی می‌آید و هم
+ * در رسیدِ بعد از تایید.
+ *
+ * سه چیز اینجا عمدی است:
+ *
+ * ۱ - ایموجیِ ابتدای پاسخ برداشته می‌شود. متنِ دکمه‌ها ایموجی دارد و
+ *     کنارِ برچسبِ ایموجی‌دار، خط «🎯 دوره موردنظر: 📚 مجموعه…» می‌شد -
+ *     دو نشانِ پشتِ سر هم که هیچ‌کدام چیزی نمی‌گوید.
+ *
+ * ۲ - هیچ دو برچسبی یک ایموجی ندارند. «دوره» و «هدف» هر دو 🎯 بودند و
+ *     چشم موقعِ مرور، ردیفِ اشتباه را می‌گرفت.
+ *
+ * ۳ - «حساب ریل» به‌جای «بله/خیر» می‌گوید «دارم/ندارم». بقیه‌ی خط‌ها
+ *     جواب می‌دهند نه اینکه فرم پر کنند؛ «بله» تنها جایی بود که مثلِ
+ *     یک خانه‌ی خالیِ فرم خوانده می‌شد.
+ */
 function answerLines(temp) {
   const fields = [
     ["👤 نام", temp.name],
     ["📱 موبایل", temp.phone],
-    ["🎯 دوره موردنظر", temp.course],
+    ["🎓 دوره", temp.course],
     ["📊 دانش در مارکت", temp.level],
     ["⏳ مدت فعالیت", temp.experience],
-    ["💼 حساب ریل", temp.has_real_account],
+    ["💼 حساب ریل", realAccountWord(temp.has_real_account)],
     ["📈 وضعیت ترید", temp.trade_status],
     ["🎯 هدف از دوره", temp.topic],
   ];
-  return fields.filter(([, v]) => v).map(([label, v]) => label + ": " + v);
+  return fields
+    .map(([label, v]) => [label, stripLeadingIcon(v)])
+    .filter(([, v]) => v)
+    .map(([label, v]) => label + ": " + v);
+}
+
+function realAccountWord(v) {
+  if (!v) return "";
+  return stripLeadingIcon(v) === "بله" ? "دارم" : "ندارم";
 }
 
 /**
