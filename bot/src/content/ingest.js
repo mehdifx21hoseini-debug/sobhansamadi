@@ -38,6 +38,9 @@ const FIXED_CONTENT_CODES = [
   // عوض کردنِ ویس یعنی یک پست تازه، نه یک دیپلوی.
   "COURSE_TECH_VOICE",
   "COURSE_PSY_VOICE",
+  // گیفِ پایانِ ثبت‌نام. مثلِ ویس‌ها از کانال می‌آید، پس عوض کردنش یک
+  // پستِ تازه است نه یک دیپلوی. تا وقتی گذاشته نشده، همان متن می‌رود.
+  "LEAD_DONE_ANIM",
 ];
 
 // کدهای متنی از همان فهرستی می‌آیند که ویرایشگر داخل تلگرام دارد، به
@@ -87,6 +90,10 @@ export function extractFile(post) {
   if (post.voice) return { fileId: post.voice.file_id, fileType: "voice" };
   if (post.audio) return { fileId: post.audio.file_id, fileType: "audio" };
   if (post.video) return { fileId: post.video.file_id, fileType: "video" };
+  // گیف پیش از document می‌آید: تلگرام هر گیف را به‌عنوان document هم
+  // می‌فرستد، و اگر آن یکی برنده شود فایل به‌جای پخش شدن، مثلِ یک
+  // پیوستِ دانلودی نشان داده می‌شود.
+  if (post.animation) return { fileId: post.animation.file_id, fileType: "animation" };
   if (post.document) return { fileId: post.document.file_id, fileType: "document" };
   if (post.photo && post.photo.length > 0) {
     // آخرین عضو آرایه بزرگ‌ترین نسخه است.

@@ -3,7 +3,13 @@ import { getUserState, setUserState, clearUserState, createLead, readUserSource 
 import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
-import { sendSection, resolveSection, sendChannelFile, editWithText } from "./content/sectionText.js";
+import {
+  sendSection,
+  resolveSection,
+  sendChannelFile,
+  sendChannelMediaWithCaption,
+  editWithText,
+} from "./content/sectionText.js";
 import { supportChatUrl, supportPrefill, stripLeadingIcon } from "./supportContact.js";
 import { savePhone } from "./phones.js";
 
@@ -561,26 +567,6 @@ function realAccountWord(v) {
 }
 
 /**
- * تمامِ چیزی که بعد از تایید نهایی به کاربر می‌رسد - در یک پیام.
- *
- * پیامِ تایید در جای خودش ویرایش می‌شود، پس هیچ پیامِ تازه‌ای فرستاده
- * نمی‌شود: «ثبت شد» بالای همان پاسخ‌ها می‌نشیند و دعوتِ پشتیبانی زیرشان،
- * با دکمه.
- *
- * پیشتر «ثبت شد» یک پیامِ جدا بود که وعده‌ی تماسِ ۲۴ ساعته را هم می‌گفت.
- * هر دو برداشته شدند: پیامِ دوم فقط یک نوبتِ اسکرول اضافه می‌کرد، و آن
- * وعده عملاً می‌گفت «کاری نکن، منتظر بمان» - درست روبه‌روی دکمه‌ای که
- * می‌خواهیم زده شود.
- */
-function buildSubmittedText(temp, header, invite) {
-  const lines = [];
-  if (header) lines.push(header, "");
-  lines.push(...answerLines(temp));
-  if (invite) lines.push("", invite);
-  return lines.join("\n");
-}
-
-/**
  * @param {object} opts
  * @param {boolean} opts.skipCourseChoice پرسیدن دوره را رد کن و مستقیم
  *   سراغ فرم برو. فقط ورودیِ پایان دوره‌ی مقدماتی این را می‌دهد: آنجا
@@ -1000,20 +986,30 @@ export async function handleConfirm(ctx) {
 
   await clearUserState(ctx.env, ctx.from.id);
 
-  // هیچ پیامِ تازه‌ای. پیامِ تایید در جای خودش به رسید تبدیل می‌شود و
-  // همه‌چیز - «ثبت شد»، پاسخ‌ها، دعوتِ پشتیبانی و دکمه - داخلِ همان است.
-  await sendSubmittedReceipt(ctx, temp, saved && saved.lead_id);
+  // صفحه‌ی بازبینی پاک می‌شود و جایش یک پیامِ جشن می‌آید.
+  //
+  // چرا پاک و نه ویرایش: فهرستِ پاسخ‌ها کارش تمام شده - کاربر همین حالا
+  // تاییدش کرده - و ماندنش فقط بینِ او و تنها کاری که باید بکند فاصله
+  // می‌اندازد. اگر تلگرام اجازه‌ی حذف ندهد، به یک خطِ کوتاه ویرایش
+  // می‌شود تا دستِ‌کم فهرست از جلوی چشم برود.
+  await ctx.deleteMessage().catch(() =>
+    ctx.editMessageText("✅ اطلاعات شما ثبت شد.", { reply_markup: undefined }).catch(() => {})
+  );
+  await sendDoneCelebration(ctx, temp, saved && saved.lead_id);
 }
 
 /**
- * رسیدِ ثبت + دکمه‌ی پشتیبانی، روی همان پیامِ تایید.
+ * پیامِ پایان: گیفِ جشن + متن + دکمه‌ی پشتیبانی، همه در یک پیام.
  *
- * شکستِ ساختنِ لینک نباید رسید را از بین ببرد: لید ثبت شده و کاربر باید
- * ببیند چه فرستاده، حتی اگر دکمه نیامده باشد.
+ * گیف از کانال می‌آید (هشتگِ #LEAD_DONE_ANIM) و اگر هنوز گذاشته نشده
+ * باشد، همان متن به‌تنهایی می‌رود - نبودنِ یک تزئین نباید مهم‌ترین پیامِ
+ * مسیر را از بین ببرد.
+ *
+ * متن و دکمه روی خودِ گیف می‌نشینند، نه در پیامی جدا: کپشنِ یک
+ * animation هم متن می‌گیرد هم دکمه، پس جشن و دعوت از هم جدا نمی‌افتند.
  */
-async function sendSubmittedReceipt(ctx, temp, leadId) {
-  // سرخطِ «ثبت شد» از /edit می‌آید، مثلِ بقیه‌ی متن‌ها. پیشتر پیامِ
-  // جداگانه‌ای بود؛ حالا فقط خطِ اولِ همین رسید است.
+async function sendDoneCelebration(ctx, temp, leadId) {
+  // هر دو تکه از /edit می‌آیند و پشتِ سرِ هم یک کپشن می‌سازند.
   const header = await resolveSection(ctx.env, "LEAD_DONE")
     .then((r) => String(r.text || "").trim())
     .catch(() => "");
@@ -1052,13 +1048,20 @@ async function sendSubmittedReceipt(ctx, temp, leadId) {
     console.error("ساختنِ دعوتِ پشتیبانی شکست خورد:", err && err.message);
   }
 
-  await ctx
-    .editMessageText(buildSubmittedText(temp, header, invite), {
-      reply_markup: markup,
-      // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
-      link_preview_options: { is_disabled: true },
-    })
-    .catch((err) => console.error("ویرایشِ پیامِ تایید شکست خورد:", err && err.message));
+  const caption = [header, invite].filter(Boolean).join("\n\n");
+
+  const shown = await sendChannelMediaWithCaption(ctx, "LEAD_DONE_ANIM", caption, markup)
+    .catch((err) => {
+      console.error("ارسالِ گیفِ پایان شکست خورد:", err && err.message);
+      return false;
+    });
+  if (shown) return;
+
+  await ctx.reply(caption, {
+    reply_markup: markup,
+    // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
+    link_preview_options: { is_disabled: true },
+  });
 }
 
 export async function handleCancel(ctx) {

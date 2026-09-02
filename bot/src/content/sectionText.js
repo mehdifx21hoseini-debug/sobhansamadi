@@ -62,11 +62,13 @@ export const SECTIONS = {
   CONSULT_REAL: { code: "CONSULT_REAL_TEXT", label: "🟢 تعیین سطح — پرسش ۵: حساب ریل", def: D.CONSULT_REAL_TEXT },
   CONSULT_TRADE: { code: "CONSULT_TRADE_TEXT", label: "🟢 تعیین سطح — پرسش ۶: وضعیت ترید", def: D.CONSULT_TRADE_TEXT },
   CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 تعیین سطح — پرسش ۷: هدف از دوره", def: D.CONSULT_TOPIC_TEXT },
-  // دو تکه‌ی رسیدِ پایانی. هر دو در یک پیام‌اند و فهرستِ پاسخ‌ها بینشان:
-  //   LEAD_DONE    - خطِ اول، بالای فهرست
-  //   LEAD_SUPPORT - خطِ آخر، درست بالای دکمه‌ی پشتیبانی
-  LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 رسید پایانی — خط اول", def: D.LEAD_DONE_TEXT },
-  LEAD_SUPPORT: { code: "LEAD_SUPPORT_TEXT", label: "💬 رسید پایانی — دعوت به پشتیبانی", def: D.LEAD_SUPPORT_TEXT },
+  // دو تکه‌ی کپشنِ پیامِ پایان - پشتِ سرِ هم، روی همان گیف:
+  //   LEAD_DONE    - خطِ اول، خبرِ ثبت
+  //   LEAD_SUPPORT - دعوت به پشتیبانی، درست بالای دکمه
+  //
+  // خودِ گیف از کانال می‌آید، با هشتگِ #LEAD_DONE_ANIM.
+  LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 پیام پایان — خط اول", def: D.LEAD_DONE_TEXT },
+  LEAD_SUPPORT: { code: "LEAD_SUPPORT_TEXT", label: "💬 پیام پایان — دعوت به پشتیبانی", def: D.LEAD_SUPPORT_TEXT },
 
   // دروازه‌ی عضویت: اولین چیزی که یک کاربر تازه می‌بیند.
   JOIN_FIRST: { code: "JOIN_FIRST_TEXT", label: "🔒 درخواست عضویت در کانال", def: D.JOIN_FIRST_TEXT },
@@ -160,10 +162,30 @@ const MEDIA_SENDERS = {
   document: (ctx, id, o) => ctx.replyWithDocument(id, o),
   audio: (ctx, id, o) => ctx.replyWithAudio(id, o),
   voice: (ctx, id, o) => ctx.replyWithVoice(id, o),
+  animation: (ctx, id, o) => ctx.replyWithAnimation(id, o),
 };
 
 export async function sendChannelFile(ctx, contentId) {
   return sendChannelMedia(ctx, contentId);
+}
+
+/**
+ * همان فایلِ کانال، ولی با کپشن و دکمه‌های خودمان.
+ *
+ * sendChannelFile کپشنِ خودِ پست را می‌فرستد؛ اینجا فایل فقط یک قابِ
+ * تصویری است و متن و دکمه از جای دیگری می‌آیند. false برمی‌گرداند اگر
+ * فایلی ثبت نشده باشد، تا فراخوان بتواند به متنِ ساده برگردد.
+ */
+export async function sendChannelMediaWithCaption(ctx, contentId, caption, replyMarkup) {
+  const row = await getContent(ctx.env, contentId).catch(() => null);
+  if (!row || !row.file_id) return false;
+  const send = MEDIA_SENDERS[row.file_type];
+  if (!send) return false;
+  await send(ctx, row.file_id, {
+    caption: String(caption || "").slice(0, CAPTION_LIMIT),
+    reply_markup: replyMarkup,
+  });
+  return true;
 }
 
 async function sendChannelMedia(ctx, contentId) {
