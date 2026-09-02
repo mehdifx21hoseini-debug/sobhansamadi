@@ -867,9 +867,15 @@ export async function deleteBroadcast(env, body, deleteMsg) {
   const { results } = await env.DB
     // فقط آن‌هایی که واقعاً پیام گرفته‌اند و هنوز پاک نشده‌اند: ردیفِ در
     // صف مانده message_id ندارد و حذفش از تلگرام بی‌معنی است.
+    //
+    // status IS NULL هم شامل می‌شود، وگرنه ارسال‌های پیش از ساخته شدنِ
+    // این ستون اصلاً قابل حذف نبودند: message_id داشتند ولی status
+    // نداشتند، پس پرس‌وجو هیچ ردیفی برنمی‌گرداند و حذف بی‌صدا «تمام شد»
+    // اعلام می‌کرد در حالی که پیام هنوز سر جایش بود.
     .prepare(
       `SELECT id, chat_id, message_id FROM crm_broadcast_recipients
-        WHERE batch_id = ? AND message_id IS NOT NULL AND status = 'sent'
+        WHERE batch_id = ? AND message_id IS NOT NULL
+          AND (status = 'sent' OR status IS NULL)
         ORDER BY id LIMIT ?`
     )
     .bind(batchId, CHUNK_HARD_CAP)
@@ -909,7 +915,8 @@ export async function deleteBroadcast(env, body, deleteMsg) {
   const left = await env.DB
     .prepare(
       `SELECT COUNT(*) AS n FROM crm_broadcast_recipients
-        WHERE batch_id = ? AND message_id IS NOT NULL AND status = 'sent'`
+        WHERE batch_id = ? AND message_id IS NOT NULL
+          AND (status = 'sent' OR status IS NULL)`
     )
     .bind(batchId)
     .first();
