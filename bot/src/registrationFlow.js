@@ -53,6 +53,108 @@ function realAccountKeyboard() {
 }
 
 /**
+ * سه پرسشِ دیگر هم دکمه‌ای شدند، به همان دلیلِ حساب ریل.
+ *
+ * پاسخِ آزاد برای این‌ها هم گران بود: «۲ سال»، «دو سال»، «حدود ۲ سال»
+ * و «۲۴ ماه» یک چیزند و در CRM چهار مقدارِ متفاوت می‌شدند - نه قابلِ
+ * شمردن، نه قابلِ فیلتر. حالا مقدار از یک فهرستِ بسته می‌آید.
+ *
+ * ترتیبِ گزینه‌ها از کم به زیاد است تا کاربر بدون خواندنِ همه، جای
+ * خودش را پیدا کند.
+ *
+ * متنِ دکمه همان چیزی است که ذخیره می‌شود؛ callback_data فقط یک اندیس
+ * است چون تلگرام سقفِ ۶۴ بایت دارد و متنِ فارسی زود از آن رد می‌شود.
+ */
+const CHOICES = {
+  level: {
+    prefix: "LVL",
+    field: "level",
+    next: "ask_experience",
+    options: [
+      "🌱 مبتدی - تازه شروع کرده‌ام",
+      "📗 مقدماتی - اصول را می‌دانم",
+      "📘 متوسط - تحلیل می‌کنم ولی استراتژی ثابت ندارم",
+      "📙 پیشرفته - استراتژی دارم و اجرا می‌کنم",
+    ],
+  },
+  experience: {
+    prefix: "EXP",
+    field: "experience",
+    next: "ask_real",
+    options: [
+      "کمتر از ۶ ماه",
+      "۶ ماه تا ۱ سال",
+      "۱ تا ۳ سال",
+      "بیشتر از ۳ سال",
+    ],
+  },
+  trade: {
+    prefix: "TRD",
+    field: "trade_status",
+    next: "confirm",
+    options: [
+      "📉 بیشتر در ضرر بوده‌ام",
+      "⚖️ تقریباً سربه‌سر",
+      "📈 در مجموع سودده بوده‌ام",
+      "🎢 نوسان زیاد دارد، ثابت نیست",
+    ],
+  },
+};
+
+function choiceKeyboard(kind) {
+  const spec = CHOICES[kind];
+  const rows = spec.options.map((text, i) => [
+    { text, callback_data: spec.prefix + "|" + i },
+  ]);
+  rows.push([{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]);
+  return { inline_keyboard: rows };
+}
+
+// هر سه پرسشِ دکمه‌ای یک مسیر دارند، پس یک تابع - وگرنه سه نسخه‌ی
+// تقریباً یکسان می‌شد که روزی یکی‌شان اصلاح می‌شد و دوتای دیگر نه.
+const STEP_OF_CHOICE = { level: "ask_level", experience: "ask_experience", trade: "ask_trade" };
+const SECTION_OF_STEP = {
+  ask_level: "CONSULT_LEVEL",
+  ask_experience: "CONSULT_EXPERIENCE",
+  ask_trade: "CONSULT_TRADE",
+};
+const KIND_OF_STEP = { ask_level: "level", ask_experience: "experience", ask_trade: "trade" };
+
+async function applyChoice(ctx, flow, temp, kind, value) {
+  const spec = CHOICES[kind];
+  const next = { ...temp, [spec.field]: value };
+  await setUserState(ctx.env, ctx.from.id, { current_step: spec.next, temp_data: next });
+
+  if (spec.next === "confirm") {
+    await ctx.reply(buildConfirmText(flow, next), { reply_markup: confirmCancelKeyboard() });
+    return;
+  }
+  if (spec.next === "ask_real") {
+    await sendSection(ctx, "CONSULT_REAL", realAccountKeyboard());
+    return;
+  }
+  const nextKind = KIND_OF_STEP[spec.next];
+  await sendSection(ctx, SECTION_OF_STEP[spec.next], choiceKeyboard(nextKind));
+}
+
+export async function handleChoiceButton(ctx, data) {
+  const [prefix, idxRaw] = String(data).split("|");
+  const kind = Object.keys(CHOICES).find((k) => CHOICES[k].prefix === prefix);
+  if (!kind) return;
+
+  const state = await getUserState(ctx.env, ctx.from.id);
+  // دکمه‌ی یک پیامِ قدیمی‌تر نباید فرم را به عقب برگرداند: فقط وقتی
+  // پذیرفته می‌شود که کاربر واقعاً روی همین پرسش ایستاده باشد.
+  if (!state || state.current_step !== STEP_OF_CHOICE[kind]) return;
+
+  const value = CHOICES[kind].options[Number(idxRaw)];
+  if (!value) return;
+
+  await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+  await applyChoice(ctx, state.current_flow, state.temp_data || {}, kind, value);
+}
+
+/**
  * پاسخِ حساب ریل، از هر دو راه (دکمه یا متن).
  *
  * «ندارم» یعنی پرسشِ وضعیتِ ترید معنی ندارد و پرسیدنش کاربر را گیج
@@ -67,7 +169,7 @@ async function applyRealAnswer(ctx, flow, temp, yes) {
     return;
   }
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_trade", temp_data: next });
-  await sendSection(ctx, "CONSULT_TRADE", cancelOnlyKeyboard());
+  await sendSection(ctx, "CONSULT_TRADE", choiceKeyboard("trade"));
 }
 
 function requestContactKeyboard() {
@@ -202,7 +304,7 @@ export async function handleCourseChoice(ctx, cb) {
 
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name", temp_data: temp });
   await sendSection(ctx, "CONSULT_INTRO");
-  await ctx.reply("👤 قدم ۱ از ۶\n\nنام و نام خانوادگی خود را وارد کنید:", {
+  await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", {
     reply_markup: cancelOnlyKeyboard(),
   });
 }
@@ -252,17 +354,23 @@ export async function handleText(ctx, state) {
     return;
   }
 
-  if (step === "ask_level") {
-    temp.level = text;
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_experience", temp_data: temp });
-    await sendSection(ctx, "CONSULT_EXPERIENCE", cancelOnlyKeyboard());
-    return;
-  }
-
-  if (step === "ask_experience") {
-    temp.experience = text;
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_real", temp_data: temp });
-    await sendSection(ctx, "CONSULT_REAL", realAccountKeyboard());
+  // چهار پرسشِ آخر دکمه دارند. اگر کاربر به‌جای زدنِ دکمه تایپ کند،
+  // متنش با گزینه‌ها تطبیق داده می‌شود - وگرنه پرسش دوباره می‌آید.
+  //
+  // بدونِ این تطبیق، کسی که «متوسط» را تایپ می‌کرد پشتِ پرسشی گیر
+  // می‌افتاد که جوابش را داده بود.
+  if (KIND_OF_STEP[step]) {
+    const kind = KIND_OF_STEP[step];
+    const match = CHOICES[kind].options.find(
+      (o) => o === text || o.replace(/^[^؀-ۿ]+/, "").startsWith(text)
+    );
+    if (!match) {
+      await ctx.reply("لطفاً یکی از گزینه‌های زیر را بزنید 👇", {
+        reply_markup: choiceKeyboard(kind),
+      });
+      return;
+    }
+    await applyChoice(ctx, flow, temp, kind, match);
     return;
   }
 
@@ -277,13 +385,6 @@ export async function handleText(ctx, state) {
       return;
     }
     await applyRealAnswer(ctx, flow, temp, yes);
-    return;
-  }
-
-  if (step === "ask_trade") {
-    temp.trade_status = text;
-    await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: temp });
-    await ctx.reply(buildConfirmText(flow, temp), { reply_markup: confirmCancelKeyboard() });
     return;
   }
 
@@ -337,7 +438,7 @@ export async function handleContact(ctx) {
   // و زمان تماسش خالی بود - و مشاور بدون هیچ زمینه‌ای زنگ می‌زد، آن هم
   // به کسی که تازه شانزده جلسه را تمام کرده و آماده‌ترین مشتری است.
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_level" });
-  await sendSection(ctx, "CONSULT_LEVEL", cancelOnlyKeyboard());
+  await sendSection(ctx, "CONSULT_LEVEL", choiceKeyboard("level"));
 }
 
 export async function handleConfirm(ctx) {
