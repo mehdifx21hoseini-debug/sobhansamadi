@@ -84,8 +84,8 @@ function buildConfirmText(flow, temp) {
     ["👤 نام", temp.name],
     ["📱 موبایل", temp.phone],
     ["🎯 دوره موردنظر", temp.course],
-    ["📊 سطح معامله‌گری", temp.level],
-    ["💬 موضوع", temp.topic],
+    ["📊 سطح و سابقه", temp.level],
+    ["🎯 هدف", temp.topic],
   ];
   for (const [label, value] of fields) {
     if (value) lines.push(label + ": " + value);
@@ -299,6 +299,8 @@ export async function handleConfirm(ctx) {
     leadId: saved && saved.lead_id,
     name: temp.name,
     course: temp.course,
+    level: temp.level,
+    topic: temp.topic,
   });
 }
 
