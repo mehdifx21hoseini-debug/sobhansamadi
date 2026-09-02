@@ -71,6 +71,36 @@ export async function crmSelfTest(env) {
     counts.__lead_columns = "خطا: " + String(err && err.message);
   }
 
+  // پیام همگانی: چند نفر مخاطب‌اند، و آخرین ارسال‌ها به چند نفر رسیدند.
+  //
+  // بدون این دو، وقتی کسی می‌گوید «پیام نرفت» هیچ راهی نیست بفهمیم ارسال
+  // اصلاً شروع شده و وسطش قطع شده، یا از اول رد شده - و اندازه‌ی مخاطب
+  // همان چیزی است که تعیین می‌کند ارسالِ یکجا در مهلتِ ورکر جا می‌شود یا
+  // نه.
+  try {
+    const row = await env.DB
+      .prepare(
+        `SELECT COUNT(*) AS n FROM user_state
+          WHERE telegram_user_id NOT IN (SELECT telegram_id FROM crm_admin_users)`
+      )
+      .first();
+    counts.__broadcast_audience_all = row ? row.n : null;
+    const econ = await env.DB.prepare("SELECT COUNT(*) AS n FROM econ_subscriber").first();
+    counts.__broadcast_audience_econ = econ ? econ.n : null;
+    const { results } = await env.DB
+      .prepare(
+        `SELECT batch_id, audience, sent_count, created_at,
+                (SELECT COUNT(*) FROM crm_broadcast_recipients r WHERE r.batch_id = b.batch_id) AS stored
+           FROM crm_broadcasts b ORDER BY created_at DESC LIMIT 5`
+      )
+      .all();
+    counts.__last_broadcasts = (results || []).map(
+      (r) => r.created_at + " | " + r.audience + " | ثبت‌شده: " + r.sent_count + " | گیرنده: " + r.stored
+    );
+  } catch (err) {
+    counts.__last_broadcasts = "خطا: " + String(err && err.message);
+  }
+
   try {
     await cleanup(env); // بازمانده‌ی اجرای قبلی، اگر وسط کار قطع شده بود
     const password = randomPassword();

@@ -699,9 +699,11 @@ export async function sendBroadcast(env, body, actor, sendRaw) {
     .run();
 
   let sent = 0;
+  let failed = 0;
   let rows = [];
   for (let i = 0; i < targets.length; i++) {
     const res = await sendRaw(targets[i], message);
+    if (!(res && res.ok && res.message_id)) failed++;
     if (res && res.ok && res.message_id) {
       sent++;
       rows.push(
@@ -721,7 +723,10 @@ export async function sendBroadcast(env, body, actor, sendRaw) {
     .bind(sent, batchId)
     .run();
 
-  return { ok: true, batch_id: batchId, sent, total: targets.length };
+  // failed هم برمی‌گردد چون صفحه آن را می‌خواند و بدونش «undefined
+  // ناموفق» می‌نوشت - یعنی درست همان لحظه‌ای که کاربر باید بفهمد چند نفر
+  // پیام را نگرفتند، یک کلمه‌ی بی‌معنی می‌دید.
+  return { ok: true, batch_id: batchId, sent, failed, total: targets.length };
 }
 
 /**
@@ -740,11 +745,11 @@ export async function deleteBroadcast(env, body, deleteMsg) {
     .bind(batchId)
     .all();
 
-  let removed = 0;
+  let deleted = 0;
   let failed = 0;
   for (const r of results || []) {
     const ok = await deleteMsg(r.chat_id, r.message_id);
-    if (ok) removed++;
+    if (ok) deleted++;
     else failed++;
   }
 
@@ -753,5 +758,7 @@ export async function deleteBroadcast(env, body, deleteMsg) {
     .bind(batchId)
     .run();
 
-  return { ok: true, removed, failed };
+  // نامِ فیلد همان است که صفحه می‌خواند. «removed» بود و صفحه «deleted»
+  // را می‌خواست، پس پیامِ تایید «undefined موفق» می‌شد.
+  return { ok: true, deleted, failed };
 }
