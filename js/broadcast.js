@@ -48,7 +48,19 @@
 			var $actionCell = $("<td>");
 			if (b.deleted) {
 				$actionCell.append('<span class="status-badge badge-ticket-closed"><i class="fas fa-trash"></i>حذف شده</span>');
-			} else if (hoursSince(b.created_at) < DELETE_WINDOW_HOURS) {
+			} else {
+				// دکمه همیشه هست، حتی اگر تاریخِ ارسال قدیمی باشد.
+				//
+				// مهلتِ ۴۸ ساعته‌ی تلگرام از لحظه‌ی رسیدنِ پیام حساب می‌شود،
+				// نه از تاریخِ ساخته شدنِ ارسال. اگر پیامی بعداً دوباره
+				// فرستاده شده باشد، نسخه‌ی تازه‌اش قابلِ حذف است در حالی که
+				// تاریخِ ردیف قدیمی است - و دکمه‌ی پنهان یعنی کاربر هیچ راهی
+				// برای پاک کردنش ندارد.
+				//
+				// اگر واقعاً گذشته باشد، تلگرام خودش رد می‌کند و پیام
+				// «۰ موفق» همین را می‌گوید. یک تلاشِ بی‌نتیجه از یک دکمه‌ی
+				// غایب بهتر است.
+				var old = hoursSince(b.created_at) >= DELETE_WINDOW_HOURS;
 				var $btn = $('<button class="btn btn-sm btn-outline-secondary"><i class="fas fa-trash mr-1"></i>حذف برای همه</button>');
 				$btn.on("click", function () {
 					// حذفِ پیام از چتِ چند صد نفر برگشت‌پذیر نیست، پس این
@@ -84,8 +96,10 @@
 					});
 				});
 				$actionCell.append($btn);
-			} else {
-				$actionCell.append('<span class="text-muted text-sm">بیش از ۴۸ ساعت گذشته</span>');
+				if (old) {
+					$actionCell.append(
+						'<div class="text-muted text-sm mt-1">ارسال قدیمی - اگر تلگرام اجازه ندهد، «۰ موفق» می‌گوید</div>');
+				}
 			}
 			$tr.append($actionCell);
 			$body.append($tr);
