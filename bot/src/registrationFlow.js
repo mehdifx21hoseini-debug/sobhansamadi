@@ -499,15 +499,22 @@ function answerLines(temp) {
 }
 
 /**
- * همان صفحه‌ی بازبینی، بعد از تایید.
+ * همان صفحه‌ی بازبینی، بعد از تایید - و جای دکمه‌ی پشتیبانی.
  *
- * پیامِ تایید در جای خودش ویرایش می‌شود و پاسخ‌ها سرِ جایشان می‌مانند -
- * جمله‌ی راهنمای پایین می‌رود و به‌جایش می‌گوید ثبت شد. این‌طور کاربر
- * همیشه می‌تواند برگردد و ببیند چه چیزی فرستاده، و هیچ پیامِ تازه‌ای هم
- * برای گفتنِ «تایید شد» لازم نیست.
+ * پیامِ تایید در جای خودش ویرایش می‌شود: پاسخ‌ها می‌مانند تا کاربر هر
+ * وقت خواست برگردد و ببیند چه فرستاده، جمله‌ی راهنمای دکمه‌ها می‌رود، و
+ * دعوتِ پشتیبانی جایش را می‌گیرد.
+ *
+ * چرا دکمه اینجاست و نه روی پیامِ پایان: کیبوردِ منوی اصلی باید در
+ * پیامِ پایان برگردد، و تلگرام اجازه نمی‌دهد یک پیام هم کیبوردِ پایین
+ * را عوض کند هم دکمه‌ی شیشه‌ای داشته باشد. پس دکمه روی این یکی می‌نشیند
+ * و منو روی آن یکی - بدونِ اینکه پیامِ سومی لازم شود.
+ *
+ * «ثبت شد» اینجا گفته نمی‌شود؛ پیامِ پایان می‌گویدش. دو بار گفتنش همان
+ * تکراری بود که برداشته شد.
  */
-function buildSubmittedText(temp) {
-  return ["✅ اطلاعات زیر برای ما ثبت شد:", "", ...answerLines(temp)].join("\n");
+function buildSubmittedText(temp, invite) {
+  return ["📋 اطلاعاتی که فرستادید:", "", ...answerLines(temp), "", invite].join("\n");
 }
 
 /**
@@ -842,12 +849,10 @@ async function acceptPhone(ctx, state, phone) {
     source: state.current_flow === "registration" ? "ثبت‌نام" : "مشاوره",
   }).catch((err) => console.error("ثبت شماره در دفترچه شکست خورد:", err && err.message));
 
-  // کیبوردِ «ارسال شماره» می‌رود و منوی اصلی جایش می‌نشیند.
-  //
-  // پیشتر اینجا remove_keyboard بود و منو در پیامِ پایانِ ثبت‌نام
-  // برمی‌گشت. آن پیام حذف شد (حرفش با دعوتِ پشتیبانی یکی بود) و اگر منو
-  // هم با آن می‌رفت، کاربر تا زدنِ /start بدونِ کیبورد می‌ماند.
-  await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: mainMenuKeyboard() });
+  // کیبوردِ منو تا پایانِ فرم پایین می‌ماند: هر دکمه‌ی منو یک راهِ خروج
+  // از فرم است، و کسی که وسطِ تعیین سطح روی «دوره‌های رایگان» بزند،
+  // لیدش نیمه‌کاره می‌ماند. در پیامِ پایان برمی‌گردد.
+  await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: { remove_keyboard: true } });
 
   // ویرایش از صفحه‌ی تایید: فقط همین شماره عوض می‌شد، پس بقیه‌ی فرم
   // دوباره پرسیده نمی‌شود.
@@ -915,22 +920,64 @@ export async function handleConfirm(ctx) {
 
   await clearUserState(ctx.env, ctx.from.id);
 
-  // پیامِ تاییدْ خودش «ثبت شد» را می‌گوید و یک پیامِ تازه هم پشتش
-  // می‌رود: دعوتِ پشتیبانی. پیشتر سه‌تا بودند - همین ویرایش، «پیام
-  // پایان»، و دعوتِ پشتیبانی - و هر سه یک حرف می‌زدند: «ثبت شد، طی ۲۴
-  // ساعت تماس می‌گیریم». دو پیامِ تکراری، دکمه‌ی پشتیبانی را پایین
-  // می‌راندند؛ همان دکمه‌ای که کلِ این بخش برایش ساخته شده.
-  await ctx.editMessageText(buildSubmittedText(temp), { reply_markup: undefined });
-  await sendSupportInvite(ctx, {
-    leadId: saved && saved.lead_id,
-    name: temp.name,
-    course: temp.course,
-    level: temp.level,
-    experience: temp.experience,
-    hasRealAccount: temp.has_real_account,
-    tradeStatus: temp.trade_status,
-    goal: temp.topic,
-  });
+  // یک پیامِ تازه، نه سه‌تا.
+  //
+  // پیشتر پشتِ سرِ هم می‌آمدند: ویرایشِ «تایید و ثبت شد»، پیامِ پایان، و
+  // دعوتِ پشتیبانی - و هر سه یک حرف می‌زدند. حالا پیامِ تایید در جای
+  // خودش به رسید تبدیل می‌شود و دکمه‌ی پشتیبانی را می‌گیرد، و تنها
+  // پیامِ تازه همان «ثبت شد» است که کیبوردِ منو را هم برمی‌گرداند.
+  await sendSubmittedReceipt(ctx, temp, saved && saved.lead_id);
+  await sendLeadDone(ctx);
+}
+
+/**
+ * رسیدِ ثبت + دکمه‌ی پشتیبانی، روی همان پیامِ تایید.
+ *
+ * شکستِ ساختنِ لینک نباید رسید را از بین ببرد: لید ثبت شده و کاربر باید
+ * ببیند چه فرستاده، حتی اگر دکمه نیامده باشد.
+ */
+async function sendSubmittedReceipt(ctx, temp, leadId) {
+  let invite = "";
+  let markup;
+  try {
+    invite = (await resolveSection(ctx.env, "LEAD_SUPPORT")).text;
+    const url = supportChatUrl(
+      ctx.env,
+      supportPrefill({
+        leadId,
+        name: temp.name,
+        course: temp.course,
+        level: temp.level,
+        experience: temp.experience,
+        hasRealAccount: temp.has_real_account,
+        tradeStatus: temp.trade_status,
+        goal: temp.topic,
+      })
+    );
+    // رنگِ دکمه دستِ ما نیست - تلگرام همه‌شان را هم‌رنگِ تمِ کاربر
+    // می‌کشد - پس ✅ کارِ رنگِ سبز را می‌کند.
+    markup = new InlineKeyboard().url("✅ پیام به پشتیبانی آکادمی", url);
+  } catch (err) {
+    console.error("ساختنِ دعوتِ پشتیبانی شکست خورد:", err && err.message);
+  }
+
+  await ctx
+    .editMessageText(buildSubmittedText(temp, invite), {
+      reply_markup: markup,
+      // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
+      link_preview_options: { is_disabled: true },
+    })
+    .catch((err) => console.error("ویرایشِ پیامِ تایید شکست خورد:", err && err.message));
+}
+
+// پیامِ پایان: تنها پیامِ تازه بعد از تایید، و جایی که کیبوردِ منوی اصلی
+// - که سرِ ثبتِ شماره برداشته شده بود - برمی‌گردد.
+//
+// بدونِ parse_mode: متنش از /edit قابلِ ویرایش است و یک «<» در چیزی که
+// مدیر می‌نویسد، کل پیام را از سمتِ تلگرام رد می‌کند.
+async function sendLeadDone(ctx) {
+  const { text } = await resolveSection(ctx.env, "LEAD_DONE");
+  await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
 }
 
 export async function handleCancel(ctx) {
@@ -938,35 +985,3 @@ export async function handleCancel(ctx) {
   await ctx.reply("فرآیند لغو شد. به منوی اصلی برگشتید.", { reply_markup: mainMenuKeyboard() });
 }
 
-// «پیام پایان» (LEAD_DONE) اینجا فرستاده می‌شد و برداشته شد: حرفش با
-// دعوتِ پشتیبانی یکی بود و فقط یک پیامِ اضافه می‌ساخت.
-//
-// کیبوردِ منوی اصلی که همراهش برمی‌گشت، حالا سرِ ثبتِ شماره برمی‌گردد -
-// جایی که آخرین بار برداشته شده بود.
-
-/**
- * دعوت به پشتیبانی، درست بعد از «ثبت شد».
- *
- * دکمه چت پشتیبانی را با پیامِ آماده باز می‌کند. رنگ دکمه دستِ ما نیست -
- * تلگرام همه‌شان را هم‌رنگ تمِ کاربر می‌کشد - پس ✅ کارِ رنگ سبز را
- * می‌کند.
- *
- * شکستش بلعیده می‌شود: لید ثبت شده و کاربر «ثبت شد» را گرفته؛ یک پیامِ
- * تکمیلی نباید آن لحظه را به خطا تبدیل کند.
- */
-async function sendSupportInvite(ctx, info) {
-  try {
-    const { text } = await resolveSection(ctx.env, "LEAD_SUPPORT");
-    const url = supportChatUrl(ctx.env, supportPrefill(info));
-    // آیدیِ پشتیبانی از متن برداشته شد: خودِ دکمه همان چت را باز می‌کند،
-    // و نوشتنِ آیدی کنارش یعنی دو راه برای یک کار - که یکی‌شان (کپی
-    // کردنِ آیدی و جست‌وجویش) از آن یکی بدتر است.
-    await ctx.reply(text, {
-      reply_markup: new InlineKeyboard().url("✅ پیام به پشتیبانی آکادمی", url),
-      // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
-      link_preview_options: { is_disabled: true },
-    });
-  } catch (err) {
-    console.error("ارسال دعوتِ پشتیبانی شکست خورد:", err && err.message);
-  }
-}

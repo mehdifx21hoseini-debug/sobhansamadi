@@ -62,11 +62,11 @@ export const SECTIONS = {
   CONSULT_REAL: { code: "CONSULT_REAL_TEXT", label: "🟢 تعیین سطح — پرسش ۵: حساب ریل", def: D.CONSULT_REAL_TEXT },
   CONSULT_TRADE: { code: "CONSULT_TRADE_TEXT", label: "🟢 تعیین سطح — پرسش ۶: وضعیت ترید", def: D.CONSULT_TRADE_TEXT },
   CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 تعیین سطح — پرسش ۷: هدف از دوره", def: D.CONSULT_TOPIC_TEXT },
-  // «پیام پایان ثبت‌نام» (LEAD_DONE) اینجا بود و برداشته شد، به همان
-  // دلیلِ «پرسش زمان تماس»: دیگر فرستاده نمی‌شود و متنی که مدیر در
-  // /edit ببیند ولی هرگز به کاربر نرسد، او را به این باور می‌رساند که
-  // چیزی را عوض کرده که عوض نشده. حرفش حالا در همین LEAD_SUPPORT است.
-  LEAD_SUPPORT: { code: "LEAD_SUPPORT_TEXT", label: "🎉 پیام پایان ثبت‌نام + دعوت به پشتیبانی", def: D.LEAD_SUPPORT_TEXT },
+  // دو متنِ پایانِ فرم، و هر کدام جای خودش:
+  //   LEAD_SUPPORT - خطِ بالای دکمه‌ی پشتیبانی، روی رسیدِ اطلاعات
+  //   LEAD_DONE    - تنها پیامِ تازه بعد از تایید، با کیبوردِ منوی اصلی
+  LEAD_SUPPORT: { code: "LEAD_SUPPORT_TEXT", label: "💬 دعوت به پشتیبانی (بالای دکمه)", def: D.LEAD_SUPPORT_TEXT },
+  LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 پیام پایان ثبت‌نام/مشاوره", def: D.LEAD_DONE_TEXT },
 
   // دروازه‌ی عضویت: اولین چیزی که یک کاربر تازه می‌بیند.
   JOIN_FIRST: { code: "JOIN_FIRST_TEXT", label: "🔒 درخواست عضویت در کانال", def: D.JOIN_FIRST_TEXT },
