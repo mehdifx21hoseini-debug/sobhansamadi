@@ -5,6 +5,9 @@ import {
   handleResetChannel,
   handleDeleteContent,
   handleEconSender,
+  handleSetAnim,
+  handleSetAnimFile,
+  ANIM_FLOW,
 } from "./commands/diag.js";
 import { handleMembers } from "./commands/members.js";
 import {
@@ -128,6 +131,9 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("aistats", handleAiStats);
   bot.command("econsender", handleEconSender);
   bot.command("members", handleMembers);
+  // ثبتِ استیکر/گیفِ پایانِ ثبت‌نام. استیکر از کانال نمی‌آید چون کپشن
+  // نمی‌گیرد، پس این یکی از چتِ خصوصیِ مدیر ثبت می‌شود.
+  bot.command("setanim", handleSetAnim);
 
   bot.on("message:contact", async (ctx) => {
     // دروازه‌ی شماره پیش از مسیر ثبت‌نام چک می‌شود: هر دو با همان
@@ -147,9 +153,23 @@ export function createBot(token, env, botInfo, build = "?") {
   // فعالِ جای‌گزینی هیچ کاری نمی‌کند - فایلی که کاربری همین‌طوری
   // بفرستد نادیده گرفته می‌شود، نه اینکه جایی بنشیند.
   bot.on(
-    ["message:voice", "message:audio", "message:video", "message:document", "message:photo"],
+    [
+      "message:voice",
+      "message:audio",
+      "message:video",
+      "message:document",
+      "message:photo",
+      // استیکر فقط برای همین یک کار پذیرفته می‌شود؛ بدونِ حالتِ فعال
+      // نادیده گرفته می‌شود مثلِ بقیه.
+      "message:sticker",
+      "message:animation",
+    ],
     async (ctx) => {
       const state = await getUserState(ctx.env, ctx.from.id);
+      if (state?.current_flow === ANIM_FLOW && state.current_step === "ask_file") {
+        await handleSetAnimFile(ctx);
+        return;
+      }
       if (state?.current_flow === "content_edit" && state.current_step === "ask_file") {
         await handleContentRefile(ctx, state);
         return;

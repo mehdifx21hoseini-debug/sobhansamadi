@@ -8,6 +8,7 @@ import {
   resolveSection,
   sendChannelFile,
   sendChannelMediaWithCaption,
+  isCaptionless,
   editWithText,
 } from "./content/sectionText.js";
 import { supportChatUrl, supportPrefill, stripLeadingIcon } from "./supportContact.js";
@@ -1050,12 +1051,20 @@ async function sendDoneCelebration(ctx, temp, leadId) {
 
   const caption = [header, invite].filter(Boolean).join("\n\n");
 
-  const shown = await sendChannelMediaWithCaption(ctx, "LEAD_DONE_ANIM", caption, markup)
+  // نوعِ فایلی که فرستاده شد، یا رشته‌ی خالی اگر چیزی ثبت نشده باشد.
+  const kind = await sendChannelMediaWithCaption(ctx, "LEAD_DONE_ANIM", caption, markup)
     .catch((err) => {
-      console.error("ارسالِ گیفِ پایان شکست خورد:", err && err.message);
-      return false;
+      console.error("ارسالِ تصویرِ پایان شکست خورد:", err && err.message);
+      return "";
     });
-  if (shown) return;
+
+  // گیف و ویدیو متن و دکمه را روی خودشان گرفتند؛ کار تمام است.
+  //
+  // استیکر نگرفت: تلگرام به استیکر کپشن نمی‌دهد. در عوض چیزی می‌دهد که
+  // گیف نمی‌تواند - پس‌زمینه‌ی شفاف، چون گیف به MP4 تبدیل می‌شود و
+  // MP4 کانالِ آلفا ندارد و هر جای شفاف سیاه درمی‌آید. پس متن و دکمه
+  // در پیامِ بعدی می‌آیند.
+  if (kind && !isCaptionless(kind)) return;
 
   await ctx.reply(caption, {
     reply_markup: markup,

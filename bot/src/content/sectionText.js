@@ -163,7 +163,15 @@ const MEDIA_SENDERS = {
   audio: (ctx, id, o) => ctx.replyWithAudio(id, o),
   voice: (ctx, id, o) => ctx.replyWithVoice(id, o),
   animation: (ctx, id, o) => ctx.replyWithAnimation(id, o),
+  // استیکر کپشن نمی‌گیرد؛ هر چه بفرستیم تلگرام رد می‌کند. فرستنده‌اش
+  // فقط دکمه‌ها را می‌پذیرد و متن جای دیگری می‌رود.
+  sticker: (ctx, id, o) => ctx.replyWithSticker(id, { reply_markup: o && o.reply_markup }),
 };
+
+// نوعِ فایلی که کپشن نمی‌پذیرد. فراخوان باید متن را جدا بفرستد.
+export function isCaptionless(fileType) {
+  return fileType === "sticker";
+}
 
 export async function sendChannelFile(ctx, contentId) {
   return sendChannelMedia(ctx, contentId);
@@ -178,14 +186,19 @@ export async function sendChannelFile(ctx, contentId) {
  */
 export async function sendChannelMediaWithCaption(ctx, contentId, caption, replyMarkup) {
   const row = await getContent(ctx.env, contentId).catch(() => null);
-  if (!row || !row.file_id) return false;
+  if (!row || !row.file_id) return "";
   const send = MEDIA_SENDERS[row.file_type];
-  if (!send) return false;
-  await send(ctx, row.file_id, {
-    caption: String(caption || "").slice(0, CAPTION_LIMIT),
-    reply_markup: replyMarkup,
-  });
-  return true;
+  if (!send) return "";
+  // استیکر بدونِ متن و بدونِ دکمه می‌رود؛ آن‌ها در پیامِ بعدی می‌آیند.
+  // بقیه‌ی فایل‌ها هر دو را روی خودشان می‌گیرند.
+  await send(
+    ctx,
+    row.file_id,
+    isCaptionless(row.file_type)
+      ? {}
+      : { caption: String(caption || "").slice(0, CAPTION_LIMIT), reply_markup: replyMarkup }
+  );
+  return row.file_type;
 }
 
 async function sendChannelMedia(ctx, contentId) {

@@ -87,6 +87,10 @@ function hasHashtag(caption, code) {
 // یک ویس هم audio دارد هم voice، و voice باید برنده شود.
 export function extractFile(post) {
   if (!post) return { fileId: "", fileType: "" };
+  // استیکر پیش از همه: کپشن نمی‌گیرد، پس هرگز از کانال نمی‌آید - ولی
+  // مدیر می‌تواند از داخلِ چتِ خصوصی بفرستدش، و همین تابع آنجا هم
+  // استفاده می‌شود.
+  if (post.sticker) return { fileId: post.sticker.file_id, fileType: "sticker" };
   if (post.voice) return { fileId: post.voice.file_id, fileType: "voice" };
   if (post.audio) return { fileId: post.audio.file_id, fileType: "audio" };
   if (post.video) return { fileId: post.video.file_id, fileType: "video" };

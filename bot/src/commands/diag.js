@@ -6,7 +6,14 @@
 //
 // این دستور همه‌ی آن پنج مورد را یک‌جا و داخل خود تلگرام جواب می‌دهد.
 
-import { resolveAllowedChannel } from "../content/ingest.js";
+import { resolveAllowedChannel, extractFile } from "../content/ingest.js";
+import { upsertContent } from "../content/store.js";
+import { setUserState, clearUserState } from "../db.js";
+
+// شناسه‌ی تصویرِ پایانِ ثبت‌نام و نامِ حالتی که مدیر را در انتظارِ فایل
+// نگه می‌دارد. همان شناسه‌ای که مسیرِ ثبت‌نام می‌خواند.
+export const ANIM_CONTENT_ID = "LEAD_DONE_ANIM";
+export const ANIM_FLOW = "anim_set";
 import { clearContentChannel, writeConfig } from "../content/channel.js";
 import { deactivateContent, deactivateTextContent } from "../content/store.js";
 import { isOwner, OWNER_IDS, OWNER_USERNAMES } from "../owner.js";
@@ -262,4 +269,54 @@ export async function handleEconSender(ctx) {
       ? "✅ ارسال تقویم از ورکر روشن شد.\n\nخلاصه‌ی روزانه ساعت ۸ صبح تهران می‌رود؛ هشدارها هر پنج دقیقه بررسی می‌شوند."
       : "⛔️ ارسال تقویم از ورکر خاموش شد."
   );
+}
+
+/**
+ * ثبتِ استیکرِ پایانِ ثبت‌نام - تنها فایلی که از کانال نمی‌آید.
+ *
+ * بقیه‌ی فایل‌های ثابت با هشتگِ کپشن از کانال برداشته می‌شوند، ولی
+ * تلگرام به استیکر کپشن نمی‌دهد؛ پس این یکی راهِ خودش را لازم دارد.
+ *
+ * مدیر /setanim می‌زند و بعد استیکر (یا گیف) را می‌فرستد. حالت یک‌بار
+ * مصرف است: بعد از اولین فایل بسته می‌شود، تا استیکرِ بعدی که مدیر در
+ * یک گفت‌وگوی عادی می‌فرستد جای این را نگیرد.
+ */
+export async function handleSetAnim(ctx) {
+  if (!isOwner(ctx)) return;
+  await setUserState(ctx.env, ctx.from.id, {
+    current_flow: ANIM_FLOW,
+    current_step: "ask_file",
+    temp_data: {},
+  });
+  await ctx.reply(
+    "🎬 حالا استیکر (یا گیف) پایانِ ثبت‌نام را بفرستید.\n\n" +
+      "استیکر پس‌زمینه‌ی شفاف دارد و روی محیط تلگرام می‌نشیند؛ گیف پس‌زمینه‌اش سیاه می‌شود، " +
+      "چون تلگرام گیف را به ویدیو تبدیل می‌کند و ویدیو شفافیت ندارد.\n\n" +
+      "برای انصراف /start را بزنید."
+  );
+}
+
+export async function handleSetAnimFile(ctx) {
+  if (!isOwner(ctx)) return;
+  const { fileId, fileType } = extractFile(ctx.message);
+  if (!fileId) {
+    await ctx.reply("⚠️ در این پیام فایلی نبود. یک استیکر یا گیف بفرستید.");
+    return;
+  }
+
+  await clearUserState(ctx.env, ctx.from.id);
+  await upsertContent(ctx.env, {
+    contentId: ANIM_CONTENT_ID,
+    title: "تصویر پایان ثبت‌نام",
+    fileId,
+    fileType,
+  });
+
+  const note =
+    fileType === "sticker"
+      ? "استیکر است، پس متن و دکمه در پیامِ بعدی می‌آیند."
+      : fileType === "animation"
+        ? "گیف است، پس متن و دکمه رویش می‌نشینند - ولی پس‌زمینه‌اش سیاه خواهد بود."
+        : "نوعِ «" + fileType + "» ثبت شد.";
+  await ctx.reply("✅ ثبت شد. " + note);
 }
