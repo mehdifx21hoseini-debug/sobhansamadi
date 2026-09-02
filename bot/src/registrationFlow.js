@@ -561,22 +561,23 @@ function realAccountWord(v) {
 }
 
 /**
- * همان صفحه‌ی بازبینی، بعد از تایید - و جای دکمه‌ی پشتیبانی.
+ * تمامِ چیزی که بعد از تایید نهایی به کاربر می‌رسد - در یک پیام.
  *
- * پیامِ تایید در جای خودش ویرایش می‌شود: پاسخ‌ها می‌مانند تا کاربر هر
- * وقت خواست برگردد و ببیند چه فرستاده، جمله‌ی راهنمای دکمه‌ها می‌رود، و
- * دعوتِ پشتیبانی جایش را می‌گیرد.
+ * پیامِ تایید در جای خودش ویرایش می‌شود، پس هیچ پیامِ تازه‌ای فرستاده
+ * نمی‌شود: «ثبت شد» بالای همان پاسخ‌ها می‌نشیند و دعوتِ پشتیبانی زیرشان،
+ * با دکمه.
  *
- * چرا دکمه اینجاست و نه روی پیامِ پایان: کیبوردِ منوی اصلی باید در
- * پیامِ پایان برگردد، و تلگرام اجازه نمی‌دهد یک پیام هم کیبوردِ پایین
- * را عوض کند هم دکمه‌ی شیشه‌ای داشته باشد. پس دکمه روی این یکی می‌نشیند
- * و منو روی آن یکی - بدونِ اینکه پیامِ سومی لازم شود.
- *
- * «ثبت شد» اینجا گفته نمی‌شود؛ پیامِ پایان می‌گویدش. دو بار گفتنش همان
- * تکراری بود که برداشته شد.
+ * پیشتر «ثبت شد» یک پیامِ جدا بود که وعده‌ی تماسِ ۲۴ ساعته را هم می‌گفت.
+ * هر دو برداشته شدند: پیامِ دوم فقط یک نوبتِ اسکرول اضافه می‌کرد، و آن
+ * وعده عملاً می‌گفت «کاری نکن، منتظر بمان» - درست روبه‌روی دکمه‌ای که
+ * می‌خواهیم زده شود.
  */
-function buildSubmittedText(temp, invite) {
-  return ["📋 اطلاعاتی که فرستادید:", "", ...answerLines(temp), "", invite].join("\n");
+function buildSubmittedText(temp, header, invite) {
+  const lines = [];
+  if (header) lines.push(header, "");
+  lines.push(...answerLines(temp));
+  if (invite) lines.push("", invite);
+  return lines.join("\n");
 }
 
 /**
@@ -999,14 +1000,9 @@ export async function handleConfirm(ctx) {
 
   await clearUserState(ctx.env, ctx.from.id);
 
-  // یک پیامِ تازه، نه سه‌تا.
-  //
-  // پیشتر پشتِ سرِ هم می‌آمدند: ویرایشِ «تایید و ثبت شد»، پیامِ پایان، و
-  // دعوتِ پشتیبانی - و هر سه یک حرف می‌زدند. حالا پیامِ تایید در جای
-  // خودش به رسید تبدیل می‌شود و دکمه‌ی پشتیبانی را می‌گیرد، و تنها
-  // پیامِ تازه همان «ثبت شد» است که کیبوردِ منو را هم برمی‌گرداند.
+  // هیچ پیامِ تازه‌ای. پیامِ تایید در جای خودش به رسید تبدیل می‌شود و
+  // همه‌چیز - «ثبت شد»، پاسخ‌ها، دعوتِ پشتیبانی و دکمه - داخلِ همان است.
   await sendSubmittedReceipt(ctx, temp, saved && saved.lead_id);
-  await sendLeadDone(ctx);
 }
 
 /**
@@ -1016,6 +1012,12 @@ export async function handleConfirm(ctx) {
  * ببیند چه فرستاده، حتی اگر دکمه نیامده باشد.
  */
 async function sendSubmittedReceipt(ctx, temp, leadId) {
+  // سرخطِ «ثبت شد» از /edit می‌آید، مثلِ بقیه‌ی متن‌ها. پیشتر پیامِ
+  // جداگانه‌ای بود؛ حالا فقط خطِ اولِ همین رسید است.
+  const header = await resolveSection(ctx.env, "LEAD_DONE")
+    .then((r) => String(r.text || "").trim())
+    .catch(() => "");
+
   let invite = "";
   let markup;
   try {
@@ -1051,22 +1053,12 @@ async function sendSubmittedReceipt(ctx, temp, leadId) {
   }
 
   await ctx
-    .editMessageText(buildSubmittedText(temp, invite), {
+    .editMessageText(buildSubmittedText(temp, header, invite), {
       reply_markup: markup,
       // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
       link_preview_options: { is_disabled: true },
     })
     .catch((err) => console.error("ویرایشِ پیامِ تایید شکست خورد:", err && err.message));
-}
-
-// پیامِ پایان: تنها پیامِ تازه بعد از تایید، و جایی که کیبوردِ منوی اصلی
-// - که سرِ ثبتِ شماره برداشته شده بود - برمی‌گردد.
-//
-// بدونِ parse_mode: متنش از /edit قابلِ ویرایش است و یک «<» در چیزی که
-// مدیر می‌نویسد، کل پیام را از سمتِ تلگرام رد می‌کند.
-async function sendLeadDone(ctx) {
-  const { text } = await resolveSection(ctx.env, "LEAD_DONE");
-  await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
 }
 
 export async function handleCancel(ctx) {
