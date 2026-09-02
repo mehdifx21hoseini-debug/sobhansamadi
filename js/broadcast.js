@@ -59,14 +59,27 @@
 					).then(function (yes) {
 						if (!yes) return;
 						$btn.prop("disabled", true);
-						CrmData.deleteBroadcast(b.batch_id)
-							.then(function (res) {
-								CrmToast.ok("حذف شد — " + res.deleted + " موفق، " + res.failed + " ناموفق.");
-								loadHistory();
-							})
+						// حذف هم مثل ارسال تکه‌تکه است: پاک کردن از چتِ هزاران
+						// نفر در یک درخواست جا نمی‌شود.
+						var removeStep = function () {
+							return CrmData.deleteBroadcast(b.batch_id).then(function (res) {
+								if (res.done) {
+									CrmToast.ok("حذف شد — " + res.deleted + " موفق، " + res.failed + " ناموفق.");
+									loadHistory();
+									return;
+								}
+								$btn.text("در حال حذف… " + res.deleted + " از " + b.sent_count);
+								return new Promise(function (r) {
+									setTimeout(r, res.throttled ? 3000 : 300);
+								}).then(removeStep);
+							});
+						};
+						removeStep()
 							.catch(function (err) {
-								CrmToast.error("خطا در حذف: " + (err.message || "خطای نامشخص"));
+								CrmToast.error("حذف نیمه‌کاره ماند: " + (err.message || "خطای نامشخص") +
+									" - دوباره بزنید تا از همان‌جا ادامه دهد.");
 								$btn.prop("disabled", false);
+								loadHistory();
 							});
 					});
 				});

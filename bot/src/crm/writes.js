@@ -865,29 +865,86 @@ export async function deleteBroadcast(env, body, deleteMsg) {
   if (!batchId) return bad("batch_id لازم است");
 
   const { results } = await env.DB
-    // فقط آن‌هایی که واقعاً پیام گرفته‌اند: ردیفِ در صف مانده message_id
-    // ندارد و حذفش از تلگرام بی‌معنی است.
+    // فقط آن‌هایی که واقعاً پیام گرفته‌اند و هنوز پاک نشده‌اند: ردیفِ در
+    // صف مانده message_id ندارد و حذفش از تلگرام بی‌معنی است.
     .prepare(
-      `SELECT chat_id, message_id FROM crm_broadcast_recipients
-        WHERE batch_id = ? AND message_id IS NOT NULL`
+      `SELECT id, chat_id, message_id FROM crm_broadcast_recipients
+        WHERE batch_id = ? AND message_id IS NOT NULL AND status = 'sent'
+        ORDER BY id LIMIT ?`
     )
-    .bind(batchId)
+    .bind(batchId, CHUNK_HARD_CAP)
     .all();
 
+  const marks = [];
   let deleted = 0;
   let failed = 0;
+  let stopped = false;
+
   for (const r of results || []) {
-    const ok = await deleteMsg(r.chat_id, r.message_id);
-    if (ok) deleted++;
+    let okDel;
+    try {
+      okDel = await deleteMsg(r.chat_id, r.message_id);
+    } catch {
+      stopped = true;
+      break;
+    }
+    if (okDel) deleted++;
     else failed++;
+    // هر دو حالت علامت می‌خورند: پیامی که تلگرام اجازه‌ی حذفش را نداد
+    // (بیش از ۴۸ ساعت گذشته، یا کاربر خودش پاکش کرده) با تکرار هم پاک
+    // نمی‌شود، و بدون علامت برای همیشه در صفِ حذف می‌ماند.
+    marks.push({ id: r.id, status: okDel ? "deleted" : "delete_failed" });
   }
 
-  await env.DB
-    .prepare("UPDATE crm_broadcasts SET deleted = 1 WHERE batch_id = ?")
-    .bind(batchId)
-    .run();
+  if (marks.length) {
+    await env.DB.batch(
+      marks.map((m) =>
+        env.DB
+          .prepare("UPDATE crm_broadcast_recipients SET status = ?, message_id = NULL WHERE id = ?")
+          .bind(m.status, m.id)
+      )
+    );
+  }
 
-  // نامِ فیلد همان است که صفحه می‌خواند. «removed» بود و صفحه «deleted»
-  // را می‌خواست، پس پیامِ تایید «undefined موفق» می‌شد.
-  return { ok: true, deleted, failed };
+  const left = await env.DB
+    .prepare(
+      `SELECT COUNT(*) AS n FROM crm_broadcast_recipients
+        WHERE batch_id = ? AND message_id IS NOT NULL AND status = 'sent'`
+    )
+    .bind(batchId)
+    .first();
+  const remaining = (left && left.n) || 0;
+
+  const totals = await env.DB
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN status = 'deleted' THEN 1 ELSE 0 END) AS deleted,
+         SUM(CASE WHEN status = 'delete_failed' THEN 1 ELSE 0 END) AS failed
+       FROM crm_broadcast_recipients WHERE batch_id = ?`
+    )
+    .bind(batchId)
+    .first();
+
+  // پرچمِ «حذف شده» فقط وقتی می‌نشیند که واقعاً تمام شده باشد. اگر وسطِ
+  // کار می‌نشست، ارسالِ نیمه‌پاک‌شده در فهرست «حذف شده» نشان داده می‌شد
+  // در حالی که هنوز در گوشیِ هزاران نفر است.
+  if (remaining === 0) {
+    await env.DB
+      .prepare("UPDATE crm_broadcasts SET deleted = 1 WHERE batch_id = ?")
+      .bind(batchId)
+      .run();
+  }
+
+  // نامِ فیلدها همان است که صفحه می‌خواند.
+  return {
+    ok: true,
+    batch_id: batchId,
+    deleted: (totals && totals.deleted) || 0,
+    failed: (totals && totals.failed) || 0,
+    remaining,
+    done: remaining === 0,
+    throttled: stopped,
+    chunk_deleted: deleted,
+    chunk_failed: failed,
+  };
 }
