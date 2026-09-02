@@ -51,6 +51,11 @@ export const SECTIONS = {
   // متنی که در /edit دیده شود ولی هرگز به کاربر نرود، مدیر را به این
   // باور می‌رساند که چیزی را عوض کرده که عوض نشده.
   CONSULT_START: { code: "CONSULT_START_TEXT", label: "🟢 شروع مشاوره — انتخاب دوره", def: D.CONSULT_START_TEXT },
+  // کارتِ معرفیِ هر دوره، بین انتخاب و شروعِ فرم. جدا از هم، چون آکادمی
+  // معمولاً سرفصلِ یکی را عوض می‌کند نه هر سه را.
+  COURSE_TECH_CARD: { code: "COURSE_TECH_CARD_TEXT", label: "🟢 کارت معرفی — مجموعه پیشرفته", def: D.COURSE_TECH_CARD_TEXT },
+  COURSE_PSY_CARD: { code: "COURSE_PSY_CARD_TEXT", label: "🟢 کارت معرفی — دوره روانشناسی", def: D.COURSE_PSY_CARD_TEXT },
+  COURSE_BOTH_CARD: { code: "COURSE_BOTH_CARD_TEXT", label: "🟢 کارت معرفی — هر دو دوره", def: D.COURSE_BOTH_CARD_TEXT },
   CONSULT_INTRO: { code: "CONSULT_INTRO_TEXT", label: "🟢 تعیین سطح — متن شروع فرم", def: D.CONSULT_INTRO_TEXT },
   CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 تعیین سطح — پرسش ۳: دانش", def: D.CONSULT_LEVEL_TEXT },
   CONSULT_EXPERIENCE: { code: "CONSULT_EXPERIENCE_TEXT", label: "🟢 تعیین سطح — پرسش ۴: مدت فعالیت", def: D.CONSULT_EXPERIENCE_TEXT },

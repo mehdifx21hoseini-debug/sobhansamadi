@@ -54,7 +54,7 @@ import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
 import { handleChannelPost } from "./content/ingest.js";
 import { startSupport, handleQuestion } from "./support.js";
-import { startFlow as startRegistrationFlow, handleCourseChoice, handleRealChoice, handleChoiceButton, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
+import { startFlow as startRegistrationFlow, handleCourseChoice, handleCourseStart, handleCourseBack, handleRealChoice, handleChoiceButton, handleFlowBack, handleConfirmEdit, handleEditBack, handleEditPick, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
   sendLibrary,
   handleBookSelect,
@@ -305,9 +305,45 @@ export function createBot(token, env, botInfo, build = "?") {
       return;
     }
 
+    if (data === "COURSE_GO") {
+      await ctx.answerCallbackQuery();
+      await handleCourseStart(ctx);
+      return;
+    }
+
+    if (data === "COURSE_BACK") {
+      await ctx.answerCallbackQuery();
+      await handleCourseBack(ctx);
+      return;
+    }
+
     if (/^(LVL|EXP|TRD|GOL)\|/.test(data)) {
       await ctx.answerCallbackQuery();
       await handleChoiceButton(ctx, data);
+      return;
+    }
+
+    if (data === "FLOW_BACK") {
+      await ctx.answerCallbackQuery();
+      await handleFlowBack(ctx);
+      return;
+    }
+
+    if (data === "CONFIRM_EDIT") {
+      await ctx.answerCallbackQuery();
+      await handleConfirmEdit(ctx);
+      return;
+    }
+
+    if (data === "EDIT_BACK") {
+      await ctx.answerCallbackQuery();
+      await handleEditBack(ctx);
+      return;
+    }
+
+    if (data.startsWith("EDIT|")) {
+      await ctx.answerCallbackQuery();
+      await handleEditPick(ctx, data);
       return;
     }
 

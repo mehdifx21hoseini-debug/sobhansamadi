@@ -3,7 +3,7 @@ import { getUserState, setUserState, clearUserState, createLead, readUserSource 
 import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
-import { sendSection, resolveSection, sendChannelFile } from "./content/sectionText.js";
+import { sendSection, resolveSection, sendChannelFile, editWithText } from "./content/sectionText.js";
 import { supportChatUrl, supportPrefill, supportUsername } from "./supportContact.js";
 import { savePhone } from "./phones.js";
 
@@ -38,6 +38,33 @@ function cancelOnlyKeyboard() {
   return { inline_keyboard: [[{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]] };
 }
 
+// کارتِ معرفیِ دوره: یک قدم بینِ انتخاب و فرم.
+//
+// دو دکمه دارد و نه یکی: «شروع» برای کسی که دوره را می‌خواهد، و
+// «انتخاب دوره‌ی دیگر» برای کسی که با خواندنِ کارت فهمید دوره‌ی دیگری
+// به دردش می‌خورد. بدونِ دکمه‌ی دوم تنها راهش لغوِ کلِ فرآیند و شروعِ
+// دوباره از منو بود.
+function courseCardKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "✅ شروع تعیین سطح", callback_data: "COURSE_GO", style: "success" }],
+      [{ text: "🔙 انتخاب دوره‌ی دیگر", callback_data: "COURSE_BACK" }],
+      [{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }],
+    ],
+  };
+}
+
+// ردیفِ پایینِ هر پرسش: برگشت و لغو، کنارِ هم در یک ردیف.
+//
+// یک ردیف و نه دو، چون این‌ها دکمه‌های فرم نیستند و نباید هم‌وزنِ
+// گزینه‌های پاسخ دیده شوند.
+function navRow() {
+  return [
+    { text: "🔙 مرحله قبل", callback_data: "FLOW_BACK" },
+    { text: "❌ لغو", callback_data: "FLOW_CANCEL", style: "danger" },
+  ];
+}
+
 // پرسشِ حساب ریل دو جوابِ ممکن دارد و نه بیشتر، پس دکمه است نه متنِ
 // آزاد: هم برای کاربر یک ضربه است، هم پاسخ در CRM یکدست می‌ماند و
 // می‌شود رویش فیلتر گذاشت. با متنِ آزاد، «دارم» و «بله» و «آره» سه
@@ -47,7 +74,7 @@ function realAccountKeyboard() {
     inline_keyboard: [
       [{ text: "✅ بله، دارم", callback_data: "REAL_YES", style: "success" }],
       [{ text: "❌ خیر، ندارم", callback_data: "REAL_NO" }],
-      [{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }],
+      navRow(),
     ],
   };
 }
@@ -124,7 +151,7 @@ function choiceKeyboard(kind) {
   const rows = spec.options.map((text, i) => [
     { text, callback_data: spec.prefix + "|" + i },
   ]);
-  rows.push([{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]);
+  rows.push(navRow());
   return { inline_keyboard: rows };
 }
 
@@ -139,21 +166,109 @@ const SECTION_OF_STEP = {
 };
 const KIND_OF_STEP = { ask_level: "level", ask_experience: "experience", ask_trade: "trade", ask_goal: "goal" };
 
-async function applyChoice(ctx, flow, temp, kind, value) {
-  const spec = CHOICES[kind];
-  const next = { ...temp, [spec.field]: value };
-  await setUserState(ctx.env, ctx.from.id, { current_step: spec.next, temp_data: next });
+/**
+ * مرحله‌ی قبلِ هر پرسش.
+ *
+ * چرا لازم است: تا امروز تنها راهِ اصلاحِ یک پاسخِ اشتباه، لغوِ کلِ
+ * فرآیند و شروع از صفر بود. کسی که در پرسشِ ششم بفهمد پنجمی را اشتباه
+ * زده، یا از اول شروع می‌کند یا - که بیشتر پیش می‌آید - رها می‌کند.
+ *
+ * ask_goal دو مرحله‌ی قبلِ ممکن دارد، چون اگر کاربر حسابِ ریل نداشته
+ * باشد پرسشِ وضعیتِ ترید اصلاً پرسیده نشده و برگشت به آن یعنی پرت شدن
+ * به پرسشی که هرگز ندیده.
+ */
+const BACK_OF_STEP = {
+  ask_name: "course_card",
+  ask_phone: "ask_name",
+  ask_level: "ask_phone",
+  ask_experience: "ask_level",
+  ask_real: "ask_experience",
+  ask_trade: "ask_real",
+};
 
-  if (spec.next === "confirm") {
-    await ctx.reply(buildConfirmText(flow, next), { reply_markup: confirmCancelKeyboard() });
+function backStepOf(step, temp) {
+  if (step === "ask_goal") return temp.has_real_account === "بله" ? "ask_trade" : "ask_real";
+  // ورودیِ «پایان دوره‌ی مقدماتی» انتخابِ دوره را رد می‌کند و کارتی هم
+  // در کار نبوده؛ برگشت به کارتی که هرگز نیامده، بن‌بست است.
+  if (step === "ask_name" && !temp.course_code) return null;
+  return BACK_OF_STEP[step] || null;
+}
+
+// پاسخی که در هر مرحله ذخیره می‌شود - برای پاک کردنش هنگام برگشت.
+//
+// بدون این، کاربری که به پرسشِ قبل برمی‌گردد و آن را نیمه‌کاره رها
+// می‌کند، پاسخِ قدیمی‌اش را در صفحه‌ی تایید می‌بیند و فکر می‌کند عوضش
+// کرده.
+const FIELD_OF_STEP = {
+  ask_name: "name",
+  ask_phone: "phone",
+  ask_level: "level",
+  ask_experience: "experience",
+  ask_real: "has_real_account",
+  ask_trade: "trade_status",
+  ask_goal: "topic",
+};
+
+/**
+ * یک مرحله را نشان می‌دهد - هر مرحله‌ای، از هر راهی.
+ *
+ * سه مسیر به اینجا می‌رسند: جریانِ عادیِ فرم، دکمه‌ی «مرحله قبل»، و
+ * منوی ویرایشِ صفحه‌ی تایید. پیش‌تر هرکدام متن و کیبوردِ خودش را
+ * می‌ساخت؛ یعنی سه جا که باید هم‌گام می‌ماندند و یکی‌شان نمی‌ماند.
+ */
+async function renderStep(ctx, step, flow, temp) {
+  if (step === "choose_course") {
+    await sendSection(ctx, "CONSULT_START", courseChoiceKeyboard());
     return;
   }
-  if (spec.next === "ask_real") {
+  if (step === "course_card") {
+    await sendCourseCard(ctx, temp.course_code);
+    return;
+  }
+  if (step === "ask_name") {
+    await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", { reply_markup: cancelOnlyKeyboard() });
+    return;
+  }
+  if (step === "ask_phone") {
+    await ctx.reply(phonePromptText(flow), { reply_markup: requestContactKeyboard() });
+    return;
+  }
+  if (step === "ask_real") {
     await sendSection(ctx, "CONSULT_REAL", realAccountKeyboard());
     return;
   }
-  const nextKind = KIND_OF_STEP[spec.next];
-  await sendSection(ctx, SECTION_OF_STEP[spec.next], choiceKeyboard(nextKind));
+  if (step === "confirm") {
+    await ctx.reply(buildConfirmText(flow, temp), { reply_markup: confirmCancelKeyboard() });
+    return;
+  }
+  const kind = KIND_OF_STEP[step];
+  if (kind) await sendSection(ctx, SECTION_OF_STEP[step], choiceKeyboard(kind));
+}
+
+/**
+ * مرحله‌ی بعد از یک پاسخ.
+ *
+ * `_edit` یعنی کاربر از صفحه‌ی تایید آمده تا فقط همین یک مورد را عوض
+ * کند - پس بعد از پاسخ نباید بقیه‌ی فرم را دوباره طی کند، مستقیم به
+ * تایید برمی‌گردد.
+ */
+function nextAfter(temp, plannedNext) {
+  return temp._edit ? "confirm" : plannedNext;
+}
+
+function clearEdit(temp) {
+  const next = { ...temp };
+  delete next._edit;
+  return next;
+}
+
+async function applyChoice(ctx, flow, temp, kind, value) {
+  const spec = CHOICES[kind];
+  const next = { ...clearEdit(temp), [spec.field]: value };
+  const step = nextAfter(temp, spec.next);
+
+  await setUserState(ctx.env, ctx.from.id, { current_step: step, temp_data: next });
+  await renderStep(ctx, step, flow, next);
 }
 
 export async function handleChoiceButton(ctx, data) {
@@ -181,16 +296,34 @@ export async function handleChoiceButton(ctx, data) {
  * تازه‌کار است، دقیقاً همان‌جایی که بیشترین ریزش را دارد.
  */
 async function applyRealAnswer(ctx, flow, temp, yes) {
-  const next = { ...temp, has_real_account: yes ? "بله" : "خیر" };
+  const next = { ...clearEdit(temp), has_real_account: yes ? "بله" : "خیر" };
+
   if (!yes) {
+    // «ندارم» یعنی وضعیتِ تریدی هم در کار نیست. اگر پیش‌تر پاسخی داشت -
+    // مثلاً کاربر از صفحه‌ی تایید همین یک مورد را عوض کرده - باید پاک
+    // شود، وگرنه لیدی به CRM می‌رسد که «حساب ریل: خیر» است ولی وضعیتِ
+    // تریدِ حسابِ ریل هم دارد.
+    delete next.trade_status;
     // پرسشِ وضعیتِ ترید رد می‌شود ولی هدف نه: هدف به داشتنِ حساب ربطی
     // ندارد و برای تازه‌کار حتی مهم‌تر است.
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_goal", temp_data: next });
-    await sendSection(ctx, "CONSULT_TOPIC", choiceKeyboard("goal"));
+    const step = nextAfter(temp, "ask_goal");
+    await setUserState(ctx.env, ctx.from.id, { current_step: step, temp_data: next });
+    await renderStep(ctx, step, flow, next);
     return;
   }
-  await setUserState(ctx.env, ctx.from.id, { current_step: "ask_trade", temp_data: next });
-  await sendSection(ctx, "CONSULT_TRADE", choiceKeyboard("trade"));
+
+  // در حالتِ ویرایش هم اگر وضعیتِ ترید هنوز خالی است باید پرسیده شود:
+  // کاربری که تازه «بله» را زده، پاسخی برای آن پرسش ندارد و برگشتِ
+  // مستقیم به تایید یعنی یک ستونِ خالی در CRM.
+  const needsTrade = !temp._edit || !temp.trade_status;
+  if (needsTrade) {
+    const keep = temp._edit ? { ...next, _edit: "1" } : next;
+    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_trade", temp_data: keep });
+    await renderStep(ctx, "ask_trade", flow, keep);
+    return;
+  }
+  await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: next });
+  await renderStep(ctx, "confirm", flow, next);
 }
 
 function requestContactKeyboard() {
@@ -201,22 +334,96 @@ function requestContactKeyboard() {
     .resized();
 }
 
+// متنِ پرسشِ شماره. یک جا، چون هم جریانِ عادی و هم برگشت و هم ویرایش
+// همین را نشان می‌دهند.
+//
+// «دستی تایپ نکنید» از متن برداشته شد: شماره‌ی تایپ‌شده حالا پذیرفته
+// می‌شود. دکمه همچنان راهِ پیشنهادی است چون شماره‌ی تلگرام از خودِ
+// تلگرام می‌آید و غلطِ تایپی ندارد - ولی کاربری که می‌خواهد شماره‌ی
+// دیگری بدهد (یا دکمه برایش کار نمی‌کند) دیگر به بن‌بست نمی‌خورد.
+function phonePromptText(flow) {
+  const lead =
+    flow === "consultation"
+      ? "☎️ شماره موبایل خود را برای هماهنگی مشاوره بفرستید."
+      : "☎️ شماره موبایل خود را برای هماهنگی ثبت‌نام بفرستید.";
+  return (
+    lead +
+    "\n\nساده‌ترین راه: دکمه‌ی «ارسال شماره موبایل ☎️» در پایین صفحه 👇" +
+    "\n\nاگر می‌خواهید شماره‌ی دیگری بدهید، همین‌جا بنویسید - مثل ۰۹۱۲۱۲۳۴۵۶۷"
+  );
+}
+
 // تایید سبز و انصراف قرمز: در مرحله‌ی آخر یک ثبت‌نام، ضربه‌ی اشتباه
 // گران‌ترین جای کل مسیر است.
 function confirmCancelKeyboard() {
   return {
     inline_keyboard: [
       [{ text: "✅ تایید نهایی", callback_data: "CONFIRM_YES", style: "success" }],
+      // پیش‌تر تنها راهِ اصلاحِ یک غلطِ تایپی در نام یا یک گزینه‌ی
+      // اشتباه، «انصراف» و پر کردنِ دوباره‌ی کلِ فرم بود - در آخرین قدم،
+      // جایی که کاربر کمترین حوصله را دارد.
+      [{ text: "✏️ ویرایش اطلاعات", callback_data: "CONFIRM_EDIT" }],
       [{ text: "❌ انصراف", callback_data: "FLOW_CANCEL", style: "danger" }],
     ],
   };
 }
 
+/**
+ * فهرستِ ویرایش: هر مورد، برچسبش، و مرحله‌ای که باید دوباره اجرا شود.
+ *
+ * ترتیب همان ترتیبِ صفحه‌ی تایید است تا چشم دنبالِ ردیف بگردد نه دنبالِ
+ * دکمه.
+ *
+ * callback_data فقط اندیس است، چون سقفِ ۶۴ بایتِ تلگرام با برچسبِ فارسی
+ * زود پر می‌شود.
+ */
+const EDIT_FIELDS = [
+  { field: "name", label: "👤 نام", step: "ask_name" },
+  { field: "phone", label: "📱 موبایل", step: "ask_phone" },
+  { field: "course", label: "🎯 دوره", step: "choose_course" },
+  { field: "level", label: "📊 دانش در مارکت", step: "ask_level" },
+  { field: "experience", label: "⏳ مدت فعالیت", step: "ask_experience" },
+  { field: "has_real_account", label: "💼 حساب ریل", step: "ask_real" },
+  { field: "trade_status", label: "📈 وضعیت ترید", step: "ask_trade" },
+  { field: "topic", label: "🎯 هدف از دوره", step: "ask_goal" },
+];
+
+// فقط چیزهایی که واقعاً پرسیده شده‌اند.
+//
+// «وضعیت ترید» برای کسی که حسابِ ریل ندارد هرگز پرسیده نشده؛ نشان دادنش
+// در فهرستِ ویرایش یعنی دکمه‌ای که به پرسشی می‌برد که کاربر نمی‌فهمد
+// چرا آمده.
+function editKeyboard(temp) {
+  const rows = EDIT_FIELDS.map((f, i) => ({ f, i }))
+    .filter(({ f }) => f.field !== "trade_status" || temp.has_real_account === "بله")
+    .map(({ f, i }) => [{ text: f.label, callback_data: "EDIT|" + i }]);
+  rows.push([{ text: "🔙 برگشت به تایید", callback_data: "EDIT_BACK" }]);
+  return { inline_keyboard: rows };
+}
+
+// ارقامِ فارسی و عربی به لاتین.
+//
+// \d در جاوااسکریپت فقط ۰ تا ۹ لاتین است، پس بدون این تبدیل شماره‌ای که
+// کاربر با کیبوردِ فارسی تایپ کرده به رشته‌ی خالی می‌رسید و «شماره
+// نامعتبر» می‌گرفت - در حالی که درست نوشته بودش.
+function latinDigits(raw) {
+  return String(raw)
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+}
+
 function normalizePhone(raw) {
-  const digits = String(raw).replace(/\D/g, "");
+  const digits = latinDigits(raw).replace(/\D/g, "");
   if (digits.length === 12 && digits.startsWith("98")) return "0" + digits.slice(2);
   if (digits.length === 10 && digits.startsWith("9")) return "0" + digits;
   return digits;
+}
+
+// موبایلِ ایران: ۱۱ رقم، با ۰۹ شروع می‌شود. شماره‌ی ثابت و شماره‌ی ناقص
+// رد می‌شوند - شماره‌ای که مشاور نتواند با آن تماس بگیرد، از نبودنِ
+// شماره بدتر است چون کسی پیگیری‌اش نمی‌کند.
+function isMobile(phone) {
+  return /^09\d{9}$/.test(phone);
 }
 
 // یک متن تایید برای هر دو مسیر.
@@ -309,26 +516,69 @@ const COURSE_VOICES = {
   COURSE_BOTH: ["COURSE_TECH_VOICE", "COURSE_PSY_VOICE"],
 };
 
+const COURSE_CARD_SECTION = {
+  COURSE_TECH: "COURSE_TECH_CARD",
+  COURSE_PSY: "COURSE_PSY_CARD",
+  COURSE_BOTH: "COURSE_BOTH_CARD",
+};
+
+async function sendCourseCard(ctx, code) {
+  const section = COURSE_CARD_SECTION[code];
+  if (!section) return;
+  await sendSection(ctx, section, courseCardKeyboard());
+}
+
 export async function handleCourseChoice(ctx, cb) {
   const state = await getUserState(ctx.env, ctx.from.id);
   if (!state || !COURSE_LABELS[cb]) return;
-  const temp = { ...state.temp_data, course: COURSE_LABELS[cb] };
+  const temp = { ...state.temp_data, course: COURSE_LABELS[cb], course_code: cb };
 
   // دکمه‌ها از پیامِ انتخاب برداشته می‌شوند تا کسی وسطِ فرم دوره را عوض
   // نکند و دو نیمه‌ی ناهمخوان بسازد.
   await ctx.editMessageText("🎯 دوره‌ی انتخابی شما: " + COURSE_LABELS[cb], { reply_markup: undefined })
     .catch(() => {});
 
+  // ویرایش از صفحه‌ی تایید: کارت و ویس دوباره فرستاده نمی‌شوند. کاربری
+  // که فقط می‌خواهد دوره‌اش را عوض کند، معرفی را قبلاً دیده و شنیده.
+  if (temp._edit) {
+    const next = clearEdit(temp);
+    await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: next });
+    await renderStep(ctx, "confirm", state.current_flow, next);
+    return;
+  }
+
   // ویسِ استاد پیش از فرم می‌رود: کسی که هنوز نمی‌داند دوره چیست، فرم پر
   // نمی‌کند. نبودنش فرم را متوقف نمی‌کند - تا وقتی آکادمی ویس را در
   // کانال نگذاشته، مسیر مثل قبل ادامه پیدا می‌کند.
   await sendCourseVoices(ctx, cb);
 
-  await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name", temp_data: temp });
+  // کارت آخر می‌آید، بعد از ویس: دکمه‌های «شروع» و «انتخاب دوره‌ی دیگر»
+  // باید پایین‌ترین چیزِ صفحه باشند، وگرنه ویس رویشان می‌نشیند و کاربر
+  // باید برای ادامه دادن به عقب اسکرول کند.
+  await setUserState(ctx.env, ctx.from.id, { current_step: "course_card", temp_data: temp });
+  await sendCourseCard(ctx, cb);
+}
+
+/** «شروع تعیین سطح» روی کارتِ معرفی. */
+export async function handleCourseStart(ctx) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state || state.current_step !== "course_card") return;
+  await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+  await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name" });
   await sendSection(ctx, "CONSULT_INTRO");
-  await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", {
-    reply_markup: cancelOnlyKeyboard(),
-  });
+  await renderStep(ctx, "ask_name", state.current_flow, state.temp_data || {});
+}
+
+/** «انتخاب دوره‌ی دیگر» روی کارتِ معرفی. */
+export async function handleCourseBack(ctx) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state || state.current_step !== "course_card") return;
+  await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+  const temp = { ...state.temp_data };
+  delete temp.course;
+  delete temp.course_code;
+  await setUserState(ctx.env, ctx.from.id, { current_step: "choose_course", temp_data: temp });
+  await renderStep(ctx, "choose_course", state.current_flow, temp);
 }
 
 async function sendCourseVoices(ctx, cb) {
@@ -346,6 +596,70 @@ export async function handleRealChoice(ctx, cb) {
   await applyRealAnswer(ctx, state.current_flow, state.temp_data || {}, cb === "REAL_YES");
 }
 
+/**
+ * دکمه‌ی «مرحله قبل».
+ *
+ * پاسخِ مرحله‌ای که به آن برمی‌گردیم پاک می‌شود، نه پاسخِ مرحله‌ی فعلی:
+ * کاربر برمی‌گردد تا همان را عوض کند، و اگر مقدارِ قدیمی سرِ جایش بماند
+ * ممکن است بدون پاسخ دادن جلو برود و فکر کند عوضش کرده.
+ */
+export async function handleFlowBack(ctx) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state) return;
+  const temp = { ...state.temp_data };
+  const prev = backStepOf(state.current_step, temp);
+  if (!prev) return;
+
+  await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+
+  const field = FIELD_OF_STEP[prev];
+  if (field) delete temp[field];
+  // برگشت از دلِ فرم، حالتِ ویرایش را هم می‌بندد: از اینجا به بعد کاربر
+  // دوباره در مسیرِ عادی است و نباید بعد از یک پاسخ به تایید پرتاب شود.
+  delete temp._edit;
+
+  await setUserState(ctx.env, ctx.from.id, { current_step: prev, temp_data: temp });
+  await renderStep(ctx, prev, state.current_flow, temp);
+}
+
+/** «✏️ ویرایش اطلاعات» روی صفحه‌ی تایید. */
+export async function handleConfirmEdit(ctx) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state || state.current_step !== "confirm") return;
+  await editWithText(ctx, "کدام مورد را می‌خواهید اصلاح کنید؟", editKeyboard(state.temp_data || {}))
+    .catch(() => {});
+}
+
+/** «🔙 برگشت به تایید» در فهرستِ ویرایش. */
+export async function handleEditBack(ctx) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state || state.current_step !== "confirm") return;
+  const temp = clearEdit(state.temp_data || {});
+  await setUserState(ctx.env, ctx.from.id, { temp_data: temp });
+  await editWithText(ctx, buildConfirmText(state.current_flow, temp), confirmCancelKeyboard())
+    .catch(() => {});
+}
+
+/** انتخابِ یک مورد از فهرستِ ویرایش. */
+export async function handleEditPick(ctx, data) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state || state.current_step !== "confirm") return;
+  const spec = EDIT_FIELDS[Number(String(data).split("|")[1])];
+  if (!spec) return;
+
+  await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+
+  // مقدارِ قبلی همین‌جا پاک می‌شود، نه بعد از پاسخ: اگر کاربر وسطِ کار
+  // رها کند، صفحه‌ی تایید باید خالی بودنِ آن مورد را نشان دهد نه مقداری
+  // را که خودش می‌خواست عوضش کند.
+  const temp = { ...state.temp_data, _edit: "1" };
+  delete temp[spec.field];
+  if (spec.field === "course") delete temp.course_code;
+
+  await setUserState(ctx.env, ctx.from.id, { current_step: spec.step, temp_data: temp });
+  await renderStep(ctx, spec.step, state.current_flow, temp);
+}
+
 export async function handleText(ctx, state) {
   const step = state.current_step;
   const flow = state.current_flow;
@@ -353,13 +667,10 @@ export async function handleText(ctx, state) {
   const temp = { ...state.temp_data };
 
   if (step === "ask_name") {
-    temp.name = text;
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_phone", temp_data: temp });
-    const promptText =
-      flow === "consultation"
-        ? "☎️ شماره موبایل خود را برای هماهنگی مشاوره ارسال کنید.\n\nلطفاً روی دکمه «☎️ ارسال شماره موبایل» بزنید تا شماره شما به‌صورت خودکار برای ما ارسال شود."
-        : "📌 برای وارد کردن شماره، روی دکمه «☎️ ارسال شماره موبایل» در پایین صفحه کلیک کنید 👇\n\n⚠️ توجه: لطفاً شماره خود را دستی تایپ نکنید!";
-    await ctx.reply(promptText, { reply_markup: requestContactKeyboard() });
+    const next = { ...clearEdit(temp), name: text };
+    const target = nextAfter(temp, "ask_phone");
+    await setUserState(ctx.env, ctx.from.id, { current_step: target, temp_data: next });
+    await renderStep(ctx, target, flow, next);
     return;
   }
 
@@ -370,9 +681,26 @@ export async function handleText(ctx, state) {
       await ctx.reply("👆", { reply_markup: cancelOnlyKeyboard() }).catch(() => {});
       return;
     }
-    await ctx.reply("❗️ لطفاً فقط از دکمه «ارسال شماره موبایل ☎️» استفاده کنید؛ شماره تایپ‌شده پذیرفته نمی‌شود.", {
-      reply_markup: requestContactKeyboard(),
-    });
+
+    // شماره‌ی تایپ‌شده حالا پذیرفته می‌شود.
+    //
+    // پیش‌تر رد می‌شد و کاربر پشتِ همان پرسش گیر می‌کرد. دکمه‌ی
+    // requestContact همیشه در دسترس نیست - در تلگرام دسکتاپ و در بعضی
+    // کلاینت‌های وب نمی‌آید - و کسی هم ممکن است بخواهد شماره‌ی دیگری
+    // بدهد. آن‌ها یا فرم را رها می‌کردند یا شماره را در پرسشِ بعدی
+    // می‌نوشتند، جایی که هیچ‌کس دنبالش نمی‌گشت.
+    //
+    // اعتبارسنجی سرِ جایش می‌ماند: هر رشته‌ای پذیرفته نمی‌شود، فقط
+    // موبایلِ درست.
+    const typed = normalizePhone(text);
+    if (isMobile(typed)) {
+      await acceptPhone(ctx, state, typed);
+      return;
+    }
+    await ctx.reply(
+      "❗️ این شماره درست به نظر نمی‌رسد.\n\nیا روی دکمه‌ی «ارسال شماره موبایل ☎️» بزنید، یا شماره را به شکلِ ۱۱ رقمی بنویسید - مثل ۰۹۱۲۱۲۳۴۵۶۷",
+      { reply_markup: requestContactKeyboard() }
+    );
     return;
   }
 
@@ -436,8 +764,17 @@ export async function handleText(ctx, state) {
 export async function handleContact(ctx) {
   const state = await getUserState(ctx.env, ctx.from.id);
   if (!state || state.current_step !== "ask_phone") return;
+  await acceptPhone(ctx, state, normalizePhone(ctx.message.contact.phone_number));
+}
 
-  const phone = normalizePhone(ctx.message.contact.phone_number);
+/**
+ * ثبتِ شماره - از دکمه‌ی تلگرام یا از متنِ تایپ‌شده.
+ *
+ * یک تابع برای هر دو راه، وگرنه هر چیزی که اینجا اضافه شود (دفترچه‌ی
+ * شماره‌ها، حالتِ ویرایش، مرحله‌ی بعد) باید دو جا اضافه می‌شد و روزی
+ * یکی‌شان جا می‌ماند.
+ */
+async function acceptPhone(ctx, state, phone) {
   const temp = { ...state.temp_data, phone };
   await setUserState(ctx.env, ctx.from.id, { phone, temp_data: temp });
 
@@ -456,6 +793,15 @@ export async function handleContact(ctx) {
   }).catch((err) => console.error("ثبت شماره در دفترچه شکست خورد:", err && err.message));
 
   await ctx.reply("✅ شماره شما با موفقیت ثبت شد.", { reply_markup: { remove_keyboard: true } });
+
+  // ویرایش از صفحه‌ی تایید: فقط همین شماره عوض می‌شد، پس بقیه‌ی فرم
+  // دوباره پرسیده نمی‌شود.
+  if (temp._edit) {
+    const next = clearEdit(temp);
+    await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: next });
+    await renderStep(ctx, "confirm", state.current_flow, next);
+    return;
+  }
 
   // هر دو مسیر از اینجا یک راه می‌روند.
   //
