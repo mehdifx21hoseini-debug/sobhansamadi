@@ -54,7 +54,7 @@ import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
 import { handleChannelPost } from "./content/ingest.js";
 import { startSupport, handleQuestion } from "./support.js";
-import { startFlow as startRegistrationFlow, handleCourseChoice, handleCourseStart, handleCourseBack, handleRealChoice, handleChoiceButton, handleFlowBack, handleConfirmEdit, handleEditBack, handleEditPick, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
+import { startFlow as startRegistrationFlow, isFlowTextStep, handleCourseChoice, handleCourseStart, handleCourseBack, handleRealChoice, handleChoiceButton, handleFlowBack, handleConfirmEdit, handleEditBack, handleEditPick, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
   sendLibrary,
   handleBookSelect,
@@ -174,7 +174,7 @@ export function createBot(token, env, botInfo, build = "?") {
         await handleGateText(ctx, state);
         return;
       }
-      if (["ask_name", "ask_phone", "ask_level", "ask_topic", "ask_time"].includes(state.current_step)) {
+      if (isFlowTextStep(state.current_step)) {
         await handleFlowText(ctx, state);
         return;
       }
@@ -195,11 +195,12 @@ export function createBot(token, env, botInfo, build = "?") {
         return;
       }
 
-      // مرحله‌هایی که منتظر ضربه‌ی دکمه‌اند (انتخاب دوره و تایید نهایی).
+      // مرحله‌هایی که منتظر ضربه‌ی دکمه‌اند (انتخاب دوره، کارتِ معرفی،
+      // و تایید نهایی).
       // کاربری که به‌جای دکمه سوال می‌نویسد - «کدوم دوره بهتره؟» - قبلاً
       // هیچ جوابی نمی‌گرفت. نسخه‌ی n8n همین حالت را هم به دستیار می‌داد.
       // فرآیندش دست‌نخورده می‌ماند؛ فقط سوالش جواب داده می‌شود.
-      if (["choose_course", "confirm"].includes(state.current_step)) {
+      if (["choose_course", "course_card", "confirm"].includes(state.current_step)) {
         await handleFreeText(ctx, state);
         return;
       }
