@@ -54,7 +54,7 @@ import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
 import { handleChannelPost } from "./content/ingest.js";
 import { startSupport, handleQuestion } from "./support.js";
-import { startFlow as startRegistrationFlow, isFlowTextStep, handleCourseChoice, handleCourseStart, handleCourseBack, handleRealChoice, handleChoiceButton, handleFlowBack, handleConfirmEdit, handleEditBack, handleEditPick, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
+import { startFlow as startRegistrationFlow, isFlowTextStep, courseCodeForLabel, isBackToMenu, handleCourseChoice, handleCourseStart, handleCourseBack, handleRealChoice, handleChoiceButton, handleFlowBack, handleConfirmEdit, handleEditBack, handleEditPick, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
   sendLibrary,
   handleBookSelect,
@@ -193,6 +193,22 @@ export function createBot(token, env, botInfo, build = "?") {
       if (state.current_flow === "section_edit" && state.current_step === "ask_text") {
         await handleSectionText(ctx, state);
         return;
+      }
+
+      // انتخابِ دوره روی کیبوردِ پایین است، پس ضربه‌اش به شکلِ یک پیامِ
+      // متنی می‌رسد - نه callback. هر سه دکمه اینجا شناخته می‌شوند و
+      // بقیه‌ی متن‌ها مثلِ قبل به دستیار می‌رود.
+      if (state.current_step === "choose_course") {
+        const code = courseCodeForLabel(text);
+        if (code) {
+          await handleCourseChoice(ctx, code);
+          return;
+        }
+        if (isBackToMenu(text)) {
+          await clearUserState(ctx.env, ctx.from.id);
+          await ctx.reply("منوی اصلی:", { reply_markup: mainMenuKeyboard() });
+          return;
+        }
       }
 
       // مرحله‌هایی که منتظر ضربه‌ی دکمه‌اند (انتخاب دوره، کارتِ معرفی،

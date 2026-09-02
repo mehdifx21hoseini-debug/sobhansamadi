@@ -13,25 +13,55 @@ const COURSE_LABELS = {
   COURSE_BOTH: "📘 هر دو دوره",
 };
 
-// شیء خام و نه سازنده‌ی InlineKeyboard: گرامی فیلد style را بی‌صدا دور
-// می‌ریزد و دکمه‌ها بی‌رنگ می‌شوند.
+// انتخابِ دوره، روی کیبوردِ پایین و نه دکمه‌ی شیشه‌ای.
+//
+// چرا: منوی اصلی هم یک کیبوردِ پایین است، و تا وقتی این‌ها شیشه‌ای بودند
+// آن منو زیرشان باقی می‌ماند - یعنی وسطِ فرم، چهار راهِ خروج جلوی چشمِ
+// کاربر. برداشتنِ آن منو هم ممکن نبود: تلگرام اجازه نمی‌دهد یک پیام هم
+// کیبوردِ پایین را عوض کند هم دکمه‌ی شیشه‌ای داشته باشد، پس یک پیامِ
+// اضافه لازم می‌شد. حالا خودِ این کیبورد جای منو را می‌گیرد.
 //
 // «هر دو دوره» سبز است و آن دو آبی: سه گزینه‌ی هم‌رنگ یعنی سه گزینه‌ی
 // هم‌ارزش، در حالی که این یکی کامل‌ترین مسیر است و باید در یک نگاه
-// معلوم باشد.
+// معلوم باشد. (فیلدِ style را باید دستی نوشت؛ سازنده‌های گرامی بی‌صدا
+// دورش می‌ریزند.)
 //
 // ترتیب هم تصادفی نیست: «مجموعه آموزشی پیشرفته» اول می‌آید چون کاربر
 // معمولاً از دکمه‌ی هم‌نامِ منو به اینجا رسیده و باید همان چیزی را که
 // رویش زده، اول ببیند.
+const COURSE_BUTTONS = [
+  { text: "📚 مجموعه آموزشی پیشرفته", code: "COURSE_TECH", style: "primary" },
+  { text: "🧠 دوره روانشناسی", code: "COURSE_PSY", style: "primary" },
+  { text: "📘 هر دو دوره", code: "COURSE_BOTH", style: "success" },
+];
+
+const BACK_TO_MENU = "🏠 منوی اصلی";
+
 function courseChoiceKeyboard() {
   return {
-    inline_keyboard: [
-      [{ text: "📚 مجموعه آموزشی پیشرفته", callback_data: "COURSE_TECH", style: "primary" }],
-      [{ text: "🧠 دوره روانشناسی", callback_data: "COURSE_PSY", style: "primary" }],
-      [{ text: "📘 هر دو دوره", callback_data: "COURSE_BOTH", style: "success" }],
-      [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+    keyboard: [
+      ...COURSE_BUTTONS.map((b) => [{ text: b.text, style: b.style }]),
+      [{ text: BACK_TO_MENU }],
     ],
+    resize_keyboard: true,
+    one_time_keyboard: false,
   };
+}
+
+/**
+ * متنِ دکمه → کدِ دوره.
+ *
+ * روتر با این تصمیم می‌گیرد که یک پیامِ متنی در مرحله‌ی انتخابِ دوره،
+ * ضربه‌ی یکی از همین دکمه‌هاست یا سوالی که کاربر نوشته - چون حالا هر دو
+ * از یک راه می‌آیند.
+ */
+export function courseCodeForLabel(text) {
+  const hit = COURSE_BUTTONS.find((b) => b.text === String(text).trim());
+  return hit ? hit.code : null;
+}
+
+export function isBackToMenu(text) {
+  return String(text).trim() === BACK_TO_MENU;
 }
 
 function cancelOnlyKeyboard() {
@@ -536,7 +566,12 @@ export async function startFlow(ctx, flow, promptOverride, { skipCourseChoice = 
       current_step: "ask_name",
       temp_data: { course: COURSE_LABELS.COURSE_TECH },
     });
-    if (promptOverride) await ctx.reply(promptOverride);
+    // این ورودی انتخابِ دوره را رد می‌کند، پس کیبوردِ دوره‌ها - که در
+    // مسیرِ عادی جای منوی اصلی را می‌گیرد - اینجا نمی‌آید. منو باید
+    // همین‌جا برداشته شود، وگرنه تا آخرِ فرم پایین می‌ماند.
+    await ctx.reply(promptOverride || "🎓 برای ثبت‌نام، چند سوال کوتاه می‌پرسم.", {
+      reply_markup: { remove_keyboard: true },
+    });
     await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", {
       reply_markup: cancelOnlyKeyboard(),
     });
@@ -590,10 +625,15 @@ export async function handleCourseChoice(ctx, cb) {
   if (!state || !COURSE_LABELS[cb]) return;
   const temp = { ...state.temp_data, course: COURSE_LABELS[cb], course_code: cb };
 
-  // دکمه‌ها از پیامِ انتخاب برداشته می‌شوند تا کسی وسطِ فرم دوره را عوض
-  // نکند و دو نیمه‌ی ناهمخوان بسازد.
-  await ctx.editMessageText("🎯 دوره‌ی انتخابی شما: " + COURSE_LABELS[cb], { reply_markup: undefined })
-    .catch(() => {});
+  // این پیام دو کار می‌کند: انتخاب را تایید می‌کند، و کیبوردِ دوره‌ها را
+  // برمی‌دارد. از اینجا تا پایانِ فرم هیچ کیبوردی پایین نیست - نه
+  // دوره‌ها، نه منوی اصلی - پس هیچ راهِ خروجِ اتفاقی هم نیست.
+  //
+  // پیشتر ویرایشِ همان پیامِ دکمه‌دار بود؛ حالا دکمه‌ها روی کیبوردِ
+  // پایین‌اند و ویرایش‌شدنی نیستند.
+  await ctx.reply("🎯 دوره‌ی انتخابی شما: " + COURSE_LABELS[cb], {
+    reply_markup: { remove_keyboard: true },
+  });
 
   // ویرایش از صفحه‌ی تایید: کارت و ویس دوباره فرستاده نمی‌شوند. کاربری
   // که فقط می‌خواهد دوره‌اش را عوض کند، معرفی را قبلاً دیده و شنیده.
