@@ -64,6 +64,13 @@ export function isBackToMenu(text) {
   return String(text).trim() === BACK_TO_MENU;
 }
 
+// پرسشِ نام، یک جا.
+//
+// سه جا پرسیده می‌شود - شروعِ فرم، برگشت از پرسشِ شماره، و ویرایش از
+// صفحه‌ی تایید - و پیشتر در دو نسخه نوشته شده بود، یکی با ایموجی و یکی
+// بی‌آن.
+const NAME_QUESTION = "👤 نام و نام خانوادگی خود را وارد کنید:";
+
 function cancelOnlyKeyboard() {
   return { inline_keyboard: [[{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]] };
 }
@@ -284,7 +291,7 @@ async function renderStep(ctx, step, flow, temp) {
     return;
   }
   if (step === "ask_name") {
-    await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", { reply_markup: cancelOnlyKeyboard() });
+    await ctx.reply(NAME_QUESTION, { reply_markup: cancelOnlyKeyboard() });
     return;
   }
   if (step === "ask_phone") {
@@ -597,9 +604,7 @@ export async function startFlow(ctx, flow, promptOverride, { skipCourseChoice = 
     await ctx.reply(promptOverride || "🎓 برای ثبت‌نام، چند سوال کوتاه می‌پرسم.", {
       reply_markup: { remove_keyboard: true },
     });
-    await ctx.reply("👤 نام و نام خانوادگی خود را وارد کنید:", {
-      reply_markup: cancelOnlyKeyboard(),
-    });
+    await ctx.reply(NAME_QUESTION, { reply_markup: cancelOnlyKeyboard() });
     return;
   }
 
@@ -687,8 +692,17 @@ export async function handleCourseStart(ctx) {
   if (!state || state.current_step !== "course_card") return;
   await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name" });
-  await sendSection(ctx, "CONSULT_INTRO");
-  await renderStep(ctx, "ask_name", state.current_flow, state.temp_data || {});
+
+  // متنِ شروعِ فرم و پرسشِ نام در یک پیام.
+  //
+  // پیشتر دو پیامِ پشتِ سرِ هم بودند و اولی حرفِ کارتِ معرفی را دوباره
+  // می‌گفت. دو پیام برای یک قدم، هم شلوغ است هم دکمه‌ی لغو را از متنی
+  // که توضیحش می‌دهد جدا می‌کند.
+  const { text } = await resolveSection(ctx.env, "CONSULT_INTRO");
+  const intro = String(text || "").trim();
+  await ctx.reply(intro ? intro + "\n\n" + NAME_QUESTION : NAME_QUESTION, {
+    reply_markup: cancelOnlyKeyboard(),
+  });
 }
 
 /** «انتخاب دوره‌ی دیگر» روی کارتِ معرفی. */
@@ -799,7 +813,7 @@ export async function handleText(ctx, state) {
   if (step === "ask_phone") {
     if (text === "🔙 برگشت") {
       await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name" });
-      await ctx.reply("نام و نام خانوادگی خود را وارد کنید:", { reply_markup: { remove_keyboard: true } });
+      await ctx.reply(NAME_QUESTION, { reply_markup: { remove_keyboard: true } });
       await ctx.reply("👆", { reply_markup: cancelOnlyKeyboard() }).catch(() => {});
       return;
     }
