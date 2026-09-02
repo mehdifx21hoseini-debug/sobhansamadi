@@ -3,7 +3,7 @@ import { getUserState, setUserState, clearUserState, createLead, readUserSource 
 import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
-import { sendSection, resolveSection } from "./content/sectionText.js";
+import { sendSection, resolveSection, sendChannelFile } from "./content/sectionText.js";
 import { supportChatUrl, supportPrefill, supportUsername } from "./supportContact.js";
 import { savePhone } from "./phones.js";
 
@@ -36,6 +36,38 @@ function courseChoiceKeyboard() {
 
 function cancelOnlyKeyboard() {
   return { inline_keyboard: [[{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]] };
+}
+
+// پرسشِ حساب ریل دو جوابِ ممکن دارد و نه بیشتر، پس دکمه است نه متنِ
+// آزاد: هم برای کاربر یک ضربه است، هم پاسخ در CRM یکدست می‌ماند و
+// می‌شود رویش فیلتر گذاشت. با متنِ آزاد، «دارم» و «بله» و «آره» سه
+// مقدارِ متفاوت می‌شدند.
+function realAccountKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "✅ بله، دارم", callback_data: "REAL_YES", style: "success" }],
+      [{ text: "❌ خیر، ندارم", callback_data: "REAL_NO" }],
+      [{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }],
+    ],
+  };
+}
+
+/**
+ * پاسخِ حساب ریل، از هر دو راه (دکمه یا متن).
+ *
+ * «ندارم» یعنی پرسشِ وضعیتِ ترید معنی ندارد و پرسیدنش کاربر را گیج
+ * می‌کند - پس مستقیم به تایید می‌رود. یک مرحله‌ی کمتر برای کسی که
+ * تازه‌کار است، دقیقاً همان‌جایی که بیشترین ریزش را دارد.
+ */
+async function applyRealAnswer(ctx, flow, temp, yes) {
+  const next = { ...temp, has_real_account: yes ? "بله" : "خیر" };
+  if (!yes) {
+    await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: next });
+    await ctx.reply(buildConfirmText(flow, next), { reply_markup: confirmCancelKeyboard() });
+    return;
+  }
+  await setUserState(ctx.env, ctx.from.id, { current_step: "ask_trade", temp_data: next });
+  await sendSection(ctx, "CONSULT_TRADE", cancelOnlyKeyboard());
 }
 
 function requestContactKeyboard() {
@@ -73,19 +105,20 @@ function normalizePhone(raw) {
 // هر فیلدی که پر نشده باشد اصلاً نمایش داده نمی‌شود، نه با «undefined»
 // روبه‌روی برچسبش.
 function buildConfirmText(flow, temp) {
-  const lines = [
-    flow === "registration"
-      ? "لطفاً اطلاعات ثبت‌نام خود را بررسی کنید:"
-      : "✅ اطلاعات شما ثبت شد.\n\nلطفاً اطلاعات زیر را بررسی کنید:",
-    "",
-  ];
+  // «✅ اطلاعات شما ثبت شد» اینجا بود و برداشته شد: هنوز چیزی ثبت نشده و
+  // کاربر باید تایید کند. کسی که آن جمله را می‌خواند فکر می‌کرد کارش
+  // تمام است و دکمه‌ی تایید را نمی‌زد - لیدی که تا آخر آمده بود و در
+  // آخرین قدم گم می‌شد، بدون اینکه هیچ‌جا دیده شود.
+  const lines = ["📋 لطفاً اطلاعات زیر را بررسی کنید:", ""];
 
   const fields = [
     ["👤 نام", temp.name],
     ["📱 موبایل", temp.phone],
     ["🎯 دوره موردنظر", temp.course],
-    ["📊 سطح و سابقه", temp.level],
-    ["🎯 هدف", temp.topic],
+    ["📊 دانش در مارکت", temp.level],
+    ["⏳ مدت فعالیت", temp.experience],
+    ["💼 حساب ریل", temp.has_real_account],
+    ["📈 وضعیت ترید", temp.trade_status],
   ];
   for (const [label, value] of fields) {
     if (value) lines.push(label + ": " + value);
@@ -141,23 +174,52 @@ export async function startFlow(ctx, flow, promptOverride, { skipCourseChoice = 
   await sendSection(ctx, "CONSULT_START", courseChoiceKeyboard());
 }
 
+// ویسِ توضیحاتِ استاد برای هر دوره. از کانال می‌آید (هشتگِ هم‌نام)، پس
+// عوض کردنش یک پستِ تازه است نه یک دیپلوی.
+//
+// «هر دو دوره» هر دو ویس را می‌گیرد - کسی که هر دو را می‌خواهد، درباره‌ی
+// هر دو هم باید بشنود.
+const COURSE_VOICES = {
+  COURSE_TECH: ["COURSE_TECH_VOICE"],
+  COURSE_PSY: ["COURSE_PSY_VOICE"],
+  COURSE_BOTH: ["COURSE_TECH_VOICE", "COURSE_PSY_VOICE"],
+};
+
 export async function handleCourseChoice(ctx, cb) {
   const state = await getUserState(ctx.env, ctx.from.id);
   if (!state || !COURSE_LABELS[cb]) return;
   const temp = { ...state.temp_data, course: COURSE_LABELS[cb] };
 
-  if (state.current_flow === "consultation") {
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name", temp_data: temp });
-    await ctx.editMessageText(
-      "👤 لطفاً نام و نام خانوادگی خودتان را وارد کنید:\n\nاین اطلاعات برای پیگیری و هماهنگی مشاوره استفاده می‌شود.",
-      { reply_markup: undefined }
-    );
-    await ctx.reply("👆", { reply_markup: cancelOnlyKeyboard() }).catch(() => {});
-    return;
-  }
+  // دکمه‌ها از پیامِ انتخاب برداشته می‌شوند تا کسی وسطِ فرم دوره را عوض
+  // نکند و دو نیمه‌ی ناهمخوان بسازد.
+  await ctx.editMessageText("🎯 دوره‌ی انتخابی شما: " + COURSE_LABELS[cb], { reply_markup: undefined })
+    .catch(() => {});
+
+  // ویسِ استاد پیش از فرم می‌رود: کسی که هنوز نمی‌داند دوره چیست، فرم پر
+  // نمی‌کند. نبودنش فرم را متوقف نمی‌کند - تا وقتی آکادمی ویس را در
+  // کانال نگذاشته، مسیر مثل قبل ادامه پیدا می‌کند.
+  await sendCourseVoices(ctx, cb);
 
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name", temp_data: temp });
-  await ctx.editMessageText("نام و نام خانوادگی خود را وارد کنید:", { reply_markup: cancelOnlyKeyboard() });
+  await sendSection(ctx, "CONSULT_INTRO");
+  await ctx.reply("👤 قدم ۱ از ۶\n\nنام و نام خانوادگی خود را وارد کنید:", {
+    reply_markup: cancelOnlyKeyboard(),
+  });
+}
+
+async function sendCourseVoices(ctx, cb) {
+  for (const id of COURSE_VOICES[cb] || []) {
+    await sendChannelFile(ctx, id).catch((err) =>
+      console.error("ارسال ویسِ دوره شکست خورد:", id, err && err.message)
+    );
+  }
+}
+
+export async function handleRealChoice(ctx, cb) {
+  const state = await getUserState(ctx.env, ctx.from.id);
+  if (!state || state.current_step !== "ask_real") return;
+  await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+  await applyRealAnswer(ctx, state.current_flow, state.temp_data || {}, cb === "REAL_YES");
 }
 
 export async function handleText(ctx, state) {
@@ -192,8 +254,36 @@ export async function handleText(ctx, state) {
 
   if (step === "ask_level") {
     temp.level = text;
-    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_topic", temp_data: temp });
-    await sendSection(ctx, "CONSULT_TOPIC", cancelOnlyKeyboard());
+    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_experience", temp_data: temp });
+    await sendSection(ctx, "CONSULT_EXPERIENCE", cancelOnlyKeyboard());
+    return;
+  }
+
+  if (step === "ask_experience") {
+    temp.experience = text;
+    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_real", temp_data: temp });
+    await sendSection(ctx, "CONSULT_REAL", realAccountKeyboard());
+    return;
+  }
+
+  // پرسش حساب ریل دکمه دارد، ولی کاربر ممکن است به‌جای زدنِ دکمه تایپ
+  // کند. «بله/آره/دارم» و «نه/ندارم» شناخته می‌شوند تا کسی پشتِ یک
+  // پرسشِ دوگزینه‌ای گیر نکند.
+  if (step === "ask_real") {
+    const yes = /^(بله|بلی|آره|اره|دارم|yes|y)$/i.test(text);
+    const no = /^(خیر|نه|ندارم|no|n)$/i.test(text);
+    if (!yes && !no) {
+      await ctx.reply("لطفاً یکی از دو دکمه‌ی زیر را بزنید 👇", { reply_markup: realAccountKeyboard() });
+      return;
+    }
+    await applyRealAnswer(ctx, flow, temp, yes);
+    return;
+  }
+
+  if (step === "ask_trade") {
+    temp.trade_status = text;
+    await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: temp });
+    await ctx.reply(buildConfirmText(flow, temp), { reply_markup: confirmCancelKeyboard() });
     return;
   }
 
@@ -265,6 +355,9 @@ export async function handleConfirm(ctx) {
     course: temp.course,
     level: temp.level,
     topic: temp.topic,
+    experience: temp.experience,
+    has_real_account: temp.has_real_account,
+    trade_status: temp.trade_status,
     // دیگر پرسیده نمی‌شود، ولی کلید می‌ماند: JSON.stringify کلیدِ
     // undefined را حذف می‌کند و آن‌طرف در n8n ستونِ غایب با ستونِ خالی
     // یکی نیست.
@@ -300,7 +393,9 @@ export async function handleConfirm(ctx) {
     name: temp.name,
     course: temp.course,
     level: temp.level,
-    topic: temp.topic,
+    experience: temp.experience,
+    hasRealAccount: temp.has_real_account,
+    tradeStatus: temp.trade_status,
   });
 }
 

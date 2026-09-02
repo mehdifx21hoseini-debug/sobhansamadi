@@ -118,6 +118,9 @@ function botNote(lead, when) {
   const extras = [];
   if (lead.level) extras.push("سطح: " + lead.level);
   if (lead.topic) extras.push("موضوع: " + lead.topic);
+  if (lead.experience) extras.push("مدت فعالیت: " + lead.experience);
+  if (lead.has_real_account) extras.push("حساب ریل: " + lead.has_real_account);
+  if (lead.trade_status) extras.push("وضعیت ترید: " + lead.trade_status);
   if (lead.preferred_time) extras.push("زمان دلخواه: " + lead.preferred_time);
   if (lead.confirmed === "true") extras.push("فرم تایید شده");
   return (
@@ -149,7 +152,13 @@ export function parseBotAnswers(notes) {
     while ((m = re.exec(text)) !== null) last = m[1].trim();
     return last;
   };
-  return { level: grab("سطح"), topic: grab("موضوع") };
+  return {
+    level: grab("سطح"),
+    topic: grab("موضوع"),
+    experience: grab("مدت فعالیت"),
+    has_real_account: grab("حساب ریل"),
+    trade_status: grab("وضعیت ترید"),
+  };
 }
 
 /**
@@ -176,7 +185,10 @@ export async function upsertBotLead(env, lead) {
            full_name = COALESCE(NULLIF(?, ''), full_name),
            course = COALESCE(NULLIF(?, ''), course),
            level = COALESCE(NULLIF(?, ''), level),
-           topic = COALESCE(NULLIF(?, ''), topic)
+           topic = COALESCE(NULLIF(?, ''), topic),
+           experience = COALESCE(NULLIF(?, ''), experience),
+           has_real_account = COALESCE(NULLIF(?, ''), has_real_account),
+           trade_status = COALESCE(NULLIF(?, ''), trade_status)
          WHERE lead_id = ?`
       )
       .bind(
@@ -184,6 +196,7 @@ export async function upsertBotLead(env, lead) {
         lead.telegram_user_id == null ? "" : String(lead.telegram_user_id),
         lead.username || "", lead.name || "", lead.course || "",
         lead.level || "", lead.topic || "",
+        lead.experience || "", lead.has_real_account || "", lead.trade_status || "",
         existing.lead_id
       )
       .run();
@@ -197,8 +210,8 @@ export async function upsertBotLead(env, lead) {
       `INSERT INTO crm_leads
          (lead_id, telegram_user_id, telegram_username, full_name, phone, course,
           request_type, notes, status, contact_attempts, created_at, updated_at, source,
-          level, topic)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'جدید', 0, ?, ?, ?, ?, ?)`
+          level, topic, experience, has_real_account, trade_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'جدید', 0, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       leadId,
@@ -206,7 +219,8 @@ export async function upsertBotLead(env, lead) {
       lead.username || null, lead.name || null, phone || null, lead.course || null,
       lead.request_type || "مشاوره", note,
       now.toISOString(), now.toISOString(), lead.source || "telegram_bot",
-      lead.level || null, lead.topic || null
+      lead.level || null, lead.topic || null,
+      lead.experience || null, lead.has_real_account || null, lead.trade_status || null
     )
     .run();
   await logActivity(env, leadId, "ثبت لید", "از ربات تلگرام", "bot");

@@ -615,11 +615,25 @@
 	// The regex fallback only covers the gap between a bot write and the
 	// backfill; without it such a row would claim the question was never
 	// asked, which is worse than a slightly slower read.
+	var ANSWER_KEYS = ["level", "topic", "experience", "has_real_account", "trade_status"];
+	var ANSWER_LABELS = {
+		level: "سطح",
+		topic: "موضوع",
+		experience: "مدت فعالیت",
+		has_real_account: "حساب ریل",
+		trade_status: "وضعیت ترید",
+	};
+
 	function botAnswers(lead) {
-		if (!lead) return { level: "", topic: "" };
-		if (lead.level || lead.topic) {
-			return { level: lead.level || "", topic: lead.topic || "" };
-		}
+		var out = {};
+		ANSWER_KEYS.forEach(function (k) { out[k] = lead ? lead[k] || "" : ""; });
+		if (!lead) return out;
+		// ستون‌ها منبع اصلی‌اند. متنِ یادداشت فقط برای ردیف‌های قدیمی
+		// خوانده می‌شود - آن‌هایی که پیش از ساخته شدنِ ستون‌ها ثبت شده‌اند
+		// و پاسخ‌هایشان هنوز داخل notes است.
+		var missing = ANSWER_KEYS.filter(function (k) { return !out[k]; });
+		if (missing.length === 0) return out;
+
 		var notes = String(lead.notes || "");
 		function grab(label) {
 			var re = new RegExp(label + "\\s*:\\s*([^|\\n]+)", "g");
@@ -627,7 +641,8 @@
 			while ((m = re.exec(notes)) !== null) last = m[1].trim();
 			return last;
 		}
-		return { level: grab("سطح"), topic: grab("موضوع") };
+		missing.forEach(function (k) { out[k] = grab(ANSWER_LABELS[k]); });
+		return out;
 	}
 
 	// Legacy rows only have reminder_date; new writes only set

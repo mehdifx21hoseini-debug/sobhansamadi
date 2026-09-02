@@ -46,7 +46,7 @@ function courseKind(course) {
 // می‌گیرند.
 const OPENERS = {
   tech: (name) =>
-    "من " + name + " هستم و برای شرکت در «مجموعه آموزشی پیشرفته» فرم مشاوره را تکمیل کردم.",
+    "من " + name + " هستم و برای شرکت در «مجموعه آموزشی پیشرفته» فرم تعیین سطح را تکمیل کردم.",
   psy: (name) =>
     "من " + name + " هستم و می‌خوام در «دوره روانشناسی و ذهنیت معامله‌گری» شرکت کنم تا بتونم ذهن و عملکردم رو بهتر بشناسم و در مسیر تبدیل شدن به یک معامله‌گر مسلط بر ذهن و احساسات خودم قدم بردارم.",
   both: (name) =>
@@ -77,18 +77,23 @@ const CLOSERS = {
  * می‌کند، بدون اینکه نام و شماره را دوباره بپرسد - چیزی که کاربر دو
  * دقیقه پیش داده و پرسیدنِ دوباره‌اش بدترین شروعِ ممکن است.
  */
-export function supportPrefill({ leadId, name, course, level, topic } = {}) {
+export function supportPrefill({
+  leadId, name, course, level, experience, hasRealAccount, tradeStatus,
+} = {}) {
   const kind = courseKind(course);
   const who = String(name || "").trim();
 
   const lines = ["سلام، روزتون بخیر 🌹", ""];
-  lines.push(who ? OPENERS[kind](who) : "فرم مشاوره و ثبت‌نام را تکمیل کردم.");
+  lines.push(who ? OPENERS[kind](who) : "فرم تعیین سطح را تکمیل کردم.");
 
+  const clean = (v) => String(v === null || v === undefined ? "" : v).trim();
   const facts = [];
-  if (String(level || "").trim()) facts.push("📊 سطح دانش و تجربه‌ام: " + String(level).trim());
-  if (String(topic || "").trim()) {
-    facts.push((kind === "tech" ? "🎯 هدفم از شرکت در دوره: " : "🎯 هدفم: ") + String(topic).trim());
+  if (clean(level)) facts.push("📊 دانش من در مارکت: " + clean(level));
+  if (clean(experience)) facts.push("⏳ مدت فعالیتم: " + clean(experience));
+  if (clean(hasRealAccount)) {
+    facts.push("💼 حساب ریل: " + (clean(hasRealAccount) === "بله" ? "دارم" : "ندارم"));
   }
+  if (clean(tradeStatus)) facts.push("📈 وضعیت تریدم: " + clean(tradeStatus));
   if (facts.length) lines.push("", ...facts);
 
   lines.push("", kind === "psy" ? CLOSERS.psy : CLOSERS.default);

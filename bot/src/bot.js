@@ -54,7 +54,7 @@ import { sendLearnMenu, sendToolsMenu, sendAboutUsMenu } from "./sections.js";
 import { handleFreeText } from "./freeText.js";
 import { handleChannelPost } from "./content/ingest.js";
 import { startSupport, handleQuestion } from "./support.js";
-import { startFlow as startRegistrationFlow, handleCourseChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
+import { startFlow as startRegistrationFlow, handleCourseChoice, handleRealChoice, handleText as handleFlowText, handleContact, handleConfirm, handleCancel } from "./registrationFlow.js";
 import {
   sendLibrary,
   handleBookSelect,
@@ -302,6 +302,12 @@ export function createBot(token, env, botInfo, build = "?") {
     if (data === "COURSE_PSY" || data === "COURSE_TECH" || data === "COURSE_BOTH") {
       await ctx.answerCallbackQuery();
       await handleCourseChoice(ctx, data);
+      return;
+    }
+
+    if (data === "REAL_YES" || data === "REAL_NO") {
+      await ctx.answerCallbackQuery();
+      await handleRealChoice(ctx, data);
       return;
     }
 

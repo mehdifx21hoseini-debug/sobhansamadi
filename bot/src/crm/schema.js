@@ -131,6 +131,14 @@ const ADD_COLUMNS = [
   // دلیلِ پیگیری. تاریخ به‌تنهایی نمی‌گوید قرار بوده چه بگوییم، و
   // مشاور برای فهمیدنش باید پرونده را باز کند و یادداشت‌ها را بخواند.
   "ALTER TABLE crm_leads ADD COLUMN followup_reason TEXT",
+  // فرمِ تعیین سطح: سه پاسخِ تازه که پیش از این پرسیده نمی‌شدند.
+  //
+  // بدون ستونِ جدا، هر سه داخل متنِ یادداشت می‌ماندند - همان اشتباهی که
+  // یک بار برای «سطح» و «هدف» تکرار شد و بعداً باید پارس‌شان می‌کردیم.
+  // مشاور باید پیش از برداشتنِ گوشی بداند طرف حساب واقعی دارد یا نه.
+  "ALTER TABLE crm_leads ADD COLUMN experience TEXT",
+  "ALTER TABLE crm_leads ADD COLUMN has_real_account TEXT",
+  "ALTER TABLE crm_leads ADD COLUMN trade_status TEXT",
 ];
 
 let ensured = false;

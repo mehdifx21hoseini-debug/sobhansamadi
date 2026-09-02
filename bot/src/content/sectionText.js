@@ -51,8 +51,11 @@ export const SECTIONS = {
   // متنی که در /edit دیده شود ولی هرگز به کاربر نرود، مدیر را به این
   // باور می‌رساند که چیزی را عوض کرده که عوض نشده.
   CONSULT_START: { code: "CONSULT_START_TEXT", label: "🟢 شروع مشاوره — انتخاب دوره", def: D.CONSULT_START_TEXT },
-  CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 مشاوره — پرسش سطح", def: D.CONSULT_LEVEL_TEXT },
-  CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 مشاوره — پرسش موضوع", def: D.CONSULT_TOPIC_TEXT },
+  CONSULT_INTRO: { code: "CONSULT_INTRO_TEXT", label: "🟢 تعیین سطح — متن شروع فرم", def: D.CONSULT_INTRO_TEXT },
+  CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 تعیین سطح — پرسش ۳: دانش", def: D.CONSULT_LEVEL_TEXT },
+  CONSULT_EXPERIENCE: { code: "CONSULT_EXPERIENCE_TEXT", label: "🟢 تعیین سطح — پرسش ۴: مدت فعالیت", def: D.CONSULT_EXPERIENCE_TEXT },
+  CONSULT_REAL: { code: "CONSULT_REAL_TEXT", label: "🟢 تعیین سطح — پرسش ۵: حساب ریل", def: D.CONSULT_REAL_TEXT },
+  CONSULT_TRADE: { code: "CONSULT_TRADE_TEXT", label: "🟢 تعیین سطح — پرسش ۶: وضعیت ترید", def: D.CONSULT_TRADE_TEXT },
   LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 پیام پایان ثبت‌نام/مشاوره", def: D.LEAD_DONE_TEXT },
   LEAD_SUPPORT: { code: "LEAD_SUPPORT_TEXT", label: "💬 دعوت به پشتیبانی بعد از ثبت‌نام", def: D.LEAD_SUPPORT_TEXT },
 
@@ -149,6 +152,10 @@ const MEDIA_SENDERS = {
   audio: (ctx, id, o) => ctx.replyWithAudio(id, o),
   voice: (ctx, id, o) => ctx.replyWithVoice(id, o),
 };
+
+export async function sendChannelFile(ctx, contentId) {
+  return sendChannelMedia(ctx, contentId);
+}
 
 async function sendChannelMedia(ctx, contentId) {
   const row = await getContent(ctx.env, contentId).catch(() => null);
