@@ -1,4 +1,4 @@
-import { InlineKeyboard, Keyboard } from "grammy";
+import { Keyboard } from "grammy";
 import { getUserState, setUserState, clearUserState, createLead, readUserSource } from "./db.js";
 import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
@@ -1033,9 +1033,19 @@ async function sendSubmittedReceipt(ctx, temp, leadId) {
         goal: temp.topic,
       })
     );
-    // رنگِ دکمه دستِ ما نیست - تلگرام همه‌شان را هم‌رنگِ تمِ کاربر
-    // می‌کشد - پس ✅ کارِ رنگِ سبز را می‌کند.
-    markup = new InlineKeyboard().url("✅ پیام به پشتیبانی آکادمی", url);
+    // شیءِ خام و نه سازنده‌ی InlineKeyboard: گرامی فیلدِ style را بی‌صدا
+    // دور می‌ریزد و دکمه بی‌رنگ می‌ماند - همان دلیلی که کیبوردِ منوی
+    // اصلی هم دستی ساخته می‌شود.
+    //
+    // primary یعنی همان آبیِ دکمه‌های منوی اصلی: کاربر این رنگ را در
+    // کلِ ربات به‌عنوان «دکمه‌ی اصلی» یاد گرفته، و این دکمه هم مهم‌ترین
+    // کارِ این لحظه است.
+    //
+    // ✅ از متن برداشته شد: تیکِ سبز جای رنگِ سبز را پر می‌کرد و روی
+    // دکمه‌ی آبی، دو پیامِ متناقض می‌داد.
+    markup = {
+      inline_keyboard: [[{ text: "💬 ارسال پیام به پشتیبانی", url, style: "primary" }]],
+    };
   } catch (err) {
     console.error("ساختنِ دعوتِ پشتیبانی شکست خورد:", err && err.message);
   }
