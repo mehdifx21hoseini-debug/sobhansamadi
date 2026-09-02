@@ -752,8 +752,15 @@ export async function drainBatch(env, batchId, sendRaw) {
 
   const { results } = await env.DB
     .prepare(
+      // «هنوز نرفته» یعنی message_id ندارد - نه اینکه status خالی است.
+      //
+      // ردیف‌های ارسال‌های پیش از ساخته شدنِ ستونِ status، message_id
+      // دارند و status ندارند. با شرطِ «status IS NULL یعنی در صف»،
+      // همان‌ها دوباره در صف می‌افتادند و کاربرانی که هفته‌ی پیش پیام
+      // گرفته بودند، دوباره همان پیام را می‌گرفتند.
       `SELECT id, chat_id FROM crm_broadcast_recipients
-        WHERE batch_id = ? AND (status IS NULL OR status = 'pending')
+        WHERE batch_id = ? AND message_id IS NULL
+          AND (status IS NULL OR status = 'pending')
         ORDER BY id LIMIT ?`
     )
     .bind(batchId, CHUNK_HARD_CAP)
@@ -799,9 +806,11 @@ export async function drainBatch(env, batchId, sendRaw) {
   const counts = await env.DB
     .prepare(
       `SELECT
-         SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
+         SUM(CASE WHEN status = 'sent' OR message_id IS NOT NULL THEN 1 ELSE 0 END) AS sent,
          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
-         SUM(CASE WHEN status IS NULL OR status = 'pending' THEN 1 ELSE 0 END) AS remaining
+         SUM(CASE WHEN message_id IS NULL
+                       AND (status IS NULL OR status = 'pending')
+                  THEN 1 ELSE 0 END) AS remaining
        FROM crm_broadcast_recipients WHERE batch_id = ?`
     )
     .bind(batchId)
@@ -845,6 +854,7 @@ export async function drainPendingBroadcasts(env, sendRaw) {
         WHERE b.deleted = 0
           AND EXISTS (SELECT 1 FROM crm_broadcast_recipients r
                        WHERE r.batch_id = b.batch_id
+                         AND r.message_id IS NULL
                          AND (r.status IS NULL OR r.status = 'pending'))
         ORDER BY b.created_at LIMIT 1`
     )
