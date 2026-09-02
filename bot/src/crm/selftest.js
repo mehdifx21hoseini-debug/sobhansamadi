@@ -101,6 +101,26 @@ export async function crmSelfTest(env) {
     counts.__last_broadcasts = "خطا: " + String(err && err.message);
   }
 
+  // فایل‌های ثابتی که از کانال می‌آیند و مسیرِ ثبت‌نام به آن‌ها تکیه
+  // می‌کند. نبودنشان خطا نمی‌دهد - مسیر بی‌صدا بدونشان ادامه پیدا
+  // می‌کند - پس تنها راهِ فهمیدنش یا یک ثبت‌نامِ تستی است یا همین خط.
+  try {
+    const ids = ["LEAD_DONE_ANIM", "COURSE_TECH_VOICE", "COURSE_PSY_VOICE"];
+    const { results } = await env.DB
+      .prepare(
+        `SELECT content_id, file_type FROM content_library
+           WHERE content_id IN (?, ?, ?) AND active = 1`
+      )
+      .bind(...ids)
+      .all();
+    const found = new Map((results || []).map((r) => [r.content_id, r.file_type]));
+    counts.__channel_files = ids.map(
+      (id) => id + ": " + (found.has(id) ? found.get(id) : "— هنوز در کانال گذاشته نشده")
+    );
+  } catch (err) {
+    counts.__channel_files = "خطا: " + String(err && err.message);
+  }
+
   try {
     await cleanup(env); // بازمانده‌ی اجرای قبلی، اگر وسط کار قطع شده بود
     const password = randomPassword();
