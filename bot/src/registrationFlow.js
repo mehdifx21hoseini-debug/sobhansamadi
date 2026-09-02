@@ -4,7 +4,6 @@ import { upsertBotLead } from "./crm/intake.js";
 import { ensureCrmSchema } from "./crm/schema.js";
 import { mainMenuKeyboard } from "./menu.js";
 import { sendSection, resolveSection } from "./content/sectionText.js";
-import { supportChatUrl, supportPrefill, supportUsername } from "./supportContact.js";
 import { savePhone } from "./phones.js";
 
 const COURSE_LABELS = {
@@ -284,22 +283,15 @@ export async function handleConfirm(ctx) {
   // upsert است نه insert: اگر همین شماره لید قبلی داشته باشد، یادداشت
   // تازه به همان پرونده می‌چسبد. بدون این، مشتریِ برگشته یک ردیف دوم
   // می‌سازد و دو مشاور به یک نفر زنگ می‌زنند - قاعده‌ای که n8n داشت.
-  const saved = await ensureCrmSchema(ctx.env)
+  await ensureCrmSchema(ctx.env)
     .then(() => upsertBotLead(ctx.env, lead))
-    .catch((err) => {
-      console.error("نوشتن لید در crm_leads شکست خورد:", err && err.message);
-      return null;
-    });
+    .catch((err) => console.error("نوشتن لید در crm_leads شکست خورد:", err && err.message));
 
   await clearUserState(ctx.env, ctx.from.id);
 
   await ctx.editMessageText("✅ اطلاعات شما تایید و ثبت شد.", { reply_markup: undefined });
   await sendLeadDone(ctx);
-  await sendSupportInvite(ctx, {
-    leadId: saved && saved.lead_id,
-    name: temp.name,
-    course: temp.course,
-  });
+
 }
 
 export async function handleCancel(ctx) {
@@ -312,29 +304,4 @@ export async function handleCancel(ctx) {
 async function sendLeadDone(ctx) {
   const { text } = await resolveSection(ctx.env, "LEAD_DONE");
   await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
-}
-
-/**
- * دعوت به پشتیبانی، درست بعد از «ثبت شد».
- *
- * دکمه چت پشتیبانی را با پیامِ آماده باز می‌کند. رنگ دکمه دستِ ما نیست -
- * تلگرام همه‌شان را هم‌رنگ تمِ کاربر می‌کشد - پس ✅ کارِ رنگ سبز را
- * می‌کند.
- *
- * شکستش بلعیده می‌شود: لید ثبت شده و کاربر «ثبت شد» را گرفته؛ یک پیامِ
- * تکمیلی نباید آن لحظه را به خطا تبدیل کند.
- */
-async function sendSupportInvite(ctx, info) {
-  try {
-    const { text } = await resolveSection(ctx.env, "LEAD_SUPPORT");
-    const url = supportChatUrl(ctx.env, supportPrefill(info));
-    const body = text + "\n\n🆔 @" + supportUsername(ctx.env);
-    await ctx.reply(body, {
-      reply_markup: new InlineKeyboard().url("✅ پیام به پشتیبانی آکادمی", url),
-      // پیش‌نمایشِ لینکِ t.me زیر پیام، دکمه را از چشم می‌اندازد.
-      link_preview_options: { is_disabled: true },
-    });
-  } catch (err) {
-    console.error("ارسال دعوتِ پشتیبانی شکست خورد:", err && err.message);
-  }
 }

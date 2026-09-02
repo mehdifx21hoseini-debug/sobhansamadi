@@ -54,7 +54,6 @@ export const SECTIONS = {
   CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 مشاوره — پرسش سطح", def: D.CONSULT_LEVEL_TEXT },
   CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 مشاوره — پرسش موضوع", def: D.CONSULT_TOPIC_TEXT },
   LEAD_DONE: { code: "LEAD_DONE_TEXT", label: "🎉 پیام پایان ثبت‌نام/مشاوره", def: D.LEAD_DONE_TEXT },
-  LEAD_SUPPORT: { code: "LEAD_SUPPORT_TEXT", label: "💬 دعوت به پشتیبانی بعد از ثبت‌نام", def: D.LEAD_SUPPORT_TEXT },
 
   // دروازه‌ی عضویت: اولین چیزی که یک کاربر تازه می‌بیند.
   JOIN_FIRST: { code: "JOIN_FIRST_TEXT", label: "🔒 درخواست عضویت در کانال", def: D.JOIN_FIRST_TEXT },
