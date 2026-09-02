@@ -91,12 +91,30 @@ const CHOICES = {
   trade: {
     prefix: "TRD",
     field: "trade_status",
-    next: "confirm",
+    next: "ask_goal",
     options: [
       "📉 بیشتر در ضرر بوده‌ام",
       "⚖️ تقریباً سربه‌سر",
       "📈 در مجموع سودده بوده‌ام",
       "🎢 نوسان زیاد دارد، ثابت نیست",
+    ],
+  },
+  // آخرین پرسش، و تنها پرسشی که متنِ دلخواه هم می‌پذیرد.
+  //
+  // بقیه فهرستِ بسته دارند چون جوابشان باید قابلِ شمردن باشد. هدف فرق
+  // دارد: همان جمله‌ای که کاربر با زبانِ خودش می‌نویسد، بهترین چیزی است
+  // که مشاور می‌تواند پیش از تماس بخواند. دکمه‌ها برای کسی هستند که
+  // حوصله‌ی تایپ ندارد - نه برای محدود کردنش.
+  goal: {
+    prefix: "GOL",
+    field: "topic",
+    next: "confirm",
+    freeText: true,
+    options: [
+      "🎯 یاد گرفتن یک استراتژی مشخص",
+      "💰 رسیدن به درآمد پایدار از بازار",
+      "🧠 کنترل احساسات و انضباط در معامله",
+      "🚀 حرفه‌ای شدن و ترید تمام‌وقت",
     ],
   },
 };
@@ -112,13 +130,14 @@ function choiceKeyboard(kind) {
 
 // هر سه پرسشِ دکمه‌ای یک مسیر دارند، پس یک تابع - وگرنه سه نسخه‌ی
 // تقریباً یکسان می‌شد که روزی یکی‌شان اصلاح می‌شد و دوتای دیگر نه.
-const STEP_OF_CHOICE = { level: "ask_level", experience: "ask_experience", trade: "ask_trade" };
+const STEP_OF_CHOICE = { level: "ask_level", experience: "ask_experience", trade: "ask_trade", goal: "ask_goal" };
 const SECTION_OF_STEP = {
   ask_level: "CONSULT_LEVEL",
   ask_experience: "CONSULT_EXPERIENCE",
   ask_trade: "CONSULT_TRADE",
+  ask_goal: "CONSULT_TOPIC",
 };
-const KIND_OF_STEP = { ask_level: "level", ask_experience: "experience", ask_trade: "trade" };
+const KIND_OF_STEP = { ask_level: "level", ask_experience: "experience", ask_trade: "trade", ask_goal: "goal" };
 
 async function applyChoice(ctx, flow, temp, kind, value) {
   const spec = CHOICES[kind];
@@ -164,8 +183,10 @@ export async function handleChoiceButton(ctx, data) {
 async function applyRealAnswer(ctx, flow, temp, yes) {
   const next = { ...temp, has_real_account: yes ? "بله" : "خیر" };
   if (!yes) {
-    await setUserState(ctx.env, ctx.from.id, { current_step: "confirm", temp_data: next });
-    await ctx.reply(buildConfirmText(flow, next), { reply_markup: confirmCancelKeyboard() });
+    // پرسشِ وضعیتِ ترید رد می‌شود ولی هدف نه: هدف به داشتنِ حساب ربطی
+    // ندارد و برای تازه‌کار حتی مهم‌تر است.
+    await setUserState(ctx.env, ctx.from.id, { current_step: "ask_goal", temp_data: next });
+    await sendSection(ctx, "CONSULT_TOPIC", choiceKeyboard("goal"));
     return;
   }
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_trade", temp_data: next });
@@ -221,6 +242,7 @@ function buildConfirmText(flow, temp) {
     ["⏳ مدت فعالیت", temp.experience],
     ["💼 حساب ریل", temp.has_real_account],
     ["📈 وضعیت ترید", temp.trade_status],
+    ["🎯 هدف از دوره", temp.topic],
   ];
   for (const [label, value] of fields) {
     if (value) lines.push(label + ": " + value);
@@ -364,6 +386,11 @@ export async function handleText(ctx, state) {
     const match = CHOICES[kind].options.find(
       (o) => o === text || o.replace(/^[^؀-ۿ]+/, "").startsWith(text)
     );
+    // پرسشِ هدف هر جمله‌ای را قبول می‌کند؛ بقیه فقط گزینه‌هایشان را.
+    if (!match && CHOICES[kind].freeText) {
+      await applyChoice(ctx, flow, temp, kind, text);
+      return;
+    }
     if (!match) {
       await ctx.reply("لطفاً یکی از گزینه‌های زیر را بزنید 👇", {
         reply_markup: choiceKeyboard(kind),
@@ -497,6 +524,7 @@ export async function handleConfirm(ctx) {
     experience: temp.experience,
     hasRealAccount: temp.has_real_account,
     tradeStatus: temp.trade_status,
+    goal: temp.topic,
   });
 }
 

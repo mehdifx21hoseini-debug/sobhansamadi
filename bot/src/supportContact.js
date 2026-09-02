@@ -78,7 +78,7 @@ const CLOSERS = {
  * دقیقه پیش داده و پرسیدنِ دوباره‌اش بدترین شروعِ ممکن است.
  */
 export function supportPrefill({
-  leadId, name, course, level, experience, hasRealAccount, tradeStatus,
+  leadId, name, course, level, experience, hasRealAccount, tradeStatus, goal,
 } = {}) {
   const kind = courseKind(course);
   const who = String(name || "").trim();
@@ -86,7 +86,15 @@ export function supportPrefill({
   const lines = ["سلام، روزتون بخیر 🌹", ""];
   lines.push(who ? OPENERS[kind](who) : "فرم تعیین سطح را تکمیل کردم.");
 
-  const clean = (v) => String(v === null || v === undefined ? "" : v).trim();
+  // ایموجیِ ابتدای گزینه‌ها برداشته می‌شود.
+  //
+  // متنِ دکمه‌ها ایموجی دارد («📗 مقدماتی…») و هر خطِ این پیام هم ایموجیِ
+  // خودش را دارد؛ کنارِ هم «📊 دانش من در مارکت: 📗 مقدماتی» می‌شد - دو
+  // نشان پشت سر هم که هیچ‌کدام چیزی اضافه نمی‌کند.
+  const clean = (v) =>
+    String(v === null || v === undefined ? "" : v)
+      .trim()
+      .replace(/^[^؀-ۿ0-9A-Za-z]+/, "");
   const facts = [];
   if (clean(level)) facts.push("📊 دانش من در مارکت: " + clean(level));
   if (clean(experience)) facts.push("⏳ مدت فعالیتم: " + clean(experience));
@@ -94,6 +102,7 @@ export function supportPrefill({
     facts.push("💼 حساب ریل: " + (clean(hasRealAccount) === "بله" ? "دارم" : "ندارم"));
   }
   if (clean(tradeStatus)) facts.push("📈 وضعیت تریدم: " + clean(tradeStatus));
+  if (clean(goal)) facts.push("🎯 هدفم از دوره: " + clean(goal));
   if (facts.length) lines.push("", ...facts);
 
   lines.push("", kind === "psy" ? CLOSERS.psy : CLOSERS.default);

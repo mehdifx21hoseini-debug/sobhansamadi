@@ -305,7 +305,7 @@ export function createBot(token, env, botInfo, build = "?") {
       return;
     }
 
-    if (/^(LVL|EXP|TRD)\|/.test(data)) {
+    if (/^(LVL|EXP|TRD|GOL)\|/.test(data)) {
       await ctx.answerCallbackQuery();
       await handleChoiceButton(ctx, data);
       return;

@@ -332,9 +332,7 @@
 		$grid.append(qaCard("⏳ مدت فعالیت", answers.experience));
 		$grid.append(qaCard("💼 حساب ریل", answers.has_real_account));
 		$grid.append(qaCard("📈 وضعیت ترید", answers.trade_status));
-		// «هدف از مشاوره» دیگر پرسیده نمی‌شود؛ فقط برای پرونده‌های قدیمی
-		// که جوابش را دارند نشان داده می‌شود.
-		if (answers.topic) $grid.append(qaCard("💬 هدف از مشاوره", answers.topic));
+		$grid.append(qaCard("🎯 هدف از دوره", answers.topic));
 		if (lead.course) $grid.append(qaCard("🎯 دوره‌ی انتخاب‌شده", lead.course));
 		$wrap.append($grid);
 
@@ -402,7 +400,7 @@
 		// «چرا آمده» - تنها چیزی که پیش از برداشتنِ گوشی واقعاً لازم است و
 		// تا امروز فقط داخل کشو بود.
 		var answers = CrmData.botAnswers(lead);
-		var why = answers.level || answers.topic || lead.course || "";
+		var why = answers.topic || answers.level || lead.course || "";
 		if (why) {
 			$who.append($('<div class="who-why">').attr("title", why)
 				.append($('<i class="fas fa-quote-right">'))
