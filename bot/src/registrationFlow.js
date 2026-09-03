@@ -877,7 +877,10 @@ export async function handleConfirm(ctx) {
   // upsert است نه insert: اگر همین شماره لید قبلی داشته باشد، یادداشت
   // تازه به همان پرونده می‌چسبد. بدون این، مشتریِ برگشته یک ردیف دوم
   // می‌سازد و دو مشاور به یک نفر زنگ می‌زنند - قاعده‌ای که n8n داشت.
-  const saved = await ensureCrmSchema(ctx.env)
+  // نتیجه‌اش دیگر جایی خوانده نمی‌شود - کدِ لید از پیامِ پشتیبانی
+  // برداشته شد - ولی خودِ نوشتن سرِ جایش است: پنلِ مشاورها از همین
+  // جدول می‌خواند.
+  await ensureCrmSchema(ctx.env)
     .then(() => upsertBotLead(ctx.env, lead))
     .catch((err) => {
       console.error("نوشتن لید در crm_leads شکست خورد:", err && err.message);
@@ -895,7 +898,7 @@ export async function handleConfirm(ctx) {
   await ctx.deleteMessage().catch(() =>
     ctx.editMessageText("✅ اطلاعات شما ثبت شد.", { reply_markup: undefined }).catch(() => {})
   );
-  await sendDoneCelebration(ctx, temp, saved && saved.lead_id);
+  await sendDoneCelebration(ctx, temp);
 }
 
 /**
@@ -908,7 +911,7 @@ export async function handleConfirm(ctx) {
  * متن و دکمه روی خودِ گیف می‌نشینند، نه در پیامی جدا: کپشنِ یک
  * animation هم متن می‌گیرد هم دکمه، پس جشن و دعوت از هم جدا نمی‌افتند.
  */
-async function sendDoneCelebration(ctx, temp, leadId) {
+async function sendDoneCelebration(ctx, temp) {
   // هر دو تکه از /edit می‌آیند و پشتِ سرِ هم یک کپشن می‌سازند.
   const header = await resolveSection(ctx.env, "LEAD_DONE")
     .then((r) => String(r.text || "").trim())
@@ -921,8 +924,8 @@ async function sendDoneCelebration(ctx, temp, leadId) {
     const url = supportChatUrl(
       ctx.env,
       supportPrefill({
-        leadId,
         name: temp.name,
+        phone: temp.phone,
         course: temp.course,
         level: temp.level,
         experience: temp.experience,
