@@ -56,12 +56,17 @@ export const SECTIONS = {
   COURSE_TECH_CARD: { code: "COURSE_TECH_CARD_TEXT", label: "🟢 کارت معرفی — مجموعه پیشرفته", def: D.COURSE_TECH_CARD_TEXT },
   COURSE_PSY_CARD: { code: "COURSE_PSY_CARD_TEXT", label: "🟢 کارت معرفی — دوره روانشناسی", def: D.COURSE_PSY_CARD_TEXT },
   COURSE_BOTH_CARD: { code: "COURSE_BOTH_CARD_TEXT", label: "🟢 کارت معرفی — هر دو دوره", def: D.COURSE_BOTH_CARD_TEXT },
-  CONSULT_INTRO: { code: "CONSULT_INTRO_TEXT", label: "🟢 تعیین سطح — متن شروع فرم", def: D.CONSULT_INTRO_TEXT },
+  // «متن شروع فرم» و «پرسش ۷: هدف از دوره» از اینجا برداشته شدند: هیچ‌کدام
+  // دیگر فرستاده نمی‌شوند، و متنی که مدیر در /edit ببیند ولی هرگز به
+  // کاربر نرسد، او را به این باور می‌رساند که چیزی را عوض کرده که عوض
+  // نشده.
+  //
+  // پرسش ۱ (نام) و ۲ (شماره) در کد ثابت‌اند: اولی سه جا پرسیده می‌شود و
+  // باید یکی بماند، دومی به کیبوردِ درخواستِ شماره وابسته است.
   CONSULT_LEVEL: { code: "CONSULT_LEVEL_TEXT", label: "🟢 تعیین سطح — پرسش ۳: دانش", def: D.CONSULT_LEVEL_TEXT },
   CONSULT_EXPERIENCE: { code: "CONSULT_EXPERIENCE_TEXT", label: "🟢 تعیین سطح — پرسش ۴: مدت فعالیت", def: D.CONSULT_EXPERIENCE_TEXT },
   CONSULT_REAL: { code: "CONSULT_REAL_TEXT", label: "🟢 تعیین سطح — پرسش ۵: حساب ریل", def: D.CONSULT_REAL_TEXT },
   CONSULT_TRADE: { code: "CONSULT_TRADE_TEXT", label: "🟢 تعیین سطح — پرسش ۶: وضعیت ترید", def: D.CONSULT_TRADE_TEXT },
-  CONSULT_TOPIC: { code: "CONSULT_TOPIC_TEXT", label: "🟢 تعیین سطح — پرسش ۷: هدف از دوره", def: D.CONSULT_TOPIC_TEXT },
   // دو تکه‌ی کپشنِ پیامِ پایان - پشتِ سرِ هم، روی همان گیف:
   //   LEAD_DONE    - خطِ اول، خبرِ ثبت
   //   LEAD_SUPPORT - دعوت به پشتیبانی، درست بالای دکمه

@@ -76,7 +76,7 @@ export function isBackToMenu(text) {
 // سه جا پرسیده می‌شود - شروعِ فرم، برگشت از پرسشِ شماره، و ویرایش از
 // صفحه‌ی تایید - و پیشتر در دو نسخه نوشته شده بود، یکی با ایموجی و یکی
 // بی‌آن.
-const NAME_QUESTION = "👤 نام و نام خانوادگی خود را وارد کنید:";
+const NAME_QUESTION = "١- نام و نام خانوادگي خودتون رو بفرماييد";
 
 function cancelOnlyKeyboard() {
   return { inline_keyboard: [[{ text: "❌ لغو فرآیند", callback_data: "FLOW_CANCEL", style: "danger" }]] };
@@ -137,77 +137,31 @@ function realAccountKeyboard() {
  * است چون تلگرام سقفِ ۶۴ بایت دارد و متنِ فارسی زود از آن رد می‌شود.
  */
 const CHOICES = {
-  level: {
-    prefix: "LVL",
-    field: "level",
-    next: "ask_experience",
-    options: [
-      "🌱 مبتدی - تازه شروع کرده‌ام",
-      "📗 مقدماتی - اصول را می‌دانم",
-      "📘 متوسط - تحلیل می‌کنم ولی استراتژی ثابت ندارم",
-      "📙 پیشرفته - استراتژی دارم و اجرا می‌کنم",
-    ],
-  },
-  experience: {
-    prefix: "EXP",
-    field: "experience",
-    next: "ask_real",
-    options: [
-      "کمتر از ۶ ماه",
-      "۶ ماه تا ۱ سال",
-      "۱ تا ۳ سال",
-      "بیشتر از ۳ سال",
-    ],
-  },
-  trade: {
-    prefix: "TRD",
-    field: "trade_status",
-    next: "ask_goal",
-    options: [
-      "📉 بیشتر در ضرر بوده‌ام",
-      "⚖️ تقریباً سربه‌سر",
-      "📈 در مجموع سودده بوده‌ام",
-      "🎢 نوسان زیاد دارد، ثابت نیست",
-    ],
-  },
-  // آخرین پرسش، و تنها پرسشِ کاملاً بازِ فرم.
-  //
-  // بقیه فهرستِ بسته دارند چون جوابشان باید قابلِ شمردن و فیلتر کردن
-  // باشد. هدف فرق دارد: همان جمله‌ای که کاربر با زبانِ خودش می‌نویسد،
-  // بهترین چیزی است که مشاور می‌تواند پیش از تماس بخواند.
-  //
-  // یک‌بار چهار گزینه‌ی آماده هم داشت و برداشته شد: دکمه‌ی آماده جلوی
-  // چشمِ کسی که می‌خواست بنویسد، ساده‌ترین کار را «زدنِ نزدیک‌ترین
-  // گزینه» می‌کرد - و به‌جای حرفِ خودِ مشتری، یکی از چهار جمله‌ی تکراری
-  // به CRM می‌رسید. حالا هر کس هدفش را با زبانِ خودش می‌گوید.
-  goal: {
-    prefix: "GOL",
-    field: "topic",
-    next: "confirm",
-    freeText: true,
-    options: [],
-  },
+  level: { field: "level", next: "ask_experience" },
+  experience: { field: "experience", next: "ask_real" },
+  // «حساب ریل ندارم» یعنی این پرسش معنی ندارد و پرسیده نمی‌شود؛
+  // applyRealAnswer مسیر را می‌داند.
+  trade: { field: "trade_status", next: "confirm" },
 };
 
-function choiceKeyboard(kind) {
-  const spec = CHOICES[kind];
-  const rows = spec.options.map((text, i) => [
-    { text, callback_data: spec.prefix + "|" + i },
-  ]);
-  rows.push(navRow());
-  return { inline_keyboard: rows };
+// سه پرسشِ میانی گزینه ندارند، فقط برگشت و لغو.
+//
+// یک‌بار هر کدام چهار گزینه‌ی آماده داشتند تا پاسخ‌ها در CRM یکدست و
+// قابلِ فیلتر بمانند. آکادمی توضیحِ خودِ مشتری را ترجیح داد: چهار
+// گزینه‌ی آماده، چهار جمله‌ی تکراری به مشاور می‌رساند، در حالی که
+// «سه سال است ولی شش ماهش جدی بوده» چیزی است که فقط خودش می‌گوید.
+function choiceKeyboard() {
+  return { inline_keyboard: [navRow()] };
 }
 
 // هر سه پرسشِ دکمه‌ای یک مسیر دارند، پس یک تابع - وگرنه سه نسخه‌ی
 // تقریباً یکسان می‌شد که روزی یکی‌شان اصلاح می‌شد و دوتای دیگر نه.
-const STEP_OF_CHOICE = { level: "ask_level", experience: "ask_experience", trade: "ask_trade", goal: "ask_goal" };
 const SECTION_OF_STEP = {
   ask_level: "CONSULT_LEVEL",
   ask_experience: "CONSULT_EXPERIENCE",
   ask_trade: "CONSULT_TRADE",
-  ask_goal: "CONSULT_TOPIC",
 };
-const KIND_OF_STEP = { ask_level: "level", ask_experience: "experience", ask_trade: "trade", ask_goal: "goal" };
+const KIND_OF_STEP = { ask_level: "level", ask_experience: "experience", ask_trade: "trade" };
 
 /**
  * مرحله‌هایی که پاسخِ متنیِ کاربر را خودِ فرم می‌گیرد.
@@ -245,9 +199,8 @@ export function isFlowTextStep(step) {
  * فرآیند و شروع از صفر بود. کسی که در پرسشِ ششم بفهمد پنجمی را اشتباه
  * زده، یا از اول شروع می‌کند یا - که بیشتر پیش می‌آید - رها می‌کند.
  *
- * ask_goal دو مرحله‌ی قبلِ ممکن دارد، چون اگر کاربر حسابِ ریل نداشته
- * باشد پرسشِ وضعیتِ ترید اصلاً پرسیده نشده و برگشت به آن یعنی پرت شدن
- * به پرسشی که هرگز ندیده.
+ * فرم با پرسشِ وضعیتِ ترید تمام می‌شود، و آن هم فقط برای کسی که حسابِ
+ * ریل دارد. کسی که ندارد از پرسشِ حسابِ ریل مستقیم به تایید می‌رود.
  */
 const BACK_OF_STEP = {
   ask_name: "course_card",
@@ -259,6 +212,7 @@ const BACK_OF_STEP = {
 };
 
 function backStepOf(step, temp) {
+  // مرحله‌ی قدیمیِ «هدف از دوره»: کاربری که لحظه‌ی انتشار وسطش بود.
   if (step === "ask_goal") return temp.has_real_account === "بله" ? "ask_trade" : "ask_real";
   // ورودیِ «پایان دوره‌ی مقدماتی» انتخابِ دوره را رد می‌کند و کارتی هم
   // در کار نبوده؛ برگشت به کارتی که هرگز نیامده، بن‌بست است.
@@ -278,6 +232,8 @@ const FIELD_OF_STEP = {
   ask_experience: "experience",
   ask_real: "has_real_account",
   ask_trade: "trade_status",
+  // «هدف از دوره» دیگر پرسیده نمی‌شود؛ کلید می‌ماند برای کاربرانِ در
+  // راه‌مانده و لیدهای قدیمی که این ستون را دارند.
   ask_goal: "topic",
 };
 
@@ -302,7 +258,7 @@ async function renderStep(ctx, step, flow, temp) {
     return;
   }
   if (step === "ask_phone") {
-    await ctx.reply(phonePromptText(flow), { reply_markup: requestContactKeyboard() });
+    await ctx.reply(phonePromptText(), { reply_markup: requestContactKeyboard() });
     return;
   }
   if (step === "ask_real") {
@@ -313,8 +269,7 @@ async function renderStep(ctx, step, flow, temp) {
     await ctx.reply(buildConfirmText(flow, temp), { reply_markup: confirmCancelKeyboard() });
     return;
   }
-  const kind = KIND_OF_STEP[step];
-  if (kind) await sendSection(ctx, SECTION_OF_STEP[step], choiceKeyboard(kind));
+  if (KIND_OF_STEP[step]) await sendSection(ctx, SECTION_OF_STEP[step], choiceKeyboard());
 }
 
 /**
@@ -343,29 +298,18 @@ async function applyChoice(ctx, flow, temp, kind, value) {
   await renderStep(ctx, step, flow, next);
 }
 
+/**
+ * دکمه‌ی گزینه‌ای که دیگر وجود ندارد.
+ *
+ * سه پرسشِ میانی یک‌بار گزینه داشتند و حالا متنِ آزادند. کاربری که
+ * پیامِ نسخه‌ی قبل را جلوی چشمش دارد و یکی از آن دکمه‌ها را می‌زند نباید
+ * بی‌جواب بماند - پرسش دوباره، این بار به شکلِ تازه‌اش، فرستاده می‌شود.
+ */
 export async function handleChoiceButton(ctx, data) {
-  const [prefix, idxRaw] = String(data).split("|");
-  const kind = Object.keys(CHOICES).find((k) => CHOICES[k].prefix === prefix);
-  if (!kind) return;
-
   const state = await getUserState(ctx.env, ctx.from.id);
-  // دکمه‌ی یک پیامِ قدیمی‌تر نباید فرم را به عقب برگرداند: فقط وقتی
-  // پذیرفته می‌شود که کاربر واقعاً روی همین پرسش ایستاده باشد.
-  if (!state || state.current_step !== STEP_OF_CHOICE[kind]) return;
-
-  const value = CHOICES[kind].options[Number(idxRaw)];
-  if (!value) {
-    // دکمه‌ای که دیگر وجود ندارد - مثلاً گزینه‌های آماده‌ی پرسشِ هدف که
-    // برداشته شدند و کاربری هنوز پیامِ قبل از انتشار را جلوی چشمش دارد.
-    // بی‌جواب گذاشتنش یعنی او پشتِ فرم گیر می‌کند، پس پرسش دوباره
-    // فرستاده می‌شود - این بار به شکلِ تازه‌اش.
-    await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
-    await renderStep(ctx, state.current_step, state.current_flow, state.temp_data || {});
-    return;
-  }
-
+  if (!state || !KIND_OF_STEP[state.current_step]) return;
   await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
-  await applyChoice(ctx, state.current_flow, state.temp_data || {}, kind, value);
+  await renderStep(ctx, state.current_step, state.current_flow, state.temp_data || {});
 }
 
 /**
@@ -384,9 +328,9 @@ async function applyRealAnswer(ctx, flow, temp, yes) {
     // شود، وگرنه لیدی به CRM می‌رسد که «حساب ریل: خیر» است ولی وضعیتِ
     // تریدِ حسابِ ریل هم دارد.
     delete next.trade_status;
-    // پرسشِ وضعیتِ ترید رد می‌شود ولی هدف نه: هدف به داشتنِ حساب ربطی
-    // ندارد و برای تازه‌کار حتی مهم‌تر است.
-    const step = nextAfter(temp, "ask_goal");
+    // «ندارم» یعنی فرم همین‌جا تمام است: پرسشِ ششم فقط درباره‌ی همان
+    // حسابِ ریل است و برای کسی که ندارد معنایی ندارد.
+    const step = nextAfter(temp, "confirm");
     await setUserState(ctx.env, ctx.from.id, { current_step: step, temp_data: next });
     await renderStep(ctx, step, flow, next);
     return;
@@ -421,16 +365,14 @@ function requestContactKeyboard() {
 // می‌شود. دکمه همچنان راهِ پیشنهادی است چون شماره‌ی تلگرام از خودِ
 // تلگرام می‌آید و غلطِ تایپی ندارد - ولی کاربری که می‌خواهد شماره‌ی
 // دیگری بدهد (یا دکمه برایش کار نمی‌کند) دیگر به بن‌بست نمی‌خورد.
-function phonePromptText(flow) {
-  const lead =
-    flow === "consultation"
-      ? "☎️ شماره موبایل خود را برای هماهنگی مشاوره بفرستید."
-      : "☎️ شماره موبایل خود را برای هماهنگی ثبت‌نام بفرستید.";
-  return (
-    lead +
-    "\n\nساده‌ترین راه: دکمه‌ی «ارسال شماره موبایل ☎️» در پایین صفحه 👇" +
-    "\n\nاگر می‌خواهید شماره‌ی دیگری بدهید، همین‌جا بنویسید - مثل ۰۹۱۲۱۲۳۴۵۶۷"
-  );
+function phonePromptText() {
+  return [
+    "٢- شماره تماس",
+    "",
+    "📌 روی دکمه‌ی «ارسال شماره موبایل ☎️» در پایین صفحه بزنید تا شماره‌تان خودکار برای ما ارسال شود.",
+    "",
+    "⚠️ لطفاً شماره را دستی تایپ نکنید.",
+  ].join("\n");
 }
 
 // تایید سبز و انصراف قرمز: در مرحله‌ی آخر یک ثبت‌نام، ضربه‌ی اشتباه
@@ -465,7 +407,6 @@ const EDIT_FIELDS = [
   { field: "experience", label: "⏳ مدت فعالیت", step: "ask_experience" },
   { field: "has_real_account", label: "💼 حساب ریل", step: "ask_real" },
   { field: "trade_status", label: "📈 وضعیت ترید", step: "ask_trade" },
-  { field: "topic", label: "🎯 هدف از دوره", step: "ask_goal" },
 ];
 
 // فقط چیزهایی که واقعاً پرسیده شده‌اند.
@@ -499,12 +440,6 @@ function normalizePhone(raw) {
   return digits;
 }
 
-// موبایلِ ایران: ۱۱ رقم، با ۰۹ شروع می‌شود. شماره‌ی ثابت و شماره‌ی ناقص
-// رد می‌شوند - شماره‌ای که مشاور نتواند با آن تماس بگیرد، از نبودنِ
-// شماره بدتر است چون کسی پیگیری‌اش نمی‌کند.
-function isMobile(phone) {
-  return /^09\d{9}$/.test(phone);
-}
 
 // یک متن تایید برای هر دو مسیر.
 //
@@ -681,16 +616,8 @@ export async function handleCourseStart(ctx) {
   await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
   await setUserState(ctx.env, ctx.from.id, { current_step: "ask_name" });
 
-  // متنِ شروعِ فرم و پرسشِ نام در یک پیام.
-  //
-  // پیشتر دو پیامِ پشتِ سرِ هم بودند و اولی حرفِ کارتِ معرفی را دوباره
-  // می‌گفت. دو پیام برای یک قدم، هم شلوغ است هم دکمه‌ی لغو را از متنی
-  // که توضیحش می‌دهد جدا می‌کند.
-  const { text } = await resolveSection(ctx.env, "CONSULT_INTRO");
-  const intro = String(text || "").trim();
-  await ctx.reply(intro ? intro + "\n\n" + NAME_QUESTION : NAME_QUESTION, {
-    reply_markup: cancelOnlyKeyboard(),
-  });
+  // کارتِ معرفی خودش گفته چه خبر است؛ اینجا فقط پرسشِ اول می‌آید.
+  await renderStep(ctx, "ask_name", state.current_flow, state.temp_data || {});
 }
 
 /** «انتخاب دوره‌ی دیگر» روی کارتِ معرفی. */
@@ -806,50 +733,22 @@ export async function handleText(ctx, state) {
       return;
     }
 
-    // شماره‌ی تایپ‌شده حالا پذیرفته می‌شود.
+    // فقط از راهِ دکمه.
     //
-    // پیش‌تر رد می‌شد و کاربر پشتِ همان پرسش گیر می‌کرد. دکمه‌ی
-    // requestContact همیشه در دسترس نیست - در تلگرام دسکتاپ و در بعضی
-    // کلاینت‌های وب نمی‌آید - و کسی هم ممکن است بخواهد شماره‌ی دیگری
-    // بدهد. آن‌ها یا فرم را رها می‌کردند یا شماره را در پرسشِ بعدی
-    // می‌نوشتند، جایی که هیچ‌کس دنبالش نمی‌گشت.
-    //
-    // اعتبارسنجی سرِ جایش می‌ماند: هر رشته‌ای پذیرفته نمی‌شود، فقط
-    // موبایلِ درست.
-    const typed = normalizePhone(text);
-    if (isMobile(typed)) {
-      await acceptPhone(ctx, state, typed);
-      return;
-    }
+    // یک‌بار شماره‌ی تایپ‌شده هم پذیرفته می‌شد؛ آکادمی برش گرداند: شماره‌ای
+    // که تلگرام می‌دهد متعلق به همان اکانت است و غلطِ تایپی ندارد، در
+    // حالی که شماره‌ی دست‌نویس ممکن است اشتباه یا مالِ کسِ دیگری باشد -
+    // و مشاور تازه سرِ تماس می‌فهمد.
     await ctx.reply(
-      "❗️ این شماره درست به نظر نمی‌رسد.\n\nیا روی دکمه‌ی «ارسال شماره موبایل ☎️» بزنید، یا شماره را به شکلِ ۱۱ رقمی بنویسید - مثل ۰۹۱۲۱۲۳۴۵۶۷",
+      "❗️ لطفاً فقط از دکمه‌ی «ارسال شماره موبایل ☎️» استفاده کنید؛ شماره‌ی تایپ‌شده پذیرفته نمی‌شود.",
       { reply_markup: requestContactKeyboard() }
     );
     return;
   }
 
-  // چهار پرسشِ آخر دکمه دارند. اگر کاربر به‌جای زدنِ دکمه تایپ کند،
-  // متنش با گزینه‌ها تطبیق داده می‌شود - وگرنه پرسش دوباره می‌آید.
-  //
-  // بدونِ این تطبیق، کسی که «متوسط» را تایپ می‌کرد پشتِ پرسشی گیر
-  // می‌افتاد که جوابش را داده بود.
+  // سه پرسشِ میانی متنِ آزادند: هر چه بنویسد همان ذخیره می‌شود.
   if (KIND_OF_STEP[step]) {
-    const kind = KIND_OF_STEP[step];
-    const match = CHOICES[kind].options.find(
-      (o) => o === text || o.replace(/^[^؀-ۿ]+/, "").startsWith(text)
-    );
-    // پرسشِ هدف هر جمله‌ای را قبول می‌کند؛ بقیه فقط گزینه‌هایشان را.
-    if (!match && CHOICES[kind].freeText) {
-      await applyChoice(ctx, flow, temp, kind, text);
-      return;
-    }
-    if (!match) {
-      await ctx.reply("لطفاً یکی از گزینه‌های زیر را بزنید 👇", {
-        reply_markup: choiceKeyboard(kind),
-      });
-      return;
-    }
-    await applyChoice(ctx, flow, temp, kind, match);
+    await applyChoice(ctx, flow, temp, KIND_OF_STEP[step], text);
     return;
   }
 
