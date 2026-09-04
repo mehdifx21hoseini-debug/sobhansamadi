@@ -77,7 +77,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-52";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-53";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -416,6 +416,28 @@ async function handleAdmin(request, url, env) {
     return json({ ok: true, build: BUILD, econ_sender: await senderStatus(env) });
   }
 
+  /**
+   * یک تکه از خلاصه‌ی روزانه، به‌درخواستِ بیرون.
+   *
+   * چرا لازم است: هر پیامِ تلگرام یک subrequest است و پلنِ رایگانِ
+   * کلادفلر حدود ۵۰ تا به هر اجرا می‌دهد. با دو هزار مشترک، هیچ اجرای
+   * واحدی نمی‌تواند خلاصه را تمام کند - و کرانِ پنج‌دقیقه‌ای هم چهار
+   * ساعت طول می‌کشد.
+   *
+   * ولی سقف روی هر اجراست، نه روی روز. پس هر درخواستِ تازه یک بودجه‌ی
+   * تازه می‌گیرد، و اگر کسی از بیرون پشتِ سرِ هم صدا بزند، خلاصه در چند
+   * دقیقه تمام می‌شود. آن «کسی» گیت‌هاب اکشنز است - همان جایی که همین
+   * حالا داده‌ی تقویم را به ورکر می‌فرستد.
+   *
+   * GET است چون ops-probe و همین ورک‌فلوها GET می‌زنند، و مثل
+   * /admin/sales-report پشتِ کلیدِ مدیر است. تکرارش بی‌ضرر است: دفترِ
+   * ارسال جلوی پیامِ دوباره را می‌گیرد.
+   */
+  if (url.pathname === "/admin/econ-digest") {
+    const r = await drainDailyDigest(env);
+    return json({ ok: true, build: BUILD, ...r });
+  }
+
   // کلیدهای مرحله‌ی آزادسازی تقویم از n8n: جمع‌آوری داده و تحلیل.
   //
   // هر کدام جدا روشن می‌شود، چون دو ریسک متفاوت دارند و باید بشود یکی را
@@ -559,6 +581,7 @@ export default {
       url.pathname === "/admin/sync" ||
       url.pathname === "/admin/ff-probe" ||
       url.pathname === "/admin/econ-sender" ||
+      url.pathname === "/admin/econ-digest" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/crm-import" ||

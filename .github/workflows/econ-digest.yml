@@ -1,0 +1,96 @@
+# Drives the 8 AM Tehran calendar digest to completion.
+#
+# Why this exists: every Telegram message the Worker sends is one
+# subrequest, and the Cloudflare free plan allows roughly 50 of them per
+# invocation. With ~2,100 subscribers no single invocation can finish the
+# digest — it used to die after a few dozen sends, and everyone else got
+# nothing.
+#
+# The ceiling is per invocation, not per day. So each fresh HTTP request
+# to the Worker gets a fresh budget. This job just calls the drain
+# endpoint over and over until the Worker reports it is done. About fifty
+# calls, a few minutes, and the whole list has the digest.
+#
+# This is the same shape as ff-calendar.yml: GitHub Actions is already the
+# pipe that feeds the Worker its calendar data, because Cloudflare cannot
+# do the job itself. Same reason here, different ceiling.
+#
+# The Worker's own */5 cron still drains too. That is the safety net for
+# the days GitHub delays or disables scheduled runs — slower, but nobody
+# is ever silently skipped.
+name: Econ Daily Digest
+
+on:
+  schedule:
+    # 04:30 UTC is 08:00 Tehran, all year: Iran has no daylight saving.
+    # GitHub can delay scheduled runs by several minutes under load, which
+    # is fine for a morning digest — and the Worker's own cron fires at
+    # the same minute regardless, so the first chunk is never late.
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+# Two overlapping runs would each send their own chunks. That is not
+# harmful — the sent log stops anyone getting the message twice — but it
+# doubles the calls for no gain.
+concurrency:
+  group: econ-digest
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Drain the digest queue
+        env:
+          ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+          BASE: https://sobhansamadi.mehdifx21hoseini.workers.dev
+        run: |
+          set -e
+          test -n "$ADMIN_KEY" || { echo "::error::WORKER_ADMIN_KEY تنظیم نشده"; exit 1; }
+
+          # Enough rounds for ~4,000 subscribers at 45 a round, so the list
+          # can grow a long way before this needs touching. The loop stops
+          # the moment the Worker says it is done, so the cap only matters
+          # when something is wrong.
+          MAX=90
+          sent_total=0
+
+          for i in $(seq 1 $MAX); do
+            CODE=$(curl -sS -o body.json -w '%{http_code}' \
+              -H "x-admin-key: $ADMIN_KEY" "$BASE/admin/econ-digest") || CODE=000
+
+            if [ "$CODE" != "200" ]; then
+              # A single bad round is not fatal: the next one picks up
+              # exactly where this stopped, because nobody is marked as
+              # sent unless the message actually went out.
+              echo "دور $i: کد $CODE - دوباره تلاش می‌شود"
+              sleep 5
+              continue
+            fi
+
+            # Never print the body raw: it is JSON from an admin route and
+            # anything token-shaped in it must not reach a public log.
+            BODY=$(sed -E 's/[0-9]{6,}:[A-Za-z0-9_-]{30,}/<توکن پنهان شد>/g' body.json)
+            SENT=$(echo "$BODY" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
+            SENT=${SENT:-0}
+            sent_total=$((sent_total + SENT))
+            echo "دور $i: $SENT پیام (جمع: $sent_total)"
+
+            case "$BODY" in
+              *'"done":true'*|*'"skipped"'*)
+                echo "✅ خلاصه‌ی امروز کامل شد - مجموع $sent_total پیام در $i دور."
+                exit 0
+                ;;
+            esac
+
+            # Telegram tolerates about 30 messages a second. A round sends
+            # 45 sequentially and already takes several seconds; this gap
+            # keeps the average comfortably under that without making the
+            # whole run slow.
+            sleep 2
+          done
+
+          echo "::warning::بعد از $MAX دور هنوز تمام نشده - کرانِ ورکر ادامه می‌دهد."
