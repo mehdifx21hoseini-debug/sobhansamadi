@@ -18,9 +18,9 @@
 
 import { readEvents, readLabels } from "./store.js";
 import { buildTodayMarkdown } from "./views.js";
-import { listActiveSubscribers } from "./subscribers.js";
+import { listActiveSubscribers, listPendingSubscribers } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
-import { readConfig } from "../content/channel.js";
+import { readConfig, writeConfig } from "../content/channel.js";
 import {
   RLM,
   IMPORTANCE_EMOJI,
@@ -119,6 +119,64 @@ async function claim(env, kind, ref, userId) {
 
 // دفتر را کوچک نگه می‌دارد. ۳۰ روز از هر بازه‌ای که ممکن است یک رویداد
 // در تقویم بماند بلندتر است.
+/**
+ * پس گرفتنِ یک claim.
+ *
+ * فقط یک جا لازم می‌شود: وقتی ثبت انجام شده ولی ارسال به سقفِ زیرساخت
+ * خورده و اصلاً به تلگرام نرسیده. بدونِ این، آن یک نفر برای همیشه
+ * «فرستاده شده» علامت می‌خورد و هیچ اجرای بعدی سراغش نمی‌رود.
+ */
+async function unclaim(env, kind, ref, userId) {
+  await env.DB
+    .prepare(
+      `DELETE FROM econ_sent_log
+        WHERE kind = ? AND ref = ? AND telegram_user_id = ?`
+    )
+    .bind(String(kind), String(ref), String(userId))
+    .run();
+}
+
+/**
+ * سقفِ درخواستِ بیرونی در هر اجرای ورکر.
+ *
+ * پلنِ رایگانِ کلادفلر حدود ۵۰ subrequest به هر اجرا می‌دهد و هر پیامِ
+ * تلگرام یکی از آن‌هاست. بالاتر از این عدد، fetch استثنا پرتاب می‌کند و
+ * بقیه‌ی کار نصفه می‌ماند - همان چیزی که یک بار پیامِ همگانی را سرِ ۴۹
+ * نفر متوقف کرد.
+ *
+ * ۴۵ و نه ۵۰: چند subrequest برای خودِ D1 و خطاهای احتمالی کنار گذاشته
+ * می‌شود.
+ */
+const SEND_BUDGET = 45;
+
+/**
+ * ثبت، بعد ارسال - با بودجه.
+ *
+ * ترتیبِ «اول ثبت، بعد ارسال» عمدی است: اگر ورکر وسطِ کار کشته شود، از
+ * دست رفتنِ یک پیام خیلی کم‌هزینه‌تر از فرستادنِ دوباره‌اش به همه است.
+ *
+ * ولی خوردن به سقفِ زیرساخت فرق دارد - آنجا پیام اصلاً نرفته. پس claim
+ * پس گرفته می‌شود و "stop" برمی‌گردد تا صداکننده همان‌جا بایستد و
+ * اجرای بعدی از همین نقطه ادامه بدهد.
+ *
+ * @returns {Promise<"ok"|"skip"|"stop">}
+ */
+async function claimAndSend(env, kind, ref, sub, build, stats) {
+  if (!(await claim(env, kind, ref, sub.telegram_user_id))) return "skip";
+  let r;
+  try {
+    const { method, payload } = build();
+    r = await tg(env, method, { chat_id: sub.chat_id, ...payload });
+  } catch {
+    await unclaim(env, kind, ref, sub.telegram_user_id).catch(() => {});
+    return "stop";
+  }
+  if (r.ok) stats.sent++;
+  else if (r.blocked) stats.blocked++;
+  else stats.failed++;
+  return "ok";
+}
+
 export async function pruneSentLog(env) {
   const cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
   await env.DB.prepare(`DELETE FROM econ_sent_log WHERE sent_at < ?`).bind(cutoff).run();
@@ -148,36 +206,6 @@ async function tg(env, method, payload) {
   }
 }
 
-/**
- * یک پیام به فهرستی از مشترکین، با رعایت محدودیت نرخ تلگرام.
- *
- * تلگرام حدود ۳۰ پیام در ثانیه را تحمل می‌کند. با فهرست چند صد نفره
- * ارسالِ همزمانِ کامل یعنی 429 و از دست رفتن بخشی از پیام‌ها، پس در
- * دسته‌های کوچک فرستاده می‌شود.
- */
-async function fanOut(env, targets, buildPayload) {
-  const BATCH = 20;
-  let sent = 0;
-  let failed = 0;
-  let blocked = 0;
-
-  for (let i = 0; i < targets.length; i += BATCH) {
-    const slice = targets.slice(i, i + BATCH);
-    const results = await Promise.all(
-      slice.map(async (t) => {
-        const { method, payload } = buildPayload(t);
-        return tg(env, method, { chat_id: t.chat_id, ...payload });
-      })
-    );
-    for (const r of results) {
-      if (r.ok) sent++;
-      else if (r.blocked) blocked++;
-      else failed++;
-    }
-  }
-  return { sent, failed, blocked };
-}
-
 // ─── ۱) خلاصه‌ی روزانه ──────────────────────────────────────────────
 
 const AI_BUTTON = {
@@ -200,25 +228,45 @@ export async function buildDigest(env, now = new Date()) {
   return { markdown: buildTodayMarkdown(events, labels), weekend: false };
 }
 
+// کلیدی که می‌گوید خلاصه‌ی کدام روز کامل رفته است. یک ردیفِ تنظیمات،
+// تا درِین هر پنج دقیقه بدونِ زدن به جدولِ دوهزارتاییِ مشترکین بفهمد
+// کاری مانده یا نه.
+const DIGEST_DONE = "econ_digest_done";
+
+export function digestRef(now = new Date()) {
+  // کلیدِ یکتاییِ خلاصه، تاریخِ تهران است نه UTC - وگرنه اجرای ۴:۳۰
+  // بامداد UTC و روزِ تقویمیِ کاربر با هم جور در نمی‌آمدند.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" }).format(now);
+}
+
+/**
+ * خلاصه‌ی روزانه - تکه‌تکه و قابلِ ادامه.
+ *
+ * چرا تکه‌تکه: دو هزار مشترک یعنی دو هزار درخواست به تلگرام، و پلنِ
+ * رایگان حدود ۵۰ تا در هر اجرا می‌دهد. نسخه‌ی قبلی همه را یک‌جا می‌فرستاد
+ * و بدتر از آن، پیش از فرستادن همه را «فرستاده شد» علامت می‌زد - پس
+ * وقتی سرِ پنجاهمی به سقف می‌خورد، بقیه نه پیام می‌گرفتند نه دوباره
+ * تلاش می‌شد. عملاً خلاصه فقط به چند ده نفرِ اول می‌رسید.
+ *
+ * حالا هر اجرا یک تکه می‌فرستد و کرانِ هر پنج دقیقه ادامه‌اش می‌دهد تا
+ * فهرست تمام شود. با پلنِ پولی سقف هزار می‌شود و کلِ فهرست در دو سه
+ * اجرا تمام می‌شود.
+ */
 export async function runDailyDigest(env, now = new Date()) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
 
   await ensureSentSchema(env);
-  const digest = await buildDigest(env, now);
+  const ref = digestRef(now);
 
-  // کلیدِ یکتاییِ خلاصه، تاریخِ تهران است نه UTC - وگرنه اجرای ۴:۳۰
-  // بامداد UTC و روزِ تقویمیِ کاربر با هم جور در نمی‌آمدند.
-  const ref = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" }).format(now);
-
-  const subs = await listActiveSubscribers(env);
-  const targets = [];
-  for (const s of subs) {
-    if (await claim(env, "digest", ref, s.telegram_user_id)) targets.push(s);
+  const pending = await listPendingSubscribers(env, "digest", ref, SEND_BUDGET);
+  if (pending.length === 0) {
+    await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: true };
   }
-  if (targets.length === 0) return { sent: 0, failed: 0, blocked: 0, weekend: digest.weekend };
 
-  const stats = await fanOut(env, targets, () =>
+  const digest = await buildDigest(env, now);
+  const build = () =>
     digest.weekend
       ? // متن آخر هفته دکمه‌ی تحلیل ندارد: خبری برای تحلیل وجود ندارد و
         // دکمه‌ای که به تحلیلِ هیچ می‌رسد، از نبودنش بدتر است.
@@ -226,10 +274,43 @@ export async function runDailyDigest(env, now = new Date()) {
       : {
           method: "sendRichMessage",
           payload: { rich_message: { markdown: digest.markdown }, reply_markup: AI_BUTTON },
-        }
-  );
+        };
 
-  return { ...stats, weekend: digest.weekend };
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let stopped = false;
+  for (let i = 0; i < pending.length; i++) {
+    const res = await claimAndSend(env, "digest", ref, pending[i], build, stats);
+    if (res === "stop") {
+      stopped = true;
+      break;
+    }
+    // مکث هر بیست پیام، برای نخوردن به سقفِ نرخِ تلگرام.
+    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+  }
+
+  // تکه‌ی ناتمام یعنی هنوز کسی مانده. تکه‌ی کامل هم لزوماً یعنی تمام
+  // نشده - شاید دقیقاً به اندازه‌ی بودجه مانده بود؛ اجرای بعدی صفر
+  // برمی‌گرداند و همان‌جا پرچمِ پایان را می‌زند.
+  const done = !stopped && pending.length < SEND_BUDGET;
+  if (done) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
+
+  return { ...stats, weekend: digest.weekend, chunk: pending.length, done, throttled: stopped };
+}
+
+/**
+ * ادامه‌ی خلاصه‌ی نیمه‌کاره - برای کرانِ هر پنج دقیقه.
+ *
+ * اول یک ردیفِ تنظیمات را می‌خواند و اگر خلاصه‌ی امروز تمام شده باشد،
+ * بی‌آنکه به جدولِ مشترکین دست بزند برمی‌گردد. بدونِ این، هر پنج دقیقه
+ * یک کوئری روی دو هزار ردیف اجرا می‌شد - همان بی‌احتیاطی که یک بار سقفِ
+ * روزانه‌ی D1 را پر کرد.
+ */
+export async function drainDailyDigest(env, now = new Date()) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  const ref = digestRef(now);
+  const done = await readConfig(env, DIGEST_DONE).catch(() => "");
+  if (String(done) === ref) return { skipped: "تمام شده" };
+  return runDailyDigest(env, now);
 }
 
 // ─── ۲) هشدار قبل از خبر ────────────────────────────────────────────
@@ -291,28 +372,43 @@ export async function runAlertSweep(env, now = new Date()) {
   if (events.length === 0) return { sent: 0, failed: 0, blocked: 0 };
 
   const subs = await listActiveSubscribers(env);
-  let sent = 0;
-  let failed = 0;
-  let blocked = 0;
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let budget = SEND_BUDGET;
+  let stopped = false;
 
-  for (const s of subs) {
+  outer: for (const s of subs) {
     for (const e of dueEvents(events, s)) {
+      // بودجه که تمام شد، بقیه دست‌نخورده می‌مانند: هیچ‌کس claim نشده،
+      // پس اجرای پنج دقیقه‌ی بعد دقیقاً از همین‌جا ادامه می‌دهد.
+      if (budget <= 0) {
+        stopped = true;
+        break outer;
+      }
+      budget--;
       // فاصله در کلید نیست: کاربر باید برای هر رویداد یک هشدار بگیرد،
       // نه یکی به ازای هر اجرای کران.
-      if (!(await claim(env, "alert", e.event_id, s.telegram_user_id))) continue;
       const left = etMinutesUntilNow(e.date, e.time);
-      const r = await tg(env, "sendMessage", {
-        chat_id: s.chat_id,
-        text: buildAlertText(e, left),
-        reply_markup: ALERT_KEYBOARD,
-      });
-      if (r.ok) sent++;
-      else if (r.blocked) blocked++;
-      else failed++;
+      const res = await claimAndSend(
+        env,
+        "alert",
+        e.event_id,
+        s,
+        () => ({
+          method: "sendMessage",
+          payload: { text: buildAlertText(e, left), reply_markup: ALERT_KEYBOARD },
+        }),
+        stats
+      );
+      // claim تکراری بودجه نمی‌خورد؛ این هشدار قبلاً رفته.
+      if (res === "skip") budget++;
+      if (res === "stop") {
+        stopped = true;
+        break outer;
+      }
     }
   }
 
-  return { sent, failed, blocked };
+  return { ...stats, throttled: stopped };
 }
 
 // ─── ۳) اعلام نتیجه ─────────────────────────────────────────────────
@@ -357,28 +453,40 @@ export async function runResultSweep(env, now = new Date()) {
   const helpers = makeLabelHelpers(labelRows);
 
   const subs = await listActiveSubscribers(env);
-  let sent = 0;
-  let failed = 0;
-  let blocked = 0;
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let budget = SEND_BUDGET;
+  let stopped = false;
 
-  for (const s of subs) {
+  outer: for (const s of subs) {
     for (const e of released) {
       if (e.importance === "medium" && !s.show_low_importance) continue;
+      if (budget <= 0) {
+        stopped = true;
+        break outer;
+      }
+      budget--;
       // عدد در کلید است: اگر منبع عدد را تصحیح کند، اعلام تازه می‌رود.
       const ref = e.event_id + "|" + e.actual;
-      if (!(await claim(env, "result", ref, s.telegram_user_id))) continue;
-      const r = await tg(env, "sendMessage", {
-        chat_id: s.chat_id,
-        text: buildResultText(e, helpers),
-        reply_markup: ALERT_KEYBOARD,
-      });
-      if (r.ok) sent++;
-      else if (r.blocked) blocked++;
-      else failed++;
+      const res = await claimAndSend(
+        env,
+        "result",
+        ref,
+        s,
+        () => ({
+          method: "sendMessage",
+          payload: { text: buildResultText(e, helpers), reply_markup: ALERT_KEYBOARD },
+        }),
+        stats
+      );
+      if (res === "skip") budget++;
+      if (res === "stop") {
+        stopped = true;
+        break outer;
+      }
     }
   }
 
-  return { sent, failed, blocked };
+  return { ...stats, throttled: stopped };
 }
 
 // وضعیت، برای /health و برای اینکه بشود بدون باز کردن D1 فهمید فرستنده

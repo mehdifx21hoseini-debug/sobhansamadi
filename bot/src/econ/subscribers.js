@@ -136,6 +136,34 @@ export async function listActiveSubscribers(env) {
   return (results || []).map(toRow);
 }
 
+/**
+ * مشترکینی که این پیام هنوز برایشان نرفته - حداکثر به تعدادِ خواسته‌شده.
+ *
+ * چرا این و نه «همه را بخوان و بعد فیلتر کن»: فهرستِ کامل دو هزار ردیف
+ * است و هر اجرا فقط چند ده نفر را می‌فرستد. با LIMIT، اجرای اول بعد از
+ * پیدا کردنِ همان چند ده نفر می‌ایستد و بقیه‌ی جدول اصلاً خوانده
+ * نمی‌شود.
+ *
+ * دفترِ ارسال کلیدِ مرکبِ (kind, ref, telegram_user_id) دارد، پس شرطِ
+ * NOT EXISTS یک جست‌وجوی نقطه‌ای روی ایندکس است نه اسکن.
+ */
+export async function listPendingSubscribers(env, kind, ref, limit) {
+  await ensureSubscriberSchema(env);
+  const { results } = await env.DB
+    .prepare(
+      `SELECT s.* FROM econ_subscriber s
+        WHERE s.subscribed = 1
+          AND NOT EXISTS (
+                SELECT 1 FROM econ_sent_log l
+                 WHERE l.kind = ? AND l.ref = ?
+                   AND l.telegram_user_id = s.telegram_user_id)
+        LIMIT ?`
+    )
+    .bind(String(kind), String(ref), Number(limit) || 1)
+    .all();
+  return (results || []).map(toRow);
+}
+
 export async function subscriberStats(env) {
   try {
     await ensureSubscriberSchema(env);

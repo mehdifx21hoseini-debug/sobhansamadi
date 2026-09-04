@@ -22,6 +22,7 @@ import { handleMirrorApi, mirrorPreflight } from "./crm/mirrorApi.js";
 import { handlePhonesApi, phonesPreflight } from "./crm/phonesApi.js";
 import {
   runDailyDigest,
+  drainDailyDigest,
   runAlertSweep,
   runResultSweep,
   pruneSentLog,
@@ -76,7 +77,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-51";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-52";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -754,6 +755,16 @@ export default {
             if (r && !r.idle) console.log("صف پیام همگانی:", JSON.stringify(r));
           })
           .catch((err) => console.error("درِین صف همگانی شکست خورد:", err && err.message))
+      );
+      // ادامه‌ی خلاصه‌ی روزانه. ارسال به دو هزار نفر در یک اجرا جا
+      // نمی‌شود؛ اجرای ۸ صبح تکه‌ی اول را می‌فرستد و این بقیه را.
+      // اگر خلاصه‌ی امروز تمام شده باشد، با یک خواندنِ کوچک برمی‌گردد.
+      ctx.waitUntil(
+        drainDailyDigest(env)
+          .then((n) => {
+            if (n && !n.skipped && n.sent) console.log("ادامه‌ی خلاصه:", JSON.stringify(n));
+          })
+          .catch((err) => console.error("ادامه‌ی خلاصه شکست خورد:", err && err.message))
       );
       ctx.waitUntil(
         runAlertSweep(env)
