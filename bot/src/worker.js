@@ -77,7 +77,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-54";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-55";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -432,9 +432,15 @@ async function handleAdmin(request, url, env) {
    * GET است چون ops-probe و همین ورک‌فلوها GET می‌زنند، و مثل
    * /admin/sales-report پشتِ کلیدِ مدیر است. تکرارش بی‌ضرر است: دفترِ
    * ارسال جلوی پیامِ دوباره را می‌گیرد.
+   *
+   * force=1 پرچمِ «امروز تمام شد» را نادیده می‌گیرد. لازم می‌شود وقتی
+   * مخاطب بعد از زده شدنِ پرچم بزرگ‌تر شده - مثل روزی که خلاصه از
+   * «مشترکین» به «همه‌ی اعضا» تغییر کرد. بی‌خطر است: فرستنده هنوز از
+   * روی دفترِ ارسال کار می‌کند، پس کسی پیامِ دوم نمی‌گیرد.
    */
   if (url.pathname === "/admin/econ-digest") {
-    const r = await drainDailyDigest(env);
+    const force = url.searchParams.get("force") === "1";
+    const r = force ? await runDailyDigest(env) : await drainDailyDigest(env);
     return json({ ok: true, build: BUILD, ...r });
   }
 

@@ -68,13 +68,21 @@ jobs:
           # cap only matters when something is wrong.
           MAX=80
 
+          # The first call of a run passes force=1: it ignores the
+          # "today is finished" flag. That matters on any day the audience
+          # grows after the flag was set — the day the digest moved from
+          # subscribers to every member, or simply people who joined after
+          # the morning run. It cannot double-send: the sent log still
+          # decides who gets a message.
+          FORCE="?force=1"
+
           drain_one() {
             w="$1"
             body="body-$w.json"
             total=0
             for i in $(seq 1 $MAX); do
               code=$(curl -sS -o "$body" -w '%{http_code}' \
-                -H "x-admin-key: $ADMIN_KEY" "$BASE/admin/econ-digest") || code=000
+                -H "x-admin-key: $ADMIN_KEY" "$BASE/admin/econ-digest$FORCE") || code=000
 
               if [ "$code" != "200" ]; then
                 # A single bad round is not fatal: the next one picks up
