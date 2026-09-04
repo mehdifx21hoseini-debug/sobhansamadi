@@ -18,7 +18,12 @@
 
 import { readEvents, readLabels } from "./store.js";
 import { buildTodayMarkdown } from "./views.js";
-import { listActiveSubscribers, listPendingSubscribers } from "./subscribers.js";
+import {
+  listActiveSubscribers,
+  listPendingSubscribers,
+  listPendingAudience,
+  digestAudienceStats,
+} from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { readConfig, writeConfig } from "../content/channel.js";
 import {
@@ -208,10 +213,21 @@ async function tg(env, method, payload) {
 
 // ─── ۱) خلاصه‌ی روزانه ──────────────────────────────────────────────
 
+// ردیفِ سوم از دو تای دیگر مهم‌تر است: خلاصه حالا به همه‌ی اعضا می‌رود،
+// نه فقط به کسانی که خودشان اشتراک را روشن کرده‌اند. پیامِ روزانه‌ای که
+// راهِ خاموش کردن ندارد، به‌جای لغو اشتراک بلاک می‌گیرد - و بلاک برگشت
+// ندارد. یک دکمه، همان‌جا، ارزانش می‌کند.
 const AI_BUTTON = {
   inline_keyboard: [
     [{ text: "🤖 تحلیل هوش مصنوعی", callback_data: "ECON_EXPLAIN", style: "primary" }],
     [{ text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" }],
+    [{ text: "🔕 دیگر این خلاصه را نفرست", callback_data: "ECON_SUB|DIGEST|0" }],
+  ],
+};
+
+const OPT_OUT_BUTTON = {
+  inline_keyboard: [
+    [{ text: "🔕 دیگر این خلاصه را نفرست", callback_data: "ECON_SUB|DIGEST|0" }],
   ],
 };
 
@@ -259,7 +275,7 @@ export async function runDailyDigest(env, now = new Date()) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const pending = await listPendingSubscribers(env, "digest", ref, SEND_BUDGET);
+  const pending = await listPendingAudience(env, "digest", ref, SEND_BUDGET);
   if (pending.length === 0) {
     await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
     return { sent: 0, failed: 0, blocked: 0, done: true };
@@ -269,8 +285,9 @@ export async function runDailyDigest(env, now = new Date()) {
   const build = () =>
     digest.weekend
       ? // متن آخر هفته دکمه‌ی تحلیل ندارد: خبری برای تحلیل وجود ندارد و
-        // دکمه‌ای که به تحلیلِ هیچ می‌رسد، از نبودنش بدتر است.
-        { method: "sendMessage", payload: { text: digest.text } }
+        // دکمه‌ای که به تحلیلِ هیچ می‌رسد، از نبودنش بدتر است. ولی راهِ
+        // خاموش کردن باید در هر پیامِ روزانه باشد، آخر هفته هم.
+        { method: "sendMessage", payload: { text: digest.text, reply_markup: OPT_OUT_BUTTON } }
       : {
           method: "sendRichMessage",
           payload: { rich_message: { markdown: digest.markdown }, reply_markup: AI_BUTTON },
@@ -288,13 +305,12 @@ export async function runDailyDigest(env, now = new Date()) {
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
   }
 
-  // تکه‌ی ناتمام یعنی هنوز کسی مانده. تکه‌ی کامل هم لزوماً یعنی تمام
-  // نشده - شاید دقیقاً به اندازه‌ی بودجه مانده بود؛ اجرای بعدی صفر
-  // برمی‌گرداند و همان‌جا پرچمِ پایان را می‌زند.
-  const done = !stopped && pending.length < SEND_BUDGET;
-  if (done) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
-
-  return { ...stats, weekend: digest.weekend, chunk: pending.length, done, throttled: stopped };
+  // پرچمِ پایان فقط در شاخه‌ی بالا زده می‌شود - جایی که کوئری واقعاً
+  // دست خالی برگشته. تکه‌ی کوتاه‌تر از بودجه دلیلِ کافی نیست: وقتی چند
+  // درِین موازی کار می‌کنند، ممکن است بقیه‌ی فهرست را همان لحظه
+  // همکارهایش برداشته باشند و هنوز در حالِ فرستادن باشند. یک دورِ اضافه
+  // ارزان است؛ جا ماندنِ چند نفر نه.
+  return { ...stats, weekend: digest.weekend, chunk: pending.length, done: false, throttled: stopped };
 }
 
 /**
@@ -505,5 +521,14 @@ export async function senderStatus(env) {
   } catch {
     today = 0;
   }
-  return { enabled, sent_24h: today, weekend: isWeekend() };
+  // مخاطبِ خلاصه و اینکه امروز به چند نفرشان رسیده. بدونِ این عدد، تنها
+  // راهِ فهمیدنِ «برای چند نفر نرفته» شمردنِ دستی در D1 بود.
+  let digest = null;
+  try {
+    digest = await digestAudienceStats(env, "digest", digestRef());
+    digest.pending = Math.max(0, digest.total - digest.opted_out - digest.sent_today);
+  } catch {
+    digest = null;
+  }
+  return { enabled, sent_24h: today, weekend: isWeekend(), digest };
 }

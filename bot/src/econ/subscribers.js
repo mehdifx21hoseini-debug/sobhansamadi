@@ -22,8 +22,22 @@ const DDL = [
   `CREATE INDEX IF NOT EXISTS idx_econ_sub_active ON econ_subscriber(subscribed)`,
 ];
 
+// ستون‌هایی که بعد از ساخته شدنِ جدول اضافه شده‌اند. SQLite راهی برای
+// «اضافه کن اگر نیست» ندارد، پس خطای «ستون تکراری» بلعیده می‌شود - تنها
+// خطایی که اینجا انتظارش را داریم.
+const ADD_COLUMNS = [
+  `ALTER TABLE econ_subscriber ADD COLUMN digest_off INTEGER NOT NULL DEFAULT 0`,
+];
+
 export async function ensureSubscriberSchema(env) {
   for (const sql of DDL) await env.DB.prepare(sql).run();
+  for (const sql of ADD_COLUMNS) {
+    try {
+      await env.DB.prepare(sql).run();
+    } catch {
+      // قبلاً اضافه شده.
+    }
+  }
 }
 
 // تنها مقادیری که کاربر می‌تواند انتخاب کند. هر چیز دیگری - چه از
@@ -48,6 +62,9 @@ function toRow(row) {
     subscribed: !!row.subscribed,
     alert_minutes: Number(row.alert_minutes) || 15,
     show_low_importance: !!row.show_low_importance,
+    // خلاصه‌ی روزانه برعکسِ هشدار است: پیش‌فرض روشن، و این ستون فقط
+    // وقتی پر می‌شود که کاربر خودش گفته باشد «نفرست».
+    digest_off: !!row.digest_off,
     updated_at: row.updated_at,
   };
 }
@@ -73,7 +90,7 @@ export async function readSubscription(env, telegramUserId) {
 
 /** پیش‌فرضی که به کاربرِ تازه نشان داده می‌شود. */
 export function defaultSubscription() {
-  return { subscribed: false, alert_minutes: 15, show_low_importance: false };
+  return { subscribed: false, alert_minutes: 15, show_low_importance: false, digest_off: false };
 }
 
 /**
@@ -99,18 +116,21 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
       patch.show_low_importance !== undefined
         ? !!patch.show_low_importance
         : current.show_low_importance,
+    digest_off:
+      patch.digest_off !== undefined ? !!patch.digest_off : !!current.digest_off,
   };
 
   await env.DB
     .prepare(
       `INSERT INTO econ_subscriber
-         (telegram_user_id, chat_id, subscribed, alert_minutes, show_low_importance, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+         (telegram_user_id, chat_id, subscribed, alert_minutes, show_low_importance, digest_off, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(telegram_user_id) DO UPDATE SET
          chat_id = excluded.chat_id,
          subscribed = excluded.subscribed,
          alert_minutes = excluded.alert_minutes,
          show_low_importance = excluded.show_low_importance,
+         digest_off = excluded.digest_off,
          updated_at = excluded.updated_at`
     )
     .bind(
@@ -119,6 +139,7 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
       next.subscribed ? 1 : 0,
       next.alert_minutes,
       next.show_low_importance ? 1 : 0,
+      next.digest_off ? 1 : 0,
       now,
       now
     )
@@ -162,6 +183,82 @@ export async function listPendingSubscribers(env, kind, ref, limit) {
     .bind(String(kind), String(ref), Number(limit) || 1)
     .all();
   return (results || []).map(toRow);
+}
+
+/**
+ * مخاطبِ خلاصه‌ی روزانه: هر کسی که با ربات کار کرده - نه فقط کسانی که
+ * اشتراک را روشن کرده‌اند.
+ *
+ * چرا این تغییر: خلاصه‌ی صبح تنها چیزی است که هر روز ربات را زنده نگه
+ * می‌دارد، و تا امروز فقط به آن‌هایی می‌رسید که خودشان دکمه‌ی هشدار را
+ * زده بودند - یعنی حدود یک‌چهارمِ اعضا. بقیه هفته‌ها هیچ پیامی از ربات
+ * نمی‌دیدند.
+ *
+ * سه چیز از فهرست کنار گذاشته می‌شود:
+ *   • ادمین‌ها - پیام را در گروه کاری می‌بینند.
+ *   • هر کسی که خودش گفته «نفرست» (digest_off).
+ *   • کسانی که خلاصه‌ی همین روز برایشان رفته.
+ *
+ * تازه‌واردها خودبه‌خود داخل‌اند: به‌محضِ اولین تعامل، ردیفشان در
+ * user_state ساخته می‌شود و از فردا صبح پیام می‌گیرند.
+ */
+export async function listPendingAudience(env, kind, ref, limit) {
+  await ensureSubscriberSchema(env);
+  const sql = (excludeAdmins) =>
+    `SELECT u.telegram_user_id AS telegram_user_id,
+            u.telegram_user_id AS chat_id
+       FROM user_state u
+      WHERE ` +
+    (excludeAdmins
+      ? `u.telegram_user_id NOT IN (SELECT telegram_id FROM crm_admin_users)
+          AND `
+      : ``) +
+    `NOT EXISTS (
+              SELECT 1 FROM econ_subscriber s
+               WHERE s.telegram_user_id = u.telegram_user_id
+                 AND s.digest_off = 1)
+        AND NOT EXISTS (
+              SELECT 1 FROM econ_sent_log l
+               WHERE l.kind = ? AND l.ref = ?
+                 AND l.telegram_user_id = u.telegram_user_id)
+      LIMIT ?`;
+
+  const run = (excludeAdmins) =>
+    env.DB.prepare(sql(excludeAdmins))
+      .bind(String(kind), String(ref), Number(limit) || 1)
+      .all();
+
+  let results;
+  try {
+    ({ results } = await run(true));
+  } catch {
+    // جدولِ ادمین‌ها مالِ CRM است و ممکن است هنوز ساخته نشده باشد.
+    // رسیدنِ خلاصه به چند ادمین، بهتر از نرسیدنش به هشت هزار نفر است.
+    ({ results } = await run(false));
+  }
+
+  return (results || []).map((r) => ({
+    telegram_user_id: String(r.telegram_user_id),
+    chat_id: String(r.chat_id),
+  }));
+}
+
+/** چند نفر مخاطبِ خلاصه‌اند و امروز برای چند نفرشان رفته. */
+export async function digestAudienceStats(env, kind, ref) {
+  await ensureSubscriberSchema(env);
+  const one = async (sql, binds = []) => {
+    const row = await env.DB.prepare(sql).bind(...binds).first();
+    return (row && row.n) || 0;
+  };
+  const total = await one(`SELECT COUNT(*) AS n FROM user_state`);
+  const optedOut = await one(
+    `SELECT COUNT(*) AS n FROM econ_subscriber WHERE digest_off = 1`
+  );
+  const sent = await one(
+    `SELECT COUNT(*) AS n FROM econ_sent_log WHERE kind = ? AND ref = ?`,
+    [String(kind), String(ref)]
+  );
+  return { total, opted_out: optedOut, sent_today: sent };
 }
 
 export async function subscriberStats(env) {

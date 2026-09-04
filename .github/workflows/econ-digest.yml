@@ -2,14 +2,17 @@
 #
 # Why this exists: every Telegram message the Worker sends is one
 # subrequest, and the Cloudflare free plan allows roughly 50 of them per
-# invocation. With ~2,100 subscribers no single invocation can finish the
-# digest — it used to die after a few dozen sends, and everyone else got
-# nothing.
+# invocation. The digest now goes to every bot member — about 8,500
+# people — so no single invocation can come close to finishing it.
 #
 # The ceiling is per invocation, not per day. So each fresh HTTP request
-# to the Worker gets a fresh budget. This job just calls the drain
-# endpoint over and over until the Worker reports it is done. About fifty
-# calls, a few minutes, and the whole list has the digest.
+# to the Worker gets a fresh budget. This job calls the drain endpoint
+# over and over — six calls at a time — until the Worker reports there is
+# nobody left.
+#
+# Running them in parallel is safe: before sending, the Worker writes the
+# recipient into its sent log with an insert that ignores duplicates. Two
+# calls that pick the same person cannot both send; the loser skips.
 #
 # This is the same shape as ff-calendar.yml: GitHub Actions is already the
 # pipe that feeds the Worker its calendar data, because Cloudflare cannot
@@ -41,65 +44,80 @@ concurrency:
 jobs:
   drain:
     runs-on: ubuntu-latest
-    # هر دور حدود نیم دقیقه طول می‌کشد (۴۵ پیامِ پشت سر هم به تلگرام)،
-    # پس دو هزار مشترک نزدیک به نیم ساعت می‌برد. مهلت با حاشیه گرفته شده
-    # تا اگر فهرست بزرگ‌تر شد، وسطِ کار قطع نشود.
-    timeout-minutes: 55
+    # ~8,500 people at 45 a call is around 190 calls. Six at a time, each
+    # taking about half a minute, puts the run near twenty minutes. The
+    # limit is set well above that so a growing list does not get cut off
+    # mid-send.
+    timeout-minutes: 50
     steps:
       - name: Drain the digest queue
         env:
           ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
           BASE: https://sobhansamadi.mehdifx21hoseini.workers.dev
         run: |
-          set -e
+          set -u
           test -n "$ADMIN_KEY" || { echo "::error::WORKER_ADMIN_KEY تنظیم نشده"; exit 1; }
 
-          # Enough rounds for ~4,000 subscribers at 45 a round, so the list
-          # can grow a long way before this needs touching. The loop stops
-          # the moment the Worker says it is done, so the cap only matters
-          # when something is wrong.
-          MAX=120
-          sent_total=0
+          # Six in parallel is about 11 messages a second — a third of what
+          # Telegram tolerates, and far enough below it that a slow round
+          # cannot push the average over.
+          WORKERS=6
+          # Enough rounds per worker for well over twice the current list,
+          # so it can grow a long way before this needs touching. A worker
+          # stops the moment the Worker says there is nobody left, so the
+          # cap only matters when something is wrong.
+          MAX=80
 
-          for i in $(seq 1 $MAX); do
-            CODE=$(curl -sS -o body.json -w '%{http_code}' \
-              -H "x-admin-key: $ADMIN_KEY" "$BASE/admin/econ-digest") || CODE=000
+          drain_one() {
+            w="$1"
+            body="body-$w.json"
+            total=0
+            for i in $(seq 1 $MAX); do
+              code=$(curl -sS -o "$body" -w '%{http_code}' \
+                -H "x-admin-key: $ADMIN_KEY" "$BASE/admin/econ-digest") || code=000
 
-            if [ "$CODE" != "200" ]; then
-              # A single bad round is not fatal: the next one picks up
-              # exactly where this stopped, because nobody is marked as
-              # sent unless the message actually went out.
-              echo "دور $i: کد $CODE - دوباره تلاش می‌شود"
-              sleep 5
-              continue
-            fi
+              if [ "$code" != "200" ]; then
+                # A single bad round is not fatal: the next one picks up
+                # exactly where this stopped, because nobody is marked as
+                # sent unless the message actually went out.
+                echo "کارگر $w دور $i: کد $code - دوباره تلاش می‌شود"
+                sleep 5
+                continue
+              fi
 
-            # Never print the body raw: it is JSON from an admin route and
-            # anything token-shaped in it must not reach a public log.
-            BODY=$(sed -E 's/[0-9]{6,}:[A-Za-z0-9_-]{30,}/<توکن پنهان شد>/g' body.json)
+              # Never print the body raw: it is JSON from an admin route and
+              # anything token-shaped in it must not reach a public log.
+              # The Worker indents its JSON ("done": true), so match on a
+              # space-stripped copy — patterns without the space silently
+              # never fired, and the loop ran until the job timed out.
+              flat=$(sed -E 's/[0-9]{6,}:[A-Za-z0-9_-]{30,}/<توکن پنهان شد>/g' "$body" | tr -d ' \n')
+              sent=$(echo "$flat" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
+              sent=${sent:-0}
+              total=$((total + sent))
+              echo "کارگر $w دور $i: $sent پیام (جمع این کارگر: $total)"
 
-            # ورکر JSON را با تورفتگی برمی‌گرداند («"done": true»)، پس
-            # الگوهای بدونِ فاصله هرگز نمی‌گرفتند: شمارش صفر می‌ماند و
-            # حلقه پرچمِ پایان را نمی‌دید و تا مهلتِ کار ادامه می‌داد.
-            # یک نسخه‌ی بی‌فاصله می‌سازیم و روی همان تطبیق می‌دهیم.
-            FLAT=$(echo "$BODY" | tr -d ' \n')
-            SENT=$(echo "$FLAT" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
-            SENT=${SENT:-0}
-            sent_total=$((sent_total + SENT))
-            echo "دور $i: $SENT پیام (جمع: $sent_total)"
+              case "$flat" in
+                *'"done":true'*|*'"skipped":'*)
+                  echo "$total" > "count-$w.txt"
+                  echo "کارگر $w تمام کرد - $total پیام در $i دور."
+                  return 0
+                  ;;
+              esac
 
-            case "$FLAT" in
-              *'"done":true'*|*'"skipped":'*)
-                echo "✅ خلاصه‌ی امروز کامل شد - مجموع $sent_total پیام در $i دور."
-                exit 0
-                ;;
-            esac
+              sleep 1
+            done
+            echo "$total" > "count-$w.txt"
+            echo "::warning::کارگر $w بعد از $MAX دور هنوز تمام نکرده."
+          }
 
-            # Telegram tolerates about 30 messages a second. A round sends
-            # 45 sequentially and already takes several seconds; this gap
-            # keeps the average comfortably under that without making the
-            # whole run slow.
-            sleep 2
+          for w in $(seq 1 $WORKERS); do
+            drain_one "$w" &
           done
+          wait
 
-          echo "::warning::بعد از $MAX دور هنوز تمام نشده - کرانِ ورکر ادامه می‌دهد."
+          grand=0
+          for w in $(seq 1 $WORKERS); do
+            n=$(cat "count-$w.txt" 2>/dev/null || echo 0)
+            grand=$((grand + n))
+          done
+          echo "✅ مجموع پیام‌های فرستاده‌شده در این اجرا: $grand"

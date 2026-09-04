@@ -312,6 +312,46 @@ export async function handleEconCallback(ctx, action) {
     if (field === "ON") patch.subscribed = value === "1";
     else if (field === "LOW") patch.show_low_importance = value === "1";
     else if (field === "MIN") patch.alert_minutes = Number(value);
+    // «۱» یعنی خلاصه را بفرست، پس digest_off برعکسِ آن است.
+    else if (field === "DIGEST" || field === "DIGESTP") patch.digest_off = value !== "1";
+
+    // این یکی از داخلِ خودِ خلاصه‌ی صبح زده می‌شود، نه از صفحه‌ی تنظیمات.
+    // پس نه پیام را با صفحه‌ی تنظیمات جایگزین می‌کنیم - که خلاصه‌ی امروز
+    // را پاک می‌کرد - و نه بی‌صدا رد می‌شویم: یک تاییدِ روشن، و دکمه‌ای
+    // که راهِ برگشت را باز می‌گذارد.
+    if (field === "DIGEST") {
+      const off = patch.digest_off;
+      try {
+        await saveSubscription(ctx.env, ctx.from.id, patch);
+      } catch (err) {
+        console.error("ذخیره‌ی تنظیم خلاصه شکست خورد:", err && err.message);
+        await ctx.answerCallbackQuery({
+          text: "ذخیره نشد؛ دوباره امتحان کنید.",
+          show_alert: true,
+        });
+        return true;
+      }
+      await ctx.answerCallbackQuery({
+        text: off
+          ? "دیگر خلاصه‌ی روزانه برایتان فرستاده نمی‌شود."
+          : "از فردا صبح دوباره خلاصه را می‌گیرید.",
+        show_alert: true,
+      });
+      await ctx
+        .editMessageReplyMarkup({
+          reply_markup: {
+            inline_keyboard: [
+              [
+                off
+                  ? { text: "🔔 دوباره برایم بفرست", callback_data: "ECON_SUB|DIGEST|1" }
+                  : { text: "🔕 دیگر این خلاصه را نفرست", callback_data: "ECON_SUB|DIGEST|0" },
+              ],
+            ],
+          },
+        })
+        .catch(() => {});
+      return true;
+    }
 
     try {
       await saveSubscription(ctx.env, ctx.from.id, patch);
@@ -371,6 +411,19 @@ async function sendAlertSettings(ctx, edit = false) {
       },
     ]);
   }
+
+  // خلاصه‌ی صبح جدا از هشدار است: برای همه‌ی اعضا می‌رود و کلیدِ بالا
+  // خاموشش نمی‌کند. پس وضعیتش باید همین‌جا دیده و عوض شود، وگرنه کسی که
+  // یک بار از داخلِ خودِ خلاصه خاموشش کرده هیچ راهی برای برگرداندن ندارد.
+  rows.push([
+    {
+      text: sub.digest_off ? "🔔 روشن کردن خلاصه‌ی هر روز صبح" : "🔕 خاموش کردن خلاصه‌ی هر روز صبح",
+      // DIGESTP یعنی «از صفحه‌ی تنظیمات»: همان تغییر، ولی بعدش همین صفحه
+      // دوباره کشیده می‌شود. DIGEST خامِ داخلِ خلاصه، مسیر دیگری دارد.
+      callback_data: "ECON_SUB|DIGESTP|" + (sub.digest_off ? "1" : "0"),
+      style: sub.digest_off ? "success" : "danger",
+    },
+  ]);
 
   rows.push([{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }]);
 
