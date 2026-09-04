@@ -202,13 +202,30 @@ export async function listPendingSubscribers(env, kind, ref, limit) {
  * تازه‌واردها خودبه‌خود داخل‌اند: به‌محضِ اولین تعامل، ردیفشان در
  * user_state ساخته می‌شود و از فردا صبح پیام می‌گیرند.
  */
-export async function listPendingAudience(env, kind, ref, limit) {
+export async function listPendingAudience(env, kind, ref, limit, shard) {
   await ensureSubscriberSchema(env);
+
+  // تکه‌بندی برای اجراهای موازی.
+  //
+  // بدونِ این، شش درخواستِ هم‌زمان هر شش‌تا همان ۴۵ نفرِ اولِ صف را
+  // برمی‌دارند: یکی می‌فرستد و پنج‌تا فقط «قبلاً فرستاده شده» می‌بینند و
+  // دستِ خالی برمی‌گردند. در اجرای واقعی همین باعث شد هر دور به‌جای ۴۵
+  // پیام، ده تا بفرستد.
+  //
+  // با باقی‌ماندهٔ تقسیمِ آیدی، هر کارگر بخشِ خودش را دارد و هیچ دو
+  // کارگری به یک نفر نمی‌رسند. آیدیِ تلگرام عدد است و پخشش یکنواخت.
+  const shards = shard && shard.of > 1 ? Math.floor(shard.of) : 0;
+  const mine = shards ? Math.floor(shard.index) % shards : 0;
+  const shardClause = shards
+    ? `CAST(u.telegram_user_id AS INTEGER) % ${shards} = ${mine} AND `
+    : ``;
+
   const sql = (excludeAdmins) =>
     `SELECT u.telegram_user_id AS telegram_user_id,
             u.telegram_user_id AS chat_id
        FROM user_state u
       WHERE ` +
+    shardClause +
     (excludeAdmins
       ? `u.telegram_user_id NOT IN (SELECT telegram_id FROM crm_admin_users)
           AND `

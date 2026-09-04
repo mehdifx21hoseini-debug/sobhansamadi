@@ -77,7 +77,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-55";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-56";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -440,7 +440,15 @@ async function handleAdmin(request, url, env) {
    */
   if (url.pathname === "/admin/econ-digest") {
     const force = url.searchParams.get("force") === "1";
-    const r = force ? await runDailyDigest(env) : await drainDailyDigest(env);
+    // shard/shards: کدام تکه از فهرست. چند صداکننده‌ی هم‌زمان بدونِ این،
+    // هر کدام همان ۴۵ نفرِ اولِ صف را برمی‌دارند و پنج‌تا از شش‌تا دستِ
+    // خالی برمی‌گردند.
+    const of = Number(url.searchParams.get("shards")) || 0;
+    const index = Number(url.searchParams.get("shard")) || 0;
+    const shard = of > 1 ? { of, index } : null;
+    const r = force
+      ? await runDailyDigest(env, new Date(), shard)
+      : await drainDailyDigest(env, new Date(), shard);
     return json({ ok: true, build: BUILD, ...r });
   }
 

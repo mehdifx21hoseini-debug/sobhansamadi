@@ -58,6 +58,12 @@ jobs:
           set -u
           test -n "$ADMIN_KEY" || { echo "::error::WORKER_ADMIN_KEY تنظیم نشده"; exit 1; }
 
+          # Each worker takes its own slice of the list, keyed on the
+          # remainder of the user id. Without that they all grab the same
+          # first 45 people: one sends, five find them already claimed and
+          # come back empty — which is exactly what a real run showed,
+          # ten messages a round instead of forty-five.
+          #
           # Six in parallel is about 11 messages a second — a third of what
           # Telegram tolerates, and far enough below it that a slow round
           # cannot push the average over.
@@ -74,7 +80,7 @@ jobs:
           # subscribers to every member, or simply people who joined after
           # the morning run. It cannot double-send: the sent log still
           # decides who gets a message.
-          FORCE="?force=1"
+          FORCE="force=1"
 
           drain_one() {
             w="$1"
@@ -82,7 +88,8 @@ jobs:
             total=0
             for i in $(seq 1 $MAX); do
               code=$(curl -sS -o "$body" -w '%{http_code}' \
-                -H "x-admin-key: $ADMIN_KEY" "$BASE/admin/econ-digest$FORCE") || code=000
+                -H "x-admin-key: $ADMIN_KEY" \
+                "$BASE/admin/econ-digest?$FORCE&shards=$WORKERS&shard=$((w - 1))") || code=000
 
               if [ "$code" != "200" ]; then
                 # A single bad round is not fatal: the next one picks up

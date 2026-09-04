@@ -268,16 +268,18 @@ export function digestRef(now = new Date()) {
  * فهرست تمام شود. با پلنِ پولی سقف هزار می‌شود و کلِ فهرست در دو سه
  * اجرا تمام می‌شود.
  */
-export async function runDailyDigest(env, now = new Date()) {
+export async function runDailyDigest(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
 
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const pending = await listPendingAudience(env, "digest", ref, SEND_BUDGET);
+  const pending = await listPendingAudience(env, "digest", ref, SEND_BUDGET, shard);
   if (pending.length === 0) {
-    await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
+    // پرچمِ پایان فقط از اجرای بی‌تکه زده می‌شود: خالی بودنِ یک تکه فقط
+    // یعنی همان تکه تمام شده، نه کلِ فهرست.
+    if (!shard) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
     return { sent: 0, failed: 0, blocked: 0, done: true };
   }
 
@@ -321,12 +323,12 @@ export async function runDailyDigest(env, now = new Date()) {
  * یک کوئری روی دو هزار ردیف اجرا می‌شد - همان بی‌احتیاطی که یک بار سقفِ
  * روزانه‌ی D1 را پر کرد.
  */
-export async function drainDailyDigest(env, now = new Date()) {
+export async function drainDailyDigest(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   const ref = digestRef(now);
   const done = await readConfig(env, DIGEST_DONE).catch(() => "");
   if (String(done) === ref) return { skipped: "تمام شده" };
-  return runDailyDigest(env, now);
+  return runDailyDigest(env, now, shard);
 }
 
 // ─── ۲) هشدار قبل از خبر ────────────────────────────────────────────
