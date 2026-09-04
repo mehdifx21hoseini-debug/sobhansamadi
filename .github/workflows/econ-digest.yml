@@ -41,7 +41,10 @@ concurrency:
 jobs:
   drain:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # هر دور حدود نیم دقیقه طول می‌کشد (۴۵ پیامِ پشت سر هم به تلگرام)،
+    # پس دو هزار مشترک نزدیک به نیم ساعت می‌برد. مهلت با حاشیه گرفته شده
+    # تا اگر فهرست بزرگ‌تر شد، وسطِ کار قطع نشود.
+    timeout-minutes: 55
     steps:
       - name: Drain the digest queue
         env:
@@ -55,7 +58,7 @@ jobs:
           # can grow a long way before this needs touching. The loop stops
           # the moment the Worker says it is done, so the cap only matters
           # when something is wrong.
-          MAX=90
+          MAX=120
           sent_total=0
 
           for i in $(seq 1 $MAX); do
@@ -74,13 +77,19 @@ jobs:
             # Never print the body raw: it is JSON from an admin route and
             # anything token-shaped in it must not reach a public log.
             BODY=$(sed -E 's/[0-9]{6,}:[A-Za-z0-9_-]{30,}/<توکن پنهان شد>/g' body.json)
-            SENT=$(echo "$BODY" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
+
+            # ورکر JSON را با تورفتگی برمی‌گرداند («"done": true»)، پس
+            # الگوهای بدونِ فاصله هرگز نمی‌گرفتند: شمارش صفر می‌ماند و
+            # حلقه پرچمِ پایان را نمی‌دید و تا مهلتِ کار ادامه می‌داد.
+            # یک نسخه‌ی بی‌فاصله می‌سازیم و روی همان تطبیق می‌دهیم.
+            FLAT=$(echo "$BODY" | tr -d ' \n')
+            SENT=$(echo "$FLAT" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
             SENT=${SENT:-0}
             sent_total=$((sent_total + SENT))
             echo "دور $i: $SENT پیام (جمع: $sent_total)"
 
-            case "$BODY" in
-              *'"done":true'*|*'"skipped"'*)
+            case "$FLAT" in
+              *'"done":true'*|*'"skipped":'*)
                 echo "✅ خلاصه‌ی امروز کامل شد - مجموع $sent_total پیام در $i دور."
                 exit 0
                 ;;
