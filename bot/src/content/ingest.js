@@ -24,6 +24,11 @@ const FIXED_CONTENT_CODES = [
   "INTRO_P01","INTRO_P02","INTRO_P03","INTRO_P04_LINK","INTRO_P05","INTRO_P06","INTRO_P07",
   "INTRO_P08","INTRO_P09","INTRO_P10","INTRO_P11","INTRO_P12","INTRO_P13","INTRO_P14",
   "INTRO_P15",
+  // جلسه‌ی آخر - «مسیر پیش رو». از این فهرست جا مانده بود، و نتیجه‌اش
+  // این بود که هر ویدیویی با هشتگِ #INTRO_P16 در کانال بی‌صدا نادیده
+  // گرفته می‌شد؛ منو و فرستنده هر دو سراغش می‌رفتند و چیزی پیدا
+  // نمی‌کردند، پس فقط متنِ پایانی می‌رفت.
+  "INTRO_P16",
   "EMOTIONAL_P01","EMOTIONAL_P02","EMOTIONAL_P03","EMOTIONAL_P04",
   "BOOK_01_PDF","BOOK_01_AUDIO",
   "BOOK_02_PDF","BOOK_02_AUDIO_P01","BOOK_02_AUDIO_P02","BOOK_02_AUDIO_P03","BOOK_02_AUDIO_P04","BOOK_02_AUDIO_P05",

@@ -105,11 +105,11 @@ export async function crmSelfTest(env) {
   // می‌کند. نبودنشان خطا نمی‌دهد - مسیر بی‌صدا بدونشان ادامه پیدا
   // می‌کند - پس تنها راهِ فهمیدنش یا یک ثبت‌نامِ تستی است یا همین خط.
   try {
-    const ids = ["LEAD_DONE_ANIM", "COURSE_TECH_VOICE", "COURSE_PSY_VOICE"];
+    const ids = ["LEAD_DONE_ANIM", "COURSE_TECH_VOICE", "COURSE_PSY_VOICE", "INTRO_P16"];
     const { results } = await env.DB
       .prepare(
         `SELECT content_id, file_type FROM content_library
-           WHERE content_id IN (?, ?, ?) AND active = 1`
+           WHERE content_id IN (` + ids.map(() => "?").join(", ") + `) AND active = 1`
       )
       .bind(...ids)
       .all();
