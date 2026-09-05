@@ -25,11 +25,12 @@ name: Econ Daily Digest
 
 on:
   schedule:
-    # 04:30 UTC is 08:00 Tehran, all year: Iran has no daylight saving.
-    # GitHub can delay scheduled runs by several minutes under load, which
-    # is fine for a morning digest — and the Worker's own cron fires at
-    # the same minute regardless, so the first chunk is never late.
-    - cron: '30 4 * * *'
+    # 04:00 UTC is 07:30 Tehran, all year: Iran has no daylight saving.
+    # Half an hour before the hour it needs to land, on purpose. GitHub
+    # delays scheduled runs when its queue is busy — one morning it ran
+    # four hours late — so the earlier slot buys back the common delay,
+    # and the Worker's own cron fires at 07:30 sharp regardless.
+    - cron: '0 4 * * *'
   workflow_dispatch:
 
 permissions: {}
