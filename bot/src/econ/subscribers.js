@@ -194,10 +194,16 @@ export async function listPendingSubscribers(env, kind, ref, limit) {
  * زده بودند - یعنی حدود یک‌چهارمِ اعضا. بقیه هفته‌ها هیچ پیامی از ربات
  * نمی‌دیدند.
  *
- * سه چیز از فهرست کنار گذاشته می‌شود:
- *   • ادمین‌ها - پیام را در گروه کاری می‌بینند.
+ * دو چیز از فهرست کنار گذاشته می‌شود:
  *   • هر کسی که خودش گفته «نفرست» (digest_off).
  *   • کسانی که خلاصه‌ی همین روز برایشان رفته.
+ *
+ * ادمین‌ها عمداً داخل‌اند. اول بیرون گذاشته شده بودند - قاعده‌ای که از
+ * پیامِ همگانی قرض گرفته شده بود و آنجا درست است، چون آن پیام را در
+ * گروهِ کاری هم می‌بینند. ولی خلاصه‌ی صبح خبر است نه اعلانِ داخلی، و
+ * نتیجه‌اش این شد که صاحبِ ربات صبحِ شنبه هیچ پیامی ندید در حالی که
+ * هشت هزار نفر دیده بودند. کسی که ربات را می‌گرداند باید همان چیزی را
+ * ببیند که کاربرش می‌بیند.
  *
  * تازه‌واردها خودبه‌خود داخل‌اند: به‌محضِ اولین تعامل، ردیفشان در
  * user_state ساخته می‌شود و از فردا صبح پیام می‌گیرند.
@@ -220,39 +226,25 @@ export async function listPendingAudience(env, kind, ref, limit, shard) {
     ? `CAST(u.telegram_user_id AS INTEGER) % ${shards} = ${mine} AND `
     : ``;
 
-  const sql = (excludeAdmins) =>
-    `SELECT u.telegram_user_id AS telegram_user_id,
-            u.telegram_user_id AS chat_id
-       FROM user_state u
-      WHERE ` +
-    shardClause +
-    (excludeAdmins
-      ? `u.telegram_user_id NOT IN (SELECT telegram_id FROM crm_admin_users)
-          AND `
-      : ``) +
-    `NOT EXISTS (
-              SELECT 1 FROM econ_subscriber s
-               WHERE s.telegram_user_id = u.telegram_user_id
-                 AND s.digest_off = 1)
-        AND NOT EXISTS (
-              SELECT 1 FROM econ_sent_log l
-               WHERE l.kind = ? AND l.ref = ?
-                 AND l.telegram_user_id = u.telegram_user_id)
-      LIMIT ?`;
-
-  const run = (excludeAdmins) =>
-    env.DB.prepare(sql(excludeAdmins))
-      .bind(String(kind), String(ref), Number(limit) || 1)
-      .all();
-
-  let results;
-  try {
-    ({ results } = await run(true));
-  } catch {
-    // جدولِ ادمین‌ها مالِ CRM است و ممکن است هنوز ساخته نشده باشد.
-    // رسیدنِ خلاصه به چند ادمین، بهتر از نرسیدنش به هشت هزار نفر است.
-    ({ results } = await run(false));
-  }
+  const { results } = await env.DB
+    .prepare(
+      `SELECT u.telegram_user_id AS telegram_user_id,
+              u.telegram_user_id AS chat_id
+         FROM user_state u
+        WHERE ` +
+        shardClause +
+        `NOT EXISTS (
+                SELECT 1 FROM econ_subscriber s
+                 WHERE s.telegram_user_id = u.telegram_user_id
+                   AND s.digest_off = 1)
+          AND NOT EXISTS (
+                SELECT 1 FROM econ_sent_log l
+                 WHERE l.kind = ? AND l.ref = ?
+                   AND l.telegram_user_id = u.telegram_user_id)
+        LIMIT ?`
+    )
+    .bind(String(kind), String(ref), Number(limit) || 1)
+    .all();
 
   return (results || []).map((r) => ({
     telegram_user_id: String(r.telegram_user_id),
