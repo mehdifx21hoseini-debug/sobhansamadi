@@ -198,13 +198,20 @@ function holidayBanner(holiday) {
   if (!holiday) return "";
   // سرتیتر و نه یک خطِ پررنگ: نما با «## اخبار امروز» شروع می‌شود و یک
   // خطِ معمولی زیر آن گم می‌شد. سرتیتر همان وزنِ بصری را دارد که خبر
-  // لازم دارد، و 📢 از دور می‌گوید این یک اعلانِ مهم است نه یک ردیفِ
+  // لازم دارد، و 🔴 از دور می‌گوید این یک اعلانِ مهم است نه یک ردیفِ
   // دیگرِ جدول.
+  // 🔴 همان نشانی است که در جدول برای خبرهای خیلی مهم به کار می‌رود، پس
+  // کاربر معنی‌اش را از قبل می‌داند و اینجا هم بدونِ توضیح می‌فهمد که این
+  // خط مهم است.
+  //
+  // RLM پیش از هر خط: تلگرام جهتِ خط را از اولین حرفِ قوی می‌گیرد و
+  // ایموجی حرفِ قوی نیست؛ خطی که با ایموجی و بعد پرانتزِ لاتین شروع
+  // می‌شود می‌تواند چپ‌چین بیفتد.
   return (
-    "### 📢 توجه: امروز تعطیلی بانکی آمریکا\n\n" +
-    "🏦 **" + mdCell(holidayLabel(holiday)) + "**\n\n" +
-    "📉 نقدینگی بازار پایین است\n\n" +
-    "📰 داده‌ی اقتصادی مهمی منتشر نمی‌شود\n\n" +
+    "### " + RLM + "🔴 امروز تعطیلی بانکی آمریکا\n\n" +
+    RLM + "🏦 **" + mdCell(holidayLabel(holiday)) + "**\n\n" +
+    RLM + "📉 نقدینگی بازار پایین است\n\n" +
+    RLM + "📰 داده‌ی اقتصادی مهمی منتشر نمی‌شود\n\n" +
     "---\n\n"
   );
 }
@@ -218,7 +225,7 @@ export function buildTodayMarkdown(events, labels, holidays) {
   // جزئیات کامل هر رویداد، به‌صورت پیش‌فرض بسته، تا پیام خوانا بماند.
   function detailsBlock(list) {
     if (!list || list.length === 0) return "";
-    const lines = ["<details><summary>📋 جزئیات کامل رویدادها</summary>", ""];
+    const lines = ["<details><summary>" + RLM + "📋 جزئیات کامل رویدادها</summary>", ""];
     for (const e of list) {
       const when = e.time
         ? toPersianDigits(etTimeToTehran(e.date, e.time)) + " به وقت تهران"
@@ -226,7 +233,7 @@ export function buildTodayMarkdown(events, labels, holidays) {
       const en = enFull(e);
       const fa2 = faName(e);
       lines.push(
-        "**" + mdCell(en || fa2) + "**" +
+        RLM + "**" + mdCell(en || fa2) + "**" +
           (en && fa2 && fa2 !== en ? " — " + mdCell(fa2) : "") +
           " · " + when
       );
@@ -237,7 +244,7 @@ export function buildTodayMarkdown(events, labels, holidays) {
         "واقعی " + (e.actual || (e.status === "upcoming" ? "منتشر نشده" : "-")),
       ];
       if (e.source) bits.push("منبع " + e.source);
-      lines.push(mdCell(bits.join(" · ")));
+      lines.push(RLM + mdCell(bits.join(" · ")));
       lines.push("");
     }
     lines.push("</details>");
@@ -262,13 +269,17 @@ export function buildTodayMarkdown(events, labels, holidays) {
 
   const holiday = holidayOn(holidays, today);
 
-  let markdown = "## 🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n\n";
-  markdown += "📅 " + formatJalaliDate(today) + "\n\n";
+  // RLM پیش از هر خطِ متنی، تا هیچ خطی چپ‌چین نیفتد. جهتِ خط از اولین
+  // حرفِ قویِ همان خط می‌آید و ایموجی، عدد و پرانتزِ لاتین هیچ‌کدام قوی
+  // نیستند - پس خطی که با «🇺🇸» یا «📅 ۱۶» شروع می‌شود می‌تواند برعکس
+  // بیفتد. نشانه بعد از علامتِ markdown می‌آید تا سرتیتر نشکند.
+  let markdown = "## " + RLM + "🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n\n";
+  markdown += RLM + "📅 " + formatJalaliDate(today) + "\n\n";
   markdown += holidayBanner(holiday);
   if (todays.length === 0) {
     // در روزِ تعطیل این جمله گمراه‌کننده است: کاربر فکر می‌کند داده را
     // نداریم، نه اینکه بازار تعطیل است. نوارِ بالا خودش توضیح داده.
-    if (!holiday) markdown += "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n";
+    if (!holiday) markdown += RLM + "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n";
   } else {
     markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n";
     markdown += "|---|---|---|---|\n";
@@ -288,13 +299,13 @@ export function buildTodayMarkdown(events, labels, holidays) {
     if (upcoming.length > 0) {
       const nextEvent = upcoming[0];
       const cd = formatCountdown(etMinutesUntilNow(nextEvent.date, nextEvent.time));
-      if (cd) markdown += "**" + mdCell(faName(nextEvent)) + "** — " + cd + "\n\n";
+      if (cd) markdown += RLM + "**" + mdCell(faName(nextEvent)) + "** — " + cd + "\n\n";
     }
   }
   markdown += detailsBlock(todays);
   markdown += usdReadBlock(todays);
   const lastUpdated = todays.length > 0 ? todays[0].last_updated : nowIso;
-  markdown += "ℹ️ آخرین بروزرسانی: " + relativeTimeFa(lastUpdated);
+  markdown += RLM + "ℹ️ آخرین بروزرسانی: " + relativeTimeFa(lastUpdated);
   return markdown;
 }
 
@@ -331,7 +342,7 @@ export function buildWeekMarkdown(events, labels, holidays) {
     const hol = holidayOn(holidays, date);
     return (
       "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(date) +
-      (hol ? " — 📢 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) : "") + "\n\n"
+      (hol ? " — 🔴 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) : "") + "\n\n"
     );
   };
 
