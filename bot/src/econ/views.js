@@ -10,6 +10,7 @@ import {
   relativeTimeFa,
   toPersianDigits,
 } from "./format.js";
+import { holidayLabel } from "./holidayNames.js";
 import { makeLabelHelpers, mdCell, wrapName } from "./labels.js";
 
 // همان فیلتر و مرتب‌سازی که هر دو نمای متن و markdown از آن استفاده
@@ -176,7 +177,32 @@ export function buildAlertSettingsText(sub) {
 // است که کاربر روی دکمه‌های «امروز» و «این هفته» می‌دید.
 // ---------------------------------------------------------------------
 
-export function buildTodayMarkdown(events, labels) {
+/**
+ * تعطیلیِ یک روزِ مشخص، از فهرستِ تعطیلات.
+ *
+ * فهرست همیشه پاس داده نمی‌شود - صداکننده‌های قدیمی دو آرگومان می‌دادند -
+ * پس نبودنش خطا نیست و فقط یعنی «نشانی نگذار».
+ */
+function holidayOn(holidays, date) {
+  return (holidays || []).find((h) => h && h.date === date) || null;
+}
+
+/**
+ * نوارِ بالای نمای امروز.
+ *
+ * چرا بالای جدول و نه پایینش: کاربر جدول را می‌بیند و بلافاصله قضاوت
+ * می‌کند «امروز خبری نیست». اگر دلیلش پایین‌تر نوشته شده باشد، دیگر
+ * خوانده نمی‌شود.
+ */
+function holidayBanner(holiday) {
+  if (!holiday) return "";
+  return (
+    "**🏦 امروز تعطیلی بانکی آمریکا است — " + mdCell(holidayLabel(holiday)) + "**\n\n" +
+    "نقدشوندگی پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.\n\n"
+  );
+}
+
+export function buildTodayMarkdown(events, labels, holidays) {
   const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
@@ -227,10 +253,15 @@ export function buildTodayMarkdown(events, labels) {
     );
   }
 
+  const holiday = holidayOn(holidays, today);
+
   let markdown = "## 🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n\n";
   markdown += "📅 " + formatJalaliDate(today) + "\n\n";
+  markdown += holidayBanner(holiday);
   if (todays.length === 0) {
-    markdown += "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n";
+    // در روزِ تعطیل این جمله گمراه‌کننده است: کاربر فکر می‌کند داده را
+    // نداریم، نه اینکه بازار تعطیل است. نوارِ بالا خودش توضیح داده.
+    if (!holiday) markdown += "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n";
   } else {
     markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n";
     markdown += "|---|---|---|---|\n";
@@ -260,9 +291,25 @@ export function buildTodayMarkdown(events, labels) {
   return markdown;
 }
 
-export function buildWeekMarkdown(events, labels) {
+export function buildWeekMarkdown(events, labels, holidays) {
   const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
   const weekEvents = weekEventsOf(events);
+
+  // روزهای تعطیلِ همین بازه، حتی آن‌هایی که هیچ رویدادی ندارند.
+  //
+  // بدونِ این، تعطیلیِ بی‌رویداد اصلاً در برنامه‌ی هفته دیده نمی‌شد: روز
+  // از فهرست غایب بود و کاربر نمی‌فهمید آن روز بازار وضعیت خاصی دارد.
+  // بازه همان بازه‌ی رویدادهاست - امروز تا هفت روز بعد - نه از اولین تا
+  // آخرین رویداد. اگر از روی رویدادها ساخته می‌شد، تعطیلیِ پنجشنبه در
+  // هفته‌ای که آخرین خبرش سه‌شنبه است بیرون می‌افتاد.
+  const weekDates = weekEvents.map((e) => e.date).filter(Boolean).sort();
+  const from = new Date().toISOString().slice(0, 10);
+  const to = new Date(new Date(from + "T00:00:00Z").getTime() + 7 * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const holidayDays = (holidays || [])
+    .filter((h) => h && h.date && h.date >= from && h.date <= to)
+    .map((h) => h.date);
 
   let markdown = "## 📆 تقویم اقتصادی این هفته (دلار)\n";
   if (weekEvents.length === 0) {
@@ -270,11 +317,33 @@ export function buildWeekMarkdown(events, labels) {
     return markdown.trim();
   }
 
+  // روزها به ترتیب، چه رویداد داشته باشند چه فقط تعطیل باشند.
+  const allDates = [...new Set([...weekDates, ...holidayDays])].sort();
+  const dayHeader = (date) => {
+    const dd = new Date(date + "T00:00:00Z");
+    const hol = holidayOn(holidays, date);
+    return (
+      "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(date) +
+      (hol ? " — 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) : "") + "\n\n"
+    );
+  };
+
+  // روزهایی که فقط تعطیل‌اند و هیچ رویدادی ندارند، همین‌جا نوشته می‌شوند
+  // و از حلقه‌ی رویدادها بیرون می‌مانند.
+  const eventDates = new Set(weekDates);
+  const emptyHolidays = allDates.filter((d) => !eventDates.has(d));
+
   let lastMdDate = "";
   for (const e of weekEvents) {
     if (e.date !== lastMdDate) {
-      const dd = new Date(e.date + "T00:00:00Z");
-      markdown += "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(e.date) + "\n\n";
+      // هر روزِ تعطیلِ بی‌رویداد که پیش از این روز است، اول نوشته شود تا
+      // ترتیبِ تاریخ‌ها به هم نخورد.
+      for (const d of emptyHolidays) {
+        if (d < e.date && d > lastMdDate) {
+          markdown += dayHeader(d) + "بدون داده‌ی اقتصادی.\n";
+        }
+      }
+      markdown += dayHeader(e.date);
       markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
       lastMdDate = e.date;
     }
@@ -287,6 +356,12 @@ export function buildWeekMarkdown(events, labels) {
     }
     const name = em + " " + wrapName(mdCell(enShort(e)), 12);
     markdown += "| " + mdCell(tt) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(ac) + " |\n";
+  }
+
+  // تعطیلی‌هایی که بعد از آخرین روزِ رویدادها می‌افتند - حلقه‌ی بالا به
+  // آن‌ها نمی‌رسد چون رویدادی پس از آن‌ها نیست.
+  for (const d of emptyHolidays) {
+    if (d > lastMdDate) markdown += dayHeader(d) + "بدون داده‌ی اقتصادی.\n";
   }
 
   // واژه‌نامه‌ی تاشو: نام کامل انگلیسی → فارسی، یک‌بار برای هر رویداد
@@ -340,12 +415,19 @@ export function buildHolidaysMarkdown(holidays) {
 // زمینه‌ای که به ایجنت هوش مصنوعی داده می‌شود. عیناً از نود
 // Build Explain Prompt. برخلاف نماهای بالا اینجا رویدادهای کم‌اهمیت هم
 // می‌آیند - ایجنت باید کل تصویر روز را ببیند، نه فقط تیترها.
-export function buildExplainContext(events) {
+export function buildExplainContext(events, holidays) {
   const today = new Date().toISOString().slice(0, 10);
   const todays = (events || []).filter((e) => e.date === today);
+  const holiday = holidayOn(holidays, today);
 
   return (
     "امروز: " + formatJalaliDate(today) + "\n" +
+    // بدونِ این خط، مدل در روزِ تعطیل نمی‌داند چرا جدول خالی است و
+    // درباره‌ی روزی حرف می‌زند که اصلاً بازارش باز نبوده.
+    (holiday
+      ? "توجه: امروز تعطیلی بانکی آمریکا است (" + holidayLabel(holiday) +
+        "). نقدشوندگی پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.\n"
+      : "") +
     (todays.length === 0
       ? "امروز رویداد مهم اقتصادی ثبت‌شده‌ای برای دلار در منبع داده وجود ندارد."
       : todays

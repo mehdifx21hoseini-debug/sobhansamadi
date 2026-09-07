@@ -192,11 +192,17 @@ export async function handleEconCallback(ctx, action) {
     if (action === "ECON_HOLIDAYS") {
       markdown = buildHolidaysMarkdown(await readHolidays(ctx.env));
     } else {
-      const [events, labels] = await Promise.all([readEvents(ctx.env), readLabels(ctx.env)]);
+      const [events, labels, holidays] = await Promise.all([
+        readEvents(ctx.env),
+        readLabels(ctx.env),
+        // شکستش نباید نما را خالی کند: تعطیلات یک نشانِ اضافه است، نه
+        // خودِ محتوا.
+        readHolidays(ctx.env).catch(() => []),
+      ]);
       markdown =
         action === "ECON_TODAY"
-          ? buildTodayMarkdown(events, labels)
-          : buildWeekMarkdown(events, labels);
+          ? buildTodayMarkdown(events, labels, holidays)
+          : buildWeekMarkdown(events, labels, holidays);
     }
 
     await replaceCallbackMessage(ctx);
@@ -228,7 +234,7 @@ export async function handleEconCallback(ctx, action) {
     // ندارد و دکمه عملاً مرده است.
     const cacheKey = todayCacheKey();
     const events = await readEvents(ctx.env);
-    const context = buildExplainContext(events);
+    const context = buildExplainContext(events, await readHolidays(ctx.env).catch(() => []));
 
     // ساختن پاسخ چند ثانیه طول می‌کشد؛ بدون این نشانه کاربر فکر می‌کند
     // دکمه کار نکرده و دوباره می‌زند.

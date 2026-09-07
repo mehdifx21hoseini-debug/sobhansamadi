@@ -235,8 +235,12 @@ export async function buildDigest(env, now = new Date()) {
   if (day === "Sat" || day === "Sun") {
     return { text: WEEKEND_TEXT[day], weekend: true };
   }
-  const [events, labels] = await Promise.all([readEvents(env), readLabels(env)]);
-  return { markdown: buildTodayMarkdown(events, labels), weekend: false };
+  const [events, labels, holidays] = await Promise.all([
+    readEvents(env),
+    readLabels(env),
+    readHolidays(env).catch(() => []),
+  ]);
+  return { markdown: buildTodayMarkdown(events, labels, holidays), weekend: false };
 }
 
 // کلیدی که می‌گوید خلاصه‌ی کدام روز کامل رفته است. یک ردیفِ تنظیمات،

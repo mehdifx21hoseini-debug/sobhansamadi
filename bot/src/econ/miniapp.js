@@ -13,6 +13,7 @@
 // خواندن و نوشتنش هر دو همین‌جا انجام می‌شود.
 
 import { readEvents, readLabels, readHolidays, readAiAnswer, todayCacheKey } from "./store.js";
+import { holidayNameFa } from "./holidayNames.js";
 import { makeLabelHelpers, numOf } from "./labels.js";
 import { etTimeToTehran, etInstantIso } from "./format.js";
 import { readSubscription, saveSubscription, defaultSubscription } from "./subscribers.js";
@@ -223,7 +224,10 @@ export async function buildMiniappPayload(env, user) {
     events,
     holidays: (holidays || [])
       .filter((h) => h && h.date >= today && h.date <= horizonEnd)
-      .map((h) => ({ date: h.date, name: h.name_fa || h.name || "" })),
+      // نام فارسی از همان فهرستی می‌آید که ربات استفاده می‌کند: منبعِ
+      // تعطیلات فقط انگلیسی می‌دهد و name_fa تقریباً همیشه خالی است، پس
+      // بدونِ این، اپ «Labor Day» نشان می‌داد.
+      .map((h) => ({ date: h.date, name: holidayNameFa(h) || h.name || "" })),
   };
 }
 
