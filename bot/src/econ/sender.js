@@ -16,7 +16,8 @@
 // به یک متن ثابت می‌دهد. سکوت کامل نه - دو روز خاموشیِ پشت‌سرهم عادتِ
 // باز کردن ربات را می‌شکند.
 
-import { readEvents, readLabels } from "./store.js";
+import { readEvents, readLabels, readHolidays } from "./store.js";
+import { holidayLabel, holidayNameFa } from "./holidayNames.js";
 import { buildTodayMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
@@ -32,6 +33,7 @@ import {
   etTimeToTehran,
   etMinutesUntilNow,
   toPersianDigits,
+  formatJalaliDate,
 } from "./format.js";
 
 // ─── کلید روشن/خاموش ────────────────────────────────────────────────
@@ -305,6 +307,119 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
   // همکارهایش برداشته باشند و هنوز در حالِ فرستادن باشند. یک دورِ اضافه
   // ارزان است؛ جا ماندنِ چند نفر نه.
   return { ...stats, weekend: digest.weekend, chunk: pending.length, done: false, throttled: stopped };
+}
+
+// ─── ۱ب) اعلانِ تعطیلی بانکی ────────────────────────────────────────
+//
+// چرا جدا از خلاصه: خلاصه‌ی صبح جدولِ رویدادهاست و در روزِ تعطیل فقط
+// می‌نویسد «امروز رویداد مهمی ثبت نشده» - که از نگاهِ کاربر با یک روزِ
+// خالیِ عادی فرقی ندارد. تعطیلیِ بانکی خودش یک خبر است و باید اسم و
+// دلیل داشته باشد.
+//
+// چرا با همان ماشینِ خلاصه: دفترِ ارسال، تکه‌بندی، بودجه‌ی subrequest و
+// درِینِ موازی همه اینجا هم لازم‌اند. تنها فرقش kind است - «holiday»
+// به‌جای «digest» - پس همان مسیر با یک شناسه‌ی دیگر کار می‌کند و هیچ‌کس
+// دو بار پیام نمی‌گیرد.
+
+const HOLIDAY_BUTTON = {
+  inline_keyboard: [
+    [{ text: "🏦 تعطیلات پیشِ رو", callback_data: "ECON_HOLIDAYS", style: "primary" }],
+  ],
+};
+
+const WEEKDAY_FA = {
+  Sat: "شنبه", Sun: "یکشنبه", Mon: "دوشنبه", Tue: "سه‌شنبه",
+  Wed: "چهارشنبه", Thu: "پنجشنبه", Fri: "جمعه",
+};
+
+/**
+ * تعطیلیِ امروز، اگر باشد.
+ *
+ * تاریخ به وقت تهران گرفته می‌شود نه UTC: پیام صبحِ تهران می‌رود و اگر
+ * با UTC سنجیده شود، چند ساعتِ اولِ روز هنوز دیروز حساب می‌شود.
+ */
+export async function todaysHoliday(env, now = new Date()) {
+  const today = digestRef(now);
+  const rows = await readHolidays(env).catch(() => []);
+  return (rows || []).find((h) => h && h.date === today) || null;
+}
+
+/** متنِ اعلان. جدا نوشته شده تا بشود بدونِ فرستادن دیدش. */
+export function buildHolidayText(holiday, now = new Date()) {
+  const date = digestRef(now);
+  const day = WEEKDAY_FA[tehranWeekday(now)] || "";
+  const label = holidayLabel(holiday);
+
+  return (
+    "🏦 BANK HOLIDAY\n" +
+    "تعطیلی بانکی آمریکا — " + (holidayNameFa(holiday) || label) + "\n\n" +
+    "امروز " + day + "، " + formatJalaliDate(date) + "، بازارهای آمریکا به مناسبت " +
+    label + " تعطیل‌اند. بانک‌ها، بورس و مؤسسات مالی آمریکا در این روز بسته‌اند.\n\n" +
+    "📉 نقدشوندگی کاهش پیدا می‌کند\n\n" +
+    "بخش بزرگی از حجم معاملات دلار از بانک‌ها و مؤسسات آمریکایی می‌آید. وقتی آن‌ها تعطیل‌اند، حجم به‌شدت پایین می‌آید. بازار فارکس باز است، ولی عملاً با بخشی از توان همیشگی‌اش کار می‌کند.\n\n" +
+    "📰 خبر اقتصادی منتشر نمی‌شود\n\n" +
+    "هیچ داده‌ی اقتصادی مهمی برای دلار امروز اعلام نمی‌شود؛ نهادهای آماری آمریکا هم تعطیل‌اند.\n\n" +
+    "فردا بازار و تقویم اقتصادی به حالت عادی برمی‌گردند."
+  );
+}
+
+const HOLIDAY_DONE = "econ_holiday_done";
+
+/**
+ * یک تکه از اعلانِ تعطیلی.
+ *
+ * اگر امروز تعطیل نباشد، بی‌هیچ کاری برمی‌گردد - پس صدا زدنش در هر روزی
+ * بی‌خطر است و لازم نیست جای دیگری تصمیم بگیرد که امروز تعطیل هست یا نه.
+ */
+export async function runHolidayNotice(env, now = new Date(), shard = null) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
+
+  const holiday = await todaysHoliday(env, now);
+  if (!holiday) return { skipped: "امروز تعطیل نیست", done: true };
+
+  await ensureSentSchema(env);
+  const ref = digestRef(now);
+
+  const pending = await listPendingAudience(env, "holiday", ref, SEND_BUDGET, shard);
+  if (pending.length === 0) {
+    if (!shard) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: true };
+  }
+
+  const text = buildHolidayText(holiday, now);
+  const build = () => ({
+    method: "sendMessage",
+    payload: { text, reply_markup: HOLIDAY_BUTTON },
+  });
+
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let stopped = false;
+  for (let i = 0; i < pending.length; i++) {
+    const res = await claimAndSend(env, "holiday", ref, pending[i], build, stats);
+    if (res === "stop") {
+      stopped = true;
+      break;
+    }
+    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+  }
+
+  return {
+    ...stats,
+    holiday: holiday.name,
+    chunk: pending.length,
+    done: false,
+    throttled: stopped,
+  };
+}
+
+/** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
+export async function drainHolidayNotice(env, now = new Date(), shard = null) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  const ref = digestRef(now);
+  const done = await readConfig(env, HOLIDAY_DONE).catch(() => "");
+  if (String(done) === ref) return { skipped: "تمام شده" };
+  return runHolidayNotice(env, now, shard);
 }
 
 /**

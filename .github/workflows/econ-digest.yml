@@ -83,20 +83,27 @@ jobs:
           # decides who gets a message.
           FORCE="force=1"
 
+          # Two things go out in the morning: the digest, always, and a
+          # bank-holiday notice on the few days there is one. Same machine,
+          # same sent log, different endpoint — so the loop below runs once
+          # per endpoint and the holiday pass costs one cheap call on the
+          # ~350 days a year that are not holidays.
+          ENDPOINT="econ-digest"
+
           drain_one() {
             w="$1"
-            body="body-$w.json"
+            body="body-$ENDPOINT-$w.json"
             total=0
             for i in $(seq 1 $MAX); do
               code=$(curl -sS -o "$body" -w '%{http_code}' \
                 -H "x-admin-key: $ADMIN_KEY" \
-                "$BASE/admin/econ-digest?$FORCE&shards=$WORKERS&shard=$((w - 1))") || code=000
+                "$BASE/admin/$ENDPOINT?$FORCE&shards=$WORKERS&shard=$((w - 1))") || code=000
 
               if [ "$code" != "200" ]; then
                 # A single bad round is not fatal: the next one picks up
                 # exactly where this stopped, because nobody is marked as
                 # sent unless the message actually went out.
-                echo "کارگر $w دور $i: کد $code - دوباره تلاش می‌شود"
+                echo "[$ENDPOINT] کارگر $w دور $i: کد $code - دوباره تلاش می‌شود"
                 sleep 5
                 continue
               fi
@@ -110,30 +117,38 @@ jobs:
               sent=$(echo "$flat" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
               sent=${sent:-0}
               total=$((total + sent))
-              echo "کارگر $w دور $i: $sent پیام (جمع این کارگر: $total)"
+              echo "[$ENDPOINT] کارگر $w دور $i: $sent پیام (جمع این کارگر: $total)"
 
               case "$flat" in
                 *'"done":true'*|*'"skipped":'*)
-                  echo "$total" > "count-$w.txt"
-                  echo "کارگر $w تمام کرد - $total پیام در $i دور."
+                  echo "$total" > "count-$ENDPOINT-$w.txt"
+                  echo "[$ENDPOINT] کارگر $w تمام کرد - $total پیام در $i دور."
                   return 0
                   ;;
               esac
 
               sleep 1
             done
-            echo "$total" > "count-$w.txt"
-            echo "::warning::کارگر $w بعد از $MAX دور هنوز تمام نکرده."
+            echo "$total" > "count-$ENDPOINT-$w.txt"
+            echo "::warning::[$ENDPOINT] کارگر $w بعد از $MAX دور هنوز تمام نکرده."
           }
 
-          for w in $(seq 1 $WORKERS); do
-            drain_one "$w" &
-          done
-          wait
+          run_pass() {
+            ENDPOINT="$1"
+            for w in $(seq 1 $WORKERS); do
+              drain_one "$w" &
+            done
+            wait
 
-          grand=0
-          for w in $(seq 1 $WORKERS); do
-            n=$(cat "count-$w.txt" 2>/dev/null || echo 0)
-            grand=$((grand + n))
-          done
-          echo "✅ مجموع پیام‌های فرستاده‌شده در این اجرا: $grand"
+            grand=0
+            for w in $(seq 1 $WORKERS); do
+              n=$(cat "count-$ENDPOINT-$w.txt" 2>/dev/null || echo 0)
+              grand=$((grand + n))
+            done
+            echo "✅ [$ENDPOINT] مجموع این مرحله: $grand پیام"
+          }
+
+          run_pass econ-digest
+          # On an ordinary day this returns "امروز تعطیل نیست" on the first
+          # call and costs nothing.
+          run_pass econ-holiday

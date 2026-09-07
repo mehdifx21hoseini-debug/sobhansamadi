@@ -23,6 +23,8 @@ import { handlePhonesApi, phonesPreflight } from "./crm/phonesApi.js";
 import {
   runDailyDigest,
   drainDailyDigest,
+  runHolidayNotice,
+  drainHolidayNotice,
   runAlertSweep,
   runResultSweep,
   pruneSentLog,
@@ -77,7 +79,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-59";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-60";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -452,6 +454,23 @@ async function handleAdmin(request, url, env) {
     return json({ ok: true, build: BUILD, ...r });
   }
 
+  /**
+   * یک تکه از اعلانِ تعطیلیِ بانکی - همان شکلِ /admin/econ-digest.
+   *
+   * اگر امروز تعطیل نباشد بی‌درنگ برمی‌گردد، پس ورک‌فلو می‌تواند هر روز
+   * صدایش بزند بدونِ اینکه لازم باشد خودش تقویم را بشناسد.
+   */
+  if (url.pathname === "/admin/econ-holiday") {
+    const force = url.searchParams.get("force") === "1";
+    const of = Number(url.searchParams.get("shards")) || 0;
+    const index = Number(url.searchParams.get("shard")) || 0;
+    const shard = of > 1 ? { of, index } : null;
+    const r = force
+      ? await runHolidayNotice(env, new Date(), shard)
+      : await drainHolidayNotice(env, new Date(), shard);
+    return json({ ok: true, build: BUILD, ...r });
+  }
+
   // کلیدهای مرحله‌ی آزادسازی تقویم از n8n: جمع‌آوری داده و تحلیل.
   //
   // هر کدام جدا روشن می‌شود، چون دو ریسک متفاوت دارند و باید بشود یکی را
@@ -596,6 +615,7 @@ export default {
       url.pathname === "/admin/ff-probe" ||
       url.pathname === "/admin/econ-sender" ||
       url.pathname === "/admin/econ-digest" ||
+      url.pathname === "/admin/econ-holiday" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/crm-import" ||
@@ -747,6 +767,13 @@ export default {
           .then((n) => console.log("خلاصه‌ی روزانه:", JSON.stringify(n)))
           .catch((err) => console.error("خلاصه‌ی روزانه شکست خورد:", err && err.message))
       );
+      // اگر امروز تعطیلیِ بانکی باشد، اعلانش هم همین‌جا شروع می‌شود -
+      // بلافاصله بعد از خلاصه. روزهای عادی هیچ کاری نمی‌کند.
+      ctx.waitUntil(
+        runHolidayNotice(env)
+          .then((n) => console.log("اعلان تعطیلی:", JSON.stringify(n)))
+          .catch((err) => console.error("اعلان تعطیلی شکست خورد:", err && err.message))
+      );
       ctx.waitUntil(
         pruneSentLog(env).catch((err) =>
           console.error("پاک‌سازی دفتر ارسال شکست خورد:", err && err.message)
@@ -802,6 +829,15 @@ export default {
             if (n && !n.skipped && n.sent) console.log("ادامه‌ی خلاصه:", JSON.stringify(n));
           })
           .catch((err) => console.error("ادامه‌ی خلاصه شکست خورد:", err && err.message))
+      );
+      // اعلانِ تعطیلی، اگر امروز تعطیل باشد. روزهای عادی با یک خواندنِ
+      // کوچک برمی‌گردد، پس هزینه‌اش نزدیکِ صفر است.
+      ctx.waitUntil(
+        drainHolidayNotice(env)
+          .then((n) => {
+            if (n && !n.skipped && n.sent) console.log("اعلان تعطیلی:", JSON.stringify(n));
+          })
+          .catch((err) => console.error("اعلان تعطیلی شکست خورد:", err && err.message))
       );
       ctx.waitUntil(
         runAlertSweep(env)
