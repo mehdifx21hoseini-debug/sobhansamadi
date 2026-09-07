@@ -337,13 +337,21 @@ export function buildWeekMarkdown(events, labels, holidays) {
 
   // روزها به ترتیب، چه رویداد داشته باشند چه فقط تعطیل باشند.
   const allDates = [...new Set([...weekDates, ...holidayDays])].sort();
+  // سرتیترِ روز، دقیقاً یک شکل برای همه‌ی روزها.
+  //
+  // نشانِ تعطیلی پیشتر به همین خط چسبانده می‌شد و همان یک خط را با بقیه
+  // ناهم‌جهت می‌کرد: در فهرستی که سرتیترها چپ می‌نشستند، تنها روزِ تعطیل
+  // راست می‌افتاد. حالا سرتیتر همیشه یکسان است و نشان یک خط پایین‌تر
+  // می‌نشیند - هم ناهماهنگی رفع می‌شود، هم خودِ نشان جای بیشتری دارد.
   const dayHeader = (date) => {
     const dd = new Date(date + "T00:00:00Z");
+    return "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(date) + "\n\n";
+  };
+
+  /** خطِ تعطیلی، زیرِ سرتیتر. برای روزِ عادی رشته‌ی خالی. */
+  const holidayLine = (date) => {
     const hol = holidayOn(holidays, date);
-    return (
-      "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(date) +
-      (hol ? " — 🔴 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) : "") + "\n\n"
-    );
+    return hol ? "🔴 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) + "\n\n" : "";
   };
 
   // روزهایی که فقط تعطیل‌اند و هیچ رویدادی ندارند، همین‌جا نوشته می‌شوند
@@ -358,10 +366,11 @@ export function buildWeekMarkdown(events, labels, holidays) {
       // ترتیبِ تاریخ‌ها به هم نخورد.
       for (const d of emptyHolidays) {
         if (d < e.date && d > lastMdDate) {
-          markdown += dayHeader(d) + "📉 نقدینگی پایین · 📰 بدون داده‌ی اقتصادی\n";
+          markdown +=
+            dayHeader(d) + holidayLine(d) + "📉 نقدینگی پایین · 📰 بدون داده‌ی اقتصادی\n";
         }
       }
-      markdown += dayHeader(e.date);
+      markdown += dayHeader(e.date) + holidayLine(e.date);
       markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
       lastMdDate = e.date;
     }
@@ -379,7 +388,10 @@ export function buildWeekMarkdown(events, labels, holidays) {
   // تعطیلی‌هایی که بعد از آخرین روزِ رویدادها می‌افتند - حلقه‌ی بالا به
   // آن‌ها نمی‌رسد چون رویدادی پس از آن‌ها نیست.
   for (const d of emptyHolidays) {
-    if (d > lastMdDate) markdown += dayHeader(d) + "📉 نقدینگی پایین · 📰 بدون داده‌ی اقتصادی\n";
+    if (d > lastMdDate) {
+      markdown +=
+        dayHeader(d) + holidayLine(d) + "📉 نقدینگی پایین · 📰 بدون داده‌ی اقتصادی\n";
+    }
   }
 
   // واژه‌نامه‌ی تاشو: نام کامل انگلیسی → فارسی، یک‌بار برای هر رویداد
