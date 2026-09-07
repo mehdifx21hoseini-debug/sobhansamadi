@@ -248,6 +248,47 @@ export async function buildDigest(env, now = new Date()) {
 // کاری مانده یا نه.
 const DIGEST_DONE = "econ_digest_done";
 
+// ─── نشانگرِ «تا اینجا رفته‌ام» ──────────────────────────────────────
+//
+// یک ردیفِ تنظیمات برای هر (نوعِ پیام، روز، تکه). با آن، هر دور فقط از
+// جایی که دورِ قبل ایستاده ادامه می‌دهد و ردیف‌های پشتِ سرش را دوباره
+// نمی‌خواند.
+//
+// چرا لازم شد: بدونِ آن، ارسال به هشت هزار نفر حدود چهار و نیم میلیون
+// ردیف‌خوانی از D1 می‌برد - ۹۲ درصدِ سقفِ روزانه، در حالی که ارسالِ دوم
+// همان روز هم پیش رو بود.
+function cursorKey(kind, ref, shard) {
+  const tag = shard && shard.of > 1 ? shard.index + "of" + shard.of : "all";
+  return "econ_cur_" + kind + "_" + ref + "_" + tag;
+}
+
+/**
+ * یک تکه از مخاطب، با نشانگر - و یک جاروی پایانی.
+ *
+ * وقتی نشانگر به ته می‌رسد، یک بار هم بدونِ نشانگر می‌پرسیم. دلیلش
+ * تازه‌واردهاست: کسی که وسطِ ارسال عضو شده ممکن است آیدی‌اش در ترتیبِ
+ * حروفی پشتِ نشانگر بیفتد و آن روز جا بماند. این جارو فقط یک بار در
+ * پایانِ هر تکه اجرا می‌شود، پس گرانیِ آن یک‌بار است نه هر دور.
+ *
+ * @returns {{rows: Array, swept: boolean}} swept یعنی جاروی پایانی بود.
+ */
+async function nextChunk(env, kind, ref, shard) {
+  const key = cursorKey(kind, ref, shard);
+  const after = await readConfig(env, key).catch(() => "");
+  if (after) {
+    const rows = await listPendingAudience(env, kind, ref, SEND_BUDGET, shard, after);
+    if (rows.length > 0) return { rows, swept: false };
+  }
+  const rows = await listPendingAudience(env, kind, ref, SEND_BUDGET, shard, null);
+  return { rows, swept: !!after };
+}
+
+/** نشانگر را جلو می‌برد - فقط تا کسی که واقعاً پردازش شد. */
+async function advanceCursor(env, kind, ref, shard, lastId) {
+  if (!lastId) return;
+  await writeConfig(env, cursorKey(kind, ref, shard), String(lastId)).catch(() => {});
+}
+
 export function digestRef(now = new Date()) {
   // کلیدِ یکتاییِ خلاصه، تاریخِ تهران است نه UTC - وگرنه اجرای ۴:۳۰
   // بامداد UTC و روزِ تقویمیِ کاربر با هم جور در نمی‌آمدند.
@@ -274,7 +315,7 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const pending = await listPendingAudience(env, "digest", ref, SEND_BUDGET, shard);
+  const { rows: pending } = await nextChunk(env, "digest", ref, shard);
   if (pending.length === 0) {
     // پرچمِ پایان فقط از اجرای بی‌تکه زده می‌شود: خالی بودنِ یک تکه فقط
     // یعنی همان تکه تمام شده، نه کلِ فهرست.
@@ -295,15 +336,21 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
 
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let stopped = false;
+  // آخرین کسی که واقعاً پردازش شد. نشانگر تا همین‌جا جلو می‌رود و نه
+  // بیشتر: اگر روی نفرِ بعدی به سقفِ زیرساخت خورده باشیم، پیامش نرفته و
+  // نباید از قلم بیفتد.
+  let lastId = "";
   for (let i = 0; i < pending.length; i++) {
     const res = await claimAndSend(env, "digest", ref, pending[i], build, stats);
     if (res === "stop") {
       stopped = true;
       break;
     }
+    lastId = pending[i].telegram_user_id;
     // مکث هر بیست پیام، برای نخوردن به سقفِ نرخِ تلگرام.
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
   }
+  await advanceCursor(env, "digest", ref, shard, lastId);
 
   // پرچمِ پایان فقط در شاخه‌ی بالا زده می‌شود - جایی که کوئری واقعاً
   // دست خالی برگشته. تکه‌ی کوتاه‌تر از بودجه دلیلِ کافی نیست: وقتی چند
@@ -385,7 +432,7 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const pending = await listPendingAudience(env, "holiday", ref, SEND_BUDGET, shard);
+  const { rows: pending } = await nextChunk(env, "holiday", ref, shard);
   if (pending.length === 0) {
     if (!shard) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
     return { sent: 0, failed: 0, blocked: 0, done: true };
@@ -399,14 +446,17 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
 
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let stopped = false;
+  let lastId = "";
   for (let i = 0; i < pending.length; i++) {
     const res = await claimAndSend(env, "holiday", ref, pending[i], build, stats);
     if (res === "stop") {
       stopped = true;
       break;
     }
+    lastId = pending[i].telegram_user_id;
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
   }
+  await advanceCursor(env, "holiday", ref, shard, lastId);
 
   return {
     ...stats,

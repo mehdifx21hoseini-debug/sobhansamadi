@@ -208,7 +208,7 @@ export async function listPendingSubscribers(env, kind, ref, limit) {
  * تازه‌واردها خودبه‌خود داخل‌اند: به‌محضِ اولین تعامل، ردیفشان در
  * user_state ساخته می‌شود و از فردا صبح پیام می‌گیرند.
  */
-export async function listPendingAudience(env, kind, ref, limit, shard) {
+export async function listPendingAudience(env, kind, ref, limit, shard, after) {
   await ensureSubscriberSchema(env);
 
   // تکه‌بندی برای اجراهای موازی.
@@ -226,12 +226,34 @@ export async function listPendingAudience(env, kind, ref, limit, shard) {
     ? `CAST(u.telegram_user_id AS INTEGER) % ${shards} = ${mine} AND `
     : ``;
 
+  // نشانگر: «تا اینجا رفته‌ام».
+  //
+  // چرا هست: بدونِ آن هر دور می‌پرسید «کدام یک از هشت هزار نفر هنوز
+  // پیام نگرفته؟» و هرچه جلوتر می‌رفتیم، باید ردیف‌های بیشتری را رد
+  // می‌کرد تا ۴۵ نفرِ نگرفته پیدا کند - دورهای آخر تقریباً کلِ جدول.
+  // یک روز همین کار سقفِ ردیف‌خوانیِ D1 را تا ۹۲ درصد بالا برد.
+  //
+  // مقایسه عمداً متنی است نه عددی: کلیدِ اصلیِ جدول روی همین ستونِ متنی
+  // است و «> ?» مستقیم از آن ایندکس استفاده می‌کند. با CAST به عدد،
+  // ایندکس کنار گذاشته می‌شد و دوباره کلِ جدول اسکن می‌شد - یعنی همان
+  // چیزی که می‌خواستیم از آن فرار کنیم.
+  //
+  // ترتیبِ حروفی با ترتیبِ عددیِ آیدی‌ها یکی نیست و اهمیتی هم ندارد: تنها
+  // چیزی که لازم داریم یک ترتیبِ ثابت است تا هر نفر دقیقاً یک بار دیده
+  // شود.
+  const cursorClause = after ? `u.telegram_user_id > ? AND ` : ``;
+
+  const binds = [];
+  if (after) binds.push(String(after));
+  binds.push(String(kind), String(ref), Number(limit) || 1);
+
   const { results } = await env.DB
     .prepare(
       `SELECT u.telegram_user_id AS telegram_user_id,
               u.telegram_user_id AS chat_id
          FROM user_state u
         WHERE ` +
+        cursorClause +
         shardClause +
         `NOT EXISTS (
                 SELECT 1 FROM econ_subscriber s
@@ -241,9 +263,10 @@ export async function listPendingAudience(env, kind, ref, limit, shard) {
                 SELECT 1 FROM econ_sent_log l
                  WHERE l.kind = ? AND l.ref = ?
                    AND l.telegram_user_id = u.telegram_user_id)
+        ORDER BY u.telegram_user_id
         LIMIT ?`
     )
-    .bind(String(kind), String(ref), Number(limit) || 1)
+    .bind(...binds)
     .all();
 
   return (results || []).map((r) => ({
