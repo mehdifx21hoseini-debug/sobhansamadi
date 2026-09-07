@@ -1,0 +1,76 @@
+# مصرفِ امروزِ حسابِ کلادفلر - فقط خواندن.
+#
+# چرا لازم است: سقف‌های پلنِ رایگان (درخواستِ ورکر، و مهم‌تر از آن
+# ردیف‌خوانی D1) جایی دیده نمی‌شوند مگر در داشبورد. یک بار همین سقفِ
+# ردیف‌خوانی پر شد و ربات تا نیمه‌شب ۵۰۲ می‌داد، بدونِ اینکه هیچ‌جا
+# نوشته شود چرا. این جاب همان عددها را می‌آورد تا پیش از رسیدن به سقف
+# دیده شوند.
+#
+# هیچ چیزی نمی‌نویسد و هیچ تنظیمی را عوض نمی‌کند.
+name: Ops CF Usage
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  usage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the Cloudflare analytics API
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -u
+          test -n "$TOKEN" || { echo "::error::CLOUDFLARE_API_TOKEN تنظیم نشده"; exit 1; }
+          test -n "$ACCOUNT" || { echo "::error::CLOUDFLARE_ACCOUNT_ID تنظیم نشده"; exit 1; }
+
+          TODAY=$(date -u +%Y-%m-%d)
+          SINCE="${TODAY}T00:00:00Z"
+          UNTIL=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "بازه: $SINCE تا $UNTIL (UTC)"
+          echo
+
+          # شناسه‌ی حساب هرگز چاپ نمی‌شود: مخزن عمومی است.
+          mask() { sed -E "s/$ACCOUNT/<حساب>/g; s/[A-Za-z0-9_-]{40,}/<پنهان>/g"; }
+
+          ask() {
+            curl -sS -X POST https://api.cloudflare.com/client/v4/graphql \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$1"
+          }
+
+          # ── D1: ردیف‌های خوانده و نوشته‌شده ──────────────────────────
+          # سقفِ رایگان: ۵ میلیون خواندن و ۱۰۰ هزار نوشتن در روز.
+          D1_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$TODAY" --arg u "$TODAY" '{
+            query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1AnalyticsAdaptiveGroups(limit:100,filter:{date_geq:$s,date_leq:$u}){sum{readQueries writeQueries rowsRead rowsWritten}dimensions{date databaseId}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo "─── D1 ───"
+          ask "$D1_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].d1AnalyticsAdaptiveGroups // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else map("خواندن ردیف: \(.sum.rowsRead)  ·  نوشتن ردیف: \(.sum.rowsWritten)  ·  کوئری خواندن: \(.sum.readQueries)  ·  کوئری نوشتن: \(.sum.writeQueries)") | join("\n")
+                end
+            end'
+          echo
+
+          # ── Workers: درخواست و subrequest ───────────────────────────
+          # سقفِ رایگان: ۱۰۰ هزار درخواست در روز.
+          W_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$SINCE" --arg u "$UNTIL" '{
+            query: "query($a:String!,$s:Time!,$u:Time!){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:100,filter:{datetime_geq:$s,datetime_leq:$u}){sum{requests errors subrequests}dimensions{scriptName}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo "─── Workers ───"
+          ask "$W_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].workersInvocationsAdaptive // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else map("\(.dimensions.scriptName): درخواست \(.sum.requests)  ·  subrequest \(.sum.subrequests)  ·  خطا \(.sum.errors)") | join("\n")
+                end
+            end'
