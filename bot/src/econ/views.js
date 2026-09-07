@@ -196,9 +196,16 @@ function holidayOn(holidays, date) {
  */
 function holidayBanner(holiday) {
   if (!holiday) return "";
+  // سرتیتر و نه یک خطِ پررنگ: نما با «## اخبار امروز» شروع می‌شود و یک
+  // خطِ معمولی زیر آن گم می‌شد. سرتیتر همان وزنِ بصری را دارد که خبر
+  // لازم دارد، و 📢 از دور می‌گوید این یک اعلانِ مهم است نه یک ردیفِ
+  // دیگرِ جدول.
   return (
-    "**🏦 امروز تعطیلی بانکی آمریکا است — " + mdCell(holidayLabel(holiday)) + "**\n\n" +
-    "نقدشوندگی پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.\n\n"
+    "### 📢 توجه: امروز تعطیلی بانکی آمریکا\n\n" +
+    "🏦 **" + mdCell(holidayLabel(holiday)) + "**\n\n" +
+    "📉 نقدینگی بازار پایین است\n\n" +
+    "📰 داده‌ی اقتصادی مهمی منتشر نمی‌شود\n\n" +
+    "---\n\n"
   );
 }
 
@@ -324,7 +331,7 @@ export function buildWeekMarkdown(events, labels, holidays) {
     const hol = holidayOn(holidays, date);
     return (
       "\n### 📅 " + DAY_FA[dd.getUTCDay()] + " " + formatJalaliDate(date) +
-      (hol ? " — 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) : "") + "\n\n"
+      (hol ? " — 📢 🏦 تعطیل بانکی: " + mdCell(holidayLabel(hol)) : "") + "\n\n"
     );
   };
 
@@ -340,7 +347,7 @@ export function buildWeekMarkdown(events, labels, holidays) {
       // ترتیبِ تاریخ‌ها به هم نخورد.
       for (const d of emptyHolidays) {
         if (d < e.date && d > lastMdDate) {
-          markdown += dayHeader(d) + "بدون داده‌ی اقتصادی.\n";
+          markdown += dayHeader(d) + "📉 نقدینگی پایین · 📰 بدون داده‌ی اقتصادی\n";
         }
       }
       markdown += dayHeader(e.date);
@@ -361,7 +368,7 @@ export function buildWeekMarkdown(events, labels, holidays) {
   // تعطیلی‌هایی که بعد از آخرین روزِ رویدادها می‌افتند - حلقه‌ی بالا به
   // آن‌ها نمی‌رسد چون رویدادی پس از آن‌ها نیست.
   for (const d of emptyHolidays) {
-    if (d > lastMdDate) markdown += dayHeader(d) + "بدون داده‌ی اقتصادی.\n";
+    if (d > lastMdDate) markdown += dayHeader(d) + "📉 نقدینگی پایین · 📰 بدون داده‌ی اقتصادی\n";
   }
 
   // واژه‌نامه‌ی تاشو: نام کامل انگلیسی → فارسی، یک‌بار برای هر رویداد
@@ -389,7 +396,7 @@ export function buildHolidaysMarkdown(holidays) {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   let markdown = "## 🏦 تعطیلات بانکی آمریکا\n\n";
-  markdown += "تعطیلی بانک‌ها روی نقدشوندگی و شرایط معاملاتی دلار اثر می‌گذارد.\n\n";
+  markdown += "تعطیلی بانک‌ها روی نقدینگی و شرایط معاملاتی دلار اثر می‌گذارد.\n\n";
   if (upcoming.length === 0) {
     markdown += "تعطیلی ثبت‌شده‌ای برای بازه‌ی پیش‌رو وجود ندارد.";
     return markdown.trim();
@@ -426,7 +433,7 @@ export function buildExplainContext(events, holidays) {
     // درباره‌ی روزی حرف می‌زند که اصلاً بازارش باز نبوده.
     (holiday
       ? "توجه: امروز تعطیلی بانکی آمریکا است (" + holidayLabel(holiday) +
-        "). نقدشوندگی پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.\n"
+        "). نقدینگی بازار پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.\n"
       : "") +
     (todays.length === 0
       ? "امروز رویداد مهم اقتصادی ثبت‌شده‌ای برای دلار در منبع داده وجود ندارد."
