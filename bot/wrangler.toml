@@ -40,6 +40,12 @@ CRM_MENTORING_INTAKE_URL = "https://96825.7host.cloud/webhook/crm/lead/mentoring
 # لازم نباشد - هر دو یک مرز اعتمادند: ورکر که فقط می‌خواند.
 CRM_EXPORT_URL = "https://96825.7host.cloud/webhook/crm/export"
 
+# مخزن و شاخه‌ای که ورکر ورک‌فلوی خلاصه را در آن اجرا می‌کند. محرمانه
+# نیستند - خودِ مخزن عمومی است. توکنش اما Secret است و اینجا نوشته
+# نمی‌شود: GITHUB_DISPATCH_TOKEN.
+GITHUB_REPO = "mehdifx21hoseini-debug/sobhansamadi"
+GITHUB_REF_NAME = "main"
+
 # آینه‌ی تقویم را هر ۱۰ دقیقه تازه می‌کند. زمان‌بندهای خود n8n داده را
 # کندتر از این جمع می‌کنند، پس فاصله‌ی کوتاه‌تر چیزی به تازگی داده اضافه
 # نمی‌کند و فقط بار بی‌مورد روی n8n می‌گذارد.

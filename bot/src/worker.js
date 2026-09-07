@@ -40,6 +40,7 @@ import {
   ingestEnabled,
 } from "./econ/ingest.js";
 import { EXPLAIN_FLAG, explainEnabled } from "./econ/explain.js";
+import { dispatchWorkflow } from "./ops/dispatch.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
 // آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
@@ -79,7 +80,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-65";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-66";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -471,6 +472,20 @@ async function handleAdmin(request, url, env) {
     return json({ ok: true, build: BUILD, ...r });
   }
 
+  /**
+   * آزمونِ روشن کردنِ ورک‌فلو از داخلِ ورکر.
+   *
+   * بدونِ این، تنها راهِ فهمیدنِ اینکه توکن درست کار می‌کند، منتظرِ
+   * فردا صبح ماندن بود - و اگر کار نمی‌کرد، یک روزِ دیگر تأخیر.
+   *
+   * اجرای واقعیِ ورک‌فلو را شروع می‌کند، که بی‌ضرر است: کارِ امروز تمام
+   * شده و ورک‌فلو با یک دورِ ارزان می‌فهمد چیزی نمانده.
+   */
+  if (url.pathname === "/admin/econ-dispatch") {
+    const r = await dispatchWorkflow(env, "econ-digest.yml");
+    return json({ ok: true, build: BUILD, dispatch: r });
+  }
+
   // کلیدهای مرحله‌ی آزادسازی تقویم از n8n: جمع‌آوری داده و تحلیل.
   //
   // هر کدام جدا روشن می‌شود، چون دو ریسک متفاوت دارند و باید بشود یکی را
@@ -557,6 +572,7 @@ async function handleAdmin(request, url, env) {
     GEMINI_API_KEY: !!env.GEMINI_API_KEY,
     CONTENT_CHANNEL_ID: !!env.CONTENT_CHANNEL_ID,
     CONTENT_CHANNEL_USERNAME: !!env.CONTENT_CHANNEL_USERNAME,
+    GITHUB_DISPATCH_TOKEN: !!env.GITHUB_DISPATCH_TOKEN,
     DB: !!env.DB,
   };
 
@@ -616,6 +632,7 @@ export default {
       url.pathname === "/admin/econ-sender" ||
       url.pathname === "/admin/econ-digest" ||
       url.pathname === "/admin/econ-holiday" ||
+      url.pathname === "/admin/econ-dispatch" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/crm-import" ||
@@ -767,6 +784,21 @@ export default {
           .then((n) => console.log("خلاصه‌ی روزانه:", JSON.stringify(n)))
           .catch((err) => console.error("خلاصه‌ی روزانه شکست خورد:", err && err.message))
       );
+      // و همین‌جا به گیت‌هاب می‌گوییم شروع کن.
+      //
+      // بدونِ این، زمان‌بندِ خودِ گیت‌هاب تصمیم می‌گرفت کی اجرا کند و سه
+      // روز پیاپی حدود چهار ساعت دیر کرد: خلاصه‌ای که باید ۷:۳۰ می‌رفت،
+      // ظهر می‌رسید. اجرای دستی ظرف چند ثانیه شروع می‌شود، پس زمان‌بندی
+      // را کرانِ کلادفلر تعیین می‌کند که دقیق است.
+      //
+      // شکستش مسیر را نمی‌بندد: زمان‌بندِ گیت‌هاب هنوز سرِ جایش است و
+      // همان کار را دیرتر انجام می‌دهد.
+      ctx.waitUntil(
+        dispatchWorkflow(env, "econ-digest.yml")
+          .then((r) => console.log("شروعِ ورک‌فلوی خلاصه:", JSON.stringify(r)))
+          .catch((err) => console.error("شروعِ ورک‌فلو شکست خورد:", err && err.message))
+      );
+
       // اگر امروز تعطیلیِ بانکی باشد، اعلانش هم همین‌جا شروع می‌شود -
       // بلافاصله بعد از خلاصه. روزهای عادی هیچ کاری نمی‌کند.
       ctx.waitUntil(
