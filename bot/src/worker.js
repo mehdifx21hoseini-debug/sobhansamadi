@@ -80,7 +80,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-66";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-67";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -473,6 +473,28 @@ async function handleAdmin(request, url, env) {
   }
 
   /**
+   * فهرستِ اسمِ متغیرهایی که ورکر می‌بیند - فقط اسم، هیچ مقداری.
+   *
+   * چرا لازم شد: «گذاشتم» و «ورکر می‌بیندش» دو چیزند، و وقتی از هم جدا
+   * می‌افتند هیچ راهی برای فهمیدنش نبود جز حدس زدن. اینجا خودِ ورکر
+   * می‌گوید چه چیزی به دستش رسیده.
+   *
+   * مقدارها هرگز برنمی‌گردند - فقط اسم و طولِ رشته، که برای تشخیصِ
+   * فاصله‌ی اضافی یا مقدارِ نصفه کافی است و خودِ راز را لو نمی‌دهد.
+   */
+  if (url.pathname === "/admin/env-names") {
+    const names = Object.keys(env || {})
+      .sort()
+      .map((k) => {
+        const v = env[k];
+        if (typeof v === "string") return k + " (متن، " + v.length + " کاراکتر)";
+        if (v && typeof v === "object") return k + " (اتصال)";
+        return k + " (" + typeof v + ")";
+      });
+    return json({ ok: true, build: BUILD, names });
+  }
+
+  /**
    * آزمونِ روشن کردنِ ورک‌فلو از داخلِ ورکر.
    *
    * بدونِ این، تنها راهِ فهمیدنِ اینکه توکن درست کار می‌کند، منتظرِ
@@ -633,6 +655,7 @@ export default {
       url.pathname === "/admin/econ-digest" ||
       url.pathname === "/admin/econ-holiday" ||
       url.pathname === "/admin/econ-dispatch" ||
+      url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/crm-import" ||
