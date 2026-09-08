@@ -30,7 +30,7 @@ import {
 import { ECON_APP_VERSION } from "./appVersion.js";
 import {
   CURRENCIES,
-  currencyLabel,
+  currencyCode,
   toggleCurrency,
   filterByCurrencies,
 } from "./currencies.js";
@@ -66,7 +66,7 @@ export function econMenuKeyboard() {
       ],
       // danger همان قرمز است. مقدار معتبری است - WF-02 روی دکمه‌های
       // «انصراف» و «لغو فرآیند» از همین استفاده می‌کند.
-      [{ text: "🌍 ارزهای من", callback_data: "ECON_CURRENCIES", style: "primary" }],
+      [{ text: "🌍 فیلتر ارزها", callback_data: "ECON_CURRENCIES", style: "primary" }],
       [{ text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS", style: "danger" }],
       // دکمه‌ی بازگشت عمداً بی‌رنگ است تا از کارهای اصلی جدا دیده شود -
       // همان الگویی که نماهای امروز/هفته/تعطیلات دارند.
@@ -439,7 +439,7 @@ async function sendCurrencyPicker(ctx, edit = false) {
   const rows = [];
   for (let i = 0; i < CURRENCIES.length; i += 2) {
     const pair = CURRENCIES.slice(i, i + 2).map((c) => ({
-      text: (selected.has(c.code) ? "✅ " : "▫️ ") + c.flag + " " + c.fa,
+      text: (selected.has(c.code) ? "✅ " : "▫️ ") + c.flag + " " + c.code,
       callback_data: "ECON_CUR|" + c.code,
       style: selected.has(c.code) ? "success" : "primary",
     }));
@@ -447,9 +447,9 @@ async function sendCurrencyPicker(ctx, edit = false) {
   }
   rows.push([{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }]);
 
-  const chosen = (sub.currencies || []).map((c) => currencyLabel(c)).join(" · ");
+  const chosen = (sub.currencies || []).map((c) => currencyCode(c)).join(" · ");
   const text =
-    "🌍 <b>ارزهای مورد نظر شما</b>\n\n" +
+    "🌍 <b>فیلتر ارزها</b>\n\n" +
     "فقط اخبار ارزهایی که انتخاب می‌کنید در «اخبار امروز» و «این هفته» نمایش داده می‌شود.\n\n" +
     "<b>انتخاب فعلی:</b>\n" + chosen + "\n\n" +
     "<i>طلا و نفت خبر مستقل ندارند و با اخبار دلار حرکت می‌کنند؛ برای آن‌ها دلار را روشن نگه دارید.</i>";

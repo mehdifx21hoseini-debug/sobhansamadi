@@ -58,6 +58,19 @@ export function currencyLabel(code) {
   return currencyFlag(code) + " " + currencyFa(code);
 }
 
+/**
+ * «🇺🇸 USD» - همان چیزی که در صفحه‌ی فیلتر ارزها نشان داده می‌شود.
+ *
+ * چرا کدِ انگلیسی و نه نامِ فارسی: خودِ فید و هر جدولِ تقویمی که کاربر
+ * جای دیگر می‌بیند با همین کد سه‌حرفی کار می‌کند، پس «USD» را یک‌بار
+ * می‌بیند و همه‌جا می‌شناسد؛ «دلار آمریکا» فقط داخل همین ربات معنی داشت.
+ */
+export function currencyCode(code) {
+  const c = String(code || "").trim().toUpperCase();
+  if (c === "ALL") return "🌐 All";
+  return currencyFlag(c) + " " + (BY_CODE.has(c) ? c : String(code || ""));
+}
+
 // پیش‌فرضِ همه، از جمله کاربرانِ فعلی: فقط دلار.
 //
 // این عمدی است. روزی که چند ارزی روشن شد، یازده هزار نفر نباید هیچ
