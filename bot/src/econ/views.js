@@ -11,6 +11,7 @@ import {
   toPersianDigits,
 } from "./format.js";
 import { holidayLabel } from "./holidayNames.js";
+import { currencyLabel, currencyFlag } from "./currencies.js";
 import { makeLabelHelpers, mdCell, wrapName } from "./labels.js";
 
 // همان فیلتر و مرتب‌سازی که هر دو نمای متن و markdown از آن استفاده
@@ -20,6 +21,35 @@ function todaysEvents(events) {
   return events
     .filter((e) => e.date === today && e.importance !== "low")
     .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+}
+
+// سقفِ تعدادِ رویدادها در هر نما.
+//
+// با نُه ارز، یک روزِ شلوغ می‌تواند هشتاد رویداد داشته باشد و هفته
+// چندصد. جدولی به آن اندازه خوانده نمی‌شود - و پیامِ تلگرام هم سقفِ
+// چهار هزار کاراکتری دارد که با آن حجم رد می‌شود و کاربر هیچ نمی‌بیند.
+//
+// وقتی سقف می‌خورد، کم‌اهمیت‌ها اول کنار می‌روند: ترتیب بر اساس اهمیت
+// است، نه بریدنِ کورِ ته فهرست.
+const TODAY_CAP = 25;
+const WEEK_CAP = 60;
+
+const IMPORTANCE_RANK = { high: 0, medium: 1, low: 2 };
+
+/** اگر از سقف بیشتر بود، کم‌اهمیت‌ها را می‌اندازد و ترتیبِ زمانی را برمی‌گرداند. */
+function capByImportance(list, cap) {
+  if (!list || list.length <= cap) return list || [];
+  const kept = [...list]
+    .sort((a, b) => {
+      const ra = IMPORTANCE_RANK[a.importance] ?? 2;
+      const rb = IMPORTANCE_RANK[b.importance] ?? 2;
+      if (ra !== rb) return ra - rb;
+      return (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99"));
+    })
+    .slice(0, cap);
+  return kept.sort((a, b) =>
+    (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99"))
+  );
 }
 
 function weekEventsOf(events) {
@@ -49,7 +79,7 @@ export function buildTodayText(events) {
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
 
-  const todays = todaysEvents(events);
+  const todays = capByImportance(todaysEvents(events), TODAY_CAP);
 
   let text = RLM + "🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n" + RLM + "📅 " + formatJalaliDate(today) + "\n\n";
 
@@ -273,28 +303,62 @@ export function buildTodayMarkdown(events, labels, holidays) {
   // حرفِ قویِ همان خط می‌آید و ایموجی، عدد و پرانتزِ لاتین هیچ‌کدام قوی
   // نیستند - پس خطی که با «🇺🇸» یا «📅 ۱۶» شروع می‌شود می‌تواند برعکس
   // بیفتد. نشانه بعد از علامتِ markdown می‌آید تا سرتیتر نشکند.
-  let markdown = "## " + RLM + "🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n\n";
+  // ارزهایی که واقعاً امروز رویداد دارند - نه فهرستِ انتخابِ کاربر. کسی
+  // که پنج ارز روشن کرده ولی امروز فقط دلار خبر دارد، نباید چهار سرتیترِ
+  // خالی ببیند.
+  const present = [...new Set(todays.map((e) => String(e.currency || "USD")))];
+  const multi = present.filter((c) => c !== "All").length > 1;
+
+  const eventRow = (e) => {
+    const emoji = IMPORTANCE_EMOJI[e.importance] || "⚪";
+    const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
+    let actual = e.actual || (e.status === "upcoming" ? "—" : "-");
+    if (e.actual) {
+      const r0 = usdRead(e);
+      if (r0) actual = e.actual + " " + r0.icon;
+    }
+    const name = emoji + " " + wrapName(mdCell(enShort(e)), 12);
+    return "| " + mdCell(t) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(actual) + " |\n";
+  };
+  const TABLE_HEAD = "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
+
+  let markdown = multi
+    ? "## " + RLM + "🌍 اخبار مهم اقتصادی امروز\n\n"
+    : "## " + RLM + "🇺🇸 اخبار مهم اقتصادی امروز (دلار)\n\n";
   markdown += RLM + "📅 " + formatJalaliDate(today) + "\n\n";
   markdown += holidayBanner(holiday);
   if (todays.length === 0) {
     // در روزِ تعطیل این جمله گمراه‌کننده است: کاربر فکر می‌کند داده را
     // نداریم، نه اینکه بازار تعطیل است. نوارِ بالا خودش توضیح داده.
-    if (!holiday) markdown += RLM + "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n";
-  } else {
-    markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n";
-    markdown += "|---|---|---|---|\n";
-    for (const e of todays) {
-      const emoji = IMPORTANCE_EMOJI[e.importance] || "⚪";
-      const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
-      let actual = e.actual || (e.status === "upcoming" ? "—" : "-");
-      if (e.actual) {
-        const r0 = usdRead(e);
-        if (r0) actual = e.actual + " " + r0.icon;
-      }
-      const name = emoji + " " + wrapName(mdCell(enShort(e)), 12);
-      markdown += "| " + mdCell(t) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(actual) + " |\n";
+    // برای کاربرِ تک‌ارزی همان جمله‌ی همیشگی می‌ماند. «برای دلار» فقط
+    // وقتی برداشته می‌شود که کاربر چند ارز دارد و آن قید دیگر راست نیست.
+    if (!holiday) {
+      markdown +=
+        RLM +
+        (multi
+          ? "امروز رویداد مهمی ثبت نشده است.\n\n"
+          : "امروز رویداد مهمی برای دلار ثبت نشده است.\n\n");
     }
+  } else if (multi) {
+    // با چند ارز، یک جدولِ درهم خوانده نمی‌شود: کاربر باید بتواند ارزِ
+    // خودش را پیدا کند. پس هر ارز سرتیترِ خودش را می‌گیرد و رویدادهای
+    // «جهانی» - جکسون‌هول و نشست‌های G20 - آخر می‌آیند چون به هیچ ارزی
+    // وصل نیستند.
+    const order = [...present.filter((c) => c !== "All"), ...present.filter((c) => c === "All")];
+    for (const cur of order) {
+      const list = todays.filter((e) => String(e.currency || "USD") === cur);
+      if (list.length === 0) continue;
+      markdown += "### " + RLM + currencyLabel(cur) + "\n\n" + TABLE_HEAD;
+      for (const e of list) markdown += eventRow(e);
+      markdown += "\n";
+    }
+  } else {
+    markdown += TABLE_HEAD;
+    for (const e of todays) markdown += eventRow(e);
     markdown += "\n";
+  }
+
+  if (todays.length > 0) {
     const upcoming = todays.filter((e) => e.time && e.status === "upcoming");
     if (upcoming.length > 0) {
       const nextEvent = upcoming[0];
@@ -311,7 +375,9 @@ export function buildTodayMarkdown(events, labels, holidays) {
 
 export function buildWeekMarkdown(events, labels, holidays) {
   const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
-  const weekEvents = weekEventsOf(events);
+  const weekEvents = capByImportance(weekEventsOf(events), WEEK_CAP);
+  const multiWeek =
+    new Set(weekEvents.map((e) => String(e.currency || "USD")).filter((c) => c !== "All")).size > 1;
 
   // روزهای تعطیلِ همین بازه، حتی آن‌هایی که هیچ رویدادی ندارند.
   //
@@ -371,7 +437,9 @@ export function buildWeekMarkdown(events, labels, holidays) {
         }
       }
       markdown += dayHeader(e.date) + holidayLine(e.date);
-      markdown += "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
+      markdown += multiWeek
+        ? "| ساعت | ارز | رویداد | پیش‌بینی |\n|---|---|---|---|\n"
+        : "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
       lastMdDate = e.date;
     }
     const em = IMPORTANCE_EMOJI[e.importance] || "⚪";
@@ -382,7 +450,12 @@ export function buildWeekMarkdown(events, labels, holidays) {
       if (r0) ac = e.actual + " " + r0.icon;
     }
     const name = em + " " + wrapName(mdCell(enShort(e)), 12);
-    markdown += "| " + mdCell(tt) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(ac) + " |\n";
+    // با چند ارز، ستونِ «واقعی» جای خود را به پرچم می‌دهد. چهار ستون
+    // سقفِ خواناییِ جدول در تلگرام است و بینِ این دو، دانستنِ اینکه خبر
+    // مالِ کدام ارز است مهم‌تر از عددی است که در نمای «امروز» هم هست.
+    markdown += multiWeek
+      ? "| " + mdCell(tt) + " | " + currencyFlag(e.currency) + " | " + name + " | " + mdCell(e.forecast || "-") + " |\n"
+      : "| " + mdCell(tt) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(ac) + " |\n";
   }
 
   // تعطیلی‌هایی که بعد از آخرین روزِ رویدادها می‌افتند - حلقه‌ی بالا به

@@ -14,6 +14,7 @@
 
 import { readEvents, readLabels, readHolidays, readAiAnswer, todayCacheKey } from "./store.js";
 import { holidayNameFa } from "./holidayNames.js";
+import { filterByCurrencies, DEFAULT_CURRENCIES } from "./currencies.js";
 import { makeLabelHelpers, numOf } from "./labels.js";
 import { etTimeToTehran, etInstantIso } from "./format.js";
 import { readSubscription, saveSubscription, defaultSubscription } from "./subscribers.js";
@@ -142,6 +143,15 @@ export async function buildMiniappPayload(env, user) {
     readHolidays(env),
   ]);
 
+  // اپ هم همان ارزهایی را نشان می‌دهد که کاربر در ربات انتخاب کرده.
+  //
+  // بدونِ این، به‌محضِ ذخیره شدنِ همه‌ی ارزها اپ ناگهان پر از خبرهای
+  // ارزهایی می‌شد که کاربر هرگز نخواسته - و هیچ راهی هم برای خاموش
+  // کردنشان داخلِ اپ نداشت.
+  const sub = user ? await readSubscription(env, user.id).catch(() => null) : null;
+  const chosen = (sub && sub.currencies) || DEFAULT_CURRENCIES;
+  const rowsForUser = filterByCurrencies(rows, chosen);
+
   const { labelFor, enShort, enFull, faName } = makeLabelHelpers(labels);
   const today = new Date().toISOString().slice(0, 10);
   const horizonEnd = new Date(Date.now() + HORIZON_DAYS * 86400000).toISOString().slice(0, 10);
@@ -174,7 +184,7 @@ export async function buildMiniappPayload(env, user) {
 
   // فقط از امروز تا افق. صفحه گذشته را نشان نمی‌دهد و در عوض events[0] را
   // «رویداد بعدی» فرض می‌کند - با ردیف‌های گذشته در آرایه آن فرض می‌شکست.
-  const events = rows
+  const events = rowsForUser
     .filter((e) => e && e.date && e.date >= today && e.date <= horizonEnd)
     .map((e) => {
       const hit = labelFor(e);

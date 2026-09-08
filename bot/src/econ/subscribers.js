@@ -9,6 +9,8 @@
 // ربات و مینی‌اپ) و هر دو به اینجا می‌رسند، پس دو نسخه‌ی واگرا از یک
 // تنظیم وجود ندارد.
 
+import { DEFAULT_CURRENCIES, parseCurrencies, serializeCurrencies } from "./currencies.js";
+
 const DDL = [
   `CREATE TABLE IF NOT EXISTS econ_subscriber (
      telegram_user_id TEXT PRIMARY KEY,
@@ -27,6 +29,9 @@ const DDL = [
 // خطایی که اینجا انتظارش را داریم.
 const ADD_COLUMNS = [
   `ALTER TABLE econ_subscriber ADD COLUMN digest_off INTEGER NOT NULL DEFAULT 0`,
+  // ارزهایی که کاربر می‌خواهد ببیند، با ویرگول. خالی یعنی پیش‌فرض
+  // (فقط دلار) - همان چیزی که همه‌ی کاربرانِ فعلی امروز می‌بینند.
+  `ALTER TABLE econ_subscriber ADD COLUMN currencies TEXT`,
 ];
 
 // «این کاربر ربات را بلاک یا حذف کرده».
@@ -114,6 +119,7 @@ function toRow(row) {
     // خلاصه‌ی روزانه برعکسِ هشدار است: پیش‌فرض روشن، و این ستون فقط
     // وقتی پر می‌شود که کاربر خودش گفته باشد «نفرست».
     digest_off: !!row.digest_off,
+    currencies: parseCurrencies(row.currencies),
     updated_at: row.updated_at,
   };
 }
@@ -139,7 +145,13 @@ export async function readSubscription(env, telegramUserId) {
 
 /** پیش‌فرضی که به کاربرِ تازه نشان داده می‌شود. */
 export function defaultSubscription() {
-  return { subscribed: false, alert_minutes: 15, show_low_importance: false, digest_off: false };
+  return {
+    subscribed: false,
+    alert_minutes: 15,
+    show_low_importance: false,
+    digest_off: false,
+    currencies: [...DEFAULT_CURRENCIES],
+  };
 }
 
 /**
@@ -167,19 +179,24 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
         : current.show_low_importance,
     digest_off:
       patch.digest_off !== undefined ? !!patch.digest_off : !!current.digest_off,
+    currencies:
+      patch.currencies !== undefined
+        ? parseCurrencies(serializeCurrencies(patch.currencies))
+        : parseCurrencies(current.currencies),
   };
 
   await env.DB
     .prepare(
       `INSERT INTO econ_subscriber
-         (telegram_user_id, chat_id, subscribed, alert_minutes, show_low_importance, digest_off, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         (telegram_user_id, chat_id, subscribed, alert_minutes, show_low_importance, digest_off, currencies, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(telegram_user_id) DO UPDATE SET
          chat_id = excluded.chat_id,
          subscribed = excluded.subscribed,
          alert_minutes = excluded.alert_minutes,
          show_low_importance = excluded.show_low_importance,
          digest_off = excluded.digest_off,
+         currencies = excluded.currencies,
          updated_at = excluded.updated_at`
     )
     .bind(
@@ -189,6 +206,7 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
       next.alert_minutes,
       next.show_low_importance ? 1 : 0,
       next.digest_off ? 1 : 0,
+      serializeCurrencies(next.currencies),
       now,
       now
     )

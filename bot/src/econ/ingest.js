@@ -11,6 +11,7 @@
 
 import { ensureSchema, replaceHolidays, markSynced } from "./store.js";
 import { readConfig } from "../content/channel.js";
+import { isStorableCurrency } from "./currencies.js";
 
 export const INGEST_FLAG = "econ_worker_ingest";
 
@@ -46,12 +47,20 @@ export function normalizeFfEvents(raw, nowIso = new Date().toISOString()) {
   const results = [];
   for (const ev of raw || []) {
     const currency = String((ev && ev.country) || "").trim();
-    // فقط دلار - به‌علاوه‌ی رویدادهای «All».
+    // همه‌ی ارزهای شناخته‌شده، نه فقط دلار.
     //
-    // ForexFactory جکسون‌هول و نشست‌های G7/G20 را با کشور "All" علامت
-    // می‌زند و آن‌ها هر جفت‌ارز دلاری را تکان می‌دهند. یک بار همین فیلتر
-    // باعث شد بزرگ‌ترین رویداد هفته اصلاً در تقویم نیاید.
-    if (currency !== "USD" && currency !== "All") continue;
+    // تا امروز اینجا هر چیزی که دلار نبود دور ریخته می‌شد - در حالی که
+    // فید از اول کلِ هفته و همه‌ی ارزها را می‌آورد. یعنی داده‌اش را
+    // می‌گرفتیم، هزینه‌اش را می‌دادیم، و بعد نود درصدش را می‌انداختیم.
+    //
+    // فیلتر برداشته نشد، فقط باز شد: فهرستِ سفید جلوی هر کدِ ناشناسِ
+    // تازه‌ای را که فید روزی اضافه کند می‌گیرد. «All» هم داخل است -
+    // جکسون‌هول و نشست‌های G7/G20 با همان برچسب می‌آیند و هر جفت‌ارزی را
+    // تکان می‌دهند.
+    //
+    // اینکه کاربر چه ببیند، تصمیمِ اینجا نیست: ذخیره می‌شود، و نماها بر
+    // اساس انتخابِ خودِ کاربر فیلتر می‌کنند.
+    if (!isStorableCurrency(currency)) continue;
 
     const impactRaw = String((ev && ev.impact) || "").trim().toLowerCase();
     let importance;

@@ -18,6 +18,7 @@
 
 import { readEvents, readLabels, readHolidays } from "./store.js";
 import { holidayLabel, holidayNameFa } from "./holidayNames.js";
+import { filterByCurrencies, DEFAULT_CURRENCIES } from "./currencies.js";
 import { buildTodayMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
@@ -248,7 +249,15 @@ export async function buildDigest(env, now = new Date()) {
     readLabels(env),
     readHolidays(env).catch(() => []),
   ]);
-  return { markdown: buildTodayMarkdown(events, labels, holidays), weekend: false };
+  // خلاصه‌ی صبح فقط دلار می‌ماند - عمداً.
+  //
+  // این پیام به یازده هزار نفر می‌رود و یک متن برای همه ساخته می‌شود.
+  // اگر بخواهد ارزهای هر کاربر را رعایت کند، باید هزاران متنِ متفاوت
+  // ساخته شود: هم کند، هم مستقیم به همان سقف‌هایی می‌خورد که تازه
+  // درستشان کردیم. ارزهای دیگر در نماهای «امروز» و «این هفته» هستند که
+  // کاربر خودش بازشان می‌کند.
+  const usdOnly = filterByCurrencies(events, DEFAULT_CURRENCIES);
+  return { markdown: buildTodayMarkdown(usdOnly, labels, holidays), weekend: false };
 }
 
 // کلیدی که می‌گوید خلاصه‌ی کدام روز کامل رفته است. یک ردیفِ تنظیمات،
@@ -537,7 +546,13 @@ const ALERT_KEYBOARD = {
 // شرط تاریخِ اضافه فقط جایی بود که ساعتِ دو محاسبه می‌توانست از هم جدا
 // بیفتد.
 export function dueEvents(events, sub) {
-  return events
+  // فاز یک: هشدار و اعلامِ نتیجه فقط برای دلار.
+  //
+  // نه به این دلیل که سخت است - به این دلیل که کاربری که نُه ارز را
+  // روشن کرده، روزی سی-چهل هشدار می‌گیرد و ربات را بلاک می‌کند. سقف و
+  // انتخابِ ارزِ هشدار کارِ فاز دوم است؛ تا آن موقع رفتار دقیقاً همان
+  // چیزی می‌ماند که مشترک‌ها امروز به آن عادت دارند.
+  return filterByCurrencies(events, DEFAULT_CURRENCIES)
     .filter((e) => {
       if (!e.date || !e.time) return false;
       if (e.status === "released") return false;
@@ -630,7 +645,8 @@ export async function runResultSweep(env, now = new Date()) {
   // پنجره‌ی سه ساعت پس از انتشار. دفترِ ارسال به‌تنهایی کافی نبود: کسی
   // که همین امروز مشترک می‌شود در دفتر هیچ ردیفی ندارد و بدون این
   // پنجره، عددهای دیروز و پریروز یک‌جا برایش می‌رفت.
-  const released = events.filter((e) => {
+  // فاز یک: اعلامِ نتیجه هم فقط دلار - به همان دلیلِ هشدارها.
+  const released = filterByCurrencies(events, DEFAULT_CURRENCIES).filter((e) => {
     if (e.status !== "released" || !e.actual || !e.time || e.importance === "low") return false;
     const since = -etMinutesUntilNow(e.date, e.time);
     return since >= 0 && since <= 180;

@@ -28,6 +28,12 @@ import {
   ALLOWED_MINUTES,
 } from "./subscribers.js";
 import { ECON_APP_VERSION } from "./appVersion.js";
+import {
+  CURRENCIES,
+  currencyLabel,
+  toggleCurrency,
+  filterByCurrencies,
+} from "./currencies.js";
 
 // «?v=» کشِ وب‌ویوی تلگرام را می‌شکند. پیش از این عددش دستی نوشته می‌شد و
 // این یک تله بود: اگر بعد از تغییر اپ یادمان می‌رفت جلو ببریمش، کاربر
@@ -60,6 +66,7 @@ export function econMenuKeyboard() {
       ],
       // danger همان قرمز است. مقدار معتبری است - WF-02 روی دکمه‌های
       // «انصراف» و «لغو فرآیند» از همین استفاده می‌کند.
+      [{ text: "🌍 ارزهای من", callback_data: "ECON_CURRENCIES", style: "primary" }],
       [{ text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS", style: "danger" }],
       // دکمه‌ی بازگشت عمداً بی‌رنگ است تا از کارهای اصلی جدا دیده شود -
       // همان الگویی که نماهای امروز/هفته/تعطیلات دارند.
@@ -199,10 +206,15 @@ export async function handleEconCallback(ctx, action) {
         // خودِ محتوا.
         readHolidays(ctx.env).catch(() => []),
       ]);
+      // فیلترِ ارز، بر اساس انتخابِ خودِ کاربر. پیش‌فرض فقط دلار است،
+      // پس کسی که این صفحه را باز نکرده دقیقاً همان چیزی را می‌بیند که
+      // همیشه می‌دید.
+      const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+      const mine = filterByCurrencies(events, sub.currencies);
       markdown =
         action === "ECON_TODAY"
-          ? buildTodayMarkdown(events, labels, holidays)
-          : buildWeekMarkdown(events, labels, holidays);
+          ? buildTodayMarkdown(mine, labels, holidays)
+          : buildWeekMarkdown(mine, labels, holidays);
     }
 
     await replaceCallbackMessage(ctx);
@@ -303,6 +315,37 @@ export async function handleEconCallback(ctx, action) {
     return true;
   }
 
+  if (action === "ECON_CURRENCIES") {
+    await sendCurrencyPicker(ctx);
+    return true;
+  }
+
+  if (action.startsWith("ECON_CUR|")) {
+    const code = action.split("|")[1];
+    const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+    const next = toggleCurrency(sub.currencies || [], code);
+
+    // خاموش کردنِ آخرین ارز جلویش گرفته می‌شود: نمای خالی از نمای پر
+    // بدتر است و کاربر فکر می‌کند چیزی شکسته.
+    if (next.length === (sub.currencies || []).length && next.every((c, i) => c === sub.currencies[i])) {
+      await ctx.answerCallbackQuery({
+        text: "دست‌کم یک ارز باید روشن بماند.",
+        show_alert: true,
+      });
+      return true;
+    }
+
+    try {
+      await saveSubscription(ctx.env, ctx.from.id, { chat_id: ctx.from.id, currencies: next });
+    } catch (err) {
+      console.error("ذخیره‌ی ارزها شکست خورد:", err && err.message);
+      await ctx.answerCallbackQuery({ text: "ذخیره نشد؛ دوباره امتحان کنید.", show_alert: true });
+      return true;
+    }
+    await sendCurrencyPicker(ctx, true);
+    return true;
+  }
+
   if (action === "ECON_ALERT_SETTINGS") {
     await sendAlertSettings(ctx);
     return true;
@@ -378,6 +421,45 @@ export async function handleEconCallback(ctx, action) {
   }
 
   return false;
+}
+
+/**
+ * صفحه‌ی انتخابِ ارز.
+ *
+ * دو ستونه، چون نُه ارز در یک ستون یعنی صفحه‌ای که باید اسکرول شود و
+ * دکمه‌ی پایینش دیده نمی‌شود.
+ *
+ * پیش‌فرضِ هر کاربر - قدیمی یا تازه - فقط دلار است، پس کسی که هرگز این
+ * صفحه را باز نکند دقیقاً همان چیزی را می‌بیند که همیشه می‌دید.
+ */
+async function sendCurrencyPicker(ctx, edit = false) {
+  const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+  const selected = new Set(sub.currencies || []);
+
+  const rows = [];
+  for (let i = 0; i < CURRENCIES.length; i += 2) {
+    const pair = CURRENCIES.slice(i, i + 2).map((c) => ({
+      text: (selected.has(c.code) ? "✅ " : "▫️ ") + c.flag + " " + c.fa,
+      callback_data: "ECON_CUR|" + c.code,
+      style: selected.has(c.code) ? "success" : "primary",
+    }));
+    rows.push(pair);
+  }
+  rows.push([{ text: "⬅️ منوی تقویم", callback_data: "MENU_ECON_CALENDAR" }]);
+
+  const chosen = (sub.currencies || []).map((c) => currencyLabel(c)).join(" · ");
+  const text =
+    "🌍 <b>ارزهای مورد نظر شما</b>\n\n" +
+    "فقط اخبار ارزهایی که انتخاب می‌کنید در «اخبار امروز» و «این هفته» نمایش داده می‌شود.\n\n" +
+    "<b>انتخاب فعلی:</b>\n" + chosen + "\n\n" +
+    "<i>طلا و نفت خبر مستقل ندارند و با اخبار دلار حرکت می‌کنند؛ برای آن‌ها دلار را روشن نگه دارید.</i>";
+
+  const markup = { inline_keyboard: rows };
+  if (edit) {
+    await ctx.editMessageText(text, { parse_mode: "HTML", reply_markup: markup }).catch(() => {});
+    return;
+  }
+  await ctx.reply(text, { parse_mode: "HTML", reply_markup: markup });
 }
 
 // صفحه‌ی تنظیم هشدار، با دکمه‌های واقعی.
