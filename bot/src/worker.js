@@ -3,6 +3,10 @@ import { createBot } from "./bot.js";
 import { syncFromN8n, readSyncState } from "./econ/store.js";
 import { drainLeadOutbox } from "./crmSync.js";
 import { handleMiniapp } from "./econ/miniapp.js";
+// صفحه‌ی مینی‌اپ داخل باندل است، نه روی GitHub Pages. فایل ساخته می‌شود -
+// scripts/build-econ-app.mjs می‌نویسدش و ورک‌فلوی econ-app.yml بررسی
+// می‌کند که با منبع‌ها یکی مانده باشد.
+import { ECON_APP_HTML } from "./econ/appHtml.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
@@ -80,7 +84,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-71";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-72";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -738,6 +742,29 @@ export default {
     // آینه‌ی D1 می‌خواند - سالم بود. حالا هر دو از یک منبع می‌خوانند.
     if (url.pathname === "/econ/miniapp") {
       return handleMiniapp(request, env);
+    }
+
+    // خودِ صفحه‌ی مینی‌اپ. پیش از این روی GitHub Pages بود، یعنی آدرسی
+    // که کاربر باز می‌کرد به نامِ صاحبِ مخزن گره خورده بود - هر انتقال
+    // مالکیت، اپ را برای همه می‌شکست. حالا از همین‌جا می‌آید.
+    //
+    // عمداً عمومی است: تلگرام وب‌ویو را بدون هیچ هدری باز می‌کند، پس
+    // اینجا جای احراز هویت نیست. صفحه هم داده‌ای ندارد؛ داده را
+    // /econ/miniapp می‌دهد که initData را بررسی می‌کند.
+    if (url.pathname === "/econ/app") {
+      return new Response(ECON_APP_HTML, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          // «?v=» با هشِ محتوا عوض می‌شود، پس هر آدرس برای همیشه یک
+          // محتوا دارد و می‌شود بلندمدت کشش کرد. immutable مهم است:
+          // وب‌ویوی تلگرام سرسختانه کش می‌کند و بدون آن هر بار همان
+          // صفحه دوباره از ورکر خوانده می‌شود.
+          "Cache-Control": "public, max-age=31536000, immutable",
+          // صفحه فقط باید داخل وب‌ویوی تلگرام باز شود.
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer",
+        },
+      });
     }
 
     // مسیر webhook شامل خود توکن است تا کسی نتواند بدون دانستن توکن

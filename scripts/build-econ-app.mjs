@@ -27,6 +27,9 @@ const SRC = join(ROOT, "src", "econ-app");
 
 const OUT_HTML = join(ROOT, "econ-app.html");
 const OUT_VERSION = join(ROOT, "bot", "src", "econ", "appVersion.js");
+// همان HTML، این‌بار به‌شکل یک ماژول تا داخل باندل ورکر برود و ورکر
+// خودش مینی‌اپ را سرو کند. دلیلش در appHtml.js نوشته شده.
+const OUT_APP_MODULE = join(ROOT, "bot", "src", "econ", "appHtml.js");
 
 const CSS_MARK = "<!-- build:css -->";
 const JS_MARK = "<!-- build:js -->";
@@ -61,9 +64,49 @@ export function versionOf(parts) {
   return h.digest("hex").slice(0, 10);
 }
 
+const MIME = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
+
+/**
+ * هر `url("assets/…")` را با یک data: URI جای‌گزین می‌کند.
+ *
+ * چرا لازم شد: آدرسِ نسبی وقتی درست بود که اپ روی GitHub Pages کنارِ
+ * پوشه‌ی assets می‌نشست. حالا ورکر آن را از /econ/app می‌دهد و همان
+ * آدرسِ نسبی به /econ/assets/… می‌رسد که وجود ندارد - یعنی بنر بی‌صدا
+ * ناپدید می‌شد و در لاگِ ورکر هم چیزی پیدا نبود.
+ *
+ * درون‌ریزی به‌جای یک مسیرِ دوم در ورکر انتخاب شد چون اپ را واقعاً
+ * تک‌فایل می‌کند: یک درخواست، بدون هیچ وابستگیِ بیرونی.
+ */
+function inlineAssets(css) {
+  return css.replace(/url\((["']?)(assets\/[^"')]+)\1\)/g, (_all, _q, rel) => {
+    const file = join(ROOT, rel);
+    const ext = rel.slice(rel.lastIndexOf(".")).toLowerCase();
+    const mime = MIME[ext];
+    if (!mime) throw new Error("پسوندِ ناشناخته برای درون‌ریزی: " + rel);
+    let bytes;
+    try {
+      bytes = readFileSync(file);
+    } catch {
+      // بی‌سر و صدا رد کردنش یعنی یک بنرِ نبود که فقط کاربر می‌بیند.
+      throw new Error("فایل «" + rel + "» پیدا نشد - مینی‌اپ به آن ارجاع می‌دهد");
+    }
+    return 'url("data:' + mime + ";base64," + bytes.toString("base64") + '")';
+  });
+}
+
 export function build() {
   const template = read(join(SRC, "index.html"));
-  const css = read(join(SRC, "app.css"));
+  // پیش از حساب کردنِ نسخه درون‌ریزی می‌شود، تا عوض شدنِ خودِ تصویر هم
+  // کشِ وب‌ویو را بشکند. اگر بعدش انجام می‌شد، بنرِ تازه پشتِ نسخه‌ی
+  // قدیمی گیر می‌کرد.
+  const css = inlineAssets(read(join(SRC, "app.css")));
   const js = read(join(SRC, "app.js"));
   const version = versionOf([template, css, js]);
 
@@ -75,6 +118,31 @@ export function build() {
   }
   html = html.replace(VERSION_MARK, version);
   return { html, version };
+}
+
+// HTML به‌شکل یک ماژول جاوااسکریپت، تا esbuildِ رنگلر آن را داخل باندل
+// ورکر بگذارد.
+//
+// چرا JSON.stringify و نه template literal: این فایل ۱۴۶ کیلوبایت HTML
+// دستِ آدم است و اگر روزی یک بک‌تیک یا «${» تویش بیاید، رشته‌ی قالبی
+// بی‌صدا می‌شکند - و شکستنش وقت بیلد پیدا نمی‌شود، وقتِ اجرا پیدا
+// می‌شود. JSON.stringify همه‌ی حالت‌ها را درست فرار می‌دهد و خروجی‌اش
+// خودش جاوااسکریپتِ معتبر است.
+function appModule(html) {
+  return [
+    "// این فایل ساخته می‌شود - دستی عوضش نکنید.",
+    "//",
+    "// همان econ-app.html است، بسته‌بندی‌شده تا ورکر بتواند خودش سرو",
+    "// کند. پیش از این مینی‌اپ روی GitHub Pages بود و این یعنی آدرسش به",
+    "// نامِ صاحبِ مخزن گره خورده بود: هر انتقالِ مالکیت، اپ را برای همه",
+    "// می‌شکست. حالا از همان دامنه‌ای می‌آید که بقیه‌ی ربات می‌آید، پس",
+    "// گیت‌هاب فقط جایی است که کد نگه داشته می‌شود، نه چیزی که کاربر به",
+    "// آن وصل است.",
+    "//",
+    "// با «node scripts/build-econ-app.mjs» به‌روز می‌شود.",
+    "export const ECON_APP_HTML = " + JSON.stringify(html) + ";",
+    "",
+  ].join("\n");
 }
 
 function versionModule(version) {
@@ -94,6 +162,7 @@ const check = process.argv.includes("--check");
 
 const { html, version } = build();
 const module_ = versionModule(version);
+const appModule_ = appModule(html);
 
 if (check) {
   const problems = [];
@@ -116,6 +185,20 @@ if (check) {
     problems.push("نسخه‌ی کش کهنه است - باید " + version + " باشد");
   }
 
+  // این یکی چیزی است که کاربر واقعاً می‌بیند: ورکر از همین ماژول سرو
+  // می‌کند. اگر عقب بماند، econ-app.html و نسخه‌ی کش هر دو درست‌اند و
+  // باز هم اپِ کهنه بالا می‌آید - دقیقاً همان سکوتی که این جاب برای
+  // شکستنش نوشته شده.
+  let onDiskApp = null;
+  try {
+    onDiskApp = read(OUT_APP_MODULE);
+  } catch {
+    problems.push("bot/src/econ/appHtml.js نیست");
+  }
+  if (onDiskApp !== null && onDiskApp !== appModule_) {
+    problems.push("bot/src/econ/appHtml.js با econ-app.html یکی نیست - ورکر اپِ کهنه سرو می‌کند");
+  }
+
   if (problems.length) {
     console.error("✖ " + problems.join("\n✖ "));
     console.error("\nبرای درست شدن، این را اجرا کنید و نتیجه را کامیت کنید:");
@@ -126,6 +209,7 @@ if (check) {
 } else {
   writeFileSync(OUT_HTML, html);
   writeFileSync(OUT_VERSION, module_);
+  writeFileSync(OUT_APP_MODULE, appModule_);
   const kb = (Buffer.byteLength(html, "utf8") / 1024).toFixed(1);
   console.log("✔ econ-app.html ساخته شد - " + kb + " کیلوبایت، نسخه " + version);
 }

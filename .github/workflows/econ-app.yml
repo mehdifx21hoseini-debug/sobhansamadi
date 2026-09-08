@@ -18,6 +18,10 @@ on:
       - "src/econ-app/**"
       - "econ-app.html"
       - "bot/src/econ/appVersion.js"
+      - "bot/src/econ/appHtml.js"
+      # تصویرها هم منبع‌اند: CSS آن‌ها را با data: URI درون خروجی می‌برد،
+      # پس عوض شدنِ یک بنر هم خروجی را کهنه می‌کند.
+      - "assets/img/**"
       - "scripts/build-econ-app.mjs"
       - ".github/workflows/econ-app.yml"
   pull_request:
@@ -25,6 +29,10 @@ on:
       - "src/econ-app/**"
       - "econ-app.html"
       - "bot/src/econ/appVersion.js"
+      - "bot/src/econ/appHtml.js"
+      # تصویرها هم منبع‌اند: CSS آن‌ها را با data: URI درون خروجی می‌برد،
+      # پس عوض شدنِ یک بنر هم خروجی را کهنه می‌کند.
+      - "assets/img/**"
       - "scripts/build-econ-app.mjs"
   workflow_dispatch:
 

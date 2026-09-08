@@ -41,8 +41,23 @@ import {
 //
 // حالا مقدارش هشِ خودِ econ-app.html است که scripts/build-econ-app.mjs
 // می‌نویسد، پس نه می‌تواند عقب بماند و نه بی‌دلیل جلو برود.
-const ECON_APP_URL =
-  "https://mehdifx21hoseini-debug.github.io/sobhansamadi/econ-app.html?v=" + ECON_APP_VERSION;
+// و از کجا سرو می‌شود: از خودِ ورکر.
+//
+// پیش از این روی GitHub Pages بود و آدرسش نامِ صاحبِ مخزن را داشت. یعنی
+// یک انتقالِ ساده‌ی مالکیت روی گیت‌هاب - کاری که هیچ ربطی به کاربر ندارد -
+// اپ را برای همه‌ی یازده هزار نفر می‌شکست، بدون اینکه هیچ‌جا خطایی ثبت
+// شود؛ فقط دکمه یک صفحه‌ی ۴۰۴ باز می‌کرد. حالا اپ از همان دامنه‌ای می‌آید
+// که خودِ ربات می‌آید، و گیت‌هاب فقط جایی است که کد نگه داشته می‌شود.
+//
+// آدرس پایه در wrangler.toml است نه اینجا، تا اگر روزی دامنه عوض شد یک
+// خطِ تنظیمات باشد نه گشتن در کد. مقدار پشتیبان همان دامنه‌ی امروز است،
+// چون ورکرِ بی‌آدرس بدتر از ورکرِ با آدرسِ کهنه است.
+const DEFAULT_WORKER_BASE = "https://sobhansamadi.mehdifx21hoseini.workers.dev";
+
+function econAppUrl(env) {
+  const base = String((env && env.WORKER_BASE_URL) || DEFAULT_WORKER_BASE).replace(/\/+$/, "");
+  return base + "/econ/app?v=" + ECON_APP_VERSION;
+}
 
 
 // ایموجی‌ها همان‌هایی است که نود Send Econ Menu (HTTP) داشت - هرکدام به
@@ -52,10 +67,10 @@ const ECON_APP_URL =
 // تایپ‌های تلگرام مستند نیست و سازنده‌ی InlineKeyboard در grammy بی‌صدا
 // دورش می‌ریزد؛ به همین دلیل این کیبورد به‌صورت شیء خام نوشته شده. دقیقاً
 // همان اشتباهی که یک‌بار رنگ منوی اصلی را هم پراند.
-export function econMenuKeyboard() {
+export function econMenuKeyboard(env) {
   return {
     inline_keyboard: [
-      [{ text: "🔥 سشن های بازار (اپ اختصاصی)", web_app: { url: ECON_APP_URL }, style: "success" }],
+      [{ text: "🔥 سشن های بازار (اپ اختصاصی)", web_app: { url: econAppUrl(env) }, style: "success" }],
       [
         { text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" },
         { text: "📆 این هفته", callback_data: "ECON_WEEK", style: "primary" },
@@ -148,7 +163,7 @@ async function sendRichMessage(ctx, markdown, replyMarkup) {
 }
 
 export async function sendEconMenu(ctx) {
-  await sendSection(ctx, "ECON_MENU", econMenuKeyboard());
+  await sendSection(ctx, "ECON_MENU", econMenuKeyboard(ctx.env));
 }
 
 // نسخه‌ی n8n پیام قبلی را پاک می‌کرد و نمای تازه را می‌فرستاد، تا چند بار
