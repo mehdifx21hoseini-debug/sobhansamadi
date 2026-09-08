@@ -24,6 +24,7 @@ import {
   listPendingSubscribers,
   listPendingAudience,
   digestAudienceStats,
+  markBlocked,
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { readConfig, writeConfig } from "../content/channel.js";
@@ -179,8 +180,15 @@ async function claimAndSend(env, kind, ref, sub, build, stats) {
     return "stop";
   }
   if (r.ok) stats.sent++;
-  else if (r.blocked) stats.blocked++;
-  else stats.failed++;
+  else if (r.blocked) {
+    stats.blocked++;
+    // تلگرام هیچ راه دیگری برای فهمیدنِ رفتنِ کاربر نمی‌دهد؛ همین کدِ
+    // ۴۰۳ تنها نشانه است. تا امروز فقط شمرده می‌شد و دور ریخته - پس هر
+    // روز صبح دوباره سراغِ همان‌ها می‌رفتیم و آمار هم زنده حسابشان
+    // می‌کرد. حالا ثبت می‌شود، از صفِ ارسال بیرون می‌رود، و اگر روزی
+    // برگشت، اولین تعاملش پاکش می‌کند.
+    await markBlocked(env, sub.telegram_user_id);
+  } else stats.failed++;
   return "ok";
 }
 

@@ -29,9 +29,58 @@ const ADD_COLUMNS = [
   `ALTER TABLE econ_subscriber ADD COLUMN digest_off INTEGER NOT NULL DEFAULT 0`,
 ];
 
+// «این کاربر ربات را بلاک یا حذف کرده».
+//
+// تلگرام هیچ خبری از رفتنِ کاربر نمی‌دهد؛ تنها نشانه‌اش کدِ ۴۰۳ در
+// پاسخِ ارسال است. تا امروز آن کد فقط شمرده می‌شد و دور ریخته - یعنی هر
+// روز صبح به هزاران نفری پیام می‌فرستادیم که ماه‌ها پیش رفته بودند، و
+// آمارِ «اعضا» هم آن‌ها را زنده حساب می‌کرد.
+//
+// ستون روی user_state است نه econ_subscriber: بلاک کردن ربطی به اشتراکِ
+// تقویم ندارد و هر کسی که ردیفی در user_state دارد می‌تواند بلاک کند.
+const USER_STATE_COLUMNS = [
+  `ALTER TABLE user_state ADD COLUMN blocked_at TEXT`,
+  `CREATE INDEX IF NOT EXISTS idx_user_state_blocked ON user_state(blocked_at)`,
+];
+
+/**
+ * ثبتِ رفتنِ یک کاربر.
+ *
+ * تاریخ نگه داشته می‌شود نه یک بله/خیر: می‌خواهیم بدانیم کِی رفت، تا
+ * بشود دید کدام پیام باعثش شده.
+ */
+export async function markBlocked(env, telegramUserId) {
+  try {
+    await env.DB
+      .prepare(`UPDATE user_state SET blocked_at = ? WHERE telegram_user_id = ? AND blocked_at IS NULL`)
+      .bind(new Date().toISOString(), String(telegramUserId))
+      .run();
+  } catch (err) {
+    // ثبت نشدنش نباید ارسال را متوقف کند.
+    console.error("ثبتِ بلاک شکست خورد:", err && err.message);
+  }
+}
+
+/**
+ * برگشتنِ کاربر.
+ *
+ * هر تعاملی یعنی ربات را دوباره باز کرده. بدونِ این، کسی که برگشته برای
+ * همیشه «رفته» می‌ماند و دیگر هیچ پیامی نمی‌گیرد.
+ */
+export async function clearBlocked(env, telegramUserId) {
+  try {
+    await env.DB
+      .prepare(`UPDATE user_state SET blocked_at = NULL WHERE telegram_user_id = ? AND blocked_at IS NOT NULL`)
+      .bind(String(telegramUserId))
+      .run();
+  } catch {
+    // بی‌اهمیت: اجرای بعدی دوباره تلاش می‌کند.
+  }
+}
+
 export async function ensureSubscriberSchema(env) {
   for (const sql of DDL) await env.DB.prepare(sql).run();
-  for (const sql of ADD_COLUMNS) {
+  for (const sql of [...ADD_COLUMNS, ...USER_STATE_COLUMNS]) {
     try {
       await env.DB.prepare(sql).run();
     } catch {
@@ -255,7 +304,8 @@ export async function listPendingAudience(env, kind, ref, limit, shard, after) {
         WHERE ` +
         cursorClause +
         shardClause +
-        `NOT EXISTS (
+        `u.blocked_at IS NULL
+          AND NOT EXISTS (
                 SELECT 1 FROM econ_subscriber s
                  WHERE s.telegram_user_id = u.telegram_user_id
                    AND s.digest_off = 1)
@@ -283,6 +333,7 @@ export async function digestAudienceStats(env, kind, ref) {
     return (row && row.n) || 0;
   };
   const total = await one(`SELECT COUNT(*) AS n FROM user_state`);
+  const blocked = await one(`SELECT COUNT(*) AS n FROM user_state WHERE blocked_at IS NOT NULL`);
   const optedOut = await one(
     `SELECT COUNT(*) AS n FROM econ_subscriber WHERE digest_off = 1`
   );
@@ -290,7 +341,7 @@ export async function digestAudienceStats(env, kind, ref) {
     `SELECT COUNT(*) AS n FROM econ_sent_log WHERE kind = ? AND ref = ?`,
     [String(kind), String(ref)]
   );
-  return { total, opted_out: optedOut, sent_today: sent };
+  return { total, blocked, opted_out: optedOut, sent_today: sent };
 }
 
 export async function subscriberStats(env) {

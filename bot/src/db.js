@@ -77,17 +77,35 @@ export async function setUserState(env, telegramUserId, patch) {
 export async function touchUser(env, telegramUserId) {
   if (!env || !env.DB) return;
   const now = new Date().toISOString();
+
+  // blocked_at هم همین‌جا پاک می‌شود.
+  //
+  // هر تعامل یعنی کاربر ربات را دوباره باز کرده. بدونِ این، کسی که یک
+  // بار بلاک کرده و برگشته برای همیشه «رفته» می‌ماند و دیگر هیچ پیامی
+  // نمی‌گیرد. اینجا انجام می‌شود چون همین حالا یک نوشتن دارد - پس
+  // هزینه‌ی اضافه‌ای ندارد.
+  const withBlocked =
+    `INSERT INTO user_state (telegram_user_id, source_first_seen, last_interaction_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(telegram_user_id) DO UPDATE SET
+       last_interaction_at = excluded.last_interaction_at,
+       blocked_at = NULL`;
+  const plain =
+    `INSERT INTO user_state (telegram_user_id, source_first_seen, last_interaction_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(telegram_user_id) DO UPDATE SET
+       last_interaction_at = excluded.last_interaction_at`;
+
   try {
-    await env.DB
-      .prepare(
-        `INSERT INTO user_state (telegram_user_id, source_first_seen, last_interaction_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(telegram_user_id) DO UPDATE SET last_interaction_at = excluded.last_interaction_at`
-      )
-      .bind(String(telegramUserId), now, now)
-      .run();
+    await env.DB.prepare(withBlocked).bind(String(telegramUserId), now, now).run();
   } catch (err) {
-    console.error("ثبت تعامل کاربر شکست خورد:", err && err.message);
+    // ستون هنوز ساخته نشده (اولین اجرا پیش از مهاجرت). ثبتِ تعامل
+    // نباید منتظرِ آن بماند.
+    try {
+      await env.DB.prepare(plain).bind(String(telegramUserId), now, now).run();
+    } catch (err2) {
+      console.error("ثبت تعامل کاربر شکست خورد:", err2 && err2.message);
+    }
   }
 }
 
