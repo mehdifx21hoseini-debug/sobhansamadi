@@ -6,3 +6,6 @@ node_modules/
 # دو و نیم مگابایت است و تمامش کدِ ویرایشگرِ بسته‌بندی‌شده - منبعش کنارش
 # هست و هر وقت لازم شد دوباره ساخته می‌شود.
 design/econ-app/mini-app-directions.html
+
+# خروجی ساخته‌شده‌ی پیش‌نمایش داشبورد (از preview.css/js/index.html)
+design/econ-app/preview/dashboard.html
