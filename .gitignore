@@ -1,3 +1,8 @@
 .DS_Store
 graphify-out/
 node_modules/
+
+# بومِ طراحی که از روی فایل‌های design/econ-app/*.dc.html ساخته می‌شود.
+# دو و نیم مگابایت است و تمامش کدِ ویرایشگرِ بسته‌بندی‌شده - منبعش کنارش
+# هست و هر وقت لازم شد دوباره ساخته می‌شود.
+design/econ-app/mini-app-directions.html

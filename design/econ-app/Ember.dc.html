@@ -1,0 +1,308 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #d9a441; } a:hover { color: #e8bd6a; }
+
+    /* ── جهت پ: «برند» ───────────────────────────────────────────
+       اینجا هویت آکادمی حرف اول را می‌زند، نه ابزار. تیتر بزرگ،
+       طلاییِ گرم روی زغالی، و بلوک‌های رنگیِ صریح به‌جای کارت‌های
+       هم‌وزن. هر بخش یک سرتیتر دارد تا صفحه خوانده شود، نه اسکن. */
+    .app { font-family: Vazirmatn, system-ui, sans-serif; direction: rtl;
+           min-height: 100%; background: var(--bg); color: var(--fg); }
+    .app.dark {
+      --bg:#100e0c; --surface:#1a1714; --surface2:#221d19; --line:#2c2621;
+      --fg:#f4efe8; --muted:#9d9287; --dim:#6e655c;
+      --gold:#d9a441; --up:#4cae7a; --down:#e0574f; --warn:#d9a441;
+    }
+    .app.light {
+      --bg:#faf7f2; --surface:#ffffff; --surface2:#f5f1ea; --line:#e6ded2;
+      --fg:#1a1714; --muted:#6b6157; --dim:#948a7e;
+      --gold:#a9741a; --up:#2f7d55; --down:#c33f37; --warn:#a9741a;
+    }
+
+    /* بنر برند - بزرگ و بدون خجالت */
+    .hero { position: relative; padding: 30px 18px 26px; overflow: hidden;
+            background: var(--surface); }
+    .hero::after { content: ""; position: absolute; inset-inline-end: -70px; top: -70px;
+                   width: 230px; height: 230px; border-radius: 50%;
+                   background: radial-gradient(circle, rgba(217,164,65,.20), transparent 68%); }
+    .kicker { position: relative; display: inline-block; padding: 5px 12px; border-radius: 4px;
+              background: var(--gold); color: #100e0c;
+              font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+    .hero h1 { position: relative; margin: 15px 0 0; font-size: 31px; font-weight: 900;
+               line-height: 1.22; letter-spacing: -.025em; }
+    .hero h1 em { font-style: normal; color: var(--gold); }
+    .hero p { position: relative; margin: 11px 0 0; font-size: 13px; color: var(--muted); }
+    .rule { position: relative; width: 46px; height: 3px; background: var(--gold);
+            border-radius: 2px; margin-top: 17px; }
+
+    .in { padding: 0 18px 26px; }
+
+    .next { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+            margin: 18px 0 0; padding: 16px 17px; border-radius: 4px;
+            background: var(--surface); border-inline-start: 4px solid var(--gold); }
+    .next .lbl { font-size: 10.5px; font-weight: 800; color: var(--gold);
+                 letter-spacing: .06em; margin-bottom: 6px; }
+    .next .name { font-size: 15px; font-weight: 700; line-height: 1.4; }
+    .next .cd { text-align: left; }
+    .next .cd .v { font-size: 25px; font-weight: 800; line-height: 1;
+                   font-variant-numeric: tabular-nums; }
+    .next .cd .u { font-size: 10px; color: var(--dim); margin-top: 4px; }
+
+    /* سرتیتر بخش - امضای این جهت */
+    .head { display: flex; align-items: center; gap: 11px; margin: 26px 0 13px; }
+    .head h2 { margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; }
+    .head .line { flex: 1; height: 1px; background: var(--line); }
+    .head .n { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+
+    .tabs { display: flex; gap: 22px; margin-top: 20px;
+            border-bottom: 1px solid var(--line); }
+    .tabs button { position: relative; min-height: 44px; padding: 0 0 10px; border: 0; cursor: pointer;
+                   background: transparent; color: var(--muted);
+                   font-family: inherit; font-size: 14px; font-weight: 700; }
+    .tabs button[aria-selected="true"] { color: var(--fg); }
+    .tabs button[aria-selected="true"]::after { content: ""; position: absolute;
+                   inset-inline: 0; bottom: -1px; height: 2.5px; background: var(--gold); }
+
+    .search { display: flex; align-items: center; gap: 10px; margin-top: 16px;
+              padding: 0 14px; min-height: 46px; border-radius: 4px;
+              background: var(--surface2); border: 1px solid var(--line); }
+    .search input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--fg);
+                    font-family: inherit; font-size: 13px; }
+    .search input::placeholder { color: var(--dim); }
+
+    .chips { display: flex; gap: 8px; margin-top: 11px; }
+    .chip { display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 13px;
+            border-radius: 4px; border: 1px solid var(--line); background: transparent;
+            color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .chip[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #100e0c; }
+    .dot { width: 8px; height: 8px; border-radius: 2px; }
+
+    .holiday { margin-top: 16px; padding: 16px 17px; border-radius: 4px;
+               background: var(--gold); color: #100e0c; }
+    .holiday .t { display: flex; align-items: center; gap: 9px;
+                  font-size: 13px; font-weight: 800; margin-bottom: 6px; }
+    .holiday p { margin: 0; font-size: 12px; line-height: 1.7; opacity: .82; }
+
+    /* ردیف‌ها - خط جداکننده به‌جای کارت، مثل صفحه‌ی روزنامه */
+    .rows { display: flex; flex-direction: column; }
+    .row { display: grid; grid-template-columns: 52px 1fr auto; gap: 13px;
+           align-items: center; padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .row:first-child { border-top: 1px solid var(--line); }
+    .cur { text-align: center; }
+    .cur .code { display: inline-block; padding: 3px 7px; border-radius: 3px;
+                 background: var(--surface2); border: 1px solid var(--line);
+                 font-size: 10px; font-weight: 800; color: var(--muted); }
+    .cur .t { margin-top: 6px; font-size: 11.5px; color: var(--dim);
+              font-variant-numeric: tabular-nums; }
+    .ev { min-width: 0; }
+    .ev .n { font-size: 14px; font-weight: 700; line-height: 1.45;
+             display: flex; align-items: center; gap: 8px; }
+    .ev .m { margin-top: 6px; font-size: 11px; color: var(--dim); display: flex; gap: 14px; }
+    .ev .m b { font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .act { text-align: left; font-size: 16px; font-weight: 800;
+           font-variant-numeric: tabular-nums; }
+    .act.u { color: var(--up); } .act.d { color: var(--down); }
+    .act.p { color: var(--dim); font-size: 13px; font-weight: 600; }
+
+    .panel { margin-top: 14px; padding: 18px 17px; border-radius: 4px; background: var(--surface); }
+    .panel .sub { margin: 0 0 15px; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+    .btn { width: 100%; min-height: 48px; border: 0; border-radius: 4px; cursor: pointer;
+           background: var(--gold); color: #100e0c;
+           font-family: inherit; font-size: 14px; font-weight: 800; }
+
+    .set { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+           padding: 15px 0; border-top: 1px solid var(--line); }
+    .set:first-of-type { border-top: 0; padding-top: 0; }
+    .set .l { font-size: 13.5px; font-weight: 700; }
+    .set .h { margin-top: 4px; font-size: 11px; color: var(--dim); }
+    .sw { width: 46px; height: 27px; flex: none; border: 0; border-radius: 3px; cursor: pointer;
+          background: var(--line); position: relative; }
+    .sw[aria-checked="true"] { background: var(--gold); }
+    .sw i { position: absolute; top: 3px; right: 3px; width: 21px; height: 21px;
+            border-radius: 2px; background: #fff; }
+    .sw[aria-checked="true"] i { right: 22px; background: #100e0c; }
+    .mins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .mins button { min-height: 46px; border-radius: 4px; cursor: pointer;
+                   border: 1px solid var(--line); background: transparent; color: var(--muted);
+                   font-family: inherit; font-size: 15px; font-weight: 800;
+                   font-variant-numeric: tabular-nums; }
+    .mins button[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: #100e0c; }
+
+    .foot { margin: 24px 0 0; font-size: 10.5px; line-height: 1.9;
+            color: var(--dim); text-align: center; }
+  </style>
+</helmet>
+
+<div class="app {{theme}}">
+  <div class="hero">
+    <div class="kicker">تقویم اقتصادی</div>
+    <h1>آکادمی<br><em>سبحان صمدی</em></h1>
+    <p>رویدادهای بازار و سشن‌های معاملاتی</p>
+    <div class="rule"></div>
+  </div>
+
+  <div class="in">
+    <div class="next">
+      <div>
+        <div class="lbl">رویداد بعدی</div>
+        <div class="name">شاخص قیمت مصرف‌کننده (CPI)</div>
+      </div>
+      <div class="cd">
+        <div class="v">۰۱:۲۷</div>
+        <div class="u">مانده</div>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true">امروز</button>
+      <button role="tab" aria-selected="false">این هفته</button>
+      <button role="tab" aria-selected="false">ماه</button>
+      <button role="tab" aria-selected="false">سشن‌ها</button>
+    </div>
+
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="color:#6e655c;flex:none">
+        <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path>
+      </svg>
+      <input type="search" placeholder="جستجوی شاخص… مثلاً CPI یا تورم">
+    </div>
+
+    <div class="chips">
+      <button class="chip" aria-pressed="true">همه</button>
+      <button class="chip" aria-pressed="false"><span class="dot" style="background:#e0574f"></span>خیلی مهم</button>
+      <button class="chip" aria-pressed="false"><span class="dot" style="background:#d9a441"></span>مهم به بالا</button>
+    </div>
+
+    <div class="holiday">
+      <div class="t">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"></path>
+        </svg>
+        امروز تعطیلی بانکی آمریکا
+      </div>
+      <p>روز کارگر (Labor Day) — نقدینگی بازار پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.</p>
+    </div>
+
+    <div class="head">
+      <h2>دوشنبه ۱۸ شهریور</h2>
+      <div class="line"></div>
+      <div class="n">۶ رویداد</div>
+    </div>
+
+    <div class="rows">
+      <div class="row">
+        <div class="cur"><span class="code">USD</span><div class="t">۱۶:۰۰</div></div>
+        <div class="ev">
+          <div class="n"><span class="dot" style="background:#e0574f"></span>شاخص قیمت مصرف‌کننده (CPI)</div>
+          <div class="m"><span>پیش‌بینی <b>۳٫۲٪</b></span><span>قبلی <b>۳٫۴٪</b></span></div>
+        </div>
+        <div class="act p">—</div>
+      </div>
+      <div class="row">
+        <div class="cur"><span class="code">USD</span><div class="t">۱۷:۳۰</div></div>
+        <div class="ev">
+          <div class="n"><span class="dot" style="background:#e0574f"></span>اشتغال غیرکشاورزی (NFP)</div>
+          <div class="m"><span>پیش‌بینی <b>۱۸۵K</b></span><span>قبلی <b>۲۰۶K</b></span></div>
+        </div>
+        <div class="act u">۲۲۷K</div>
+      </div>
+      <div class="row">
+        <div class="cur"><span class="code">EUR</span><div class="t">۱۲:۴۵</div></div>
+        <div class="ev">
+          <div class="n"><span class="dot" style="background:#d9a441"></span>نرخ بهره بانک مرکزی اروپا</div>
+          <div class="m"><span>پیش‌بینی <b>۴٫۲۵٪</b></span><span>قبلی <b>۴٫۲۵٪</b></span></div>
+        </div>
+        <div class="act">۴٫۲۵٪</div>
+      </div>
+      <div class="row">
+        <div class="cur"><span class="code">USD</span><div class="t">۱۹:۰۰</div></div>
+        <div class="ev">
+          <div class="n"><span class="dot" style="background:#d9a441"></span>مدعیان بیمه بیکاری</div>
+          <div class="m"><span>پیش‌بینی <b>۲۳۰K</b></span><span>قبلی <b>۲۲۸K</b></span></div>
+        </div>
+        <div class="act d">۲۴۹K</div>
+      </div>
+      <div class="row">
+        <div class="cur"><span class="code">GBP</span><div class="t">۱۰:۳۰</div></div>
+        <div class="ev">
+          <div class="n"><span class="dot" style="background:#d9a441"></span>تولید ناخالص داخلی بریتانیا</div>
+          <div class="m"><span>پیش‌بینی <b>۰٫۲٪</b></span><span>قبلی <b>۰٫۱٪</b></span></div>
+        </div>
+        <div class="act u">۰٫۴٪</div>
+      </div>
+      <div class="row">
+        <div class="cur"><span class="code">JPY</span><div class="t">۰۳:۲۰</div></div>
+        <div class="ev">
+          <div class="n"><span class="dot" style="background:#6e655c"></span>شاخص مدیران خرید خدمات</div>
+          <div class="m"><span>پیش‌بینی <b>۵۳٫۱</b></span><span>قبلی <b>۵۲٫۸</b></span></div>
+        </div>
+        <div class="act">۵۳٫۴</div>
+      </div>
+    </div>
+
+    <div class="head">
+      <h2>تحلیل هوش مصنوعی</h2>
+      <div class="line"></div>
+    </div>
+    <div class="panel">
+      <p class="sub">خلاصه و تفسیر خبرهای امروز، به زبان ساده.</p>
+      <button class="btn">نمایش تحلیل امروز</button>
+    </div>
+
+    <div class="head">
+      <h2>هشدار قبل از خبر</h2>
+      <div class="line"></div>
+    </div>
+    <div class="panel">
+      <div class="set">
+        <div>
+          <div class="l">دریافت هشدار</div>
+          <div class="h">فقط برای ارزهایی که انتخاب کرده‌اید</div>
+        </div>
+        <button class="sw" role="switch" aria-checked="true"><i></i></button>
+      </div>
+      <div class="set" style="display:block">
+        <div class="l">چند دقیقه قبل؟</div>
+        <div class="mins">
+          <button aria-pressed="false">۵</button>
+          <button aria-pressed="true">۱۵</button>
+          <button aria-pressed="false">۳۰</button>
+          <button aria-pressed="false">۶۰</button>
+        </div>
+      </div>
+      <div class="set">
+        <div>
+          <div class="l">خبرهای کم‌اهمیت هم بیاید</div>
+          <div class="h">پیش‌فرض: فقط مهم و خیلی مهم</div>
+        </div>
+        <button class="sw" role="switch" aria-checked="false"><i></i></button>
+      </div>
+    </div>
+
+    <p class="foot">
+      ساعت‌ها به وقت تهران · منبع داده ForexFactory و BEA<br>
+      خوانش تأثیر یک برداشت کلی است، نه سیگنال معاملاتی.
+    </p>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark","tsType":"string"},"$preview":{"width":390,"height":1960}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { theme: this.props.theme ?? 'dark' };
+  }
+}
+</script>
+</body>
+</html>
