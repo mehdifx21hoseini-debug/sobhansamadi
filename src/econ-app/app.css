@@ -12,6 +12,19 @@
 
 		   اسم متغیرها عمداً همان‌های قبلی است تا هیچ کامپوننتی لازم نباشد
 		   عوض شود؛ فقط مقدارها جابه‌جا شده‌اند. */
+		/* [hidden] یک بار، برای همه.
+		   ────────────────────────────────────────────────────────────────
+		   قاعده‌ی مرورگر برای [hidden] فقط display:none با ویژگی‌مندیِ صفر
+		   است، پس هر کامپوننتی که display خودش را بگذارد - flex، grid -
+		   بی‌صدا آن را می‌بازد: صفت hidden ست می‌شود و عنصر همچنان دیده
+		   می‌شود.
+		   این تله دو بار قبلاً تک‌تک وصله شده بود (.sb-menu و .sb-now). بار
+		   سوم وقتی پیدا شد که صفحه‌ی اول «سشن‌ها» شد: فیلترهای اهمیت که
+		   باید پنهان می‌شدند، بالای ساعتِ بازارها می‌ماندند - و هر کاربری
+		   موقع باز کردن اپ می‌دیدشان.
+		   یک قاعده‌ی سراسری جلوی بارِ چهارم را می‌گیرد. */
+		[hidden] { display: none !important; }
+
 		:root {
 			/* «navy» دیگر سرمه‌ای نیست: جوهرِ خنثای همین پالت است. اسمش مانده
 			   چون سایه‌ها و واشِ پس‌زمینه از آن مشتق می‌شوند. */
@@ -203,14 +216,13 @@
 		.tl,
 		.event,
 		.alerts,
-		.month-nav,
 		.seg {
 			box-shadow: var(--shadow), var(--hairline);
 		}
 
 		/* Cards that sit inside another card get no shadow of their own: a
 		   raised surface on a raised surface reads as a mistake. */
-		.month-cell, .skel { box-shadow: none; }
+		.skel { box-shadow: none; }
 
 		/* Controls sit lower than cards - enough to look pressable, not enough
 		   to compete with the content behind them. */
@@ -1209,126 +1221,7 @@
 			margin-top: 4px;
 		}
 
-		/* ---------- month grid ---------- */
-		.month-head {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			margin-bottom: 12px;
-		}
-
-		.month-name {
-			font-size: 0.95rem;
-			font-weight: 700;
-		}
-
-		.month-nav {
-			width: 32px;
-			height: 32px;
-			border-radius: 9px;
-			border: 0;
-			background: var(--card);
-			color: var(--text);
-			font-size: 1.15rem;
-			line-height: 1;
-			font-family: inherit;
-			cursor: pointer;
-		}
-
-		.month-grid {
-			display: grid;
-			grid-template-columns: repeat(7, 1fr);
-			gap: 4px;
-		}
-
-		.month-wd {
-			text-align: center;
-			font-size: 0.68rem;
-			font-weight: 700;
-			color: var(--muted);
-			padding-bottom: 3px;
-		}
-
-		.month-cell {
-			aspect-ratio: 1 / 1;
-			border: 0;
-			border-radius: 10px;
-			background: var(--card);
-			color: var(--text);
-			font-family: inherit;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			gap: 3px;
-			padding: 0;
-			cursor: pointer;
-		}
-
-		.month-cell:disabled { cursor: default; }
-		.month-cell.is-blank { background: transparent; }
-
-		/* Beyond the range the server sent, "no events" is unknown, not none. */
-		.month-cell.is-outside { opacity: .38; }
-
-		/* «امروز» سرخابی است، همان رنگی که همه‌جای اپ «الان» را می‌گوید؛
-		   «انتخاب‌شده» جوهری. دو حالت متفاوت با دو معنی متفاوت، و هیچ‌کدام
-		   رنگ دیگری را قرض نمی‌گیرد. */
-		.month-cell.is-today {
-			outline: 2px solid var(--signal);
-			outline-offset: -2px;
-		}
-
-		.month-cell.is-selected {
-			background: var(--accent);
-			color: var(--accent-text);
-		}
-
-		/* روی زمینه‌ی جوهری، خط و عدد هم باید برگردند وگرنه ناپدید می‌شوند. */
-		.month-cell.is-selected .month-bar.imp-high { background: var(--accent-text); }
-		.month-cell.is-selected .month-bar.imp-medium,
-		.month-cell.is-selected .month-bar.imp-low {
-			background: color-mix(in srgb, var(--accent-text) 55%, transparent);
-		}
-		.month-cell.is-selected .month-n { color: color-mix(in srgb, var(--accent-text) 75%, transparent); }
-
-		.month-day {
-			font-size: 0.8rem;
-			font-weight: 600;
-			font-variant-numeric: tabular-nums;
-		}
-
-		/* ضخامت، نه تعداد: خط زیر عدد مهم‌ترین خبرِ آن روز را می‌گوید. سه
-		   نقطه‌ی کم‌اهمیت پیش از این شلوغ‌تر از یک بیانیه‌ی فدرال رزرو به
-		   نظر می‌آمدند. */
-		.month-bar {
-			display: block;
-			width: 16px;
-			height: 3px;
-			border-radius: 2px;
-			background: transparent;
-		}
-
-		.month-bar.imp-high { background: var(--text); }
-		.month-bar.imp-medium { background: var(--line-strong); }
-		.month-bar.imp-low { background: color-mix(in srgb, var(--muted) 40%, transparent); }
-
-		.month-n {
-			font-size: 0.55rem;
-			color: var(--muted);
-			font-weight: 700;
-			line-height: 1;
-			min-height: 0.55rem;
-		}
-
-		.month-hint {
-			text-align: center;
-			color: var(--muted);
-			font-size: 0.8rem;
-			padding: 20px 10px 4px;
-		}
-
-		/* ---------- day groups ---------- */
+/* ---------- day groups ---------- */
 		.day-head {
 			display: flex;
 			align-items: baseline;
@@ -1893,8 +1786,6 @@
 		.icon-btn,
 		.event,
 		.ai-btn,
-		.month-nav,
-		.month-cell,
 		.switch,
 		.minutes button,
 		.search-clear {
@@ -1906,15 +1797,12 @@
 		.seg button:active,
 		.ai-btn:active,
 		.minutes button:active,
-		.month-cell:not(:disabled):active { transform: scale(.955); }
 		.icon-btn:active,
-		.month-nav:active,
 		.search-clear:active,
 		.switch:active { transform: scale(.9); }
 
 		/* A disabled control must not pretend to respond. */
 		.ai-btn:disabled:active,
-		.month-cell:disabled:active { transform: none; }
 
 		/* Controls kept the browser's default focus ring, which differs per
 		   engine and belongs to no palette. This replaces it with one ring in
@@ -1925,8 +1813,6 @@
 		.icon-btn:focus-visible,
 		.event:focus-visible,
 		.ai-btn:focus-visible,
-		.month-nav:focus-visible,
-		.month-cell:focus-visible,
 		.switch:focus-visible,
 		.minutes button:focus-visible,
 		.search-clear:focus-visible {

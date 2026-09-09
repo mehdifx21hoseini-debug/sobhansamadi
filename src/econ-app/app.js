@@ -32,7 +32,10 @@
 			}
 
 			var state = {
-				scope: "today",
+				// صفحه‌ی اول سشن‌هاست، نه فهرست خبر: چیزی که کاربر بیشتر
+				// از همه برای آن این اپ را باز می‌کند، نباید پشت یک تب
+				// باشد.
+				scope: "markets",
 				importance: "all",
 				data: null,
 				// The last load failure, kept so a tab switch can put the
@@ -41,7 +44,6 @@
 				open: {},
 				saving: false,
 				refreshing: false,
-				monthOffset: 0,
 				selectedDay: null,
 				query: ""
 			};
@@ -66,8 +68,11 @@
 				return [jy, jm, jd];
 			}
 
-			// Jalali -> Gregorian, needed to lay out a Persian month on a grid.
-			// Round-tripped against toJalali for every day of 2024-2028.
+			// تبدیل جلالی به میلادی. مصرف‌کننده‌اش - شبکه‌ی ماه - برداشته
+			// شده، ولی خودِ تابع می‌ماند: جفتِ toJalali است، برای هر روزِ
+			// ۲۰۲۴ تا ۲۰۲۸ رفت‌وبرگشت تست شده، و اولین چیزی است که هر
+			// نمای تقویمیِ بعدی لازمش دارد. حذفش صرفه‌جویی نیست، دور
+			// ریختنِ کاری است که یک‌بار درست انجام شده.
 			function toGregorian(jy, jm, jd) {
 				var gy = (jy <= 979) ? 621 : 1600;
 				jy -= (jy <= 979) ? 0 : 979;
@@ -243,7 +248,6 @@
 				state.scope = scope;
 				document.getElementById("tabToday").setAttribute("aria-selected", scope === "today" ? "true" : "false");
 				document.getElementById("tabWeek").setAttribute("aria-selected", scope === "week" ? "true" : "false");
-				document.getElementById("tabMonth").setAttribute("aria-selected", scope === "month" ? "true" : "false");
 				document.getElementById("tabMarkets").setAttribute("aria-selected", scope === "markets" ? "true" : "false");
 
 				// The event search, importance filter, countdown and alert cards
@@ -264,7 +268,11 @@
 			function readStoredScope() {
 				try {
 					var v = localStorage.getItem(SCOPE_KEY);
-					return (v === "today" || v === "week" || v === "month" || v === "markets") ? v : null;
+					// «month» عمداً اینجا نیست. کاربری که آخرین‌بار روی تب ماه
+					// بوده، مقدارش هنوز در حافظه‌ی مرورگرش هست؛ بدون این
+					// حذف، setScope روی تبی می‌نشست که دیگر وجود ندارد و
+					// صفحه بدون هیچ تبِ فعالی بالا می‌آمد.
+					return (v === "today" || v === "week" || v === "markets") ? v : null;
 				} catch (e) { return null; }
 			}
 
@@ -1358,139 +1366,6 @@
 			}
 
 			// ---------- month grid ----------
-			var WEEKDAY_SHORT = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
-			var IMPORTANCE_RANK = { high: 3, medium: 2, low: 1 };
-
-			// Persian weeks start on Saturday. JS getDay() is 0=Sunday, so
-			// Saturday(6) has to map to column 0.
-			function persianWeekday(dateStr) {
-				var p = dateStr.split("-").map(Number);
-				return (new Date(p[0], p[1] - 1, p[2]).getDay() + 1) % 7;
-			}
-
-			function jalaliMonthLength(jy, jm) {
-				var start = toGregorian(jy, jm, 1);
-				var nextY = jm === 12 ? jy + 1 : jy;
-				var nextM = jm === 12 ? 1 : jm + 1;
-				var next = toGregorian(nextY, nextM, 1);
-				return Math.round((Date.UTC(next[0], next[1] - 1, next[2]) -
-					Date.UTC(start[0], start[1] - 1, start[2])) / 86400000);
-			}
-
-			function eventsByDate() {
-				var map = {};
-				state.data.events.forEach(function (e) {
-					if (state.importance === "high" && e.importance !== "high") return;
-					if (state.importance === "medium" && e.importance === "low") return;
-					if (!map[e.date]) map[e.date] = [];
-					map[e.date].push(e);
-				});
-				return map;
-			}
-
-			function renderMonth(list) {
-				var todayParts = state.data.today.split("-").map(Number);
-				var todayJ = toJalali(todayParts[0], todayParts[1], todayParts[2]);
-
-				// Month arithmetic in Jalali terms, so stepping never lands on a
-				// nonexistent day.
-				var jm = todayJ[1] + state.monthOffset;
-				var jy = todayJ[0];
-				while (jm > 12) { jm -= 12; jy++; }
-				while (jm < 1) { jm += 12; jy--; }
-
-				var byDate = eventsByDate();
-
-				var head = el("div", "month-head");
-				var prev = el("button", "month-nav", "‹");
-				prev.type = "button";
-				prev.addEventListener("click", function () {
-					state.monthOffset--;
-					state.selectedDay = null;
-					haptic("select");
-					renderList();
-				});
-				var next = el("button", "month-nav", "›");
-				next.type = "button";
-				next.addEventListener("click", function () {
-					state.monthOffset++;
-					state.selectedDay = null;
-					haptic("select");
-					renderList();
-				});
-				// In RTL the "next" chevron sits on the left, so it is appended
-				// first for the arrows to point the way they move.
-				head.appendChild(next);
-				head.appendChild(el("span", "month-name", MONTHS[jm - 1] + " " + fa(jy)));
-				head.appendChild(prev);
-				list.appendChild(head);
-
-				var grid = el("div", "month-grid");
-				WEEKDAY_SHORT.forEach(function (w) {
-					grid.appendChild(el("div", "month-wd", w));
-				});
-
-				var firstIso = (function () { var g = toGregorian(jy, jm, 1); return isoOf(g[0], g[1], g[2]); })();
-				var lead = persianWeekday(firstIso);
-				for (var i = 0; i < lead; i++) grid.appendChild(el("div", "month-cell is-blank"));
-
-				var length = jalaliMonthLength(jy, jm);
-				for (var d = 1; d <= length; d++) {
-					var g = toGregorian(jy, jm, d);
-					var iso = isoOf(g[0], g[1], g[2]);
-					var dayEvents = byDate[iso] || [];
-
-					var cell = el("button", "month-cell");
-					cell.type = "button";
-					if (iso === state.data.today) cell.className += " is-today";
-					if (iso === state.selectedDay) cell.className += " is-selected";
-					// Outside the range the server sent, "no events" would be a
-					// lie — it is unknown. Show it as unknown.
-					if (iso < state.data.today || iso > state.data.horizon_end) cell.className += " is-outside";
-
-					cell.appendChild(el("span", "month-day", fa(d)));
-
-					// یک خط، نه چند نقطه. نقطه‌ها تعداد را می‌گفتند و سه خبرِ
-					// کم‌اهمیت شلوغ‌تر از یک بیانیه‌ی فدرال رزرو به نظر
-					// می‌آمدند. حالا ضخامتِ خط مهم‌ترین خبرِ آن روز است و
-					// تعداد، عددی ریز زیرش.
-					var top = null;
-					dayEvents.forEach(function (e) {
-						if (!top || (IMPORTANCE_RANK[e.importance] || 0) > (IMPORTANCE_RANK[top] || 0)) {
-							top = e.importance || "low";
-						}
-					});
-					cell.appendChild(el("span", "month-bar" + (top ? " imp-" + top : "")));
-					cell.appendChild(el("small", "month-n", dayEvents.length ? fa(dayEvents.length) : ""));
-
-					if (dayEvents.length > 0) {
-						(function (isoDate) {
-							cell.addEventListener("click", function () {
-								state.selectedDay = state.selectedDay === isoDate ? null : isoDate;
-								haptic("select");
-								renderList();
-							});
-						})(iso);
-					} else {
-						cell.disabled = true;
-					}
-					grid.appendChild(cell);
-				}
-				list.appendChild(grid);
-
-				if (state.selectedDay) {
-					var chosen = byDate[state.selectedDay] || [];
-					var dayHead = el("div", "day-head");
-					dayHead.appendChild(el("span", "date", jalaliLabel(state.selectedDay)));
-					var rel = relDay(state.selectedDay);
-					if (rel) dayHead.appendChild(el("span", "rel", rel));
-					list.appendChild(dayHead);
-					appendClustered(list, chosen);
-				} else {
-					list.appendChild(el("div", "month-hint", "روی یک روز بزن تا رویدادهایش را ببینی."));
-				}
-			}
-
 			function renderList() {
 				var list = document.getElementById("list");
 				list.textContent = "";
@@ -1514,10 +1389,6 @@
 
 				// A search spans every loaded day, so the month grid would only
 				// hide the results.
-				if (state.scope === "month" && !state.query) {
-					renderMonth(list);
-					return;
-				}
 
 				// The timeline is about today specifically, so it belongs to the
 				// today tab and not to a search across 45 days.
@@ -1791,13 +1662,6 @@
 					.finally(function () { btn.disabled = false; });
 			});
 
-			document.getElementById("tabMonth").addEventListener("click", function () {
-				setScope("month");
-				storeScope("month");
-				haptic("select");
-				renderList();
-			});
-
 			document.getElementById("tabMarkets").addEventListener("click", function () {
 				setScope("markets");
 				storeScope("markets");
@@ -1901,14 +1765,25 @@
 				}
 			}
 
+			// setScope بی‌قید‌و‌شرط صدا زده می‌شود، حتی وقتی چیزی در حافظه
+			// نیست.
+			//
+			// چون کارش فقط انتخابِ تب نیست: جست‌وجو، فیلترِ اهمیت، کارتِ
+			// تحلیل و کارتِ هشدار را هم پنهان یا آشکار می‌کند. پیش‌فرض
+			// حالا «سشن‌ها»ست و هیچ‌کدام از آن‌ها در نمای سشن معنی ندارند -
+			// پس بدونِ این فراخوانی، کاربری که تازه اپ را باز می‌کرد یک
+			// نوارِ جست‌وجو و سه فیلترِ خبر بالای ساعتِ بازارها می‌دید.
+			//
+			// بیرون از شرطِ تلگرام هم هست: آن صفحه‌ی خطا همین تب‌ها را
+			// نشان می‌دهد و نباید حالتِ ناجورِ خودش را داشته باشد.
+			setScope(readStoredScope() || state.scope);
+
 			if (!tg || !tg.initData) {
 				// Opened outside Telegram: there is no identity to verify, so say
 				// so plainly instead of failing with a signature error.
 				showError("این صفحه باید از داخل ربات تلگرام باز بشه.", false);
 				document.getElementById("riskPill").hidden = true;
 			} else {
-				var remembered = readStoredScope();
-				if (remembered) setScope(remembered);
 				load();
 			}
 		})();
