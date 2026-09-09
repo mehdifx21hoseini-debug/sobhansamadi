@@ -1,6 +1,7 @@
 import { InlineKeyboard } from "grammy";
 import { logContentRequest } from "./db.js";
 import { deliverContent } from "./content/deliver.js";
+import * as D from "./content/defaults.js";
 import { isOwner } from "./owner.js";
 import { sendSection, editSection, resolveSection, editWithText } from "./content/sectionText.js";
 
@@ -103,8 +104,47 @@ function book00Keyboard() {
 
 const CAPTION_LIMIT = 1024;
 
+/**
+ * «ذهن ثروتمند»: متن، بعد ویدئو، بعد دکمه‌ی خرید.
+ *
+ * ترتیب عمدی است. کاربر اول می‌خواند کتاب درباره‌ی چیست، بعد نویسنده و
+ * کتاب را می‌بیند، و دکمه‌ی خرید آخر می‌آید - وقتی دلیلی برای زدنش
+ * دارد. دکمه زیر ویدئو می‌نشیند نه زیر متن، تا آخرین چیزی باشد که
+ * کاربر می‌بیند.
+ *
+ * اگر ویدئو هنوز از کانال نیامده باشد، متن و دکمه سرِ جایشان می‌روند:
+ * نبودنِ یک ویدئو نباید کتاب را غیرقابل‌سفارش کند.
+ */
+async function sendOwnBook(ctx) {
+  const body = (await resolveSection(ctx.env, "BOOK_00")).text || D.BOOK_00_TEXT;
+  const keyboard = book00Keyboard();
+
+  // فهرست کتابخانه پاک می‌شود چون این مسیر چند پیام می‌فرستد و ویرایشِ
+  // درجا معنی ندارد.
+  await ctx.deleteMessage().catch(() => {});
+  await ctx.reply(body);
+
+  let sent = 0;
+  try {
+    await ctx.replyWithChatAction("upload_video").catch(() => {});
+    sent = await deliverContent(ctx, "BOOK_00_VIDEO", {
+      includeHidden: isOwner(ctx),
+      extra: { reply_markup: keyboard },
+    });
+  } catch (err) {
+    console.error("ارسال ویدئوی کتاب شکست خورد:", err && err.message);
+  }
+
+  // ویدئو نرفت - دکمه باید جای دیگری برود، وگرنه کاربر متن را می‌خواند
+  // و هیچ راهی برای خرید ندارد.
+  if (sent === 0) {
+    await ctx.reply("🛒 برای سفارش کتاب:", { reply_markup: keyboard });
+  }
+}
+
 export async function handleBookSelect(ctx, bookId) {
-  const keyboard = bookId === "00" ? book00Keyboard() : bookPartsKeyboard(bookId);
+  if (bookId === "00") return sendOwnBook(ctx);
+  const keyboard = bookPartsKeyboard(bookId);
   const { text, photo } = await resolveSection(ctx.env, "BOOK_" + bookId);
   const body = text || `${BOOK_TITLES[bookId] || bookId}\nنسخه موردنظر را انتخاب کنید:`;
 

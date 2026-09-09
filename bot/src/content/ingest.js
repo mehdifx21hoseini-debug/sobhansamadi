@@ -30,6 +30,10 @@ const FIXED_CONTENT_CODES = [
   // نمی‌کردند، پس فقط متنِ پایانی می‌رفت.
   "INTRO_P16",
   "EMOTIONAL_P01","EMOTIONAL_P02","EMOTIONAL_P03","EMOTIONAL_P04",
+  // ویدئوی معرفیِ «ذهن ثروتمند». تنها کتابی است که فایلِ خواندنی ندارد
+  // و خریدنی است، پس ویدئو جای نمونه‌ی PDF را می‌گیرد: کاربر پیش از
+  // رفتن به سایت، خودِ کتاب و نویسنده‌اش را می‌بیند.
+  "BOOK_00_VIDEO",
   "BOOK_01_PDF","BOOK_01_AUDIO",
   "BOOK_02_PDF","BOOK_02_AUDIO_P01","BOOK_02_AUDIO_P02","BOOK_02_AUDIO_P03","BOOK_02_AUDIO_P04","BOOK_02_AUDIO_P05",
   "BOOK_03_PDF","BOOK_03_AUDIO_CH01","BOOK_03_AUDIO_CH02","BOOK_03_AUDIO_CH03","BOOK_03_AUDIO_CH04","BOOK_03_AUDIO_CH05","BOOK_03_AUDIO_CH06","BOOK_03_AUDIO_CH07","BOOK_03_AUDIO_CH08","BOOK_03_AUDIO_CH09","BOOK_03_AUDIO_CH10",
