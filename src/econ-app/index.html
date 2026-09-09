@@ -75,10 +75,14 @@
 
 		<div class="seg" role="tablist">
 			<button role="tab" id="tabMarkets" aria-selected="true">سشن‌ها</button>
-			<button role="tab" id="tabToday" aria-selected="false">اخبار امروز</button>
-			<button role="tab" id="tabWeek" aria-selected="false">این هفته</button>
+			<button role="tab" id="tabNews" aria-selected="false">اخبار</button>
+			<button role="tab" id="tabSettings" aria-selected="false">تنظیمات</button>
 		</div>
 
+		<div class="subseg" id="newsRange" hidden>
+			<button type="button" data-range="today" aria-pressed="true">امروز</button>
+			<button type="button" data-range="week" aria-pressed="false">این هفته</button>
+		</div>
 		<div class="search-row">
 			<input type="search" id="searchInput" class="search-input" autocomplete="off"
 				placeholder="جستجوی شاخص… مثلاً CPI یا تورم">
@@ -104,6 +108,11 @@
 			<div id="aiBody" class="ai-body" hidden></div>
 		</div>
 
+		<div id="currencyCard" class="alerts" hidden>
+			<h2>ارزهای شما</h2>
+			<p class="sub">فقط اخبار ارزهایی که انتخاب می‌کنید نمایش داده می‌شود — و هشدارها هم بر همین اساس می‌آیند.</p>
+			<div class="cur-grid" id="curGrid"></div>
+		</div>
 		<div id="alertsCard" class="alerts" hidden>
 			<h2>هشدار قبل از خبر</h2>
 			<p class="sub">قبل از انتشار خبرهای مهم، ربات بهت پیام می‌ده.</p>
@@ -111,7 +120,7 @@
 			<div class="row">
 				<div>
 					<div class="label">دریافت هشدار</div>
-					<div class="hint">فقط برای خبرهای دلار</div>
+					<div class="hint" id="alertScope">فقط برای خبرهای دلار</div>
 				</div>
 				<button class="switch" id="swSubscribed" role="switch" aria-checked="false"
 					aria-label="دریافت هشدار"></button>

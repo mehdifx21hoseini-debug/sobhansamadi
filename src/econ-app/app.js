@@ -36,6 +36,10 @@
 				// از همه برای آن این اپ را باز می‌کند، نباید پشت یک تب
 				// باشد.
 				scope: "markets",
+				// بازه‌ای که کاربر آخرین بار در تب اخبار داشت. جدا از scope
+				// نگه داشته می‌شود چون scope با رفتن به سشن‌ها یا تنظیمات
+				// عوض می‌شود و آن‌وقت راهی نمی‌ماند بفهمیم «این هفته» بود.
+				newsRange: "today",
 				importance: "all",
 				data: null,
 				// The last load failure, kept so a tab switch can put the
@@ -241,24 +245,52 @@
 				pill.hidden = false;
 			}
 
+			// سه بخش: سشن‌ها، اخبار، تنظیمات.
+			//
+			// «امروز» و «این هفته» دو بخشِ جدا نیستند - دو بازه‌ی یک بخش‌اند
+			// و با زیرکلیدِ داخلِ اخبار عوض می‌شوند. مقدارِ scope همان
+			// "today"/"week" می‌ماند چون ده جای دیگر روی همین دو مقدار
+			// حساب می‌کنند؛ چیزی که عوض شده جای دیده‌شدنشان است، نه
+			// معنایشان.
+			function isNewsScope(scope) {
+				return scope === "today" || scope === "week";
+			}
+
 			function setScope(scope) {
 				// Arriving at the markets tab is what earns the entrance
 				// animation. The per-second redraws must not replay it.
 				if (scope === "markets" && state.scope !== "markets") marketsEntering = true;
 				state.scope = scope;
-				document.getElementById("tabToday").setAttribute("aria-selected", scope === "today" ? "true" : "false");
-				document.getElementById("tabWeek").setAttribute("aria-selected", scope === "week" ? "true" : "false");
-				document.getElementById("tabMarkets").setAttribute("aria-selected", scope === "markets" ? "true" : "false");
 
-				// The event search, importance filter, countdown and alert cards
-				// are all about releases; none of them apply to session hours.
-				var eventOnly = scope !== "markets";
-				document.querySelector(".search-row").hidden = !eventOnly;
-				document.querySelector(".chips").hidden = !eventOnly;
-				document.getElementById("aiCard").hidden = !eventOnly || !state.data;
-				document.getElementById("alertsCard").hidden =
-					!eventOnly || !state.data || !state.data.subscription;
-				if (!eventOnly) document.getElementById("nextCard").hidden = true;
+				var news = isNewsScope(scope);
+				if (news) state.newsRange = scope;
+				document.getElementById("tabMarkets").setAttribute("aria-selected", scope === "markets" ? "true" : "false");
+				document.getElementById("tabNews").setAttribute("aria-selected", news ? "true" : "false");
+				document.getElementById("tabSettings").setAttribute("aria-selected", scope === "settings" ? "true" : "false");
+
+				document.getElementById("newsRange").hidden = !news;
+				var ranges = document.querySelectorAll("#newsRange button");
+				for (var i = 0; i < ranges.length; i++) {
+					ranges[i].setAttribute("aria-pressed", ranges[i].getAttribute("data-range") === scope ? "true" : "false");
+				}
+
+				// جست‌وجو و فیلترِ اهمیت لحظه‌ای‌اند: موقع نگاه کردن به اخبار
+				// عوض می‌شوند و بعد رها. پس کنارِ خودِ اخبار می‌مانند.
+				document.querySelector(".search-row").hidden = !news;
+				document.querySelector(".chips").hidden = !news;
+				document.getElementById("aiCard").hidden = !news || !state.data;
+
+				// ارز و هشدار ترجیح‌اند، نه فیلترِ نما: یک‌بار تنظیم می‌شوند و
+				// هم روی این صفحه اثر دارند هم روی پیامی که ربات می‌فرستد.
+				// جایشان تنظیمات است.
+				var settings = scope === "settings";
+				var sub = state.data && state.data.subscription;
+				document.getElementById("alertsCard").hidden = !settings || !sub;
+				document.getElementById("currencyCard").hidden = !settings || !sub;
+
+				// فهرست رویدادها در تنظیمات چیزی برای گفتن ندارد.
+				document.getElementById("list").hidden = settings;
+				if (!news) document.getElementById("nextCard").hidden = true;
 			}
 
 			// Remembering the tab is a convenience, so every failure mode here is
@@ -272,7 +304,7 @@
 					// بوده، مقدارش هنوز در حافظه‌ی مرورگرش هست؛ بدون این
 					// حذف، setScope روی تبی می‌نشست که دیگر وجود ندارد و
 					// صفحه بدون هیچ تبِ فعالی بالا می‌آمد.
-					return (v === "today" || v === "week" || v === "markets") ? v : null;
+					return (v === "today" || v === "week" || v === "markets" || v === "settings") ? v : null;
 				} catch (e) { return null; }
 			}
 
@@ -1500,6 +1532,12 @@
 				if (!s) { card.hidden = true; return; }
 				card.hidden = false;
 
+				// «فقط برای خبرهای دلار» ثابت نوشته شده بود و از وقتی کاربر
+				// می‌تواند ارز انتخاب کند، دروغ می‌گفت: کسی که یورو را روشن
+				// کرده بود، هشدارِ یورو می‌گرفت و زیرِ کلید می‌خواند فقط
+				// دلار.
+				renderAlertScope();
+
 				document.getElementById("swSubscribed").setAttribute("aria-checked", s.subscribed ? "true" : "false");
 				document.getElementById("swLow").setAttribute("aria-checked", s.show_low_importance ? "true" : "false");
 
@@ -1516,6 +1554,7 @@
 				renderNext();
 				renderList();
 				renderAlerts();
+				renderCurrencies();
 				document.getElementById("aiCard").hidden = false;
 				// renderNext and renderAlerts each reveal their own card, so the
 				// visibility rules for the current tab are re-applied last.
@@ -1588,38 +1627,156 @@
 					});
 			}
 
-			function saveSubscription() {
+			// ── انتخاب ارز ────────────────────────────────────────────────
+			//
+			// فهرست اینجا تکرارِ bot/src/econ/currencies.js است و راهِ فراری
+			// ندارد: آن ماژول در ورکر اجرا می‌شود و این فایل در مرورگرِ
+			// کاربر. درست‌ترین کارِ ممکن این است که سرور تنها مرجعِ اعتبار
+			// بماند - parseCurrencies هر کدِ ناشناخته را دور می‌ریزد - پس
+			// اگر این دو روزی از هم دور بیفتند، نتیجه‌اش گم شدنِ یک گزینه
+			// است، نه ذخیره‌ی چیزی خراب.
+			var CURRENCIES = [
+				{ code: "USD", fa: "دلار آمریکا" },
+				{ code: "EUR", fa: "یورو" },
+				{ code: "GBP", fa: "پوند انگلیس" },
+				{ code: "JPY", fa: "ین ژاپن" },
+				{ code: "AUD", fa: "دلار استرالیا" },
+				{ code: "CAD", fa: "دلار کانادا" },
+				{ code: "NZD", fa: "دلار نیوزیلند" },
+				{ code: "CHF", fa: "فرانک سوئیس" }
+			];
+
+			// زیرنویسِ کلیدِ هشدار همان فهرستِ ارزهاست، پس هر جا آن فهرست
+			// عوض می‌شود این هم باید عوض شود - از renderCurrencies هم صدا
+			// زده می‌شود، نه فقط از renderAlerts.
+			function renderAlertScope() {
+				var node = document.getElementById("alertScope");
+				var sub = state.data && state.data.subscription;
+				if (!node || !sub) return;
+				var picked = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
+				node.textContent = "فقط برای خبرهای ";
+				// کدها لاتین‌اند و در جمله‌ی راست‌چین بدونِ bdi وارونه
+				// می‌شوند: «USD، EUR» تبدیل می‌شد به «EUR ،USD».
+				var codes = document.createElement("bdi");
+				codes.dir = "ltr";
+				codes.textContent = picked.join(", ");
+				node.appendChild(codes);
+			}
+
+			function renderCurrencies() {
+				var grid = document.getElementById("curGrid");
+				var sub = state.data && state.data.subscription;
+				if (!grid || !sub) return;
+				var chosen = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
+				grid.textContent = "";
+				CURRENCIES.forEach(function (c) {
+					var on = chosen.indexOf(c.code) >= 0;
+					var b = el("button", "cur" + (on ? " on" : ""));
+					b.type = "button";
+					b.setAttribute("aria-pressed", on ? "true" : "false");
+					b.appendChild(el("span", "cur-code", c.code));
+					b.appendChild(el("span", "cur-fa", c.fa));
+					b.addEventListener("click", function () { toggleCurrency(c.code); });
+					grid.appendChild(b);
+				});
+				renderAlertScope();
+			}
+
+			function toggleCurrency(code) {
+				var sub = state.data && state.data.subscription;
+				if (!sub || state.saving) return;
+				var before = (sub.currencies && sub.currencies.length ? sub.currencies : ["USD"]).slice();
+				var list = before.slice();
+				var at = list.indexOf(code);
+				if (at >= 0) {
+					// آخرین ارز خاموش نمی‌شود: نمای خالی از نمای پر بدتر است و
+					// کاربر فکر می‌کند چیزی شکسته.
+					if (list.length === 1) {
+						if (tg && tg.showAlert) tg.showAlert("دست‌کم یک ارز باید روشن بماند.");
+						return;
+					}
+					list.splice(at, 1);
+				} else {
+					list.push(code);
+				}
+				// ترتیبِ فهرستِ اصلی حفظ می‌شود تا هر بار جای دکمه‌ها عوض نشود.
+				sub.currencies = CURRENCIES.map(function (c) { return c.code; })
+					.filter(function (x) { return list.indexOf(x) >= 0; });
+				haptic("select");
+				renderCurrencies();
+				saveSubscription({ undo: before });
+			}
+
+			function saveSubscription(opts) {
 				if (state.saving) return;
 				state.saving = true;
+				// چه چیزی باید برگردد اگر ذخیره شکست بخورد. بدونِ این، خطای
+				// یک تغییرِ ارز، کلیدِ هشدار را برمی‌گرداند - کاری که کاربر
+				// اصلاً نکرده بود.
+				var undo = opts && opts.undo;
 				var s = state.data.subscription;
 				call({
 					action: "subscribe",
 					subscribed: s.subscribed,
 					alert_minutes: s.alert_minutes,
-					show_low_importance: s.show_low_importance
+					show_low_importance: s.show_low_importance,
+					// سرور مقادیرِ ناشناخته را خودش دور می‌ریزد، پس اگر روزی
+					// فهرستِ اینجا با فهرستِ ربات فرق کرد، بدترین حالتش نادیده
+					// گرفته شدنِ یک کد است، نه ذخیره‌ی چیزی نامعتبر.
+					currencies: s.currencies
 				})
+					.then(function (body) {
+						// مقدارِ ذخیره‌شده مرجع است، نه چیزی که فرستادیم: اگر
+						// سرور کدی را دور ریخته باشد، صفحه باید همان را نشان
+						// بدهد.
+						if (body && body.subscription) {
+							state.data.subscription = body.subscription;
+							if (undo) renderCurrencies();
+						}
+					})
 					.catch(function () {
 						// Put the switches back rather than leaving the UI claiming
 						// something the server never stored.
-						s.subscribed = !s.subscribed;
-						renderAlerts();
-						if (tg && tg.showAlert) tg.showAlert("ذخیره تنظیمات هشدار ناموفق بود.");
+						if (undo) {
+							// فهرست واقعاً برمی‌گردد، نه فقط یک پیام: صفحه نباید
+							// انتخابی را نشان بدهد که سرور هرگز ذخیره‌اش نکرد.
+							s.currencies = undo;
+							renderCurrencies();
+							if (tg && tg.showAlert) tg.showAlert("ذخیره‌ی ارزها ناموفق بود.");
+						} else {
+							s.subscribed = !s.subscribed;
+							renderAlerts();
+							if (tg && tg.showAlert) tg.showAlert("ذخیره تنظیمات هشدار ناموفق بود.");
+						}
 					})
 					.finally(function () { state.saving = false; });
 			}
 
 			// ---------- wiring ----------
-			document.getElementById("tabToday").addEventListener("click", function () {
-				setScope("today");
-				storeScope("today");
+			// تبِ اخبار به آخرین بازه‌ای برمی‌گردد که کاربر داشت؛ اگر
+			// نداشت، امروز. رفتن به «اخبار» نباید انتخابِ قبلیِ او را دور
+			// بریزد.
+			document.getElementById("tabNews").addEventListener("click", function () {
+				setScope(isNewsScope(state.scope) ? state.scope : state.newsRange);
+				storeScope(state.scope);
 				haptic("select");
 				renderList();
 			});
 
-			document.getElementById("tabWeek").addEventListener("click", function () {
-				setScope("week");
-				storeScope("week");
+			document.getElementById("newsRange").addEventListener("click", function (ev) {
+				var btn = ev.target.closest("button[data-range]");
+				if (!btn) return;
+				setScope(btn.getAttribute("data-range"));
+				storeScope(state.scope);
 				haptic("select");
+				renderList();
+			});
+
+			document.getElementById("tabSettings").addEventListener("click", function () {
+				setScope("settings");
+				storeScope("settings");
+				haptic("select");
+				renderCurrencies();
 				renderList();
 			});
 

@@ -569,6 +569,36 @@
 			font-weight: 700;
 		}
 
+		/* زیرـتبِ «امروز / این هفته» داخل تب اخبار.
+		   عمداً شبیه .seg نیست: اگر دو نوارِ یک‌شکل روی هم بنشینند، کاربر
+		   نمی‌فهمد کدام سطحِ بالاتر است. این یکی بدونِ بستر و بدونِ سایه
+		   است و فقط با یک زیرخطِ اکسنت می‌گوید کجاست - سبک‌تر از تب‌های
+		   اصلی، پس سلسله‌مراتب خودش خوانده می‌شود. */
+		.subseg {
+			display: flex;
+			gap: 6px;
+			margin-bottom: 10px;
+		}
+
+		.subseg button {
+			border: 0;
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			font-size: 0.82rem;
+			font-weight: 600;
+			padding: 6px 4px 7px;
+			cursor: pointer;
+			/* مرزِ پایین همیشه هست، فقط رنگش عوض می‌شود: اگر با انتخاب
+			   اضافه می‌شد، دکمه یک پیکسل بالا و پایین می‌پرید. */
+			border-bottom: 2px solid transparent;
+		}
+
+		.subseg button[aria-pressed="true"] {
+			color: var(--text);
+			border-bottom-color: var(--accent);
+		}
+
 		/* ---------- search ---------- */
 		.search-row {
 			position: relative;
@@ -1580,6 +1610,11 @@
 			margin-top: 26px;
 		}
 
+		/* دو کارتِ تنظیمات پشتِ هم می‌نشینند. فاصله‌ی ۲۶ پیکسلیِ .alerts
+		   برای جدا کردنِ کارت از فهرستِ رویدادها بود؛ بینِ دو کارتِ هم‌گروه
+		   زیادی است و آن‌ها را دو بخشِ بی‌ربط نشان می‌دهد. */
+		#currencyCard + #alertsCard { margin-top: 14px; }
+
 		.alerts h2 {
 			font-size: 0.95rem;
 			font-weight: 700;
@@ -1590,6 +1625,51 @@
 			font-size: 0.78rem;
 			color: var(--muted);
 			margin: 0 0 13px;
+		}
+
+		/* ---------- فیلتر ارزها ----------
+		   شبکه به‌جای فهرستِ سوییچ‌دار: هشت ارز در یک فهرستِ عمودی هشت بار
+		   اسکرول است، در حالی که تصمیمِ کاربر «کدام‌ها روشن باشند» است -
+		   یعنی باید همه را با هم ببیند. auto-fill یعنی روی گوشیِ باریک سه
+		   ستون و روی پهن‌تر چهار ستون، بی‌آنکه جایی عدد ثابت بنویسیم. */
+		.cur-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+			gap: 8px;
+		}
+
+		.cur {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 2px;
+			border: 1px solid var(--line);
+			border-radius: 11px;
+			background: transparent;
+			color: var(--muted);
+			font-family: inherit;
+			padding: 9px 4px;
+			cursor: pointer;
+		}
+
+		.cur.on {
+			background: var(--accent);
+			border-color: var(--accent);
+			color: var(--accent-text);
+		}
+
+		/* کدِ ارز لاتین است و داخل صفحه‌ی راست‌چین می‌نشیند؛ بدون این،
+		   ترتیبِ حروف در کنارِ نویسه‌های فارسیِ همسایه جابه‌جا می‌شود. */
+		.cur-code {
+			direction: ltr;
+			font-size: 0.82rem;
+			font-weight: 700;
+			letter-spacing: .04em;
+		}
+
+		.cur-fa {
+			font-size: 0.66rem;
+			opacity: .85;
 		}
 
 		.row {
@@ -1783,6 +1863,8 @@
 		   Reduced motion is already handled by the global transition reset. */
 		.chip,
 		.seg button,
+		.subseg button,
+		.cur,
 		.icon-btn,
 		.event,
 		.ai-btn,
@@ -1795,6 +1877,8 @@
 		.event:active { transform: scale(.99); }
 		.chip:active,
 		.seg button:active,
+		.subseg button:active,
+		.cur:active,
 		.ai-btn:active,
 		.minutes button:active,
 		.icon-btn:active,
@@ -1810,6 +1894,8 @@
 		   leaves a ring behind on a touchscreen. */
 		.chip:focus-visible,
 		.seg button:focus-visible,
+		.subseg button:focus-visible,
+		.cur:focus-visible,
 		.icon-btn:focus-visible,
 		.event:focus-visible,
 		.ai-btn:focus-visible,

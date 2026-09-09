@@ -307,6 +307,12 @@ export async function handleMiniapp(request, env) {
         subscribed: body.subscribed,
         alert_minutes: body.alert_minutes,
         show_low_importance: body.show_low_importance,
+        // انتخابِ ارز حالا از مینی‌اپ هم می‌آید، نه فقط از منوی ربات.
+        // اعتبارسنجی همان‌جایی می‌ماند که بود: saveSubscription با
+        // parseCurrencies هر کدِ ناشناخته را دور می‌ریزد و فهرستِ خالی را
+        // به پیش‌فرض برمی‌گرداند، پس چیزی که از مرورگر می‌آید نمی‌تواند
+        // ردیفی خراب بنویسد.
+        currencies: body.currencies,
       });
       // خودِ مقدار ذخیره‌شده برمی‌گردد نه چیزی که فرستاده شده: اگر
       // دقیقه به نزدیک‌ترین مقدار مجاز گرد شده باشد، صفحه باید همان را
