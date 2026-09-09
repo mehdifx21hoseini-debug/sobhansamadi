@@ -17,7 +17,7 @@
 //   node scripts/build-econ-app.mjs           بساز و بنویس
 //   node scripts/build-econ-app.mjs --check   فقط بررسی کن (برای CI)
 
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -107,16 +107,7 @@ export function build() {
   // کشِ وب‌ویو را بشکند. اگر بعدش انجام می‌شد، بنرِ تازه پشتِ نسخه‌ی
   // قدیمی گیر می‌کرد.
   const css = inlineAssets(read(join(SRC, "app.css")));
-  // lib/ پیش از app.js می‌آید و ترتیبش الفبایی است، نه تصادفی: خروجی
-  // یک <script> است و هر ماژول باید پیش از استفاده‌کننده‌اش تعریف شده
-  // باشد. اگر روزی وابستگیِ بینِ خودِ ماژول‌ها پیدا شد، همین‌جا باید
-  // صریح شود - نه با امید به الفبا.
-  const libDir = join(SRC, "lib");
-  const libs = readdirSync(libDir)
-    .filter((f) => f.endsWith(".js"))
-    .sort()
-    .map((f) => read(join(libDir, f)));
-  const js = libs.concat(read(join(SRC, "app.js"))).join("\n\n");
+  const js = read(join(SRC, "app.js"));
   const version = versionOf([template, css, js]);
 
   let html = inject(template, CSS_MARK, css, "CSS");
