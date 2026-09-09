@@ -10,6 +10,19 @@
 import { ensureKbSchema, replaceKb } from "../ai/kb.js";
 import { importSubscribers } from "./subscribers.js";
 import { ingestEnabled } from "./ingest.js";
+import { cached, invalidate } from "../cache.js";
+
+// سه خواندنِ زیر پشتِ کش می‌روند و این مهم‌ترین تغییرِ مصرفِ این فایل
+// است. هر سه کلِ جدولشان را بی‌هیچ WHERE می‌خوانند - چون نماها به همه‌ی
+// ردیف‌ها نیاز دارند - و هر سه در مسیرِ هر ضربه‌ی کاربر و هر اجرای
+// کرانِ پنج‌دقیقه‌ای هستند. یعنی همان چند صد ردیف، روزی ده‌ها هزار بار.
+//
+// دو دقیقه عمداً کوتاه است. داده ساعتی یک بار (کرانِ «۱۷ * * * *») عوض
+// می‌شود، پس حتی یک ساعت هم درست بود؛ ولی نماها باید بلافاصله بعد از
+// جمع‌آوری تازه شوند و خودِ جمع‌آوری کش را دور می‌ریزد. دو دقیقه یعنی
+// حتی اگر آن دور ریختن به هر دلیلی انجام نشود، کهنگی کوتاه می‌ماند.
+const TABLE_TTL = 2 * 60 * 1000;
+const CACHE_PREFIX = "econ:";
 
 const SYNC_STATE_KEY = "econ_last_sync";
 
@@ -63,6 +76,10 @@ function emptyIfNoTable(err) {
 }
 
 export async function readEvents(env) {
+  return cached(CACHE_PREFIX + "events", TABLE_TTL, () => readEventsUncached(env));
+}
+
+async function readEventsUncached(env) {
   try {
     const { results } = await env.DB.prepare(
       `SELECT event_id, date, time, event, event_fa, currency, importance, forecast,
@@ -77,6 +94,10 @@ export async function readEvents(env) {
 }
 
 export async function readLabels(env) {
+  return cached(CACHE_PREFIX + "labels", TABLE_TTL, () => readLabelsUncached(env));
+}
+
+async function readLabelsUncached(env) {
   try {
     const { results } = await env.DB.prepare(
       `SELECT match_text, label_fa, label_short_en, direction, priority, active
@@ -93,6 +114,10 @@ export async function readLabels(env) {
 }
 
 export async function readHolidays(env) {
+  return cached(CACHE_PREFIX + "holidays", TABLE_TTL, () => readHolidaysUncached(env));
+}
+
+async function readHolidaysUncached(env) {
   try {
     const { results } = await env.DB.prepare(
       `SELECT date, name, name_fa, country, market_status FROM econ_holidays`
@@ -173,6 +198,9 @@ export async function replaceEvents(env, events) {
   }
 
   await env.DB.batch(statements);
+  // داده عوض شد - کشِ همین جدول باید همان لحظه برود، وگرنه
+  // تا دو دقیقه نمای کاربر عددِ قبلی را نشان می‌دهد.
+  invalidate(CACHE_PREFIX + "events");
   return rows.length;
 }
 
@@ -196,6 +224,9 @@ export async function replaceLabels(env, labels) {
     );
   }
   await env.DB.batch(statements);
+  // داده عوض شد - کشِ همین جدول باید همان لحظه برود، وگرنه
+  // تا دو دقیقه نمای کاربر عددِ قبلی را نشان می‌دهد.
+  invalidate(CACHE_PREFIX + "labels");
   return rows.length;
 }
 
@@ -217,6 +248,9 @@ export async function replaceHolidays(env, holidays) {
     );
   }
   await env.DB.batch(statements);
+  // داده عوض شد - کشِ همین جدول باید همان لحظه برود، وگرنه
+  // تا دو دقیقه نمای کاربر عددِ قبلی را نشان می‌دهد.
+  invalidate(CACHE_PREFIX + "holidays");
   return rows.length;
 }
 

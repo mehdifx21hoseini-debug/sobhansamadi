@@ -11,6 +11,7 @@
 
 import { ensureSchema, replaceHolidays, markSynced } from "./store.js";
 import { readConfig } from "../content/channel.js";
+import { invalidate } from "../cache.js";
 import { isStorableCurrency } from "./currencies.js";
 
 export const INGEST_FLAG = "econ_worker_ingest";
@@ -193,6 +194,9 @@ async function upsertEvents(env, rows) {
     )
   );
   await env.DB.batch(statements);
+  // فید تازه نشست - کشِ نماها باید همان لحظه برود، وگرنه تا انقضای
+  // TTL کاربر داده‌ی قبلی را می‌بیند.
+  invalidate("econ:events");
   return rows.length;
 }
 
@@ -337,7 +341,11 @@ export async function ingestActuals(env, rows) {
     );
   }
 
-  if (updates.length > 0) await env.DB.batch(updates);
+  if (updates.length > 0) {
+    await env.DB.batch(updates);
+    // عددهای واقعی نشستند؛ همان دلیلِ بالا.
+    invalidate("econ:events");
+  }
   return { updated: updates.length, unchanged, ignored, received: rows.length };
 }
 

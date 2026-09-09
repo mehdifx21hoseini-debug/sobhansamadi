@@ -279,25 +279,63 @@ function cursorKey(kind, ref, shard) {
   return "econ_cur_" + kind + "_" + ref + "_" + tag;
 }
 
+// آخرین باری که جاروی کامل زده شد. کلیدش مثل نشانگر است تا هر (نوع،
+// روز، تکه) حسابِ خودش را داشته باشد.
+function sweepKey(kind, ref, shard) {
+  const tag = shard && shard.of > 1 ? shard.index + "of" + shard.of : "all";
+  return "econ_swept_" + kind + "_" + ref + "_" + tag;
+}
+
+// فاصله‌ی دو جاروی کامل.
+//
+// یک ساعت، و این عدد از یک خرابیِ واقعی آمده. جارو قرار بود «یک بار در
+// پایانِ کار» باشد، ولی پایانی در کار نبود: هر ساعت ده‌ها نفر عضو
+// می‌شوند، پس صف هیچ‌وقت خالی نمی‌ماند، پرچمِ «تمام شد» زده نمی‌شود، و
+// کرانِ هر پنج دقیقه دوباره جارو می‌زند. یعنی ۲۸۸ اسکنِ کاملِ جدولِ
+// یازده‌هزارتایی در روز - حدود ۳٫۳ میلیون ردیف‌خوانی، که با بقیه‌ی مصرف
+// روی هم سقفِ روزانه را پر کرد و ربات برای همه ساکت شد.
+//
+// با یک ساعت، همان کار ۲۴ بار در روز انجام می‌شود. هزینه‌اش این است که
+// عضوِ تازه ممکن است تا یک ساعت خلاصه‌اش دیر برسد - که برای پیامی که
+// روزی یک بار صبح می‌رود، بی‌اهمیت است.
+const SWEEP_EVERY_MS = 60 * 60 * 1000;
+
 /**
- * یک تکه از مخاطب، با نشانگر - و یک جاروی پایانی.
+ * یک تکه از مخاطب، با نشانگر - و یک جاروی گاه‌به‌گاه.
  *
- * وقتی نشانگر به ته می‌رسد، یک بار هم بدونِ نشانگر می‌پرسیم. دلیلش
- * تازه‌واردهاست: کسی که وسطِ ارسال عضو شده ممکن است آیدی‌اش در ترتیبِ
- * حروفی پشتِ نشانگر بیفتد و آن روز جا بماند. این جارو فقط یک بار در
- * پایانِ هر تکه اجرا می‌شود، پس گرانیِ آن یک‌بار است نه هر دور.
+ * نشانگر کارِ اصلی را می‌کند: هر دور از جایی که دورِ قبل ایستاده ادامه
+ * می‌دهد. جارو برای تازه‌واردهاست - کسی که وسطِ ارسال عضو شده و آیدی‌اش
+ * در ترتیب پشتِ نشانگر افتاده - و چون گران است، ساعتی یک بار.
  *
- * @returns {{rows: Array, swept: boolean}} swept یعنی جاروی پایانی بود.
+ * ساعت از صداکننده می‌آید نه از Date.now(): بقیه‌ی این تابع با
+ * `ref`ِ همان اجرا کار می‌کند، و اگر پنجره‌ی جارو ساعتِ دیگری داشته
+ * باشد، دو منطق روی دو زمان می‌نشینند و تست هم دروغ می‌گوید.
+ *
+ * @returns {{rows: Array, swept: boolean, throttled: boolean}}
+ *   swept یعنی واقعاً کلِ فهرست نگاه شد. این تفاوت مهم است: «هیچ ردیفی
+ *   نبود» فقط وقتی معنیِ «کار تمام است» می‌دهد که جارو زده شده باشد،
+ *   وگرنه یعنی «این بار نگاه نکردیم».
  */
-async function nextChunk(env, kind, ref, shard) {
-  const key = cursorKey(kind, ref, shard);
-  const after = await readConfig(env, key).catch(() => "");
+async function nextChunk(env, kind, ref, shard, now = Date.now()) {
+  const after = await readConfig(env, cursorKey(kind, ref, shard)).catch(() => "");
   if (after) {
     const rows = await listPendingAudience(env, kind, ref, SEND_BUDGET, shard, after);
-    if (rows.length > 0) return { rows, swept: false };
+    if (rows.length > 0) return { rows, swept: false, throttled: false };
   }
+
+  // بدونِ نشانگر یعنی هنوز دورِ اول است؛ آنجا این کوئری خودِ صفحه‌بندی
+  // است، نه جارو، و نباید عقب بیفتد.
+  if (after) {
+    const key = sweepKey(kind, ref, shard);
+    const last = Number(await readConfig(env, key).catch(() => "")) || 0;
+    if (now - last < SWEEP_EVERY_MS) {
+      return { rows: [], swept: false, throttled: true };
+    }
+    await writeConfig(env, key, String(now)).catch(() => {});
+  }
+
   const rows = await listPendingAudience(env, kind, ref, SEND_BUDGET, shard, null);
-  return { rows, swept: !!after };
+  return { rows, swept: true, throttled: false };
 }
 
 /** نشانگر را جلو می‌برد - فقط تا کسی که واقعاً پردازش شد. */
@@ -332,12 +370,16 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const { rows: pending } = await nextChunk(env, "digest", ref, shard);
+  const { rows: pending, swept, throttled } = await nextChunk(env, "digest", ref, shard, now.getTime());
   if (pending.length === 0) {
-    // پرچمِ پایان فقط از اجرای بی‌تکه زده می‌شود: خالی بودنِ یک تکه فقط
-    // یعنی همان تکه تمام شده، نه کلِ فهرست.
-    if (!shard) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
-    return { sent: 0, failed: 0, blocked: 0, done: true };
+    // پرچمِ پایان دو شرط دارد. اول اینکه اجرا بی‌تکه باشد: خالی بودنِ یک
+    // تکه فقط یعنی همان تکه تمام شده، نه کلِ فهرست. دوم اینکه واقعاً
+    // جارو زده باشیم - چون حالا جارو ساعتی یک بار است و «هیچ ردیفی
+    // نبود» می‌تواند فقط یعنی «این بار نگاه نکردیم». بدونِ این شرط،
+    // اولین درِینِ محدودشده روز را تمام‌شده اعلام می‌کرد و تازه‌واردها
+    // تا فردا خلاصه نمی‌گرفتند.
+    if (!shard && swept) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
   }
 
   const digest = await buildDigest(env, now);
@@ -449,10 +491,11 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const { rows: pending } = await nextChunk(env, "holiday", ref, shard);
+  const { rows: pending, swept, throttled } = await nextChunk(env, "holiday", ref, shard, now.getTime());
   if (pending.length === 0) {
-    if (!shard) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
-    return { sent: 0, failed: 0, blocked: 0, done: true };
+    // همان دو شرطِ خلاصه‌ی روزانه - دلیلش آنجا نوشته شده.
+    if (!shard && swept) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
   }
 
   const text = buildHolidayText(holiday, now);

@@ -7,6 +7,7 @@ import { handleMiniapp } from "./econ/miniapp.js";
 // scripts/build-econ-app.mjs می‌نویسدش و ورک‌فلوی econ-app.yml بررسی
 // می‌کند که با منبع‌ها یکی مانده باشد.
 import { ECON_APP_HTML } from "./econ/appHtml.js";
+import { stats as cacheStats } from "./cache.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
@@ -84,7 +85,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-72";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-73";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -631,6 +632,16 @@ async function handleAdmin(request, url, env) {
     // تا وقتی enabled برابر false است، ارسال با n8n است و ورکر ساکت.
     // این تنها راه دیدنِ آن وضعیت از بیرون است.
     econ_sender: await senderStatus(env),
+    // شمارشِ کوئری‌های همین ایزوله و اندازه‌ی کش.
+    //
+    // چرا اینجاست: سقفِ روزانه‌ی D1 یک بار پر شد و ربات برای یازده هزار
+    // نفر ساکت ماند، و تا آن لحظه هیچ عددی نداشتیم که رشدِ مصرف را
+    // نشان بدهد - فقط درصدِ روی داشبوردِ کلادفلر، که دیدنش دستی است.
+    //
+    // این عدد فقط مالِ همین ایزوله است و کلِ حساب را نمی‌گوید؛ ولی
+    // نسبتِ hit به miss را می‌گوید، و همان چیزی است که وقتی کشی اضافه
+    // می‌کنی باید بتوانی ببینی کار می‌کند یا نه.
+    cache: cacheStats(),
   });
 }
 

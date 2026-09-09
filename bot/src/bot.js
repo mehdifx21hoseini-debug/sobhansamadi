@@ -35,6 +35,7 @@ import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { touchUser } from "./db.js";
 import { isOwner } from "./owner.js";
+import { isDbOutage, notifyOwner, USER_TEXT } from "./dbOutage.js";
 import { ensureAdminCommands } from "./commands/registry.js";
 import { getUserState, clearUserState } from "./db.js";
 import {
@@ -81,6 +82,33 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.use(async (ctx, next) => {
     ctx.env = env;
     return next();
+  });
+
+  // ─── نگهبانِ قطعیِ دیتابیس ───────────────────────────────────────
+  //
+  // بیرونی‌ترین لایه، پیش از هر هندلر. اگر جایی در عمقِ کار دیتابیس
+  // بگوید «در دسترس نیست»، کاربر یک پیامِ روشن می‌گیرد و مدیر یک بار
+  // خبردار می‌شود - به‌جای اینکه ربات بی‌صدا بیفتد.
+  //
+  // چرا اینجا و نه در تک‌تک هندلرها: روزی که این اتفاق افتاد، هر هندلر
+  // خطای خودش را گرفت و بلعید. هیچ‌کدام اشتباه نبودند؛ هیچ‌کدام هم
+  // نمی‌دانستند که مشکل عمومی است. تشخیصِ «این یک قطعیِ کلی است» فقط از
+  // جایی ممکن است که همه‌ی مسیرها از آن رد می‌شوند.
+  //
+  // خطاهای دیگر دست‌نخورده بالا می‌روند: یک باگ نباید پشتِ پیامِ
+  // «شلوغی» پنهان شود.
+  bot.use(async (ctx, next) => {
+    try {
+      return await next();
+    } catch (err) {
+      if (!isDbOutage(err)) throw err;
+      console.error("قطعی دیتابیس:", err && err.message);
+      notifyOwner(ctx.env, err).catch(() => {});
+      // اگر همین هم نرسد کاری از دست ما برنمی‌آید - ولی دست‌کم تلاش
+      // شده، و این تلاش به دیتابیس نیازی ندارد.
+      await ctx.reply(USER_TEXT).catch(() => {});
+      return undefined;
+    }
   });
 
   // پست‌های کانال پیش از دروازه‌ی عضویت می‌آیند: آن‌ها کاربر ندارند و
