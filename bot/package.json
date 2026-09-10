@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "build:app": "node ../scripts/build-econ-app.mjs",
-    "check:app": "node ../scripts/build-econ-app.mjs --check"
+    "check:app": "node ../scripts/build-econ-app.mjs --check",
+    "smoke:app": "node ../scripts/smoke-econ-app.mjs"
   },
   "dependencies": {
     "grammy": "^1.30.0"

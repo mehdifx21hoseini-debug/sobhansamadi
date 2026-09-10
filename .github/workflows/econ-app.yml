@@ -46,3 +46,28 @@ jobs:
           node-version: "20"
       - name: خروجی و نسخه با منبع یکی است؟
         run: node scripts/build-econ-app.mjs --check
+
+      # و این یکی می‌پرسد «اصلاً کار می‌کند؟».
+      #
+      # سوالِ بالا فقط یکی بودنِ خروجی با منبع را می‌سنجد، و آن جواب هیچ
+      # ربطی به بالا آمدنِ اپ ندارد: یک متغیرِ محلی که تابعی هم‌نام را
+      # بپوشاند، کلِ یک تب را سفید می‌کند بی‌آنکه بیلد قرمز شود. یک بار
+      # همین اتفاق افتاد و تا وقتی دستی عکس نگرفتیم پیدا نشد.
+      - name: نصبِ مرورگر
+        run: npm i --no-save playwright-core@1.48.0 && npx --yes playwright@1.48.0 install --with-deps chromium
+
+      - name: مینی‌اپ واقعاً بالا می‌آید؟
+        run: node scripts/smoke-econ-app.mjs
+
+      # عکس‌ها ادعا نیستند - برای وقتی است که بیلد قرمز شد و باید دید چه
+      # شکلی بوده.
+      - name: عکس‌ها
+        if: always()
+        run: node scripts/smoke-econ-app.mjs --shots /tmp/shots || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: econ-app-shots
+          path: /tmp/shots
+          if-no-files-found: ignore
