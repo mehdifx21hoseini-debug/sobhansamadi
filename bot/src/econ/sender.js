@@ -18,7 +18,7 @@
 
 import { readEvents, readLabels, readHolidays } from "./store.js";
 import { holidayLabel, holidayNameFa } from "./holidayNames.js";
-import { filterByCurrencies, DEFAULT_CURRENCIES } from "./currencies.js";
+import { filterByCurrencies, DEFAULT_CURRENCIES, currencyFlag } from "./currencies.js";
 import { buildTodayMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
@@ -554,19 +554,43 @@ export async function drainDailyDigest(env, now = new Date(), shard = null) {
 
 // ─── ۲) هشدار قبل از خبر ────────────────────────────────────────────
 
+/**
+ * متنِ هشدارِ پیش از خبر.
+ *
+ * سه چیز اینجا عمدی است:
+ *
+ * ۱. هیچ جمله‌ای درباره‌ی وضعیتِ بازار نمی‌آید. خطِ پایانیِ قبلی -
+ *    «تا انتشار عدد، حجم و اسپرد غیرعادی می‌شود» - هم قطعی حرف می‌زد
+ *    درباره‌ی چیزی که قطعی نیست، و هم برای کسی که این اصطلاح‌ها را
+ *    نمی‌شناسد بی‌معنی بود. هشدار کارش خبر دادن است، نه تفسیرِ بازار.
+ *
+ * ۲. شمارشِ معکوس در سرتیتر است نه یک خطِ جدا. پیش از این هم بالا
+ *    «تا چند دقیقه دیگر» نوشته می‌شد و هم پایین‌تر «۱۵ دقیقه دیگر» -
+ *    یک چیز، دو بار.
+ *
+ * ۳. پرچمِ ارز آمده. از وقتی کاربر می‌تواند چند ارز را روشن کند،
+ *    هشداری که نمی‌گوید مالِ کدام ارز است نصفِ اطلاعات را جا می‌گذارد.
+ */
 export function buildAlertText(e, minutesLeft) {
   const emoji = IMPORTANCE_EMOJI[e.importance] || "⚪";
   const when = e.time ? etTimeToTehran(e.date, e.time) : "";
-  let text = RLM + "🔔 تا چند دقیقه دیگر یک خبر مهم منتشر می‌شود\n\n";
-  text += RLM + emoji + " " + (e.event_fa || e.event) + "\n";
-  if (when) text += RLM + "⏰ " + toPersianDigits(when) + " (به وقت تهران)\n";
-  text += RLM + "⏳ " + toPersianDigits(Math.max(1, minutesLeft)) + " دقیقه دیگر\n";
+  const flag = currencyFlag(e.currency);
+
+  const lines = [
+    RLM + "🔔 خبر مهم — " + toPersianDigits(Math.max(1, minutesLeft)) + " دقیقه دیگر",
+    "",
+    RLM + (flag ? flag + " " : "") + emoji + " " + (e.event_fa || e.event),
+  ];
+  if (when) lines.push(RLM + "⏰ " + toPersianDigits(when) + " به وقت تهران");
+
+  // رقم‌ها فارسی می‌شوند، مثل ساعت و مثل بقیه‌ی ربات؛ پیش از این «0.3%»
+  // لاتین کنارِ «۱۶:۰۰» فارسی می‌نشست.
   if (e.forecast || e.previous) {
-    text += RLM + "پیش‌بینی: " + (e.forecast || "-") + "\n";
-    text += RLM + "قبلی: " + (e.previous || "-") + "\n";
+    lines.push("");
+    lines.push(RLM + "پیش‌بینی: " + toPersianDigits(e.forecast || "-"));
+    lines.push(RLM + "قبلی: " + toPersianDigits(e.previous || "-"));
   }
-  text += "\n" + RLM + "تا انتشار عدد، حجم و اسپرد غیرعادی می‌شود.";
-  return text;
+  return lines.join("\n");
 }
 
 const ALERT_KEYBOARD = {
