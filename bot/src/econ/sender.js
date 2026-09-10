@@ -581,7 +581,9 @@ export function buildAlertText(e, minutesLeft) {
     "",
     RLM + (flag ? flag + " " : "") + emoji + " " + (e.event_fa || e.event),
   ];
-  if (when) lines.push(RLM + "⏰ " + toPersianDigits(when) + " به وقت تهران");
+  // ساعت لاتین، مثل نماهای تقویم. مدتِ «چند دقیقه دیگر» بالا فارسی
+  // مانده - آن مدت است نه ساعت.
+  if (when) lines.push(RLM + "⏰ " + when + " به وقت تهران");
 
   // رقم‌ها فارسی می‌شوند، مثل ساعت و مثل بقیه‌ی ربات؛ پیش از این «0.3%»
   // لاتین کنارِ «۱۶:۰۰» فارسی می‌نشست.
