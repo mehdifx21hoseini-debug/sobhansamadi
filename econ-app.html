@@ -2046,6 +2046,36 @@
 		   ساعتِ بزرگ چهار خطی می‌شد. */
 		.sb-sum-title { white-space: nowrap; font-size: 0.88rem; }
 		.sb-sum-date { white-space: nowrap; font-size: 0.63rem; }
+
+		/* ── نمودارِ سشن‌ها، ساده‌تر ───────────────────────────────────
+		   سه چیز هم‌زمان روی هر ردیف حرف می‌زدند: زمینه‌ی نوار، نوارِ
+		   رنگیِ سشن، و راه‌راهِ مورب برای ساعتِ تسویه و تعطیلی. راه‌راه
+		   پرسروصداترینشان بود و کم‌ترین حرف را داشت.
+
+		   حالا نوار زمینه ندارد - فقط یک خطِ نازک به‌عنوان محورِ روز - و
+		   راه‌راه‌ها یک تُنِ تخت شده‌اند. خودِ نوارِ رنگی حالا تنها چیزی
+		   است که روی خط دیده می‌شود، که همان چیزی است که باید دیده شود. */
+		.sb-track {
+			background: none;
+			border-bottom: 1px solid var(--sb-line);
+			border-radius: 0;
+		}
+		/* تُنِ خنثی، نه رنگی.
+		   با رنگِ --sb-rest، این لکه هم‌وزنِ نوارهای رنگیِ سشن می‌شد و
+		   مثل یک بازارِ دیگر خوانده می‌شد - در حالی که معنی‌اش دقیقاً
+		   برعکس است: اینجا چیزی نیست. */
+		.sb-break,
+		.sb-hol {
+			background: color-mix(in srgb, var(--sb-muted) 14%, transparent) !important;
+		}
+		/* برچسبِ «تعطیل» می‌ماند - آن یکی متن است، نه بافت. */
+		.sb-hol { color: var(--sb-rest); }
+
+		/* ریلِ نام کمی باریک‌تر: ۱۱۶ پیکسل از عرضِ یک گوشیِ ۳۹۰ پیکسلی سهمِ
+		   بزرگی است. ولی نه بیش از این - با ۹۶ پیکسل «بورس نیویورک»
+		   بریده می‌شد. */
+		.sb-board { --rail: 108px; }
+		.sb-row { min-height: 34px; padding: 4px 0; }
 	</style>
 </head>
 
@@ -2182,7 +2212,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه b1c8427f07</span>
+			<span class="build">نسخه 8a3d02866a</span>
 		</p>
 	</div>
 
