@@ -101,13 +101,47 @@ function inlineAssets(css) {
   });
 }
 
+// ماژول‌های منطقِ خالص، به ترتیبی که چسبانده می‌شوند.
+//
+// فهرست عمداً دستی است نه glob: ترتیب اهمیت دارد - یک فایل می‌تواند به
+// تابعِ فایلِ قبلی تکیه کند - و یک فهرستِ صریح در بازبینی دیده می‌شود،
+// در حالی که glob بی‌صدا هر فایلِ تازه‌ای را وارد باندل می‌کند.
+const LIBS = ["sessions.js"];
+
+// «export» برای تست است، نه برای مرورگر.
+//
+// این فایل‌ها دو جا اجرا می‌شوند: در تست به‌عنوان ماژولِ واقعی import
+// می‌شوند، و در اپ داخلِ یک <script> ساده می‌نشینند که ماژول نیست. پس
+// موقعِ چسباندن فقط همان کلمه برداشته می‌شود و بقیه‌ی خط دست‌نخورده
+// می‌ماند.
+//
+// عمداً فقط ابتدای خط تطبیق داده می‌شود: «export» وسطِ یک رشته یا
+// توضیح نباید دست بخورد. `import` هم اجازه ندارد - ماژول‌های این پوشه
+// باید مستقل باشند، و اگر روزی یکی به دیگری وابسته شد باید در LIBS
+// جلوترش بیاید، نه اینکه import کند.
+function stripModuleSyntax(code, name) {
+  if (/^\s*import[\s{*]/m.test(code)) {
+    throw new Error(
+      "src/econ-app/lib/" + name + " دستور import دارد. " +
+      "ماژول‌های این پوشه باید مستقل باشند؛ ترتیبشان را در LIBS تنظیم کنید."
+    );
+  }
+  return code.replace(/^export\s+(?=(function|const|let|var|class)\s)/gm, "");
+}
+
 export function build() {
   const template = read(join(SRC, "index.html"));
   // پیش از حساب کردنِ نسخه درون‌ریزی می‌شود، تا عوض شدنِ خودِ تصویر هم
   // کشِ وب‌ویو را بشکند. اگر بعدش انجام می‌شد، بنرِ تازه پشتِ نسخه‌ی
   // قدیمی گیر می‌کرد.
   const css = inlineAssets(read(join(SRC, "app.css")));
-  const js = read(join(SRC, "app.js"));
+  const libs = LIBS.map((name) => {
+    const code = stripModuleSyntax(read(join(SRC, "lib", name)), name);
+    return "// ── lib/" + name + " ──\n" + code;
+  });
+  const js = libs.concat(read(join(SRC, "app.js"))).join("\n");
+  // نسخه از همه‌ی منبع‌ها حساب می‌شود، وگرنه عوض شدنِ یک lib کشِ وب‌ویو
+  // را نمی‌شکست و کاربر اپِ کهنه می‌گرفت.
   const version = versionOf([template, css, js]);
 
   let html = inject(template, CSS_MARK, css, "CSS");
