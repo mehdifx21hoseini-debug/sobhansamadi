@@ -1349,232 +1349,214 @@
 		   نمی‌کند - فقط یک خطِ عمودیِ کوتاه کنار پرچم می‌ماند. */
 		.cluster .event-rail { border-inline-end: 0; padding-inline-end: 0; }
 
-		/* ---------- the event row ----------
-		   اهمیت، لبه‌ی کناری است: ۳ پیکسل برای خیلی مهم، نازک برای مهم، هیچ
-		   برای کم‌اهمیت. یک شیبِ وزن به‌جای شیبِ رنگ، تا تنها رنگ‌های روی
-		   ردیف مالِ عدد باشند - پیش از این قرمز هم‌زمان «خیلی مهم» و «بد
-		   برای دلار» را می‌گفت و با یک نگاه معلوم نبود کدام. */
+		/* ---------- ردیفِ خبر: یک سطرِ دفتری ----------
+
+		   تا امروز ردیف تاشو بود و عددها پشتِ یک ضربه پنهان. ولی همان
+		   عددها تنها دلیلی‌اند که کسی این فهرست را باز می‌کند - و هیچ
+		   نشانه‌ای هم نبود که چیزی زیرش هست.
+
+		   حالا همه‌چیز باز است و جدا کردن با خطِ مو انجام می‌شود، نه با
+		   سایه و گوشه‌ی گرد: صفحه مثل یک جدولِ چاپی خوانده می‌شود. */
 		.event {
-			/* دو ستون: ریلِ باریکِ ارز، و بدنه. عرضِ ریل ثابت است، پس چشم
-			   برای پیدا کردنِ ساعت هر بار عرضِ متفاوتی را طی نمی‌کند و
-			   ردیف‌ها یک شبکه‌ی واقعی پیدا می‌کنند - همان چیزی که کارتِ
-			   قبلی با چیدنِ ساعت و اسم روی یک خطِ کشسان نداشت. */
-			display: grid;
-			grid-template-columns: 38px 1fr;
-			gap: 11px;
 			background: var(--card);
 			border: 1px solid var(--line);
-			border-inline-start: 3px solid transparent;
-			border-radius: var(--r);
-			padding: 11px 12px;
-			margin-bottom: 7px;
-			cursor: pointer;
-			width: 100%;
-			text-align: right;
-			font-family: inherit;
-			color: inherit;
+			padding: 12px 13px 0;
 		}
+		/* فقط ردیفی که بلافاصله پسِ ردیفِ دیگری می‌آید لبه‌ی بالا را
+		   می‌اندازد. سرصفحه‌ی روز و خطِ «الان» زنجیره را می‌شکنند و ردیفِ
+		   بعدشان دوباره لبه لازم دارد. */
+		.event + .event { border-top: 0; }
+		.event.is-past { background: var(--card-2); }
 
-		.event.imp-high { border-inline-start-color: var(--text); }
-		.event.imp-medium { border-inline-start-color: var(--line-strong); }
-		.event.is-past { opacity: .74; }
-
-		.event-rail {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			gap: 5px;
-			padding-inline-end: 9px;
-			border-inline-end: 1px solid var(--line);
-		}
-
-		/* همان زبانِ تصویریِ چیپ‌های پرچم در تب سشن‌ها: گوشه‌ی تیز نه
-		   دایره - دایره آواتار می‌خواند و این‌ها برچسبِ ابزارند. */
-		.event-flag {
-			width: 24px;
-			height: 17px;
-			border-radius: var(--r-sm);
-			overflow: hidden;
-			flex: none;
-			box-shadow: 0 0 0 1.5px var(--line-strong);
-		}
-
-		.event-flag svg { width: 100%; height: 100%; display: block; }
-
-		/* رویدادِ «All» پرچم ندارد. قابِ چیپ حذف می‌شود تا کره ادای پرچم
-		   در نیاورد، ولی جای اشغالی همان است تا ریل هم‌تراز بماند. */
-		.event-flag.is-global {
-			box-shadow: none;
-			color: var(--muted);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-		}
-
-		.event-flag.is-global svg { width: 18px; height: 18px; }
-
+		.event-top { display: flex; align-items: center; gap: 9px; min-width: 0; }
+		.event-gap { flex: 1; }
 		.event-time {
-			font-variant-numeric: tabular-nums;
+			font-family: var(--f-num);
+			font-size: 0.95rem;
 			font-weight: 700;
-			font-size: 0.8rem;
-			line-height: 1.1;
-			color: var(--text);
-			text-align: center;
-		}
-
-		.event-time .plus {
-			display: block;
-			font-size: 0.55rem;
-			font-weight: 700;
-			color: var(--medium);
+			direction: ltr;
+			unicode-bidi: isolate;
 			white-space: nowrap;
 		}
+		.event-time .plus {
+			font-family: var(--f-body);
+			font-size: 0.58rem;
+			font-weight: 600;
+			color: var(--muted);
+			margin-inline-start: 4px;
+		}
+		.event-when {
+			font-family: var(--f-body);
+			font-size: 0.62rem;
+			font-weight: 700;
+			color: var(--muted);
+			border: 1px solid var(--line-strong);
+			border-radius: var(--r-sm);
+			padding: 2px 6px;
+		}
+		.event-cur {
+			font-family: var(--f-num);
+			font-size: 0.68rem;
+			font-weight: 600;
+			letter-spacing: .06em;
+			color: var(--muted);
+			direction: ltr;
+			unicode-bidi: isolate;
+		}
+
+		/* نشانِ اهمیت: پُر و برچسب‌دار.
+		   رنگ به‌تنهایی کافی نبود و لبه‌ی نازکِ کناری روی صفحه‌ی روشن
+		   تقریباً دیده نمی‌شد. */
+		.imp-badge {
+			flex: none;
+			font-size: 0.62rem;
+			font-weight: 700;
+			padding: 3px 8px;
+			border-radius: var(--r-sm);
+			white-space: nowrap;
+		}
+		.imp-badge.imp-high { background: var(--high); color: #fff; }
+		.imp-badge.imp-medium { background: var(--medium); color: #fff; }
+		.imp-badge.imp-low { background: var(--imp-low); color: var(--imp-low-on); }
+
+		/* نشانِ ارز.
+		   وقتی بلوکِ قدیمیِ ردیف جای‌گزین شد این قاعده‌ها با آن رفتند و
+		   پرچم‌ها بی‌صدا ناپدید شدند - عنصر ساخته می‌شد ولی صفر در صفر
+		   بود، پس نه خطایی می‌داد و نه دیده می‌شد. */
+		.event-flag {
+			flex: none;
+			width: 21px;
+			height: 15px;
+			border-radius: var(--r-sm);
+			overflow: hidden;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			box-shadow: 0 0 0 1px var(--flag-ring);
+		}
+		.event-flag svg { width: 100%; height: 100%; display: block; }
+		.event-flag.is-global { color: var(--muted); background: var(--card-2); }
+		.event-flag.is-global svg { width: 12px; height: 12px; }
 
 		.event-nm { min-width: 0; }
-
-		/* The English release name inside an RTL row: isolated so the bidi
-		   algorithm cannot interleave it with the Persian around it, and set
-		   in the mono face so it reads as an instrument label rather than an
-		   English word dropped into a Persian sentence. */
+		/* نامِ انگلیسی داخلِ یک خطِ راست‌به‌چپ: جدا شده تا الگوریتمِ دوجهته
+		   نتواند با فارسیِ دورش درهمش کند، و در سریفِ نشریه‌ای - چون
+		   تقویمِ اقتصادی در اصل یک جدولِ چاپی است. */
 		.event-title-en {
 			direction: ltr;
 			unicode-bidi: isolate;
 			text-align: right;
 			font-family: var(--f-num);
-			font-size: 0.78rem;
-			font-weight: 500;
+			font-size: 0.95rem;
+			font-weight: 600;
 			line-height: 1.35;
-			letter-spacing: .01em;
+			margin-top: 9px;
 			min-width: 0;
 			overflow-wrap: anywhere;
 		}
+		.event-fa { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
 
-		.event.imp-high .event-title-en { font-size: 0.84rem; font-weight: 500; }
-
-		/* پیش از این ترجمه‌ی فارسی تا باز نکردن ردیف پنهان بود. یک خط ریز
-		   اینجا، و یک تپ روی هر ردیف صرفه‌جویی می‌شود. */
-		.event-fa {
-			font-size: 0.68rem;
-			color: var(--muted);
+		/* ---------- سه ستونِ عددی ----------
+		   همان جدولی که در چاپ می‌بینید: سرستون بالا، عدد زیرش، و
+		   جداکننده‌ی عمودی بینشان. پیش از این یک خطِ درهم بود که روی
+		   گوشی خوانده نمی‌شد. */
+		.nums {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			margin-top: 11px;
+			border-top: 1px solid var(--line);
+		}
+		.num { text-align: center; padding: 9px 2px 10px; }
+		.num + .num { border-inline-start: 1px solid var(--line); }
+		.num-k { font-size: 0.6rem; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+		.num-v {
+			font-family: var(--f-num);
+			font-size: 0.9rem;
 			font-weight: 600;
-			margin-top: 1px;
-		}
-
-		/* ---------- the numbers ----------
-		   عدد واقعی درشت‌ترین چیز روی ردیف است و سورپرایز کنارش می‌نشیند،
-		   چون «چقدر با پیش‌بینی فرق داشت» همان سؤالی است که ردیف برایش وجود
-		   دارد - و تنها عددی بود که کارت قبلی هرگز نشان نمی‌داد. «قبلی» به
-		   جزئیات می‌رود: کم‌اهمیت‌ترینِ سه‌تاست. */
-		.vals { display: flex; align-items: baseline; gap: 9px; margin-top: 7px; flex-wrap: wrap; }
-
-		.val-big {
-			font-size: 1.16rem;
-			font-weight: 800;
-			line-height: 1;
-			font-variant-numeric: tabular-nums;
 			direction: ltr;
 			unicode-bidi: isolate;
 		}
+		.num-v.is-up { color: var(--up); }
+		.num-v.is-down { color: var(--down); }
 
-		.val-k { font-size: 0.62rem; font-weight: 700; color: var(--muted); }
+		/* اختلافِ واقعی با پیش‌بینی.
+		   رنگِ سبز می‌گفت «بالاتر»، ولی سوالِ معامله‌گر «چقدر بالاتر» است. */
+		.delta { margin-top: 4px; font-size: 0.68rem; font-weight: 600; }
+		.delta.is-up { color: var(--up); }
+		.delta.is-down { color: var(--down); }
+		.delta.is-flat { color: var(--muted); }
 
-.val-big.is-up b { color: var(--up); }
-		.val-big.is-down b { color: var(--down); }
-
-		.surprise {
-			font-size: 0.66rem;
-			font-weight: 700;
-			border-radius: var(--r-pill);
-			padding: 2px 7px;
-			white-space: nowrap;
-			line-height: 1.2;
+		/* خوانشِ خبر - همان «Usual Effect» فارکس‌فکتوری. */
+		.read {
+			font-size: 0.7rem;
+			font-weight: 600;
+			line-height: 1.75;
+			padding-top: 9px;
 		}
+		.nums + .read { padding-top: 0; }
+		.read-good { color: var(--up); }
+		.read-bad { color: var(--down); }
 
-		.surprise.is-up { color: var(--up); background: color-mix(in srgb, var(--up) 13%, transparent); }
-		.surprise.is-down { color: var(--down); background: color-mix(in srgb, var(--down) 13%, transparent); }
-		.surprise.is-flat { color: var(--muted); background: var(--card-2); }
+		.event-foot { padding: 9px 0 12px; font-size: 0.68rem; color: var(--muted); }
+		.event-foot .soon { color: var(--signal); font-weight: 700; }
 
-		.val-small { margin-inline-start: auto; text-align: left; line-height: 1.3; }
-
-		.val-small b {
-			font-size: 0.78rem;
-			font-weight: 700;
-			font-variant-numeric: tabular-nums;
-			direction: ltr;
-			unicode-bidi: isolate;
-			display: inline-block;
-		}
-
-		.val-small span { display: block; font-size: 0.58rem; color: var(--muted); font-weight: 700; }
-
-		/* خبری که هنوز نیامده عددی برای نشان دادن ندارد، پس به‌جای سه سلول
-		   خالی که ادای داده در می‌آورند، فقط انتظارش را می‌گوید. */
-		.pending { display: flex; align-items: baseline; gap: 7px; margin-top: 7px; font-size: 0.74rem; }
-		.pending b {
-			font-weight: 800;
-			font-variant-numeric: tabular-nums;
-			direction: ltr;
-			unicode-bidi: isolate;
-			display: inline-block;
-		}
-		.pending .k { color: var(--muted); font-weight: 700; font-size: 0.66rem; }
-
-		/* مرزِ «منتشر شده» و «پیش رو». اولین سؤال کسی که ظهر اپ را باز
-		   می‌کند: چه چیزی را از دست داده‌ام و چه چیزی مانده. */
-		.split {
-			display: flex;
+		/* ---------- ردیفِ فشرده (نمای هفته) ----------
+		   خبری که منتشر شده جدولِ سه‌ستونی نمی‌خواهد. */
+		.slim {
+			display: grid;
+			grid-template-columns: auto auto auto minmax(0, 1fr) auto;
 			align-items: center;
 			gap: 8px;
-			margin: 14px 2px 8px;
-			font-size: 0.66rem;
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			padding: 8px 13px;
+		}
+		.slim + .slim, .event + .slim, .slim + .event { border-top: 0; }
+		.slim-t {
+			font-family: var(--f-num);
+			font-size: 0.78rem;
+			font-weight: 600;
+			color: var(--muted);
+			direction: ltr;
+			unicode-bidi: isolate;
+		}
+		.slim-nm {
+			font-family: var(--f-num);
+			font-size: 0.78rem;
+			direction: ltr;
+			text-align: start;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.slim-v {
+			font-family: var(--f-num);
+			font-size: 0.78rem;
 			font-weight: 700;
-			color: var(--muted);
+			direction: ltr;
+			unicode-bidi: isolate;
 		}
+		.slim-v.is-up { color: var(--up); }
+		.slim-v.is-down { color: var(--down); }
 
-		.split::after { content: ""; flex: 1; height: 1px; background: var(--line); }
-
-		.event-meta {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 4px 14px;
-			margin-top: 4px;
-			font-size: 0.7rem;
-			color: var(--muted);
-			font-variant-numeric: tabular-nums;
+		/* ---------- خطِ «الان» ----------
+		   همان سرخابیِ نمودارِ سشن‌ها، این بار روی مرزِ منتشرشده و پیشِ رو. */
+		.nowdiv { display: flex; align-items: center; gap: 10px; padding: 13px 1px; }
+		.nowdiv::before, .nowdiv::after {
+			content: "";
+			flex: 1;
+			height: 1px;
+			background: var(--signal);
+			opacity: .45;
 		}
-
-		.event-meta b { color: var(--text); font-weight: 600; }
-
-		.read {
-			display: block;
-			margin-bottom: 7px;
-			padding: 6px 9px;
-			border-radius: var(--r);
-			font-size: 0.72rem;
+		.nowdiv span {
+			font-size: 0.62rem;
 			font-weight: 700;
+			letter-spacing: .07em;
+			color: var(--signal);
+			white-space: nowrap;
 		}
 
-		.read-good { background: color-mix(in srgb, var(--up) 13%, transparent); color: var(--up); }
-		.read-bad { background: color-mix(in srgb, var(--down) 13%, transparent); color: var(--down); }
-
-		/* Expanded detail, revealed on tap. Keeps the list scannable while the
-		   full numbers stay one tap away. */
-		.event-detail {
-			grid-column: 1 / -1;
-			margin-top: 10px;
-			padding-top: 9px;
-			border-top: 1px solid var(--line);
-			font-size: 0.74rem;
-			color: var(--muted);
-			display: none;
-		}
-
-		.event.is-open .event-detail { display: block; }
-
-		.event-detail div { margin-bottom: 3px; }
-
-		/* Past releases. Height encodes the value, colour encodes beat/miss —
-		   two readings from one glance. */
 		.hist { margin-bottom: 11px; }
 
 		.hist-title {
@@ -2072,7 +2054,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 0012b86f07</span>
+			<span class="build">نسخه 69fe571986</span>
 		</p>
 	</div>
 
@@ -2901,98 +2883,162 @@ function hhmmInZone(instant, timeZone) {
 				return box;
 			}
 
-			function eventNode(e) {
-				var node = el("button", "event imp-" + (e.importance || "low"));
-				node.type = "button";
-				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
-				if (state.open[e.event_id]) node.className += " is-open";
+			var IMP_FA = { high: "مهم", medium: "متوسط", low: "کم‌اهمیت" };
+			var CUR_FA = { USD: "دلار", EUR: "یورو", GBP: "پوند", JPY: "ین",
+				AUD: "دلار استرالیا", CAD: "دلار کانادا", NZD: "دلار نیوزیلند", CHF: "فرانک" };
 
-				// ریلِ ارز: پرچم بالا، ساعت زیرش، روی یک ستونِ با عرضِ ثابت.
-				var rail = el("div", "event-rail");
-				var fl = flagChip(e);
-				if (fl) rail.appendChild(fl);
-				var time = el("div", "event-time");
-				time.appendChild(document.createTextNode(clock((e.time_tehran || "—").replace("+1", ""))));
-				if ((e.time_tehran || "").indexOf("+1") !== -1) {
-					time.appendChild(el("span", "plus", "فردا"));
+			/** ستونِ ساعت. رویدادِ بی‌ساعت هم باید ردیفِ درست بگیرد. */
+			function timeCell(e) {
+				var t = el("div", "event-time");
+				var raw = (e.time_tehran || "").replace("+1", "");
+				if (!raw) {
+					// منبع برای بعضی رویدادها ساعت نمی‌دهد. تا امروز خطِ تیره
+					// می‌گرفتند که با «ساعتش را نمی‌دانیم» فرق دارد.
+					t.appendChild(el("span", "event-when", "نامشخص"));
+					return t;
 				}
-				rail.appendChild(time);
-				node.appendChild(rail);
+				t.appendChild(document.createTextNode(clock(raw)));
+				if ((e.time_tehran || "").indexOf("+1") !== -1) t.appendChild(el("span", "plus", "فردا"));
+				return t;
+			}
+
+			/**
+			 * ردیفِ خبر - یک سطرِ دفتری.
+			 *
+			 * تا امروز تاشو بود: عددها و خوانش پشتِ یک ضربه پنهان بودند. ولی
+			 * همان عددها تنها دلیلی‌اند که کسی این فهرست را باز می‌کند، و
+			 * هیچ نشانه‌ای هم نبود که چیزی زیرش هست. حالا همه‌چیز باز است.
+			 */
+			function eventNode(e) {
+				var imp = e.importance || "low";
+				var node = el("div", "event imp-" + imp);
+				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
+
+				// خطِ سر: ساعت، پرچم، ارز، و نشانِ اهمیت.
+				var top = el("div", "event-top");
+				top.appendChild(timeCell(e));
+				var fl = flagChip(e);
+				if (fl) top.appendChild(fl);
+				if (e.currency) top.appendChild(el("span", "event-cur", e.currency));
+				top.appendChild(el("span", "event-gap"));
+				// نشانِ اهمیت پُر و برچسب‌دار است: رنگ به‌تنهایی کافی نبود، و
+				// لبه‌ی نازکِ کناری روی صفحه‌ی روشن تقریباً دیده نمی‌شد.
+				top.appendChild(el("span", "imp-badge imp-" + imp, IMP_FA[imp] || imp));
+				node.appendChild(top);
 
 				var nm = el("div", "event-nm");
-				// نام انگلیسی همان تیتر می‌ماند؛ ترجمه‌ی فارسی که تا امروز
-				// فقط با باز کردن ردیف دیده می‌شد، یک خط ریز زیرش آمد.
 				nm.appendChild(el("div", "event-title-en", e.en || e.title || e.short || ""));
-				if (e.title && e.title !== (e.en || "")) {
-					nm.appendChild(el("div", "event-fa", e.title));
-				}
+				if (e.title && e.title !== (e.en || "")) nm.appendChild(el("div", "event-fa", e.title));
 				node.appendChild(nm);
 
-				var s = surpriseOf(e);
-				if (e.actual) {
-					var vals = el("div", "vals");
-					// رنگِ عدد از قضاوتِ سرور می‌آید (e.read) نه از بالا/پایین
-					// بودنِ خام: برای شاخص‌های معکوس مثل نرخ بیکاری، «بالاتر»
-					// یعنی بدتر.
-					var tone = e.read ? (e.read.good ? " is-up" : " is-down") : "";
-					vals.appendChild(el("span", "val-big" + tone, fa(e.actual)));
-					vals.appendChild(el("span", "val-k", "واقعی"));
+				// جدولِ سه‌ستونی. خبرِ بی‌عدد اصلاً این بخش را نمی‌گیرد.
+				if (e.forecast || e.actual || e.previous) {
+					var grid = el("div", "nums");
+					grid.appendChild(numCell("قبلی", e.previous, ""));
+					grid.appendChild(numCell("پیش‌بینی", e.forecast, ""));
 
+					// رنگِ «واقعی» از قضاوتِ سرور می‌آید (e.read)، نه از بالا/پایین
+					// بودنِ خام: مدعیانِ بیکاریِ کمتر عددِ پایین‌تر است ولی خبرِ خوبی
+					// برای دلار، و رنگ کردنش با «پایین‌تر = بد» عکسِ واقعیت را
+					// می‌گفت.
+					var tone = e.read ? (e.read.good ? "is-up" : "is-down") : "";
+					var actual = numCell("واقعی", e.actual, tone);
+					var s = e.actual ? surpriseOf(e) : null;
 					if (s) {
-						var sTone = s.dir === "flat" ? "is-flat" : (e.read ? (e.read.good ? "is-up" : "is-down") : "is-flat");
-						vals.appendChild(el("div", "surprise " + sTone, s.text));
+						var dTone = s.dir === "flat" ? "is-flat" : tone;
+						actual.appendChild(el("div", "delta " + dTone, s.text));
 					}
-
-					if (e.forecast) {
-						var sm = el("span", "val-small");
-						sm.appendChild(el("b", null, fa(e.forecast)));
-						sm.appendChild(el("span", null, "پیش‌بینی"));
-						vals.appendChild(sm);
-					}
-					nm.appendChild(vals);
-				} else if (e.forecast || e.previous) {
-					var pend = el("div", "pending");
-					pend.appendChild(el("span", "k", "پیش‌بینی"));
-					pend.appendChild(el("b", null, fa(e.forecast || "—")));
-					pend.appendChild(el("span", "k", "· قبلی"));
-					pend.appendChild(el("b", null, fa(e.previous || "—")));
-					nm.appendChild(pend);
+					grid.appendChild(actual);
+					node.appendChild(grid);
 				}
 
-				var detail = el("div", "event-detail");
+				// خوانش: بعد از انتشار قضاوت، پیش از آن «معمولاً چه چیزی خوب
+				// است» - همان چیزی که ForexFactory «Usual Effect» می‌نامد و
+				// پیش از این فقط با باز کردنِ ردیف دیده می‌شد.
+				var cur = CUR_FA[e.currency] || "دلار";
 				if (e.read) {
-					detail.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
+					node.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
 						(e.read.higher ? "▲ بالاتر از پیش‌بینی — " : "▼ پایین‌تر از پیش‌بینی — ") +
-						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار")));
+						(e.read.good ? "معمولاً مثبت برای " : "معمولاً منفی برای ") + cur));
 				}
-				var chart = historyChart(e);
-				if (chart) detail.appendChild(chart);
-				var meta = el("div", "event-meta");
-				meta.appendChild(el("span", null, "قبلی: " + fa(e.previous || "—")));
-				meta.appendChild(el("span", null, "پیش‌بینی: " + fa(e.forecast || "—")));
-				detail.appendChild(meta);
-				detail.appendChild(el("div", null, "اهمیت: " +
-					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
-				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
-				node.appendChild(detail);
 
-				node.addEventListener("click", function () {
-					state.open[e.event_id] = !state.open[e.event_id];
-					node.classList.toggle("is-open");
-					haptic("select");
-				});
+				var chart = historyChart(e);
+				if (chart) node.appendChild(chart);
+
+				var foot = footText(e);
+				if (foot) node.appendChild(foot);
+				return node;
+			}
+
+			function numCell(k, v, tone) {
+				var cell = el("div", "num");
+				cell.appendChild(el("div", "num-k", k));
+				cell.appendChild(el("div", "num-v " + (tone || ""), v ? fa(v) : "—"));
+				return cell;
+			}
+
+			function footText(e) {
+				if (e.actual) return el("div", "event-foot", "منتشر شد");
+				var at = e.at ? new Date(e.at).getTime() : null;
+				if (!at || at <= Date.now()) return null;
+				var box = el("div", "event-foot");
+				box.appendChild(document.createTextNode("تا "));
+				box.appendChild(el("b", "soon", untilText(at, new Date())));
+				box.appendChild(document.createTextNode(" دیگر"));
+				return box;
+			}
+
+			/**
+			 * ردیفِ فشرده‌ی خبرِ گذشته - فقط در نمای هفته.
+			 *
+			 * در «امروز» عددها همان چیزی‌اند که دنبالش آمده‌اید. در «این هفته»
+			 * دنبالِ شکلِ هفته‌اید و چهل کارتِ هم‌اندازه فقط سرِ راه‌اند.
+			 */
+			function slimNode(e) {
+				var imp = e.importance || "low";
+				var node = el("div", "slim");
+				node.appendChild(el("span", "slim-t", clock((e.time_tehran || "—").replace("+1", ""))));
+				var fl = flagChip(e);
+				if (fl) node.appendChild(fl);
+				var sq = el("i", "lvl-sq");
+				sq.style.background = "var(--" + (imp === "low" ? "imp-low" : imp) + ")";
+				node.appendChild(sq);
+				node.appendChild(el("span", "slim-nm", e.en || e.title || e.short || ""));
+				var tone = e.read ? (e.read.good ? "is-up" : "is-down") : "";
+				node.appendChild(el("span", "slim-v " + tone, e.actual ? fa(e.actual) : "—"));
 				return node;
 			}
 
 			// Walks an ordered slice of events and appends them to `list`,
 			// wrapping every run that shares one date and one release minute
 			// in a cluster tray. Untimed events never cluster.
+			// آیا این ردیف باید فشرده برود؟
+			//
+			// فقط خبرِ منتشرشده، و فقط در نمای هفته. در «امروز» عددها همان
+			// چیزی‌اند که کاربر دنبالش آمده؛ در هفته دنبالِ شکلِ هفته است و
+			// چهل کارتِ هم‌اندازه سرِ راه‌اند.
+			function rowFor(e) {
+				return (state.scope === "week" && e.actual) ? slimNode(e) : eventNode(e);
+			}
+
+			// خطِ «الان» - جای دو برچسبِ «منتشر شده (n)» و «پیش رو (n)».
+			//
+			// مرزش را همان splitAt تعیین می‌کند که از قبل بود و محتاط است:
+			// فقط وقتی کشیده می‌شود که فهرست واقعاً دو تکه‌ی تمیز باشد،
+			// چون خطی که جای اشتباه بیفتد بدتر از نبودنش است.
+			function nowDivider() {
+				var d = el("div", "nowdiv");
+				d.appendChild(el("span", null, "الان · " +
+					clock(hhmmInZone(Date.now(), "Asia/Tehran"))));
+				return d;
+			}
+
 			function appendClustered(list, evts) {
 				var run = [];
 				function flush() {
 					if (run.length === 0) return;
 					if (run.length === 1) {
-						list.appendChild(eventNode(run[0]));
+						list.appendChild(rowFor(run[0]));
 					} else {
 						var box = el("div", "cluster");
 						var head = el("div", "cluster-head");
@@ -3002,13 +3048,13 @@ function hhmmInZone(instant, timeZone) {
 						}
 						head.appendChild(el("span", null, fa(run.length) + " رویداد هم‌زمان"));
 						box.appendChild(head);
-						run.forEach(function (e) { box.appendChild(eventNode(e)); });
+						run.forEach(function (e) { box.appendChild(rowFor(e)); });
 						list.appendChild(box);
 					}
 					run = [];
 				}
 				evts.forEach(function (e) {
-					if (!e.time_tehran) { flush(); list.appendChild(eventNode(e)); return; }
+					if (!e.time_tehran) { flush(); list.appendChild(rowFor(e)); return; }
 					if (run.length && (run[0].date !== e.date || run[0].time_tehran !== e.time_tehran)) flush();
 					run.push(e);
 				});
@@ -3714,12 +3760,13 @@ function hhmmInZone(instant, timeZone) {
 							}
 						});
 					}
-					if (splitAt !== null && idx === 0) {
-						list.appendChild(el("div", "split", "منتشر شده (" + fa(splitAt) + ")"));
-					}
+					// یک خط به‌جای دو برچسب. «منتشر شده (۳)» بالای فهرست چیزی
+					// نمی‌گفت که خودِ ردیف‌ها نگویند، و «پیش رو (۲)» شمارشی
+					// بود که کسی لازمش نداشت. خطِ «الان» به‌جایش می‌گوید
+					// کاربر کجای روز است - و ساعت را هم می‌گوید.
 					if (splitAt !== null && idx === splitAt) {
 						flushDay();
-						list.appendChild(el("div", "split", "پیش رو (" + fa(events.length - splitAt) + ")"));
+						list.appendChild(nowDivider());
 					}
 					dayBuf.push(e);
 				});

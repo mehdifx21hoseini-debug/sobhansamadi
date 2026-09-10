@@ -647,98 +647,162 @@
 				return box;
 			}
 
-			function eventNode(e) {
-				var node = el("button", "event imp-" + (e.importance || "low"));
-				node.type = "button";
-				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
-				if (state.open[e.event_id]) node.className += " is-open";
+			var IMP_FA = { high: "مهم", medium: "متوسط", low: "کم‌اهمیت" };
+			var CUR_FA = { USD: "دلار", EUR: "یورو", GBP: "پوند", JPY: "ین",
+				AUD: "دلار استرالیا", CAD: "دلار کانادا", NZD: "دلار نیوزیلند", CHF: "فرانک" };
 
-				// ریلِ ارز: پرچم بالا، ساعت زیرش، روی یک ستونِ با عرضِ ثابت.
-				var rail = el("div", "event-rail");
-				var fl = flagChip(e);
-				if (fl) rail.appendChild(fl);
-				var time = el("div", "event-time");
-				time.appendChild(document.createTextNode(clock((e.time_tehran || "—").replace("+1", ""))));
-				if ((e.time_tehran || "").indexOf("+1") !== -1) {
-					time.appendChild(el("span", "plus", "فردا"));
+			/** ستونِ ساعت. رویدادِ بی‌ساعت هم باید ردیفِ درست بگیرد. */
+			function timeCell(e) {
+				var t = el("div", "event-time");
+				var raw = (e.time_tehran || "").replace("+1", "");
+				if (!raw) {
+					// منبع برای بعضی رویدادها ساعت نمی‌دهد. تا امروز خطِ تیره
+					// می‌گرفتند که با «ساعتش را نمی‌دانیم» فرق دارد.
+					t.appendChild(el("span", "event-when", "نامشخص"));
+					return t;
 				}
-				rail.appendChild(time);
-				node.appendChild(rail);
+				t.appendChild(document.createTextNode(clock(raw)));
+				if ((e.time_tehran || "").indexOf("+1") !== -1) t.appendChild(el("span", "plus", "فردا"));
+				return t;
+			}
+
+			/**
+			 * ردیفِ خبر - یک سطرِ دفتری.
+			 *
+			 * تا امروز تاشو بود: عددها و خوانش پشتِ یک ضربه پنهان بودند. ولی
+			 * همان عددها تنها دلیلی‌اند که کسی این فهرست را باز می‌کند، و
+			 * هیچ نشانه‌ای هم نبود که چیزی زیرش هست. حالا همه‌چیز باز است.
+			 */
+			function eventNode(e) {
+				var imp = e.importance || "low";
+				var node = el("div", "event imp-" + imp);
+				if (e.at && new Date(e.at).getTime() < Date.now()) node.className += " is-past";
+
+				// خطِ سر: ساعت، پرچم، ارز، و نشانِ اهمیت.
+				var top = el("div", "event-top");
+				top.appendChild(timeCell(e));
+				var fl = flagChip(e);
+				if (fl) top.appendChild(fl);
+				if (e.currency) top.appendChild(el("span", "event-cur", e.currency));
+				top.appendChild(el("span", "event-gap"));
+				// نشانِ اهمیت پُر و برچسب‌دار است: رنگ به‌تنهایی کافی نبود، و
+				// لبه‌ی نازکِ کناری روی صفحه‌ی روشن تقریباً دیده نمی‌شد.
+				top.appendChild(el("span", "imp-badge imp-" + imp, IMP_FA[imp] || imp));
+				node.appendChild(top);
 
 				var nm = el("div", "event-nm");
-				// نام انگلیسی همان تیتر می‌ماند؛ ترجمه‌ی فارسی که تا امروز
-				// فقط با باز کردن ردیف دیده می‌شد، یک خط ریز زیرش آمد.
 				nm.appendChild(el("div", "event-title-en", e.en || e.title || e.short || ""));
-				if (e.title && e.title !== (e.en || "")) {
-					nm.appendChild(el("div", "event-fa", e.title));
-				}
+				if (e.title && e.title !== (e.en || "")) nm.appendChild(el("div", "event-fa", e.title));
 				node.appendChild(nm);
 
-				var s = surpriseOf(e);
-				if (e.actual) {
-					var vals = el("div", "vals");
-					// رنگِ عدد از قضاوتِ سرور می‌آید (e.read) نه از بالا/پایین
-					// بودنِ خام: برای شاخص‌های معکوس مثل نرخ بیکاری، «بالاتر»
-					// یعنی بدتر.
-					var tone = e.read ? (e.read.good ? " is-up" : " is-down") : "";
-					vals.appendChild(el("span", "val-big" + tone, fa(e.actual)));
-					vals.appendChild(el("span", "val-k", "واقعی"));
+				// جدولِ سه‌ستونی. خبرِ بی‌عدد اصلاً این بخش را نمی‌گیرد.
+				if (e.forecast || e.actual || e.previous) {
+					var grid = el("div", "nums");
+					grid.appendChild(numCell("قبلی", e.previous, ""));
+					grid.appendChild(numCell("پیش‌بینی", e.forecast, ""));
 
+					// رنگِ «واقعی» از قضاوتِ سرور می‌آید (e.read)، نه از بالا/پایین
+					// بودنِ خام: مدعیانِ بیکاریِ کمتر عددِ پایین‌تر است ولی خبرِ خوبی
+					// برای دلار، و رنگ کردنش با «پایین‌تر = بد» عکسِ واقعیت را
+					// می‌گفت.
+					var tone = e.read ? (e.read.good ? "is-up" : "is-down") : "";
+					var actual = numCell("واقعی", e.actual, tone);
+					var s = e.actual ? surpriseOf(e) : null;
 					if (s) {
-						var sTone = s.dir === "flat" ? "is-flat" : (e.read ? (e.read.good ? "is-up" : "is-down") : "is-flat");
-						vals.appendChild(el("div", "surprise " + sTone, s.text));
+						var dTone = s.dir === "flat" ? "is-flat" : tone;
+						actual.appendChild(el("div", "delta " + dTone, s.text));
 					}
-
-					if (e.forecast) {
-						var sm = el("span", "val-small");
-						sm.appendChild(el("b", null, fa(e.forecast)));
-						sm.appendChild(el("span", null, "پیش‌بینی"));
-						vals.appendChild(sm);
-					}
-					nm.appendChild(vals);
-				} else if (e.forecast || e.previous) {
-					var pend = el("div", "pending");
-					pend.appendChild(el("span", "k", "پیش‌بینی"));
-					pend.appendChild(el("b", null, fa(e.forecast || "—")));
-					pend.appendChild(el("span", "k", "· قبلی"));
-					pend.appendChild(el("b", null, fa(e.previous || "—")));
-					nm.appendChild(pend);
+					grid.appendChild(actual);
+					node.appendChild(grid);
 				}
 
-				var detail = el("div", "event-detail");
+				// خوانش: بعد از انتشار قضاوت، پیش از آن «معمولاً چه چیزی خوب
+				// است» - همان چیزی که ForexFactory «Usual Effect» می‌نامد و
+				// پیش از این فقط با باز کردنِ ردیف دیده می‌شد.
+				var cur = CUR_FA[e.currency] || "دلار";
 				if (e.read) {
-					detail.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
+					node.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
 						(e.read.higher ? "▲ بالاتر از پیش‌بینی — " : "▼ پایین‌تر از پیش‌بینی — ") +
-						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار")));
+						(e.read.good ? "معمولاً مثبت برای " : "معمولاً منفی برای ") + cur));
 				}
-				var chart = historyChart(e);
-				if (chart) detail.appendChild(chart);
-				var meta = el("div", "event-meta");
-				meta.appendChild(el("span", null, "قبلی: " + fa(e.previous || "—")));
-				meta.appendChild(el("span", null, "پیش‌بینی: " + fa(e.forecast || "—")));
-				detail.appendChild(meta);
-				detail.appendChild(el("div", null, "اهمیت: " +
-					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
-				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
-				node.appendChild(detail);
 
-				node.addEventListener("click", function () {
-					state.open[e.event_id] = !state.open[e.event_id];
-					node.classList.toggle("is-open");
-					haptic("select");
-				});
+				var chart = historyChart(e);
+				if (chart) node.appendChild(chart);
+
+				var foot = footText(e);
+				if (foot) node.appendChild(foot);
+				return node;
+			}
+
+			function numCell(k, v, tone) {
+				var cell = el("div", "num");
+				cell.appendChild(el("div", "num-k", k));
+				cell.appendChild(el("div", "num-v " + (tone || ""), v ? fa(v) : "—"));
+				return cell;
+			}
+
+			function footText(e) {
+				if (e.actual) return el("div", "event-foot", "منتشر شد");
+				var at = e.at ? new Date(e.at).getTime() : null;
+				if (!at || at <= Date.now()) return null;
+				var box = el("div", "event-foot");
+				box.appendChild(document.createTextNode("تا "));
+				box.appendChild(el("b", "soon", untilText(at, new Date())));
+				box.appendChild(document.createTextNode(" دیگر"));
+				return box;
+			}
+
+			/**
+			 * ردیفِ فشرده‌ی خبرِ گذشته - فقط در نمای هفته.
+			 *
+			 * در «امروز» عددها همان چیزی‌اند که دنبالش آمده‌اید. در «این هفته»
+			 * دنبالِ شکلِ هفته‌اید و چهل کارتِ هم‌اندازه فقط سرِ راه‌اند.
+			 */
+			function slimNode(e) {
+				var imp = e.importance || "low";
+				var node = el("div", "slim");
+				node.appendChild(el("span", "slim-t", clock((e.time_tehran || "—").replace("+1", ""))));
+				var fl = flagChip(e);
+				if (fl) node.appendChild(fl);
+				var sq = el("i", "lvl-sq");
+				sq.style.background = "var(--" + (imp === "low" ? "imp-low" : imp) + ")";
+				node.appendChild(sq);
+				node.appendChild(el("span", "slim-nm", e.en || e.title || e.short || ""));
+				var tone = e.read ? (e.read.good ? "is-up" : "is-down") : "";
+				node.appendChild(el("span", "slim-v " + tone, e.actual ? fa(e.actual) : "—"));
 				return node;
 			}
 
 			// Walks an ordered slice of events and appends them to `list`,
 			// wrapping every run that shares one date and one release minute
 			// in a cluster tray. Untimed events never cluster.
+			// آیا این ردیف باید فشرده برود؟
+			//
+			// فقط خبرِ منتشرشده، و فقط در نمای هفته. در «امروز» عددها همان
+			// چیزی‌اند که کاربر دنبالش آمده؛ در هفته دنبالِ شکلِ هفته است و
+			// چهل کارتِ هم‌اندازه سرِ راه‌اند.
+			function rowFor(e) {
+				return (state.scope === "week" && e.actual) ? slimNode(e) : eventNode(e);
+			}
+
+			// خطِ «الان» - جای دو برچسبِ «منتشر شده (n)» و «پیش رو (n)».
+			//
+			// مرزش را همان splitAt تعیین می‌کند که از قبل بود و محتاط است:
+			// فقط وقتی کشیده می‌شود که فهرست واقعاً دو تکه‌ی تمیز باشد،
+			// چون خطی که جای اشتباه بیفتد بدتر از نبودنش است.
+			function nowDivider() {
+				var d = el("div", "nowdiv");
+				d.appendChild(el("span", null, "الان · " +
+					clock(hhmmInZone(Date.now(), "Asia/Tehran"))));
+				return d;
+			}
+
 			function appendClustered(list, evts) {
 				var run = [];
 				function flush() {
 					if (run.length === 0) return;
 					if (run.length === 1) {
-						list.appendChild(eventNode(run[0]));
+						list.appendChild(rowFor(run[0]));
 					} else {
 						var box = el("div", "cluster");
 						var head = el("div", "cluster-head");
@@ -748,13 +812,13 @@
 						}
 						head.appendChild(el("span", null, fa(run.length) + " رویداد هم‌زمان"));
 						box.appendChild(head);
-						run.forEach(function (e) { box.appendChild(eventNode(e)); });
+						run.forEach(function (e) { box.appendChild(rowFor(e)); });
 						list.appendChild(box);
 					}
 					run = [];
 				}
 				evts.forEach(function (e) {
-					if (!e.time_tehran) { flush(); list.appendChild(eventNode(e)); return; }
+					if (!e.time_tehran) { flush(); list.appendChild(rowFor(e)); return; }
 					if (run.length && (run[0].date !== e.date || run[0].time_tehran !== e.time_tehran)) flush();
 					run.push(e);
 				});
@@ -1460,12 +1524,13 @@
 							}
 						});
 					}
-					if (splitAt !== null && idx === 0) {
-						list.appendChild(el("div", "split", "منتشر شده (" + fa(splitAt) + ")"));
-					}
+					// یک خط به‌جای دو برچسب. «منتشر شده (۳)» بالای فهرست چیزی
+					// نمی‌گفت که خودِ ردیف‌ها نگویند، و «پیش رو (۲)» شمارشی
+					// بود که کسی لازمش نداشت. خطِ «الان» به‌جایش می‌گوید
+					// کاربر کجای روز است - و ساعت را هم می‌گوید.
 					if (splitAt !== null && idx === splitAt) {
 						flushDay();
-						list.appendChild(el("div", "split", "پیش رو (" + fa(events.length - splitAt) + ")"));
+						list.appendChild(nowDivider());
 					}
 					dayBuf.push(e);
 				});
