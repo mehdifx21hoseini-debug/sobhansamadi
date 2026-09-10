@@ -95,11 +95,10 @@
 			<button type="button" id="btnClearSearch" class="search-clear" aria-label="پاک کردن جستجو" hidden>×</button>
 		</div>
 
-		<div class="chips">
-			<button class="chip" data-imp="all" aria-pressed="true">همه</button>
-			<button class="chip" data-imp="high" aria-pressed="false">🔴 خیلی مهم</button>
-			<button class="chip" data-imp="medium" aria-pressed="false">🟡 مهم به بالا</button>
-		</div>
+		<!-- فیلترِ اهمیت به تنظیمات رفت. این خط فقط یادآوری می‌کند چه
+		     چیزی پنهان است - بدونِ آن، کاربر خبری را نمی‌بیند و فکر
+		     می‌کند خبری نیست. -->
+		<div class="filterbar" id="filterBar" hidden></div>
 
 		<div id="list">
 			<div class="skel"></div>
@@ -112,6 +111,12 @@
 			<p class="sub">خلاصه و تفسیر خبرهای امروز.</p>
 			<button class="ai-btn" id="btnExplain" type="button">نمایش تحلیل امروز</button>
 			<div id="aiBody" class="ai-body" hidden></div>
+		</div>
+
+		<div id="levelCard" class="alerts" hidden>
+			<h2>سطح اهمیت خبرها</h2>
+			<p class="sub">همان سه سطحی که ForexFactory دارد. هر سطحی که خاموش شود، در فهرست اخبار نمایش داده نمی‌شود.</p>
+			<div id="levelRows"></div>
 		</div>
 
 		<div id="currencyCard" class="alerts" hidden>

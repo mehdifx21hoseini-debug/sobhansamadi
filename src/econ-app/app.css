@@ -688,6 +688,47 @@
 			margin: 0 2px 10px;
 		}
 
+		/* ── یادآوریِ فیلترِ اهمیت ─────────────────────────────────────
+		   فیلتر به تنظیمات رفت، پس فهرست باید بگوید چه چیزی را پنهان
+		   می‌کند - وگرنه کاربر خبری را نمی‌بیند و فکر می‌کند خبری نیست. */
+		.filterbar {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+			padding: 0 2px 2px;
+			font-size: 0.7rem;
+			color: var(--muted);
+		}
+		.flt { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
+		.flt.is-off { opacity: .4; text-decoration: line-through; }
+		.flt-go {
+			margin-inline-start: auto;
+			appearance: none;
+			border: 0;
+			background: none;
+			font-family: inherit;
+			font-size: 0.7rem;
+			font-weight: 700;
+			color: var(--signal);
+			cursor: pointer;
+			padding: 0;
+		}
+
+		/* مربعِ رنگیِ سطح - همان نشانی که روی ردیفِ خبر هم می‌نشیند. */
+		.lvl-sq { width: 9px; height: 9px; border-radius: var(--r-sm); flex: none; display: inline-block; }
+		.lvl-label { display: flex; align-items: center; gap: 8px; }
+		.lvl-en {
+			font-family: var(--f-num);
+			letter-spacing: .04em;
+			direction: ltr;
+			unicode-bidi: isolate;
+			text-align: start;
+		}
+		/* کلیدِ سطح رنگِ خودِ سطح را می‌گیرد، نه سرخابی: سرخابی معنیِ «الان»
+		   را دارد و اگر اینجا هم بنشیند آن معنی رقیق می‌شود. */
+		.switch.lvl-switch[aria-checked="true"] { background: var(--lvl); }
+
 		.chips {
 			display: flex;
 			gap: 7px;
@@ -1195,99 +1236,6 @@
 		.sb-ck-time { font-size: 0.92rem; font-weight: 800; margin-top: 3px; letter-spacing: -.4px; }
 		.sb-ck-day { font-size: 0.58rem; color: var(--sb-muted); margin-top: 1px; }
 		.sb-ck.is-live .sb-ck-time { color: var(--sb-live); }
-
-		/* ---------- day timeline ---------- */
-		.tl {
-			background: var(--card);
-			border-radius: var(--r);
-			padding: 13px 15px 11px;
-			margin-bottom: 16px;
-		}
-
-		.tl-head {
-			display: flex;
-			align-items: baseline;
-			justify-content: space-between;
-			margin-bottom: 12px;
-		}
-
-		.tl-title { font-size: 0.86rem; font-weight: 700; }
-
-		.tl-count { font-size: 0.74rem; color: var(--muted); }
-
-		/* The track is the positioning context for every mark inside it, all of
-		   which are placed with `right` because the page is RTL. */
-		.tl-track {
-			position: relative;
-			height: 30px;
-			border-radius: var(--r);
-			background: color-mix(in srgb, var(--muted) 16%, transparent);
-			overflow: hidden;
-		}
-
-		.tl-band {
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			background: color-mix(in srgb, var(--high) 30%, transparent);
-		}
-
-		.tl-tick {
-			position: absolute;
-			top: 5px;
-			bottom: 5px;
-			width: 3px;
-			border-radius: var(--r-sm);
-			margin-right: -1.5px;
-		}
-
-		.tl-tick.imp-high { background: var(--high); }
-		.tl-tick.imp-medium { background: var(--medium); }
-		.tl-tick.imp-low { background: color-mix(in srgb, var(--low) 80%, transparent); }
-
-		/* سرخابی، همان رنگی که در تابلوی سشن‌ها «الان» را می‌گوید. یک رنگ،
-		   یک معنی، در هر دو تب. */
-		.tl-now {
-			position: absolute;
-			top: -2px;
-			bottom: -2px;
-			width: 2px;
-			margin-right: -1px;
-			background: var(--signal);
-			z-index: 2;
-		}
-
-		.tl-now::before {
-			content: "";
-			position: absolute;
-			top: 0;
-			right: -3px;
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: var(--signal);
-		}
-
-		.tl-axis {
-			position: relative;
-			height: 15px;
-			margin-top: 5px;
-		}
-
-		.tl-hour {
-			position: absolute;
-			transform: translateX(50%);
-			font-size: 0.64rem;
-			color: var(--muted);
-			font-variant-numeric: tabular-nums;
-		}
-
-		.tl-legend {
-			font-size: 0.7rem;
-			color: var(--muted);
-			line-height: 1.7;
-			margin-top: 4px;
-		}
 
 /* ---------- day groups ---------- */
 		.day-head {

@@ -40,7 +40,10 @@
 				// نگه داشته می‌شود چون scope با رفتن به سشن‌ها یا تنظیمات
 				// عوض می‌شود و آن‌وقت راهی نمی‌ماند بفهمیم «این هفته» بود.
 				newsRange: "today",
-				importance: "all",
+				// سه سطحِ مستقل، مثل ForexFactory - نه یک انتخابِ سه‌حالته.
+				// «مهم به بالا» یعنی کاربر نمی‌توانست فقط متوسط را ببیند، و
+				// اصلاً نمی‌توانست کم‌اهمیت‌ها را روشن کند.
+				levels: { high: true, medium: true, low: false },
 				data: null,
 				// The last load failure, kept so a tab switch can put the
 				// message and its retry button back instead of a blank list.
@@ -218,6 +221,103 @@
 					normalize(e.en).indexOf(q) !== -1;
 			}
 
+			// ---------- سطحِ اهمیت ----------
+			//
+			// سه سطحِ ForexFactory با همان سه رنگ. جایشان تنظیمات است نه بالای
+			// فهرست: چیزی که یک بار تنظیم می‌شود و ماه‌ها دست نمی‌خورد، نباید
+			// هر بار جای خبرها را بگیرد.
+			var LEVELS = [
+				{ key: "high", fa: "مهم", en: "High Impact" },
+				{ key: "medium", fa: "متوسط", en: "Medium Impact" },
+				{ key: "low", fa: "کم‌اهمیت", en: "Low Impact" }
+			];
+			var LEVELS_KEY = "econ.levels";
+
+			function levelOn(imp) {
+				// ردیفی که سطحش را نمی‌شناسیم پنهان نمی‌شود: بهتر است چیزی
+				// اضافه دیده شود تا اینکه خبری بی‌صدا گم شود.
+				if (!imp || !(imp in state.levels)) return true;
+				return state.levels[imp];
+			}
+
+			function loadLevels() {
+				try {
+					var raw = localStorage.getItem(LEVELS_KEY);
+					if (!raw) return;
+					var v = JSON.parse(raw);
+					LEVELS.forEach(function (l) {
+						if (typeof v[l.key] === "boolean") state.levels[l.key] = v[l.key];
+					});
+				} catch (e) { /* ترجیح است، نه داده */ }
+			}
+
+			function saveLevels() {
+				try { localStorage.setItem(LEVELS_KEY, JSON.stringify(state.levels)); }
+				catch (e) { /* ترجیح است، نه داده */ }
+			}
+
+			function renderLevels() {
+				var wrap = document.getElementById("levelRows");
+				if (!wrap) return;
+				wrap.textContent = "";
+				LEVELS.forEach(function (l) {
+					var row = el("div", "row");
+					var left = el("div", null);
+					var lab = el("div", "label lvl-label");
+					var sq = el("i", "lvl-sq");
+					sq.style.background = "var(--" + (l.key === "low" ? "imp-low" : l.key) + ")";
+					lab.appendChild(sq);
+					lab.appendChild(document.createTextNode(l.fa));
+					left.appendChild(lab);
+					left.appendChild(el("div", "hint lvl-en", l.en));
+					row.appendChild(left);
+
+					var sw = el("button", "switch lvl-switch");
+					sw.type = "button";
+					sw.setAttribute("role", "switch");
+					sw.setAttribute("aria-checked", state.levels[l.key] ? "true" : "false");
+					sw.setAttribute("aria-label", l.fa);
+					// کلید رنگِ خودِ سطح را می‌گیرد نه سرخابی، تا رنگ‌ها همان
+					// معنایی را داشته باشند که در فهرست دارند.
+					sw.style.setProperty("--lvl", "var(--" + (l.key === "low" ? "imp-low" : l.key) + ")");
+					sw.addEventListener("click", function () {
+						state.levels[l.key] = !state.levels[l.key];
+						sw.setAttribute("aria-checked", state.levels[l.key] ? "true" : "false");
+						saveLevels();
+						haptic("select");
+						renderList();
+					});
+					row.appendChild(sw);
+					wrap.appendChild(row);
+				});
+			}
+
+			// یادآوریِ فیلترِ فعال، بالای فهرست. فقط وقتی چیزی خاموش است.
+			function renderFilterBar() {
+				var bar = document.getElementById("filterBar");
+				if (!bar) return;
+				var anyOff = LEVELS.some(function (l) { return !state.levels[l.key]; });
+				bar.hidden = anyOff === false || (state.scope !== "today" && state.scope !== "week");
+				if (bar.hidden) return;
+				bar.textContent = "";
+				LEVELS.forEach(function (l) {
+					var on = state.levels[l.key];
+					var chipEl = el("span", "flt" + (on ? "" : " is-off"));
+					var sq = el("i", "lvl-sq");
+					sq.style.background = "var(--" + (l.key === "low" ? "imp-low" : l.key) + ")";
+					chipEl.appendChild(sq);
+					chipEl.appendChild(document.createTextNode(l.fa));
+					bar.appendChild(chipEl);
+				});
+				var go = el("button", "flt-go", "تغییر در تنظیمات");
+				go.type = "button";
+				go.addEventListener("click", function () {
+					var t = document.getElementById("tabSettings");
+					if (t) t.click();
+				});
+				bar.appendChild(go);
+			}
+
 			function visibleEvents() {
 				if (!state.data) return [];
 				var today = state.data.today;
@@ -226,8 +326,7 @@
 				// reader happens to be on, so it looks across everything loaded.
 				if (state.query) {
 					return state.data.events.filter(function (e) {
-						if (state.importance === "high" && e.importance !== "high") return false;
-						if (state.importance === "medium" && e.importance === "low") return false;
+						if (!levelOn(e.importance)) return false;
 						return matchesQuery(e);
 					});
 				}
@@ -237,8 +336,7 @@
 				return state.data.events.filter(function (e) {
 					if (state.scope === "today" && e.date !== today) return false;
 					if (state.scope === "week" && e.date > weekEnd) return false;
-					if (state.importance === "high" && e.importance !== "high") return false;
-					if (state.importance === "medium" && e.importance === "low") return false;
+					if (!levelOn(e.importance)) return false;
 					return true;
 				});
 			}
@@ -312,11 +410,14 @@
 					ranges[i].setAttribute("aria-pressed", ranges[i].getAttribute("data-range") === scope ? "true" : "false");
 				}
 
-				// جست‌وجو و فیلترِ اهمیت لحظه‌ای‌اند: موقع نگاه کردن به اخبار
-				// عوض می‌شوند و بعد رها. پس کنارِ خودِ اخبار می‌مانند.
+				// جست‌وجو لحظه‌ای است: موقع نگاه کردن به اخبار عوض می‌شود و بعد
+				// رها. پس کنارِ خودِ اخبار می‌ماند.
+				//
+				// فیلترِ اهمیت برعکس است و به تنظیمات رفت: یک‌بار تنظیم می‌شود
+				// و ماه‌ها دست نمی‌خورد، پس نباید هر بار جای خبرها را بگیرد.
 				document.querySelector(".search-row").hidden = !news;
-				document.querySelector(".chips").hidden = !news;
 				document.getElementById("aiCard").hidden = !news || !state.data;
+				renderFilterBar();
 
 				// ارز و هشدار ترجیح‌اند، نه فیلترِ نما: یک‌بار تنظیم می‌شوند و
 				// هم روی این صفحه اثر دارند هم روی پیامی که ربات می‌فرستد.
@@ -325,6 +426,9 @@
 				var sub = state.data && state.data.subscription;
 				document.getElementById("alertsCard").hidden = !settings || !sub;
 				document.getElementById("currencyCard").hidden = !settings || !sub;
+				// سطحِ اهمیت فیلترِ نماست و به اشتراک وابسته نیست، پس برخلافِ
+				// آن دو حتی بی‌ردیفِ اشتراک هم نشان داده می‌شود.
+				document.getElementById("levelCard").hidden = !settings;
 
 				// فهرست رویدادها در تنظیمات چیزی برای گفتن ندارد.
 				document.getElementById("list").hidden = settings;
@@ -732,71 +836,13 @@
 				return Math.max(0, Math.min(100, ((mins - from) / (to - from)) * 100));
 			}
 
-			function renderTimeline(container) {
-				var todays = todaysEvents().filter(function (e) { return minutesOfDay(e) !== null; });
-				if (todays.length === 0) return;
+			// نوارِ زمانیِ روز برداشته شد.
+			//
+			// یک نوارِ ۲۴ ساعته با تیک برای هر خبر بود، بالای فهرست. روی
+			// عرضِ گوشی هر تیک چند پیکسل می‌شد و کنارِ هم می‌افتادند، پس
+			// چیزی نمی‌گفت که خودِ فهرست - که مرتب و ساعت‌دار است - بهتر
+			// نگوید. جایش را خطِ «الان» گرفت که یک کار می‌کند و آن را روشن.
 
-				var wrap = el("div", "tl");
-				var head = el("div", "tl-head");
-				var highs = todays.filter(function (e) { return e.importance === "high"; });
-				head.appendChild(el("span", "tl-title", "نوار زمانی امروز"));
-				head.appendChild(el("span", "tl-count",
-					highs.length > 0
-						? fa(highs.length) + " پنجره پرریسک"
-						: "بدون پنجره پرریسک"));
-				wrap.appendChild(head);
-
-				var track = el("div", "tl-track");
-
-				// Risk bands first so ticks and the now-line draw on top.
-				highs.forEach(function (e) {
-					var m = minutesOfDay(e);
-					var a = pctOfDay(m - RISK_PAD_MINUTES);
-					var b = pctOfDay(m + RISK_PAD_MINUTES);
-					var band = el("div", "tl-band");
-					band.style.right = a + "%";
-					band.style.width = Math.max(1.5, b - a) + "%";
-					band.title = e.title;
-					track.appendChild(band);
-				});
-
-				todays.forEach(function (e) {
-					var tick = el("div", "tl-tick imp-" + (e.importance || "low"));
-					tick.style.right = pctOfDay(minutesOfDay(e)) + "%";
-					tick.title = (e.time_tehran || "") + " " + e.title;
-					track.appendChild(tick);
-				});
-
-				// The marker only makes sense while the clock is inside the strip.
-				//
-				// تهران، نه ساعتِ دستگاه. نوارهای قرمز از ساعت‌های تهرانِ
-				// رویدادها ساخته می‌شوند؛ اگر این خط از getHours بخواند، برای
-				// هر کاربر بیرون از ایران به اندازه‌ی اختلافِ منطقه‌اش با
-				// نوارها فاصله می‌گیرد - اندازه گرفته شد: با دستگاهِ نیویورک
-				// خط روی ۱۱٪ می‌نشست، جایی که باید ۵۳٪ می‌بود.
-				var nowMins = tehranMinutesOf(Date.now());
-				if (nowMins >= DAY_START_HOUR * 60 && nowMins <= DAY_END_HOUR * 60) {
-					var nowEl = el("div", "tl-now");
-					nowEl.style.right = pctOfDay(nowMins) + "%";
-					nowEl.title = "الان";
-					track.appendChild(nowEl);
-				}
-				wrap.appendChild(track);
-
-				var axis = el("div", "tl-axis");
-				[6, 10, 14, 18, 22].forEach(function (h) {
-					var lab = el("span", "tl-hour", clock(h < 10 ? "0" + h : h));
-					lab.style.right = pctOfDay(h * 60) + "%";
-					axis.appendChild(lab);
-				});
-				wrap.appendChild(axis);
-
-				wrap.appendChild(el("div", "tl-legend",
-					highs.length > 0
-						? "نوار قرمز: ۳۰ دقیقه قبل و بعد از خبر خیلی مهم — پرنوسان‌ترین بازه‌ی روز."
-						: "امروز خبر خیلی مهمی نیست؛ نوسان معمولاً محدودتر است."));
-				container.appendChild(wrap);
-			}
 
 			// ---------- markets view ----------
 			// ---------- world map ----------
@@ -1321,7 +1367,7 @@
 
 				// The timeline is about today specifically, so it belongs to the
 				// today tab and not to a search across 45 days.
-				if (state.scope === "today" && !state.query) renderTimeline(list);
+
 
 				if (state.query) {
 					var found = visibleEvents();
@@ -1762,17 +1808,6 @@
 				});
 			});
 
-			var chips = document.querySelectorAll(".chip");
-			for (var i = 0; i < chips.length; i++) {
-				chips[i].addEventListener("click", function () {
-					state.importance = this.getAttribute("data-imp");
-					for (var j = 0; j < chips.length; j++) {
-						chips[j].setAttribute("aria-pressed", chips[j] === this ? "true" : "false");
-					}
-					haptic("select");
-					renderList();
-				});
-			}
 
 			document.getElementById("swSubscribed").addEventListener("click", function () {
 				if (!state.data || !state.data.subscription) return;
@@ -1837,6 +1872,12 @@
 			//
 			// بیرون از شرطِ تلگرام هم هست: آن صفحه‌ی خطا همین تب‌ها را
 			// نشان می‌دهد و نباید حالتِ ناجورِ خودش را داشته باشد.
+			// سطوحِ اهمیت پیش از setScope خوانده و رندر می‌شوند: خودِ setScope
+			// نوارِ یادآوریِ فیلتر را می‌سازد و باید مقدارِ ذخیره‌شده را ببیند،
+			// نه پیش‌فرض را.
+			loadLevels();
+			renderLevels();
+
 			setScope(readStoredScope() || state.scope);
 
 			if (!tg || !tg.initData) {

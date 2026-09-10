@@ -105,10 +105,16 @@ const CLOCK_STUB = `(function () {
 
 // ─── ادعاها ─────────────────────────────────────────────────────────
 
+// هر تب یک نشانه دارد که باید *دیده* شود.
+//
+// بدونِ این، ادعای «تب خالی نیست» پوک بود: innerText روی عنصری که رندر
+// نمی‌شود به textContent برمی‌گردد، پس فهرستِ پنهانِ اخبار در تبِ
+// تنظیمات هم متن داشت و بررسی سبز می‌ماند بی‌آنکه چیزی از تنظیمات رندر
+// شده باشد.
 const TABS = [
-  { id: "#tabMarkets", name: "سشن‌ها" },
-  { id: "#tabNews", name: "اخبار" },
-  { id: "#tabSettings", name: "تنظیمات" },
+  { id: "#tabMarkets", name: "سشن‌ها", must: ".sb" },
+  { id: "#tabNews", name: "اخبار", must: "#list" },
+  { id: "#tabSettings", name: "تنظیمات", must: "#levelCard" },
 ];
 
 // زیرِ این عدد یعنی تب عملاً خالی است. عمداً پایین گرفته شده تا فقط
@@ -187,18 +193,25 @@ async function run() {
       await el.click();
       await page.waitForTimeout(700);
 
-      const seen = await page.evaluate(() => {
+      const seen = await page.evaluate((sel) => {
         const doc = document.documentElement;
+        const node = document.querySelector(sel);
         return {
-          text: (document.getElementById("list") || document.body).innerText.trim().length,
+          // innerText روی body فقط چیزی را می‌شمارد که واقعاً رندر شده،
+          // پس زیردرخت‌های پنهان در این عدد نیستند.
+          text: document.body.innerText.trim().length,
+          shown: !!node && node.offsetParent !== null && node.innerText.trim().length > 0,
           overflow: doc.scrollWidth - doc.clientWidth,
           gate: !!document.body.innerText.match(/از داخل ربات تلگرام باز/),
         };
-      });
+      }, tab.must);
 
       if (seen.gate) fail(theme + " · اپ پشتِ دروازه‌ی تلگرام مانده - استابِ initData کار نکرد");
       if (seen.text < MIN_TEXT) {
         fail(theme + " · تبِ «" + tab.name + "» عملاً خالی است (" + seen.text + " نویسه)");
+      }
+      if (!seen.shown) {
+        fail(theme + " · تبِ «" + tab.name + "»: «" + tab.must + "» دیده نمی‌شود");
       }
       if (seen.overflow > 0) {
         fail(theme + " · تبِ «" + tab.name + "» افقی اسکرول می‌خورد (" + seen.overflow + "px)");
