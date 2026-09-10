@@ -324,6 +324,36 @@ export async function sendExpertVideos(ctx) {
   }
 
   await ctx.reply(text, { reply_markup: next });
+  await sendBrokerNotice(ctx);
+}
+
+/**
+ * یادداشتِ بروکر، بعد از تحویلِ اکسپرت.
+ *
+ * پیامِ جدا و نه چسبیده به فایل: کپشنِ تلگرام سقفِ ۱۰۲۴ کاراکتری دارد و
+ * این متن روی متنِ خودِ فایل سوار می‌شد؛ مهم‌تر از آن، یادداشت باید بعد
+ * از چیزی که کاربر خواسته بیاید، نه به‌جایش.
+ *
+ * دکمه به همان SEC_BROKER می‌رود که دکمه‌ی «بروکر معتمد» منوی اصلی
+ * می‌رود - یعنی معرفی، لینکِ ثبت‌نام و دو ویدیوی آموزش، همه یک‌جا. مسیرِ
+ * دوم ساخته نشد چون هر چه آنجا عوض شود باید اینجا هم عوض می‌شد.
+ *
+ * شکستنش کارِ اصلی را خراب نمی‌کند: فایل و ویدیو پیش از این رفته‌اند و
+ * یادداشت یک افزوده است، پس خطایش فقط ثبت می‌شود.
+ */
+async function sendBrokerNotice(ctx) {
+  const { text } = await resolveSection(ctx.env, "EXPERT_BROKER_NOTICE").catch(() => ({
+    text: D.EXPERT_BROKER_NOTICE_TEXT,
+  }));
+  await ctx
+    .reply(text || D.EXPERT_BROKER_NOTICE_TEXT, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🏦 بروکر معتمد", callback_data: "SEC_BROKER", style: "success" }],
+        ],
+      },
+    })
+    .catch((err) => console.error("یادداشت بروکر نرفت:", err && err.message));
 }
 
 export async function sendExpert(ctx) {
@@ -355,6 +385,10 @@ export async function handleExpertPlatform(ctx, platform) {
       { reply_markup: expertKeyboard() }
     );
   }
+
+  // در هر دو حالت می‌رود - چه فایل رسیده باشد چه فقط درخواست ثبت شده.
+  // کسی که منتظرِ فایل است هم همان تصمیمِ بروکر را پیشِ رو دارد.
+  await sendBrokerNotice(ctx);
 }
 
 // --- دوره‌های رایگان (زیرمنو) ---

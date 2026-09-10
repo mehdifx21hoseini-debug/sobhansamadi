@@ -22,6 +22,14 @@ export const SECTIONS = {
   WELCOME: { code: "WELCOME_TEXT", label: "👋 پیام خوش‌آمد (/start)", def: D.WELCOME_TEXT },
   LIBRARY: { code: "LIBRARY_INTRO_TEXT", label: "🧠 کتاب‌های روانشناسی", def: D.LIBRARY_INTRO_TEXT },
   EXPERT: { code: "EXPERT_INTRO_TEXT", label: "🤖 اکسپرت مدیریت سرمایه", def: D.EXPERT_INTRO_TEXT },
+  // یادداشتی که بعد از هر تحویلِ اکسپرت می‌رود. اینجا آمده تا مدیر
+  // بتواند از /edit عوضش کند - متنی که درباره‌ی بروکر حرف می‌زند
+  // احتمالِ تغییرش از متنِ معرفی بیشتر است، نه کمتر.
+  EXPERT_BROKER_NOTICE: {
+    code: "EXPERT_BROKER_NOTICE_TEXT",
+    label: "🏦 یادداشت بروکر — بعد از تحویل اکسپرت",
+    def: D.EXPERT_BROKER_NOTICE_TEXT,
+  },
   FREE_MENU: { code: "FREE_MENU_TEXT", label: "🎓 دوره‌های رایگان", def: D.FREE_MENU_TEXT },
   INTRO_COURSE: { code: "INTRO_COURSE_TEXT", label: "📚 دوره مقدماتی فارکس", def: D.INTRO_COURSE_TEXT },
   EQ_INTRO: { code: "EQ_INTRO_TEXT", label: "🧠 دوره هوش هیجانی", def: D.EQ_INTRO_TEXT },
