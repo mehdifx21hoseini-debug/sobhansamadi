@@ -44,6 +44,8 @@
 				// «مهم به بالا» یعنی کاربر نمی‌توانست فقط متوسط را ببیند، و
 				// اصلاً نمی‌توانست کم‌اهمیت‌ها را روشن کند.
 				levels: { high: true, medium: true, low: false },
+				// لحظه‌ی آخرین دریافتِ موفق، برای پیامِ خطا.
+				lastOk: null,
 				data: null,
 				// The last load failure, kept so a tab switch can put the
 				// message and its retry button back instead of a blank list.
@@ -797,6 +799,70 @@
 				return d;
 			}
 
+			/**
+			 * شمارشِ خبرهای امروز به تفکیکِ سطح، و رویدادِ بعدی.
+			 *
+			 * آخر هفته شمارشِ صفر چیزی نمی‌گوید، پس به‌جایش گفته می‌شود هفته‌ی
+			 * پیشِ رو چه دارد - همان چیزی که کاربر شنبه دنبالش آمده.
+			 */
+			function summaryTally(weekend) {
+				var box = el("div", "sb-sum");
+				var all = state.data ? state.data.events : [];
+
+				if (weekend) {
+					var ahead = all.filter(function (e) {
+						return e.date > state.data.today && e.importance === "high";
+					}).length;
+					var line = el("div", "sb-sum-next");
+					line.appendChild(el("span", "k", "هفته‌ی پیشِ رو"));
+					line.appendChild(document.createTextNode(
+						ahead ? fa(ahead) + " خبر مهم دارد." : "هنوز خبر مهمی ثبت نشده."));
+					box.appendChild(line);
+					return box;
+				}
+
+				var todays = todaysEvents();
+				function n(k) {
+					return todays.filter(function (e) { return (e.importance || "low") === k; }).length;
+				}
+				var grid = el("div", "sb-tally");
+				[["مهم", n("high"), "high"],
+				 ["متوسط", n("medium"), "medium"],
+				 ["کم‌اهمیت", n("low"), "imp-low"],
+				 ["منتشر شده", todays.filter(function (e) { return !!e.actual; }).length, null]
+				].forEach(function (row) {
+					var cell = el("div", "sb-tally-cell");
+					var num = el("div", "sb-tally-n", fa(row[1]));
+					if (row[2]) num.style.color = "var(--" + row[2] + ")";
+					cell.appendChild(num);
+					cell.appendChild(el("div", "sb-tally-k", row[0]));
+					grid.appendChild(cell);
+				});
+				box.appendChild(grid);
+
+				// رویدادِ بعدی - فقط آن‌هایی که سطحشان روشن است، وگرنه اپ خبری
+				// را وعده می‌داد که در فهرست نشان نمی‌دهد.
+				var now = Date.now();
+				var next = todays.filter(function (e) {
+					return e.at && new Date(e.at).getTime() > now && levelOn(e.importance);
+				})[0];
+				var nl = el("div", "sb-sum-next");
+				nl.appendChild(el("span", "k", "رویداد بعدی"));
+				if (next) {
+					var nm = el("span", "nm", next.en || next.title || next.short || "");
+					nm.dir = "ltr";
+					nl.appendChild(nm);
+					nl.appendChild(document.createTextNode(
+						" — " + clock((next.time_tehran || "").replace("+1", "")) + " · تا "));
+					nl.appendChild(el("b", "cd", untilText(new Date(next.at).getTime(), new Date())));
+					nl.appendChild(document.createTextNode(" دیگر"));
+				} else {
+					nl.appendChild(document.createTextNode("خبر دیگری برای امروز نمانده."));
+				}
+				box.appendChild(nl);
+				return box;
+			}
+
 			function appendClustered(list, evts) {
 				var run = [];
 				function flush() {
@@ -1120,11 +1186,23 @@
 				var status = el("div", "sb-status " +
 					(market.onBreak ? "is-break" : (market.open ? "is-open" : (weekend ? "is-weekend" : "is-closed"))));
 
+				// جای «بازار باز است»، خلاصه‌ی اخبارِ روز.
+				//
+				// آن جمله چیزی می‌گفت که نوارهای پایین‌تر - با «باز/بسته»ی
+				// خودشان و خطِ «الان» - از قبل و دقیق‌تر می‌گفتند. این صفحه
+				// اولین چیزی است که کاربر می‌بیند و باید به سوالِ واقعی‌اش
+				// جواب بدهد: امروز چه خبر است.
 				var st = el("div", "sb-state");
-				st.appendChild(el("span", "sb-dot"));
-				st.appendChild(el("span", null,
-					market.onBreak ? "تسویه‌ی روزانه"
-						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
+				st.appendChild(el("span", "sb-sum-title",
+					weekend ? "آخر هفته" : "خلاصه‌ی اخبار امروز"));
+				if (state.data && state.data.today) {
+					var dline = el("div", "sb-sum-date");
+					dline.appendChild(el("span", null, jalaliLabel(state.data.today)));
+					var g = el("span", "sb-sum-greg", " · " + gregorianLabel(state.data.today));
+					g.dir = "ltr";
+					dline.appendChild(g);
+					st.appendChild(dline);
+				}
 				status.appendChild(st);
 
 				// نامش clockBox است نه clock: تابعِ clock() در همین دامنه است
@@ -1157,6 +1235,7 @@
 					sub.appendChild(el("b", null, clock(hhmmInZone(market.until, VIEW()))));
 				}
 				status.appendChild(sub);
+				status.appendChild(summaryTally(weekend));
 				board.appendChild(enter(status));
 
 				// ---- the board card
@@ -1446,12 +1525,37 @@
 				if (events.length === 0) {
 					if (state.query) return; // the search note already said so
 					var empty = el("div", "empty");
-					empty.appendChild(el("span", "big", "🗓"));
-					empty.appendChild(document.createTextNode(
-						state.scope === "today"
-							? "امروز رویدادی با این فیلتر ثبت نشده."
-							: "در این هفته رویدادی با این فیلتر ثبت نشده."
-					));
+					// «با این فیلتر» همیشه گفته می‌شد، حتی وقتی هیچ فیلتری
+					// روشن نبود - و آخر هفته که بازار تعطیل است، جمله‌اش
+					// انگار تقصیر را گردنِ تنظیماتِ کاربر می‌انداخت.
+					var offLevels = LEVELS.filter(function (l) { return !state.levels[l.key]; });
+					var mk = marketState(new Date());
+					var isWeekend = !mk.open && !mk.onBreak && !!mk.nextOpen;
+
+					empty.appendChild(el("span", "big", isWeekend ? "🌙" : "🗓"));
+					if (isWeekend) {
+						empty.appendChild(document.createTextNode(
+							"آخر هفته است — بازارها بسته‌اند و داده‌ی تازه‌ای منتشر نمی‌شود."));
+						if (mk.nextOpen) {
+							empty.appendChild(document.createElement("br"));
+							empty.appendChild(document.createTextNode(
+								"دوباره " + dayInZone(mk.nextOpen, VIEW()) + " ساعت " +
+								clock(hhmmInZone(mk.nextOpen, VIEW())) + " باز می‌شوند."));
+						}
+					} else if (offLevels.length) {
+						empty.appendChild(document.createTextNode(
+							(state.scope === "today" ? "امروز" : "در این هفته") +
+							" خبری در سطح‌های روشن نیست. "));
+						empty.appendChild(document.createElement("br"));
+						empty.appendChild(document.createTextNode(
+							"سطح " + offLevels.map(function (l) { return l.fa; }).join(" و ") +
+							" خاموش است — از تنظیمات روشنش کنید."));
+					} else {
+						empty.appendChild(document.createTextNode(
+							state.scope === "today"
+								? "امروز رویدادی ثبت نشده."
+								: "در این هفته رویدادی ثبت نشده."));
+					}
 					// An empty day is normal at weekends and on US bank holidays,
 					// so offer the way out rather than a dead end.
 					if (state.scope === "today" && state.data.events.length > 0) {
@@ -1612,6 +1716,16 @@
 				var list = document.getElementById("list");
 				list.textContent = "";
 				var box = el("div", "error", state.failure.message);
+				// اگر یک بار داده گرفته‌ایم، بگو آخرین بارِ موفق کِی بوده.
+				// «دریافت اطلاعات ناموفق بود» به‌تنهایی نمی‌گوید چیزی که روی
+				// صفحه مانده به چه دردی می‌خورد - یک ساعت پیش است یا دیروز.
+				if (state.lastOk) {
+					box.appendChild(document.createElement("br"));
+					var age = el("span", "error-age",
+						"آخرین بروزرسانیِ موفق: " + clock(hhmmInZone(state.lastOk, "Asia/Tehran")) +
+						" به وقت تهران");
+					box.appendChild(age);
+				}
 				if (state.failure.retryable) {
 					var btn = el("button", null, "تلاش دوباره");
 					btn.addEventListener("click", load);
@@ -1625,6 +1739,7 @@
 					.then(function (body) {
 						state.data = body;
 						state.failure = null;
+						state.lastOk = Date.now();
 						// Landing on an empty "today" makes a working app look
 						// broken, and today is empty every weekend. Fall to the
 						// week whenever today has nothing — an empty screen is

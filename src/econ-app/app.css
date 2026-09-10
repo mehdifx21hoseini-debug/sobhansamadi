@@ -1317,6 +1317,65 @@
 		   نمی‌کند - فقط یک خطِ عمودیِ کوتاه کنار پرچم می‌ماند. */
 		.cluster .event-rail { border-inline-end: 0; padding-inline-end: 0; }
 
+		/* ---------- خلاصه‌ی اخبارِ روز (بالای تبِ سشن‌ها) ----------
+		   جای «بازار باز است». آن جمله چیزی می‌گفت که نوارهای پایین‌تر -
+		   با «باز/بسته»ی خودشان - از قبل و دقیق‌تر می‌گفتند. */
+		.sb-sum-title {
+			font-family: var(--f-head);
+			font-size: 0.92rem;
+			font-weight: 700;
+			line-height: 1.5;
+		}
+		.sb-sum-date { margin-top: 2px; font-size: 0.66rem; color: var(--sb-muted, var(--muted)); }
+		/* تاریخِ میلادی یک تکه است: بدونِ nowrap «۲۰۲۶» به خطِ بعد می‌افتاد
+		   و کنارِ ساعتِ بزرگ، کارت را سه‌خطی می‌کرد. */
+		.sb-sum-greg {
+			font-family: var(--f-num);
+			direction: ltr;
+			unicode-bidi: isolate;
+			white-space: nowrap;
+			opacity: .75;
+		}
+
+		.sb-sum { grid-column: 1 / -1; margin-top: 12px; }
+		.sb-tally {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			padding-top: 11px;
+			border-top: 1px solid var(--sb-line, var(--line));
+		}
+		.sb-tally-cell { text-align: center; }
+		.sb-tally-cell + .sb-tally-cell { border-inline-start: 1px solid var(--sb-line, var(--line)); }
+		.sb-tally-n { font-family: var(--f-num); font-size: 1.15rem; font-weight: 700; line-height: 1; }
+		.sb-tally-k { margin-top: 5px; font-size: 0.6rem; font-weight: 600; color: var(--sb-muted, var(--muted)); }
+
+		.sb-sum-next {
+			margin-top: 11px;
+			padding-top: 10px;
+			border-top: 1px solid var(--sb-line, var(--line));
+			font-size: 0.7rem;
+			line-height: 1.85;
+			color: var(--sb-muted, var(--muted));
+		}
+		.sb-sum-next .k {
+			display: block;
+			font-size: 0.58rem;
+			font-weight: 700;
+			letter-spacing: .07em;
+			opacity: .8;
+			margin-bottom: 2px;
+		}
+		.sb-sum-next .nm {
+			font-family: var(--f-num);
+			font-size: 0.8rem;
+			font-weight: 600;
+			color: var(--sb-text, var(--text));
+			unicode-bidi: isolate;
+		}
+		.sb-sum-next .cd { color: var(--signal); font-weight: 700; }
+
+		.error-age { display: inline-block; margin-top: 6px; font-size: 0.68rem; opacity: .8; }
+
 		/* ---------- ردیفِ خبر: یک سطرِ دفتری ----------
 
 		   تا امروز ردیف تاشو بود و عددها پشتِ یک ضربه پنهان. ولی همان
