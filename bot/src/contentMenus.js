@@ -365,6 +365,14 @@ export async function handleExpertPlatform(ctx, platform) {
   const name = platform === "MT4" ? "MetaTrader 4" : "MetaTrader 5";
   await logContentRequest(ctx.env, ctx.from.id, ctx.from.username, `EXPERT_${platform}_FILE`);
 
+  // یادداشتِ بروکر پیش از فایل می‌رود، نه بعدش.
+  //
+  // دو دلیل: کسی که فایل را گرفت همان‌جا سراغِ نصب می‌رود و پیامِ بعدی
+  // را نمی‌خواند، پس هشدار باید پیش از فایل دیده شود. و این‌طور فایل
+  // دوباره آخرین پیامِ گفت‌وگو می‌شود - همان چیزی که از اول می‌خواستیم،
+  // تا برای نصب لازم نباشد کاربر در چت بالا برود دنبالش.
+  await sendBrokerNotice(ctx);
+
   let delivered = 0;
   try {
     await ctx.replyWithChatAction("upload_document").catch(() => {});
@@ -386,9 +394,6 @@ export async function handleExpertPlatform(ctx, platform) {
     );
   }
 
-  // در هر دو حالت می‌رود - چه فایل رسیده باشد چه فقط درخواست ثبت شده.
-  // کسی که منتظرِ فایل است هم همان تصمیمِ بروکر را پیشِ رو دارد.
-  await sendBrokerNotice(ctx);
 }
 
 // --- دوره‌های رایگان (زیرمنو) ---
