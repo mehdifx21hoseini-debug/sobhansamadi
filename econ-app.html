@@ -2075,7 +2075,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 69e27f6f96</span>
+			<span class="build">نسخه 1ff7e03769</span>
 		</p>
 	</div>
 
@@ -2195,6 +2195,33 @@
 
 			function fa(n) {
 				return String(n).replace(/[0-9]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+			}
+
+			// ساعت با رقمِ لاتین - همان تصمیمی که در خودِ ربات گرفته شد.
+			//
+			// دلیلش سلیقه نیست، هم‌عرضی است: رقم‌های فارسی در فونتِ سیستم
+			// پهنای یکسان ندارند، و ساعت جایی است که عددها باید زیرِ هم
+			// بنشینند - ریلِ کنارِ خبرها، محورِ ساعت‌های نمودار، و ساعتی که
+			// هر ثانیه عوض می‌شود و با هر تغییر کمی جابه‌جا می‌شد.
+			//
+			// این تابع عمداً هیچ کاری نمی‌کند: می‌توانستیم همان `String` را
+			// صدا بزنیم، ولی آن‌وقت از روی کد معلوم نبود «اینجا عمداً فارسی
+			// نشده» یا «اینجا یادمان رفته». نامش همان مستند است.
+			function clock(s) {
+				return String(s);
+			}
+
+			// بازه‌ی ساعت، جدا از جهتِ راست‌به‌چپِ خط.
+			//
+			// «08:00–17:00» داخلِ یک خطِ فارسی وارونه دیده می‌شود: خطِ تیره
+			// نویسه‌ی خنثی است، پس دو عددِ چپ‌به‌راستِ دو طرفش جای‌شان عوض
+			// می‌شود و کاربر ساعتِ بسته شدن را اول می‌بیند. همان اشتباهی که
+			// در ردیف‌های تقویمِ ربات هم پیش آمد.
+			//
+			// LRI…PDI کلِ بازه را یک تکه‌ی چپ‌به‌راست اعلام می‌کند، پس ترتیب
+			// همانی می‌ماند که نوشته شده.
+			function clockRange(a, b) {
+				return "⁦" + clock(a) + "–" + clock(b) + "⁩";
 			}
 
 			function jalaliLabel(dateStr) {
@@ -2609,7 +2636,7 @@
 				var fl = flagChip(e);
 				if (fl) rail.appendChild(fl);
 				var time = el("div", "event-time");
-				time.appendChild(document.createTextNode(fa((e.time_tehran || "—").replace("+1", ""))));
+				time.appendChild(document.createTextNode(clock((e.time_tehran || "—").replace("+1", ""))));
 				if ((e.time_tehran || "").indexOf("+1") !== -1) {
 					time.appendChild(el("span", "plus", "فردا"));
 				}
@@ -2693,7 +2720,7 @@
 					} else {
 						var box = el("div", "cluster");
 						var head = el("div", "cluster-head");
-						head.appendChild(el("b", null, fa((run[0].time_tehran || "").replace("+1", ""))));
+						head.appendChild(el("b", null, clock((run[0].time_tehran || "").replace("+1", ""))));
 						if ((run[0].time_tehran || "").indexOf("+1") !== -1) {
 							head.appendChild(el("span", null, "فردا"));
 						}
@@ -2877,8 +2904,8 @@
 				var d = Math.floor(s / 86400);
 				var h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
 				var pad = function (n) { return (n < 10 ? "0" : "") + n; };
-				var clock = fa(pad(h) + ":" + pad(m) + ":" + pad(sec));
-				return d > 0 ? fa(d) + " روز و " + clock : clock;
+				var hms = clock(pad(h) + ":" + pad(m) + ":" + pad(sec));
+				return d > 0 ? fa(d) + " روز و " + hms : hms;
 			}
 
 			function untilText(instant, now) {
@@ -2985,7 +3012,7 @@
 
 				var axis = el("div", "tl-axis");
 				[6, 10, 14, 18, 22].forEach(function (h) {
-					var lab = el("span", "tl-hour", fa(h < 10 ? "0" + h : h));
+					var lab = el("span", "tl-hour", clock(h < 10 ? "0" + h : h));
 					lab.style.right = pctOfDay(h * 60) + "%";
 					axis.appendChild(lab);
 				});
@@ -3217,16 +3244,20 @@
 						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
 				status.appendChild(st);
 
-				var clock = el("div", "sb-clock");
+				// نامش clockBox است نه clock: تابعِ clock() در همین دامنه است
+				// و یک متغیرِ هم‌نام آن را می‌پوشاند - یعنی خطِ بعدی به‌جای
+				// قالب‌بندیِ ساعت، یک div را صدا می‌زد و کلِ تبِ سشن‌ها سفید
+				// می‌ماند.
+				var clockBox = el("div", "sb-clock");
 				// No seconds: they read as extra digits glued to the minutes, and
 				// the only things here that need a second hand - the countdowns -
 				// keep their own.
-				var clockTime = el("div", "sb-time", fa(hhmmInZone(nowT, VIEW())));
-				clock.appendChild(clockTime);
+				var clockTime = el("div", "sb-time", clock(hhmmInZone(nowT, VIEW())));
+				clockBox.appendChild(clockTime);
 				var clockZone = el("div", "sb-zone", viewName());
-				clock.appendChild(clockZone);
-				status.appendChild(clock);
-				tickers.push(function (t) { clockTime.textContent = fa(hhmmInZone(t, VIEW())); });
+				clockBox.appendChild(clockZone);
+				status.appendChild(clockBox);
+				tickers.push(function (t) { clockTime.textContent = clock(hhmmInZone(t, VIEW())); });
 
 				var sub = el("div", "sb-sub");
 				var target = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
@@ -3236,11 +3267,11 @@
 					var cd = el("b", null, countdownText(target, nowT));
 					sub.appendChild(cd);
 					sub.appendChild(el("span", null,
-						" دیگر — " + dayInZone(target, VIEW()) + " ساعت " + fa(hhmmInZone(target, VIEW()))));
+						" دیگر — " + dayInZone(target, VIEW()) + " ساعت " + clock(hhmmInZone(target, VIEW()))));
 					tickers.push(function (t) { cd.textContent = countdownText(target, t); });
 				} else if (market.open && market.until) {
 					sub.appendChild(el("span", null, "تا جمعه ساعت "));
-					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, VIEW()))));
+					sub.appendChild(el("b", null, clock(hhmmInZone(market.until, VIEW()))));
 				}
 				status.appendChild(sub);
 				board.appendChild(enter(status));
@@ -3279,7 +3310,7 @@
 					b.setAttribute("aria-checked", z.key === viewZone.key ? "true" : "false");
 					b.appendChild(el("span", null, z.name));
 					b.appendChild(el("span", "sb-off",
-						offsetLabel(z.zone, now) + " · " + fa(hhmmInZone(nowT, z.zone))));
+						offsetLabel(z.zone, now) + " · " + clock(hhmmInZone(nowT, z.zone))));
 					b.addEventListener("click", function () {
 						viewZone = z;
 						try { localStorage.setItem(VIEW_KEY, z.key); } catch (e) { /* preference only */ }
@@ -3307,7 +3338,7 @@
 				// ---- hour axis
 				var hours = el("div", "sb-hours");
 				[0, 3, 6, 9, 12, 15, 18, 21].forEach(function (h) {
-					var lab = el("span", "sb-hour", fa(h < 10 ? "0" + h : h));
+					var lab = el("span", "sb-hour", clock(h < 10 ? "0" + h : h));
 					lab.style.right = (h * 60 / 1440 * 100) + "%";
 					hours.appendChild(lab);
 				});
@@ -3366,7 +3397,7 @@
 							// number to hunt for underneath the chart.
 							if (idx === 0 && (sp[1] - sp[0]) > 300) {
 								seg.appendChild(el("span", "sb-seg-lab",
-									fa(hhmmInZone(ref.open, VIEW())) + "–" + fa(hhmmInZone(ref.close, VIEW()))));
+									clockRange(hhmmInZone(ref.open, VIEW()), hhmmInZone(ref.close, VIEW()))));
 							}
 							track.appendChild(seg);
 						});
@@ -3412,7 +3443,7 @@
 					});
 					ovNote.appendChild(document.createTextNode("هم‌پوشانی لندن و نیویورک، "));
 					ovNote.appendChild(el("b", null,
-						fa(hhmmInZone(ovStart, VIEW())) + "–" + fa(hhmmInZone(ovEnd, VIEW()))));
+						clockRange(hhmmInZone(ovStart, VIEW()), hhmmInZone(ovEnd, VIEW()))));
 					ovNote.appendChild(document.createTextNode(
 						inNow && market.open
 							? " — همین حالا، پرنوسان‌ترین ساعت‌های روز"
@@ -3449,13 +3480,13 @@
 					var c1 = el("div", "sb-dt");
 					c1.appendChild(el("div", "sb-dk", "به وقت " + viewName()));
 					c1.appendChild(el("div", "sb-dv",
-						fa(hhmmInZone(selRef.ref.open, VIEW())) + "–" + fa(hhmmInZone(selRef.ref.close, VIEW()))));
+						clockRange(hhmmInZone(selRef.ref.open, VIEW()), hhmmInZone(selRef.ref.close, VIEW()))));
 					d.appendChild(c1);
 
 					var c2 = el("div", "sb-dt");
 					c2.appendChild(el("div", "sb-dk", "به وقت محلی"));
 					c2.appendChild(el("div", "sb-dv",
-						fa(hhmmInZone(selRef.ref.open, sel.zone)) + "–" + fa(hhmmInZone(selRef.ref.close, sel.zone))));
+						clockRange(hhmmInZone(selRef.ref.open, sel.zone), hhmmInZone(selRef.ref.close, sel.zone))));
 					d.appendChild(c2);
 
 					var c3 = el("div", "sb-dt");
@@ -3479,11 +3510,11 @@
 					var c = el("div", "sb-ck" + (ss.open && market.open && !refs[s.key].holiday ? " is-live" : ""));
 					c.style.setProperty("--ck", "var(--sb-" + s.key + ")");
 					c.appendChild(el("div", "sb-ck-city", s.name));
-					var ct = el("div", "sb-ck-time", fa(hhmmInZone(nowT, s.zone)));
+					var ct = el("div", "sb-ck-time", clock(hhmmInZone(nowT, s.zone)));
 					c.appendChild(ct);
 					c.appendChild(el("div", "sb-ck-day", dayInZone(nowT, s.zone)));
 					clocks.appendChild(c);
-					tickers.push(function (t) { ct.textContent = fa(hhmmInZone(t, s.zone)); });
+					tickers.push(function (t) { ct.textContent = clock(hhmmInZone(t, s.zone)); });
 				});
 				board.appendChild(enter(clocks));
 
@@ -3900,7 +3931,7 @@
 								var d = new Date(body.created_at);
 								if (!isNaN(d.getTime())) {
 									box.appendChild(el("span", "ai-stamp",
-										"تهیه‌شده در " + fa(d.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }))));
+										"تهیه‌شده در " + clock(d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))));
 								}
 							}
 							btn.textContent = "بروزرسانی تحلیل";
