@@ -122,6 +122,17 @@
 				return wd + " " + fa(j[2]) + " " + MONTHS[j[1] - 1];
 			}
 
+			var GREG_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+			// همان روز، به میلادی. کنارِ شمسی می‌نشیند چون منبعِ خودِ این
+			// داده‌ها میلادی است و کاربری که می‌خواهد خبر را جای دیگری
+			// دنبال کند نباید خودش تبدیل کند.
+			function gregorianLabel(dateStr) {
+				var p = dateStr.split("-").map(Number);
+				return p[2] + " " + GREG_MONTHS[p[1] - 1] + " " + p[0];
+			}
+
 			function relDay(dateStr) {
 				var today = state.data ? state.data.today : new Date().toISOString().slice(0, 10);
 				var a = new Date(today + "T00:00:00");
@@ -1499,7 +1510,14 @@
 						flushDay();
 						lastDate = e.date;
 						var head = el("div", "day-head");
-						head.appendChild(el("span", "date", jalaliLabel(e.date)));
+						var dateBox = el("span", "date");
+						dateBox.appendChild(el("span", "fa", jalaliLabel(e.date)));
+						// dir روی خودِ عنصر، نه فقط یک span: رشته‌ی لاتین در
+						// جمله‌ی راست‌چین بدونِ آن وارونه خوانده می‌شود.
+						var greg = el("span", "greg", gregorianLabel(e.date));
+						greg.dir = "ltr";
+						dateBox.appendChild(greg);
+						head.appendChild(dateBox);
 						var rel = relDay(e.date);
 						if (rel) head.appendChild(el("span", "rel", rel));
 						list.appendChild(head);

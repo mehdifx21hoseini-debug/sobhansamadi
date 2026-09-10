@@ -1290,6 +1290,19 @@
 		.day-head .date {
 			font-size: 0.87rem;
 			font-weight: 700;
+			display: flex;
+			align-items: baseline;
+			gap: 7px;
+		}
+
+		/* تاریخ میلادی کنارِ شمسی است، نه هم‌وزنِ آن: پاسخِ سؤالِ دوم
+		   کاربر است («این چه روزی است به میلادی؟») نه سرتیترِ روز. پس
+		   کوچک‌تر و کم‌رنگ‌تر، تا نگاه اول همان شمسی را بگیرد. */
+		.day-head .greg {
+			font-size: 0.72rem;
+			font-weight: 600;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
 		}
 
 		.day-head .rel {
@@ -2062,7 +2075,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه bae01698d9</span>
+			<span class="build">نسخه 69e27f6f96</span>
 		</p>
 	</div>
 
@@ -2189,6 +2202,17 @@
 				var j = toJalali(p[0], p[1], p[2]);
 				var wd = WEEKDAYS[new Date(p[0], p[1] - 1, p[2]).getDay()];
 				return wd + " " + fa(j[2]) + " " + MONTHS[j[1] - 1];
+			}
+
+			var GREG_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+			// همان روز، به میلادی. کنارِ شمسی می‌نشیند چون منبعِ خودِ این
+			// داده‌ها میلادی است و کاربری که می‌خواهد خبر را جای دیگری
+			// دنبال کند نباید خودش تبدیل کند.
+			function gregorianLabel(dateStr) {
+				var p = dateStr.split("-").map(Number);
+				return p[2] + " " + GREG_MONTHS[p[1] - 1] + " " + p[0];
 			}
 
 			function relDay(dateStr) {
@@ -3568,7 +3592,14 @@
 						flushDay();
 						lastDate = e.date;
 						var head = el("div", "day-head");
-						head.appendChild(el("span", "date", jalaliLabel(e.date)));
+						var dateBox = el("span", "date");
+						dateBox.appendChild(el("span", "fa", jalaliLabel(e.date)));
+						// dir روی خودِ عنصر، نه فقط یک span: رشته‌ی لاتین در
+						// جمله‌ی راست‌چین بدونِ آن وارونه خوانده می‌شود.
+						var greg = el("span", "greg", gregorianLabel(e.date));
+						greg.dir = "ltr";
+						dateBox.appendChild(greg);
+						head.appendChild(dateBox);
 						var rel = relDay(e.date);
 						if (rel) head.appendChild(el("span", "rel", rel));
 						list.appendChild(head);

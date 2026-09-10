@@ -1264,6 +1264,19 @@
 		.day-head .date {
 			font-size: 0.87rem;
 			font-weight: 700;
+			display: flex;
+			align-items: baseline;
+			gap: 7px;
+		}
+
+		/* تاریخ میلادی کنارِ شمسی است، نه هم‌وزنِ آن: پاسخِ سؤالِ دوم
+		   کاربر است («این چه روزی است به میلادی؟») نه سرتیترِ روز. پس
+		   کوچک‌تر و کم‌رنگ‌تر، تا نگاه اول همان شمسی را بگیرد. */
+		.day-head .greg {
+			font-size: 0.72rem;
+			font-weight: 600;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
 		}
 
 		.day-head .rel {

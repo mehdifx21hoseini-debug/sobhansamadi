@@ -96,10 +96,36 @@ export function toPersianDigits(str) {
   return String(str).replace(/[0-9]/g, (d) => PERSIAN_DIGITS[d]);
 }
 
+const GREGORIAN_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// نشانه‌گذارِ چپ‌به‌راست. بدونش پرانتزها در جمله‌ی فارسی آینه می‌شوند و
+// «(10 Sep 2026)» به‌شکل «)10 Sep 2026(» درمی‌آید - چیزی که فقط روی
+// دستگاه کاربر دیده می‌شود، نه در تست‌های رشته‌ای.
+const LRM = "‎";
+
+export function formatGregorianDate(gregDateStr) {
+  const [gy, gm, gd] = String(gregDateStr).split("-").map(Number);
+  return gd + " " + GREGORIAN_MONTHS[gm - 1] + " " + gy;
+}
+
+/**
+ * تاریخ شمسی، و کنارش همان روز به میلادی.
+ *
+ * چرا هر دو: بیشتر منابعِ خبرِ اقتصادی - و خودِ تقویمی که این داده از آن
+ * می‌آید - میلادی‌اند. کاربری که می‌خواهد خبر را جای دیگری دنبال کند، با
+ * تاریخِ شمسیِ تنها باید خودش تبدیل کند.
+ *
+ * همه‌جا از همین یک تابع می‌آید تا هر متنی که تاریخ دارد یک شکل باشد؛
+ * پیش از این تنها راهِ یکدست ماندن، یادِ آدم بود.
+ */
 export function formatJalaliDate(gregDateStr) {
   const [gy, gm, gd] = String(gregDateStr).split("-").map(Number);
   const [jy, jm, jd] = toJalali(gy, gm, gd);
-  return toPersianDigits(jd) + " " + JALALI_MONTHS[jm - 1] + " " + toPersianDigits(jy);
+  return toPersianDigits(jd) + " " + JALALI_MONTHS[jm - 1] + " " + toPersianDigits(jy) +
+    " " + LRM + "(" + formatGregorianDate(gregDateStr) + ")" + LRM;
 }
 
 export function formatCountdown(mins) {
