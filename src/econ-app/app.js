@@ -700,7 +700,14 @@
 				// جدولِ سه‌ستونی. خبرِ بی‌عدد اصلاً این بخش را نمی‌گیرد.
 				if (e.forecast || e.actual || e.previous) {
 					var grid = el("div", "nums");
-					grid.appendChild(numCell("قبلی", e.previous, ""));
+					var prev = numCell("قبلی", e.previous, "");
+					// بازنگری: منبع عددِ دوره‌ی گذشته را تصحیح کرده. معنی‌اش
+					// عوض می‌شود - «۱۸۰ هزار در برابر ۱۷۵» با «۱۸۰ هزار در
+					// برابر ۲۱۰ که به ۱۷۵ تصحیح شد» دو خبر متفاوت‌اند.
+					if (e.previous_before) {
+						prev.appendChild(el("div", "revised", "بازنگری از " + fa(e.previous_before)));
+					}
+					grid.appendChild(prev);
 					grid.appendChild(numCell("پیش‌بینی", e.forecast, ""));
 
 					// رنگِ «واقعی» از قضاوتِ سرور می‌آید (e.read)، نه از بالا/پایین
@@ -726,6 +733,17 @@
 					node.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
 						(e.read.higher ? "▲ بالاتر از پیش‌بینی — " : "▼ پایین‌تر از پیش‌بینی — ") +
 						(e.read.good ? "معمولاً مثبت برای " : "معمولاً منفی برای ") + cur));
+				} else if (e.direction && !e.actual) {
+					// پیش از انتشار: «معمولاً چه چیزی خوب است».
+					//
+					// تا امروز اپ این را نمی‌دانست، چون سرور فقط پس از انتشار
+					// خوانش می‌فرستاد. حالا خودِ جهت می‌آید، پس همان چیزی
+					// گفته می‌شود که ForexFactory «Usual Effect» می‌نامد -
+					// و بیشترین آموزش را همین یک خط دارد.
+					node.appendChild(el("div", "read read-usual",
+						e.direction === "inverse"
+							? "معمولاً عددِ پایین‌تر از پیش‌بینی به نفعِ " + cur + " است"
+							: "معمولاً عددِ بالاتر از پیش‌بینی به نفعِ " + cur + " است"));
 				}
 
 				var chart = historyChart(e);

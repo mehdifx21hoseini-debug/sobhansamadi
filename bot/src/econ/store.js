@@ -53,6 +53,16 @@ const DDL = [
 // همان چیزی که در اجرای دوم به بعد می‌آید.
 const ADD_COLUMNS = [
   `ALTER TABLE econ_events ADD COLUMN currency TEXT`,
+  // مقدارِ «قبلی» پیش از بازنگری.
+  //
+  // آژانس‌های آماری عددِ دوره‌ی گذشته را بعداً تصحیح می‌کنند و
+  // ForexFactory این را نشان می‌دهد، چون معنی‌اش عوض می‌شود: «۱۸۰ هزار،
+  // در حالی که ماه قبل ۱۷۵ بود» با «۱۸۰ هزار، در حالی که ماه قبل ۲۱۰
+  // بود و به ۱۷۵ تصحیح شد» دو خبر متفاوت‌اند.
+  //
+  // فید فقط عددِ فعلی را می‌دهد، پس بازنگری را باید خودمان تشخیص
+  // بدهیم: اگر «قبلی»ِ همین رویداد عوض شد، مقدارِ کهنه اینجا می‌ماند.
+  `ALTER TABLE econ_events ADD COLUMN previous_before TEXT`,
 ];
 
 export async function ensureSchema(env) {
@@ -83,7 +93,7 @@ async function readEventsUncached(env) {
   try {
     const { results } = await env.DB.prepare(
       `SELECT event_id, date, time, event, event_fa, currency, importance, forecast,
-              previous, actual, status, source, last_updated
+              previous, previous_before, actual, status, source, last_updated
          FROM econ_events`
     ).all();
     return results || [];

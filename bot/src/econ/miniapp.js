@@ -214,10 +214,19 @@ export async function buildMiniappPayload(env, user) {
         importance: e.importance || "low",
         forecast: e.forecast || "",
         previous: e.previous || "",
+        // مقدارِ کهنه‌ی «قبلی»، اگر منبع بازنگری‌اش کرده باشد.
+        previous_before: e.previous_before || "",
         actual: e.actual || "",
         status: e.status || "",
         source: e.source || "",
         read,
+        // جهتِ «به نفعِ ارز» - همان ستونِ direction در econ_labels.
+        //
+        // تا امروز فقط داخلِ read به اپ می‌رسید، و read وقتی ساخته می‌شود
+        // که عدد منتشر شده باشد. یعنی اپ پیش از انتشار هیچ نمی‌دانست و
+        // نمی‌توانست بگوید «معمولاً بالاتر بودن خوب است» - همان چیزی که
+        // ForexFactory «Usual Effect» می‌نامد و بیشترین آموزش را دارد.
+        direction: (hit && hit.direction) || "",
         history: historyFor(e),
       };
     })

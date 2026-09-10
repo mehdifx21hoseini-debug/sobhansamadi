@@ -184,6 +184,19 @@ async function upsertEvents(env, rows) {
          currency = excluded.currency,
          importance = excluded.importance,
          forecast = excluded.forecast,
+         -- بازنگری: «قبلی»ِ تازه با «قبلی»ِ ذخیره‌شده فرق دارد و هر دو
+         -- پرند. هر عبارتِ SET مقدارِ *قدیمِ* ردیف را می‌بیند، پس ترتیبِ
+         -- این دو خط اهمیتی ندارد.
+         --
+         -- شرطِ «هر دو پر» لازم است: پر شدنِ یک فیلدِ خالی بازنگری نیست،
+         -- فقط دیر رسیدنِ داده است.
+         previous_before = CASE
+           WHEN COALESCE(excluded.previous, '') <> ''
+            AND COALESCE(econ_events.previous, '') <> ''
+            AND excluded.previous <> econ_events.previous
+           THEN econ_events.previous
+           ELSE econ_events.previous_before
+         END,
          previous = excluded.previous,
          actual = excluded.actual,
          status = excluded.status,
