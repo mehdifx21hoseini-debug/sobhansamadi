@@ -26,6 +26,38 @@
 		[hidden] { display: none !important; }
 
 		:root {
+			/* ── نویسه: سه نقش ────────────────────────────────────────────
+			   نسخ         سرتیترها - جایی که لحنِ کلاسیک ساخته می‌شود
+			   وزیرمتن     متنِ فارسی و کنترل‌ها
+			   Source Serif هرچه عدد است، و نامِ لاتینِ شاخص‌ها
+
+			   نامِ انگلیسیِ خبر عمداً سریف است: تقویمِ اقتصادی در اصل یک جدولِ
+			   چاپی است. پیش از این «DM Mono» خواسته می‌شد که هیچ‌وقت بارگذاری
+			   نمی‌شد - یعنی سال‌ها بی‌صدا به مونواسپیسِ سیستم می‌افتاد و آن
+			   توضیحِ بالای .event-title-en چیزی را وصف می‌کرد که اتفاق
+			   نمی‌افتاد. */
+			--f-head: "Noto Naskh Arabic", Vazirmatn, serif;
+			--f-body: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+			--f-num: "Source Serif 4", Georgia, "Times New Roman", serif;
+
+			/* ── گوشه ───────────────────────────────────────────────────
+			   یک مقیاس، نه سیزده عددِ پراکنده. پیش از این ۶ تا ۱۶ پیکسل در
+			   فایل پخش بود و هیچ دو کامپوننتی مطمئن نبودند هم‌شکل‌اند.
+
+			   عددها کوچک‌اند چون جهتِ تازه چاپی است: جدا کردن با خطِ مو
+			   انجام می‌شود، نه با گوشه‌ی گرد و سایه. */
+			--r: 4px;
+			--r-sm: 2px;
+			/* آنچه قبلاً ۹۹۹ پیکسل بود. قرصِ کاملاً گرد با بقیه‌ی صفحه جور
+			   در نمی‌آید؛ دایره‌های واقعی (border-radius:50%) دست‌نخورده‌اند. */
+			--r-pill: 2px;
+
+			/* رنگِ سطحِ اهمیت، جدا از --low.
+			   --low همزمان رنگِ سشنِ بسته است (--sb-shut)، پس زرد کردنش
+			   همه‌ی نوارهای بسته را زرد می‌کرد. */
+			--imp-low: #c9a227;
+			--imp-low-on: #33280a;
+
 			/* «navy» دیگر سرمه‌ای نیست: جوهرِ خنثای همین پالت است. اسمش مانده
 			   چون سایه‌ها و واشِ پس‌زمینه از آن مشتق می‌شوند. */
 			--navy: #1f1e26;
@@ -33,13 +65,13 @@
 			--gold: #8a8792;
 			--gold-dark: #78767f;
 
-			--bg: #f1f0ee;
-			--card: #ffffff;
-			--card-2: #f7f6f4;
-			--text: #1f1e26;
-			--muted: #78767f;
-			--line: rgba(31, 30, 38, .11);
-			--line-strong: rgba(31, 30, 38, .2);
+			--bg: #e7e5e0;
+			--card: #fcfbf9;
+			--card-2: #f1efea;
+			--text: #221f28;
+			--muted: #6c6873;
+			--line: rgba(34, 31, 40, .17);
+			--line-strong: rgba(34, 31, 40, .34);
 			--link: var(--signal);
 			/* دکمه‌ها و تب انتخاب‌شده جوهری‌اند نه رنگی: سرخابی فقط برای
 			   «الان» است و اگر روی کنترل‌ها هم بنشیند معنایش را از دست می‌دهد. */
@@ -47,7 +79,7 @@
 			--accent-text: #ffffff;
 
 			/* NOW. یک رنگ، یک معنی. */
-			--signal: #d81b60;
+			--signal: #c2185b;
 
 			/* Elevation system lifted from open-props@1.7.23 (MIT, Adam
 			   Argyle) — the layered shadow recipes and easing curves, with the
@@ -81,31 +113,33 @@
 
 			/* اهمیت فقط در چیپ‌های فیلتر و تیک‌های نوار زمانی رنگ می‌گیرد -
 			   روی ردیف‌های خبر با ضخامت لبه گفته می‌شود، نه با رنگ. */
-			--high: #c62828;
-			--medium: #b0741a;
+			--high: #b3122b;
+			--medium: #cf6a00;
 			--low: #8a8792;
-			--up: #00875a;
-			--down: #c62828;
+			--up: #0a6c46;
+			--down: #b3122b;
 
 			/* The hairline around a flag badge: brand gold at rest, taken over
 			   by the state colour while a session is live or on its break. */
 			--flag-ring: var(--line-strong);
+			--imp-low: #f2d45c;
+			--imp-low-on: #2e2405;
 		}
 
 		/* Dark: the ground goes to a deep navy rather than neutral black, and
 		   gold takes over as the accent — navy on navy would disappear. */
 		:root[data-theme="dark"] {
-			--bg: #121218;
-			--card: #1b1b23;
-			--card-2: #23232d;
-			--text: #eceaf2;
-			--muted: #918fa0;
+			--bg: #141319;
+			--card: #1d1b23;
+			--card-2: #26232d;
+			--text: #eae7ef;
+			--muted: #9b97a5;
 			--line: rgba(255, 255, 255, .09);
 			--line-strong: rgba(255, 255, 255, .17);
 			--link: var(--signal);
 			--accent: #eceaf2;
 			--accent-text: #17161d;
-			--signal: #ff4d94;
+			--signal: #ff4d86;
 			--navy: #0a0a10;
 			--gold: #7d7b8a;
 			--gold-dark: #918fa0;
@@ -115,13 +149,15 @@
 			--inner-highlight: inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
 			                   inset 0 .5px 0 0 rgba(0, 0, 0, .467);
 
-			--high: #ff6b6b;
-			--medium: #e0a640;
+			--high: #ff5757;
+			--medium: #ffa02e;
 			--low: #7d7b8a;
-			--up: #2bd49a;
-			--down: #ff6b6b;
+			--up: #45d19a;
+			--down: #ff5757;
 
 			--flag-ring: var(--line-strong);
+			--imp-low: #f2d45c;
+			--imp-low-on: #2e2405;
 		}
 
 		/* Same values again for viewers whose Telegram never reported a scheme
@@ -129,17 +165,17 @@
 		   an explicit light stamp always wins over a dark OS. */
 		@media (prefers-color-scheme: dark) {
 			:root:not([data-theme="light"]) {
-				--bg: #121218;
-				--card: #1b1b23;
-				--card-2: #23232d;
-				--text: #eceaf2;
-				--muted: #918fa0;
+				--bg: #141319;
+				--card: #1d1b23;
+				--card-2: #26232d;
+				--text: #eae7ef;
+				--muted: #9b97a5;
 				--line: rgba(255, 255, 255, .09);
 				--line-strong: rgba(255, 255, 255, .17);
 				--link: var(--signal);
 				--accent: #eceaf2;
 				--accent-text: #17161d;
-				--signal: #ff4d94;
+				--signal: #ff4d86;
 				--navy: #0a0a10;
 				--gold: #7d7b8a;
 				--gold-dark: #918fa0;
@@ -149,12 +185,14 @@
 				--inner-highlight: inset 0 -.5px 0 0 hsla(0, 0%, 100%, .067),
 				                   inset 0 .5px 0 0 rgba(0, 0, 0, .467);
 
-				--high: #ff6b6b;
-				--medium: #e0a640;
+				--high: #ff5757;
+				--medium: #ffa02e;
 				--low: #7d7b8a;
-				--up: #2bd49a;
-				--down: #ff6b6b;
+				--up: #45d19a;
+				--down: #ff5757;
 
+				--imp-low: #f2d45c;
+				--imp-low-on: #2e2405;
 				--flag-ring: var(--line-strong);
 			}
 		}
@@ -180,7 +218,7 @@
 		}
 
 		body {
-			font-family: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+			font-family: var(--f-body);
 			font-size: 15px;
 			line-height: 1.6;
 			padding: 12px 12px calc(28px + env(safe-area-inset-bottom));
@@ -279,7 +317,7 @@
 			width: 100%;
 			aspect-ratio: 2.75;
 			max-height: 155px;
-			border-radius: 16px;
+			border-radius: var(--r);
 			/* رنگِ بنر در هر دو تم یکی است. عکس تُنِ ثابتی دارد و پرده باید در
 			   همان تُن محو شود؛ اگر --navy را می‌گرفت، در تم تیره پرده
 			   سیاه‌تر از خودِ عکس می‌شد و صورت را از قاب می‌کَند. */
@@ -375,7 +413,7 @@
 			width: 9.4cqh;
 			height: 2px;
 			height: 1.6cqh;
-			border-radius: 2px;
+			border-radius: var(--r-sm);
 			background: currentColor;
 		}
 
@@ -449,7 +487,7 @@
 			align-items: center;
 			gap: 6px;
 			padding: 6px 12px;
-			border-radius: 999px;
+			border-radius: var(--r-pill);
 			font-size: 0.78rem;
 			font-weight: 700;
 			white-space: nowrap;
@@ -469,7 +507,7 @@
 		/* ---------- next-event countdown ---------- */
 		.next-card {
 			background: var(--card);
-			border-radius: 14px;
+			border-radius: var(--r);
 			padding: 13px 15px;
 			margin-bottom: 14px;
 			display: flex;
@@ -538,7 +576,7 @@
 		.seg {
 			display: flex;
 			background: var(--card);
-			border-radius: 11px;
+			border-radius: var(--r);
 			padding: 3px;
 			margin-bottom: 10px;
 		}
@@ -552,7 +590,7 @@
 			font-size: 0.85rem;
 			font-weight: 600;
 			padding: 8px 4px;
-			border-radius: 9px;
+			border-radius: var(--r);
 			cursor: pointer;
 			transition: background .16s ease, color .16s ease;
 		}
@@ -608,7 +646,7 @@
 		.search-input {
 			width: 100%;
 			border: 1px solid var(--line);
-			border-radius: 11px;
+			border-radius: var(--r);
 			background: var(--card);
 			color: var(--text);
 			font-family: inherit;
@@ -670,7 +708,7 @@
 			font-size: 0.78rem;
 			font-weight: 600;
 			padding: 6px 13px;
-			border-radius: 999px;
+			border-radius: var(--r-pill);
 			cursor: pointer;
 			white-space: nowrap;
 		}
@@ -748,7 +786,7 @@
 		.sb-status {
 			background: var(--sb-panel);
 			border: 1px solid var(--sb-line);
-			border-radius: 12px;
+			border-radius: var(--r);
 			padding: 13px 15px;
 			margin-bottom: 10px;
 			display: grid;
@@ -808,7 +846,7 @@
 		.sb-board {
 			background: var(--sb-panel);
 			border: 1px solid var(--sb-line);
-			border-radius: 12px;
+			border-radius: var(--r);
 			padding: 13px 13px 9px;
 			margin-bottom: 14px;
 			/* The rail and the gap live on the card so every layer inside -
@@ -842,7 +880,7 @@
 			border: 0;
 			padding: 2px 4px;
 			margin: -2px -4px;
-			border-radius: 6px;
+			border-radius: var(--r);
 			cursor: pointer;
 			display: flex;
 			align-items: center;
@@ -869,7 +907,7 @@
 
 		.sb-menu {
 			border: 1px solid var(--sb-line);
-			border-radius: 10px;
+			border-radius: var(--r);
 			background: var(--sb-panel-2);
 			padding: 4px;
 			margin-bottom: 10px;
@@ -885,7 +923,7 @@
 			text-align: right;
 			background: none;
 			border: 0;
-			border-radius: 7px;
+			border-radius: var(--r);
 			padding: 7px 8px;
 			color: var(--sb-text);
 			cursor: pointer;
@@ -951,7 +989,7 @@
 		.sb-flag {
 			width: 22px;
 			height: 16px;
-			border-radius: 3px;
+			border-radius: var(--r-sm);
 			flex: none;
 			overflow: hidden;
 			display: block;
@@ -990,15 +1028,15 @@
 			position: relative;
 			height: 20px;
 			background: var(--sb-track);
-			border-radius: 3px;
+			border-radius: var(--r-sm);
 			overflow: hidden;
 		}
 
-		.sb-seg { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--seg); opacity: .3; }
+		.sb-seg { position: absolute; top: 0; bottom: 0; border-radius: var(--r-sm); background: var(--seg); opacity: .3; }
 		.sb-row.is-live .sb-seg { opacity: .52; }
 
 		/* The elapsed part of a running session: the bar doubles as a meter. */
-		.sb-fill { position: absolute; inset: 0 auto 0 0; background: var(--seg); border-radius: 2px; }
+		.sb-fill { position: absolute; inset: 0 auto 0 0; background: var(--seg); border-radius: var(--r-sm); }
 
 		.sb-seg-lab {
 			position: absolute;
@@ -1090,7 +1128,7 @@
 			margin-top: 9px;
 			padding: 10px 12px;
 			background: var(--sb-panel-2);
-			border-radius: 9px;
+			border-radius: var(--r);
 			border-inline-start: 3px solid var(--seg, var(--sb-line-strong));
 			display: grid;
 			grid-template-columns: repeat(3, 1fr);
@@ -1139,7 +1177,7 @@
 		.sb-ck {
 			background: var(--sb-panel);
 			border: 1px solid var(--sb-line);
-			border-radius: 9px;
+			border-radius: var(--r);
 			padding: 8px 4px 7px;
 			text-align: center;
 			border-bottom: 2px solid var(--ck);
@@ -1161,7 +1199,7 @@
 		/* ---------- day timeline ---------- */
 		.tl {
 			background: var(--card);
-			border-radius: 14px;
+			border-radius: var(--r);
 			padding: 13px 15px 11px;
 			margin-bottom: 16px;
 		}
@@ -1182,7 +1220,7 @@
 		.tl-track {
 			position: relative;
 			height: 30px;
-			border-radius: 7px;
+			border-radius: var(--r);
 			background: color-mix(in srgb, var(--muted) 16%, transparent);
 			overflow: hidden;
 		}
@@ -1199,7 +1237,7 @@
 			top: 5px;
 			bottom: 5px;
 			width: 3px;
-			border-radius: 2px;
+			border-radius: var(--r-sm);
 			margin-right: -1.5px;
 		}
 
@@ -1287,7 +1325,7 @@
 		.holiday {
 			background: color-mix(in srgb, var(--medium) 12%, transparent);
 			color: var(--medium);
-			border-radius: 11px;
+			border-radius: var(--r);
 			padding: 9px 13px;
 			font-size: 0.8rem;
 			font-weight: 600;
@@ -1302,7 +1340,7 @@
 		.cluster {
 			background: color-mix(in srgb, var(--navy) 5%, transparent);
 			border: 1px solid var(--line);
-			border-radius: 16px;
+			border-radius: var(--r);
 			padding: 7px;
 			margin-bottom: 7px;
 		}
@@ -1347,7 +1385,7 @@
 			background: var(--card);
 			border: 1px solid var(--line);
 			border-inline-start: 3px solid transparent;
-			border-radius: 13px;
+			border-radius: var(--r);
 			padding: 11px 12px;
 			margin-bottom: 7px;
 			cursor: pointer;
@@ -1375,7 +1413,7 @@
 		.event-flag {
 			width: 24px;
 			height: 17px;
-			border-radius: 3px;
+			border-radius: var(--r-sm);
 			overflow: hidden;
 			flex: none;
 			box-shadow: 0 0 0 1.5px var(--line-strong);
@@ -1422,7 +1460,7 @@
 			direction: ltr;
 			unicode-bidi: isolate;
 			text-align: right;
-			font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+			font-family: var(--f-num);
 			font-size: 0.78rem;
 			font-weight: 500;
 			line-height: 1.35;
@@ -1466,7 +1504,7 @@
 		.surprise {
 			font-size: 0.66rem;
 			font-weight: 700;
-			border-radius: 999px;
+			border-radius: var(--r-pill);
 			padding: 2px 7px;
 			white-space: nowrap;
 			line-height: 1.2;
@@ -1531,7 +1569,7 @@
 			display: block;
 			margin-bottom: 7px;
 			padding: 6px 9px;
-			border-radius: 7px;
+			border-radius: var(--r);
 			font-size: 0.72rem;
 			font-weight: 700;
 		}
@@ -1618,7 +1656,7 @@
 		/* ---------- alerts ---------- */
 		.alerts {
 			background: var(--card);
-			border-radius: 14px;
+			border-radius: var(--r);
 			padding: 15px;
 			margin-top: 26px;
 		}
@@ -1657,7 +1695,7 @@
 			align-items: center;
 			gap: 2px;
 			border: 1px solid var(--line);
-			border-radius: 11px;
+			border-radius: var(--r);
 			background: transparent;
 			color: var(--muted);
 			font-family: inherit;
@@ -1702,7 +1740,7 @@
 			flex: none;
 			width: 48px;
 			height: 28px;
-			border-radius: 999px;
+			border-radius: var(--r-pill);
 			border: 0;
 			background: color-mix(in srgb, var(--muted) 40%, transparent);
 			position: relative;
@@ -1742,7 +1780,7 @@
 			font-size: 0.8rem;
 			font-weight: 600;
 			padding: 8px 2px;
-			border-radius: 9px;
+			border-radius: var(--r);
 			cursor: pointer;
 		}
 
@@ -1758,7 +1796,7 @@
 		.ai-btn {
 			width: 100%;
 			border: 0;
-			border-radius: 10px;
+			border-radius: var(--r);
 			background: var(--accent);
 			color: var(--accent-text);
 			font-family: inherit;
@@ -1793,7 +1831,7 @@
 		/* ---------- states ---------- */
 		.skel {
 			background: var(--card);
-			border-radius: 13px;
+			border-radius: var(--r);
 			height: 62px;
 			margin-bottom: 7px;
 			position: relative;
@@ -1830,7 +1868,7 @@
 		.error {
 			background: color-mix(in srgb, var(--high) 12%, transparent);
 			color: var(--high);
-			border-radius: 12px;
+			border-radius: var(--r);
 			padding: 14px;
 			font-size: 0.85rem;
 			text-align: center;
@@ -1846,7 +1884,7 @@
 			font-weight: 600;
 			font-size: 0.82rem;
 			padding: 8px 20px;
-			border-radius: 9px;
+			border-radius: var(--r);
 			cursor: pointer;
 		}
 
