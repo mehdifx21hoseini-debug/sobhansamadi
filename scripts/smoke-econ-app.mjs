@@ -71,6 +71,14 @@ const PAYLOAD = {
     },
   ],
   holidays: [],
+  // بدونِ ردیفِ اشتراک، نیمی از تنظیمات - ارزها و هشدار - اصلاً رندر
+  // نمی‌شود و بررسی چیزی را که باید بسنجد نمی‌بیند.
+  subscription: {
+    subscribed: true,
+    alert_minutes: 15,
+    show_low_importance: false,
+    currencies: ["USD"],
+  },
 };
 
 // تلگرام. اپ بدونِ initData خودش را قفل می‌کند و صفحه‌ی «از داخل ربات
@@ -112,9 +120,9 @@ const CLOCK_STUB = `(function () {
 // تنظیمات هم متن داشت و بررسی سبز می‌ماند بی‌آنکه چیزی از تنظیمات رندر
 // شده باشد.
 const TABS = [
-  { id: "#tabMarkets", name: "سشن‌ها", must: ".sb" },
-  { id: "#tabNews", name: "اخبار", must: "#list" },
-  { id: "#tabSettings", name: "تنظیمات", must: "#levelCard" },
+  { id: "#navNow", name: "اکنون", must: ".dial" },
+  { id: "#navCal", name: "تقویم", must: ".find" },
+  { id: "#navMe", name: "تنظیمات", must: ".group-box" },
 ];
 
 // زیرِ این عدد یعنی تب عملاً خالی است. عمداً پایین گرفته شده تا فقط
@@ -200,7 +208,12 @@ async function run() {
           // innerText روی body فقط چیزی را می‌شمارد که واقعاً رندر شده،
           // پس زیردرخت‌های پنهان در این عدد نیستند.
           text: document.body.innerText.trim().length,
-          shown: !!node && node.offsetParent !== null && node.innerText.trim().length > 0,
+          // با هندسه سنجیده می‌شود نه innerText: عنصرِ SVG اصلاً
+          // innerText ندارد و دیالِ صفحه‌ی «اکنون» یک SVG است.
+          shown: !!node && (function () {
+            const r = node.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          })(),
           overflow: doc.scrollWidth - doc.clientWidth,
           gate: !!document.body.innerText.match(/از داخل ربات تلگرام باز/),
         };
