@@ -34,21 +34,71 @@ function todaysEvents(events) {
 const TODAY_CAP = 25;
 const WEEK_CAP = 60;
 
+// سقفِ کاراکتری، که سختگیرانه‌تر از سقفِ تعداد است.
+//
+// شمردنِ رویدادها کافی نبود: ردیفِ تاشو حدود دو برابرِ ردیفِ جدولِ قبلی
+// جا می‌گیرد، پس همان ۶۰ رویدادی که در جدول ۳٫۵ کیلوبایت می‌شد، حالا
+// ۹ کیلوبایت است - و تلگرام پیامِ بلندتر از ۴۰۹۶ کاراکتر را رد می‌کند.
+// نتیجه‌اش این بود که در شلوغ‌ترین هفته‌ها کاربر هیچ نمی‌دید.
+//
+// ۳۶۰۰ نه ۴۰۹۶: سرتیترها، نوارِ تعطیلی، شمارشِ معکوس و پانوشت هم بعد از
+// ردیف‌ها اضافه می‌شوند و باید جا داشته باشند.
+const TEXT_BUDGET = 3600;
+
 const IMPORTANCE_RANK = { high: 0, medium: 1, low: 2 };
+
+/** کم‌اهمیت‌ها اول کنار می‌روند، بعد ترتیبِ زمانی برمی‌گردد. */
+function byImportanceThenTime(list) {
+  return [...list].sort((a, b) => {
+    const ra = IMPORTANCE_RANK[a.importance] ?? 2;
+    const rb = IMPORTANCE_RANK[b.importance] ?? 2;
+    if (ra !== rb) return ra - rb;
+    return (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99"));
+  });
+}
+
+function byTime(list) {
+  return [...list].sort((a, b) =>
+    (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99"))
+  );
+}
 
 /** اگر از سقف بیشتر بود، کم‌اهمیت‌ها را می‌اندازد و ترتیبِ زمانی را برمی‌گرداند. */
 function capByImportance(list, cap) {
   if (!list || list.length <= cap) return list || [];
-  const kept = [...list]
-    .sort((a, b) => {
-      const ra = IMPORTANCE_RANK[a.importance] ?? 2;
-      const rb = IMPORTANCE_RANK[b.importance] ?? 2;
-      if (ra !== rb) return ra - rb;
-      return (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99"));
-    })
-    .slice(0, cap);
-  return kept.sort((a, b) =>
-    (a.date + (a.time || "99:99")).localeCompare(b.date + (b.time || "99:99"))
+  return byTime(byImportanceThenTime(list).slice(0, cap));
+}
+
+/**
+ * همان کارِ capByImportance، ولی سقف بر حسبِ کاراکترِ واقعیِ ردیف است نه
+ * تعداد.
+ *
+ * چرا اندازه‌گیری و نه یک عددِ ثابتِ کوچک‌تر: طولِ ردیف به داده بستگی
+ * دارد - نامِ رویداد، بودن یا نبودنِ عددِ واقعی، پرچمِ ارز. عددِ ثابت یا
+ * محتاطانه است و بی‌دلیل خبر می‌اندازد، یا خوش‌بینانه است و همان روزی
+ * که نباید، پیام را از سقف رد می‌کند.
+ *
+ * @param {Array} list رویدادها
+ * @param {(e:object)=>string} renderRow همان تابعی که ردیف را می‌سازد
+ * @param {number} budget کاراکترِ در دسترس
+ */
+function fitByBudget(list, renderRow, budget) {
+  const ranked = byImportanceThenTime(list || []);
+  const kept = [];
+  let used = 0;
+  for (const e of ranked) {
+    const size = renderRow(e).length;
+    if (used + size > budget) break;
+    used += size;
+    kept.push(e);
+  }
+  return byTime(kept);
+}
+
+/** آیا این فهرست بیش از یک ارزِ واقعی دارد؟ */
+function multiOf(list) {
+  return (
+    new Set((list || []).map((e) => String(e.currency || "USD")).filter((c) => c !== "All")).size > 1
   );
 }
 
@@ -246,41 +296,91 @@ function holidayBanner(holiday) {
   );
 }
 
+/**
+ * یک رویداد، به‌شکل یک ردیفِ تاشو.
+ *
+ * ─── چرا جدول برداشته شد ──────────────────────────────────────────
+ *
+ * جدولِ چهارستونی روی دسکتاپ خوب بود و روی گوشی نه: «پیش‌بینی» و
+ * «واقعی» ستون‌ها را آن‌قدر باریک می‌کردند که نامِ رویداد سه تکه
+ * می‌شد و خودِ عددها هم به‌زحمت خوانده می‌شدند. عرضِ صفحه‌ی گوشی
+ * چیزی نیست که با wrapName حل شود.
+ *
+ * حالا هر رویداد یک خط است - ساعت و نام، همان دو چیزی که کاربر
+ * دنبالشان می‌گردد - و عددها پشت یک ضربه‌ی اختیاری‌اند. کسی که فقط
+ * می‌خواهد بداند امروز چه خبر است، فهرست را در یک نگاه می‌بیند؛ کسی
+ * که عدد می‌خواهد، همان‌جا بازش می‌کند.
+ *
+ * ─── چرا داخلِ سلولِ جدول نرفت ────────────────────────────────────
+ *
+ * <details> یک بلوک است و سلولِ جدول جای متنِ درون‌خطی؛ گذاشتنش آنجا
+ * یعنی تکیه بر رفتاری که هیچ‌جا تضمین نشده. این شکل همان چیزی را
+ * می‌دهد بی‌آنکه به آن تکیه کند.
+ *
+ * @param {object} e رویداد
+ * @param {object} h کمک‌کننده‌های برچسب - enShort/enFull/faName/usdRead
+ * @param {{flag?:boolean, source?:boolean}} opts
+ */
+function eventDetails(e, h, opts = {}) {
+  const emoji = IMPORTANCE_EMOJI[e.importance] || "\u26aa";
+  const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
+  // در نمای چندارزی پرچم هم در همان خط می‌آید: بدونش کاربر نمی‌داند
+  // این خبر مالِ کدام ارز است و باید بازش کند تا بفهمد.
+  const flag = opts.flag ? currencyFlag(e.currency) + " " : "";
+
+  // عددِ واقعی نشانِ خوانشِ دلار را با خودش می‌آورد، همان‌طور که در
+  // جدول داشت.
+  let actual = e.actual || (e.status === "upcoming" ? "منتشر نشده" : "-");
+  if (e.actual) {
+    const r0 = h.usdRead(e);
+    if (r0) actual = e.actual + " " + r0.icon;
+  }
+
+  const en = h.enFull(e) || h.enShort(e);
+  const fa2 = h.faName(e);
+  const bits = [
+    "قبلی " + (e.previous || "-"),
+    "پیش\u200cبینی " + (e.forecast || "-"),
+    "واقعی " + actual,
+  ];
+  if (opts.source && e.source) bits.push("منبع " + e.source);
+
+  const lines = [
+    "<details><summary>" + RLM + emoji + " " + mdCell(t) + " \u2014 " + flag + mdCell(h.enShort(e)) + "</summary>",
+    "",
+  ];
+  // نامِ کامل و فارسی فقط وقتی می‌آیند که چیزی به خطِ خلاصه اضافه کنند.
+  //
+  // هر تکه جدا سنجیده می‌شود، نه رشته‌ی چسبیده: «FOMC Statement» در هر
+  // دو یکی است و اگر با هم سنجیده می‌شد، چون ترجمه‌ی فارسی به آن اضافه
+  // شده بود کل رشته «متفاوت» به‌نظر می‌رسید و همان نام دو بار پشتِ هم
+  // چاپ می‌شد.
+  const short = h.enShort(e);
+  const full = [en && en !== short ? en : "", fa2 && fa2 !== en && fa2 !== short ? fa2 : ""]
+    .filter(Boolean)
+    .join(" \u2014 ");
+  if (full) lines.push(RLM + "**" + mdCell(full) + "**", "");
+  lines.push(RLM + mdCell(bits.join(" \u00b7 ")));
+  lines.push("");
+  lines.push("</details>");
+  lines.push("");
+  return lines.join("\n");
+}
+
 export function buildTodayMarkdown(events, labels, holidays) {
   const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
-  const todays = todaysEvents(events);
-
-  // جزئیات کامل هر رویداد، به‌صورت پیش‌فرض بسته، تا پیام خوانا بماند.
-  function detailsBlock(list) {
-    if (!list || list.length === 0) return "";
-    const lines = ["<details><summary>" + RLM + "📋 جزئیات کامل رویدادها</summary>", ""];
-    for (const e of list) {
-      const when = e.time
-        ? toPersianDigits(etTimeToTehran(e.date, e.time)) + " به وقت تهران"
-        : "زمان اعلام‌نشده";
-      const en = enFull(e);
-      const fa2 = faName(e);
-      lines.push(
-        RLM + "**" + mdCell(en || fa2) + "**" +
-          (en && fa2 && fa2 !== en ? " — " + mdCell(fa2) : "") +
-          " · " + when
-      );
-      lines.push("");
-      const bits = [
-        "پیش‌بینی " + (e.forecast || "-"),
-        "قبلی " + (e.previous || "-"),
-        "واقعی " + (e.actual || (e.status === "upcoming" ? "منتشر نشده" : "-")),
-      ];
-      if (e.source) bits.push("منبع " + e.source);
-      lines.push(RLM + mdCell(bits.join(" · ")));
-      lines.push("");
-    }
-    lines.push("</details>");
-    lines.push("");
-    return lines.join("\n");
-  }
+  const helpers = { enShort, enFull, faName, usdRead };
+  const eventRow = (e) => eventDetails(e, helpers, { source: true });
+  // این نما تا امروز هیچ سقفی نداشت. با جدول مسئله‌ای نبود - ردیف کوتاه
+  // بود - ولی ردیفِ تاشو دو برابر جا می‌گیرد و یک روزِ شلوغِ چندارزی
+  // می‌تواند پیام را از سقفِ تلگرام رد کند، که یعنی کاربر هیچ نبیند.
+  const todays = fitByBudget(
+    capByImportance(todaysEvents(events), TODAY_CAP),
+    eventRow,
+    TEXT_BUDGET
+  );
 
   function usdReadBlock(list) {
     const lines = [];
@@ -309,18 +409,6 @@ export function buildTodayMarkdown(events, labels, holidays) {
   const present = [...new Set(todays.map((e) => String(e.currency || "USD")))];
   const multi = present.filter((c) => c !== "All").length > 1;
 
-  const eventRow = (e) => {
-    const emoji = IMPORTANCE_EMOJI[e.importance] || "⚪";
-    const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
-    let actual = e.actual || (e.status === "upcoming" ? "—" : "-");
-    if (e.actual) {
-      const r0 = usdRead(e);
-      if (r0) actual = e.actual + " " + r0.icon;
-    }
-    const name = emoji + " " + wrapName(mdCell(enShort(e)), 12);
-    return "| " + mdCell(t) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(actual) + " |\n";
-  };
-  const TABLE_HEAD = "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
 
   let markdown = multi
     ? "## " + RLM + "🌍 اخبار مهم اقتصادی امروز\n\n"
@@ -348,12 +436,11 @@ export function buildTodayMarkdown(events, labels, holidays) {
     for (const cur of order) {
       const list = todays.filter((e) => String(e.currency || "USD") === cur);
       if (list.length === 0) continue;
-      markdown += "### " + RLM + currencyLabel(cur) + "\n\n" + TABLE_HEAD;
+      markdown += "### " + RLM + currencyLabel(cur) + "\n\n";
       for (const e of list) markdown += eventRow(e);
       markdown += "\n";
     }
   } else {
-    markdown += TABLE_HEAD;
     for (const e of todays) markdown += eventRow(e);
     markdown += "\n";
   }
@@ -366,7 +453,6 @@ export function buildTodayMarkdown(events, labels, holidays) {
       if (cd) markdown += RLM + "**" + mdCell(faName(nextEvent)) + "** — " + cd + "\n\n";
     }
   }
-  markdown += detailsBlock(todays);
   markdown += usdReadBlock(todays);
   const lastUpdated = todays.length > 0 ? todays[0].last_updated : nowIso;
   markdown += RLM + "ℹ️ آخرین بروزرسانی: " + relativeTimeFa(lastUpdated);
@@ -375,9 +461,14 @@ export function buildTodayMarkdown(events, labels, holidays) {
 
 export function buildWeekMarkdown(events, labels, holidays) {
   const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
-  const weekEvents = capByImportance(weekEventsOf(events), WEEK_CAP);
-  const multiWeek =
-    new Set(weekEvents.map((e) => String(e.currency || "USD")).filter((c) => c !== "All")).size > 1;
+  const weekHelpers = { enShort, enFull, faName, usdRead };
+  const weekRow = (e) => eventDetails(e, weekHelpers, { flag: multiOf(weekEventsOf(events)) });
+  const weekEvents = fitByBudget(
+    capByImportance(weekEventsOf(events), WEEK_CAP),
+    weekRow,
+    TEXT_BUDGET
+  );
+  const multiWeek = multiOf(weekEvents);
 
   // روزهای تعطیلِ همین بازه، حتی آن‌هایی که هیچ رویدادی ندارند.
   //
@@ -437,25 +528,11 @@ export function buildWeekMarkdown(events, labels, holidays) {
         }
       }
       markdown += dayHeader(e.date) + holidayLine(e.date);
-      markdown += multiWeek
-        ? "| ساعت | ارز | رویداد | پیش‌بینی |\n|---|---|---|---|\n"
-        : "| ساعت | رویداد | پیش‌بینی | واقعی |\n|---|---|---|---|\n";
       lastMdDate = e.date;
     }
-    const em = IMPORTANCE_EMOJI[e.importance] || "⚪";
-    const tt = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
-    let ac = e.actual || (e.status === "upcoming" ? "—" : "-");
-    if (e.actual) {
-      const r0 = usdRead(e);
-      if (r0) ac = e.actual + " " + r0.icon;
-    }
-    const name = em + " " + wrapName(mdCell(enShort(e)), 12);
-    // با چند ارز، ستونِ «واقعی» جای خود را به پرچم می‌دهد. چهار ستون
-    // سقفِ خواناییِ جدول در تلگرام است و بینِ این دو، دانستنِ اینکه خبر
-    // مالِ کدام ارز است مهم‌تر از عددی است که در نمای «امروز» هم هست.
-    markdown += multiWeek
-      ? "| " + mdCell(tt) + " | " + currencyFlag(e.currency) + " | " + name + " | " + mdCell(e.forecast || "-") + " |\n"
-      : "| " + mdCell(tt) + " | " + name + " | " + mdCell(e.forecast || "-") + " | " + mdCell(ac) + " |\n";
+    // همان ردیفِ تاشوی نمای امروز. با چند ارز پرچم هم به خطِ خلاصه
+    // اضافه می‌شود، چون آنجا تشخیصِ ارز از روی نامِ رویداد ممکن نیست.
+    markdown += weekRow(e);
   }
 
   // تعطیلی‌هایی که بعد از آخرین روزِ رویدادها می‌افتند - حلقه‌ی بالا به
@@ -467,20 +544,6 @@ export function buildWeekMarkdown(events, labels, holidays) {
     }
   }
 
-  // واژه‌نامه‌ی تاشو: نام کامل انگلیسی → فارسی، یک‌بار برای هر رویداد
-  // متمایز.
-  const seen = {};
-  const gl = [];
-  for (const e of weekEvents) {
-    const en = enFull(e);
-    if (!en || seen[en]) continue;
-    seen[en] = true;
-    const fa2 = faName(e);
-    gl.push("- **" + mdCell(en) + "**" + (fa2 && fa2 !== en ? " — " + mdCell(fa2) : ""));
-  }
-  if (gl.length > 0) {
-    markdown += "\n<details><summary>📖 نام کامل و ترجمه رویدادها</summary>\n\n" + gl.join("\n") + "\n\n</details>\n";
-  }
   markdown += "\n⏰ زمان‌ها به وقت تهران هستن.";
   return markdown.trim();
 }
