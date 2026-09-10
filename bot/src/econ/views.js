@@ -323,7 +323,17 @@ function holidayBanner(holiday) {
  */
 function eventDetails(e, h, opts = {}) {
   const emoji = IMPORTANCE_EMOJI[e.importance] || "\u26aa";
-  const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time)) : "-";
+
+  // ساعتِ خطِ خلاصه بدونِ پسوندِ «(+۱ روز)» ساخته می‌شود، پس همیشه دقیقاً
+  // پنج نویسه است.
+  //
+  // با پسوند چهارده نویسه می‌شد و نامِ آن یک ردیف از بقیه فاصله می‌گرفت -
+  // یعنی همان صف‌کشیدنی که این تغییر برایش انجام شد، دقیقاً روی ردیفی
+  // می‌شکست که بیشتر از همه به چشم می‌آید.
+  //
+  // خودِ خبر که به فردا می‌افتد گم نمی‌شود: یک خط داخلِ کشو می‌گوید.
+  const t = e.time ? toPersianDigits(etTimeToTehran(e.date, e.time, "")) : "-";
+  const nextDay = e.time && etTimeToTehran(e.date, e.time, "") !== etTimeToTehran(e.date, e.time);
   // در نمای چندارزی پرچم هم در همان خط می‌آید: بدونش کاربر نمی‌داند
   // این خبر مالِ کدام ارز است و باید بازش کند تا بفهمد.
   const flag = opts.flag ? currencyFlag(e.currency) + " " : "";
@@ -351,7 +361,7 @@ function eventDetails(e, h, opts = {}) {
   // فقط شلوغی است.
   const lines = [
     "<details><summary>" +
-      RLM + emoji + " <code>" + mdCell(t) + "</code>  " + flag + mdCell(short) +
+      RLM + emoji + " `" + mdCell(t) + "`  " + flag + mdCell(short) +
       "</summary>",
     "",
   ];
@@ -385,9 +395,14 @@ function eventDetails(e, h, opts = {}) {
       " | " + cell(e.forecast || "-") +
       " | " + cell(actual) + " |"
   );
+  const notes = [];
+  // پسوندی که از خطِ خلاصه برداشته شد، اینجا برمی‌گردد - وگرنه کاربر
+  // ساعتِ بامداد را روزِ خودِ خبر می‌خواند.
+  if (nextDay) notes.push("\u23ed این ساعت به روزِ بعد می‌افتد");
   // منبع بیرونِ جدول: نه عدد است و نه هم‌جنسِ آن سه، و ستونِ چهارم دوباره
   // همان تنگیِ قبلی را می‌آورد.
-  if (opts.source && e.source) lines.push("", RLM + "منبع: " + mdCell(e.source));
+  if (opts.source && e.source) notes.push("منبع: " + mdCell(e.source));
+  if (notes.length) lines.push("", RLM + notes.join(" \u00b7 "));
   lines.push("");
   lines.push("</details>");
   lines.push("");
