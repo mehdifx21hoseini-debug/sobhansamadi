@@ -23,16 +23,22 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<!--
-		دو نقش، دو خانواده.
+		سه نقش، سه خانواده.
 
 		وزیرمتن هرچه فارسی است. JetBrains Mono هر عددی که خوانده می‌شود -
 		ساعت، نرخ، شمارشِ معکوس. رقم‌های هم‌عرضش یعنی ستون نمی‌لرزد و
 		ثانیه‌شمار سرِ جایش می‌ماند.
 
+		IBM Plex Sans نامِ لاتینِ شاخص‌ها را می‌گیرد - «Core CPI m/m»،
+		«Nonfarm Employment Change». این‌ها تا امروز با گلیفِ لاتینِ
+		وزیرمتن نوشته می‌شدند که برای فارسی طراحی شده نه برای یک نامِ
+		فنیِ انگلیسی. پلکس با همان مونو یک خانواده‌ی فکری است و کنارش
+		می‌نشیند.
+
 		سریف عمداً نیست: این محصول یک روزنامه نیست، یک ابزارِ بازار است.
 	-->
 	<link rel="stylesheet"
-		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+		href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 	<style>
 /* ═══════════════════════════════════════════════════════════════════
    «رصد» — سیستمِ طراحی
@@ -63,7 +69,16 @@
 
 :root {
 	--f-ui: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
-	--f-num: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+	/* وزیرمتن انتهای این زنجیره هست چون بعضی برچسب‌ها رقم و واژه‌ی
+	   فارسی را با هم دارند - «تا 17:30»، «۲ روز 04:20» - و بدونِ آن،
+	   واژه به فونتِ پیش‌فرضِ سیستم می‌افتاد. پیش از monospace می‌آید،
+	   چون خانواده‌ی عام همیشه match می‌شود و هرچه بعدش بیاید خوانده
+	   نمی‌شود. */
+	--f-num: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Vazirmatn, monospace;
+	/* نامِ لاتینِ شاخص. وزیرمتن اینجا نمی‌ماند چون گلیفِ لاتینش
+	   همراهِ فارسی طراحی شده، نه برای عنوانِ فنیِ انگلیسی. اگر عنوان
+	   فارسی بود - وقتی en خالی است - همان وزیرمتنِ فالبک می‌گیردش. */
+	--f-en: "IBM Plex Sans", Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
 	/* ── سطح‌ها ─────────────────────────────────────────────────────
 	   خنثای گرم با انحرافِ خیلی کمِ سبز-آبی به سمتِ اکسنت. خاکسترِ
@@ -436,6 +451,22 @@ body {
 .lede button.is-open { color: var(--text); border-color: var(--hair-2); }
 .lede button.is-open .kdot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--k) 22%, transparent); }
 .lede button.is-hol { opacity: .55; }
+/* ساعتِ تراشه. رقمِ لاتینِ مونو تا با ساعتِ بالای صفحه و برچسبِ زمانِ
+   گره یک زبان بماند؛ نازک‌تر از نام، چون جوابِ دوم است نه اول. */
+.lede button .kt {
+	font-family: var(--f-num);
+	font-size: 10.5px;
+	font-weight: 500;
+	color: var(--faint);
+	padding-inline-start: 6px;
+	margin-inline-start: 1px;
+	border-inline-start: 1px solid var(--hair);
+	/* بدونِ direction: ltr. متن اینجا گاهی «تا 17:30» است - فارسی و
+	   رقم با هم - و راست‌به‌چپ بودنِ ظرف همان چیزی است که ترتیبش را
+	   درست نگه می‌دارد. isolate فقط از متنِ بغل جدایش می‌کند. */
+	unicode-bidi: isolate;
+}
+.lede button.is-open .kt { color: var(--live); }
 
 /* ───────────────────────────────────────────────────────────────────
    بلوکِ «رویدادِ بعدی»
@@ -465,9 +496,11 @@ body {
 }
 .upnext-name {
 	margin-top: var(--sp-2);
-	font-size: 15px;
+	font-family: var(--f-en);
+	font-size: 15.5px;
 	font-weight: 600;
-	line-height: 1.4;
+	line-height: 1.35;
+	letter-spacing: -.011em;
 	direction: ltr;
 	text-align: start;
 	unicode-bidi: isolate;
@@ -582,22 +615,53 @@ body {
 	color: var(--faint);
 }
 .node-gap { flex: 1; }
+
+/* نشانِ اهمیت: سه میله‌ی پلکانی، بی‌رنگ.
+   اندازه‌ی گره اهمیت را نسبی می‌گفت - فقط وقتی دو خبرِ ناهم‌سطح کنارِ
+   هم بودند دیده می‌شد. این واحدِ مطلق است. رنگ عمداً وارد نمی‌شود؛
+   قرمز و نارنجی همان چیزی است که قرار بود از آن فاصله بگیریم. */
+.sig {
+	display: inline-flex;
+	align-items: flex-end;
+	gap: 1.5px;
+	height: 9px;
+	flex: none;
+	/* پلکان همیشه از چپ بالا می‌رود - مثل هر نشانگرِ قدرتِ سیگنالی.
+	   بدونِ این، ظرفِ راست‌به‌چپ آینه‌اش می‌کرد. اینجا امن است چون
+	   هیچ inset منطقی‌ای در کار نیست، فقط ترتیبِ فلکس. */
+	direction: ltr;
+}
+.sig i {
+	display: block;
+	width: 2.5px;
+	border-radius: 1px;
+	background: var(--hair-2);
+}
+.sig i:nth-child(1) { height: 3.5px; }
+.sig i:nth-child(2) { height: 6px; }
+.sig i:nth-child(3) { height: 9px; }
+.sig i.on { background: var(--dim); }
+.sig.lv-3 i.on { background: var(--text); }
+.node.is-done .sig i.on { background: var(--faint); }
+.node.is-done .sig.lv-3 i.on { background: var(--dim); }
 .node-tag { font-size: 10.5px; font-weight: 600; color: var(--faint); }
 .node-tag.is-live { color: var(--live); }
 
 /* عنوان: اهمیت با اندازه و وزن. خبرِ مهم بزرگ‌تر است، نه قرمزتر. */
 .node-name {
 	margin-top: 3px;
-	font-size: 14px;
-	font-weight: 500;
-	line-height: 1.4;
+	font-family: var(--f-en);
+	font-size: 14.5px;
+	font-weight: 450;
+	line-height: 1.35;
+	letter-spacing: -.006em;
 	direction: ltr;
 	text-align: start;
 	unicode-bidi: isolate;
 	overflow-wrap: anywhere;
 }
-.node.imp-high .node-name { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; }
-.node.imp-low .node-name { font-size: 13px; color: var(--dim); }
+.node.imp-high .node-name { font-size: 16.5px; font-weight: 600; letter-spacing: -.018em; }
+.node.imp-low .node-name { font-size: 13.5px; font-weight: 400; color: var(--dim); }
 .node-fa { font-size: 12px; color: var(--dim); margin-top: 1px; }
 .node.is-done { opacity: .62; }
 .node.is-done.has-actual { opacity: 1; }
@@ -823,14 +887,19 @@ body {
 .line + .line { border-top: 1px solid var(--hair); }
 .line-main { flex: 1; min-width: 0; }
 .line-t { font-size: 14px; font-weight: 500; }
-.line-s { font-size: 11.5px; color: var(--dim); margin-top: 1px; line-height: 1.5; }
+.line-s { font-family: var(--f-en); font-size: 11.5px; color: var(--dim); margin-top: 1px; line-height: 1.5; }
 .line.is-tap { cursor: pointer; }
 .line-val { font-size: 13px; color: var(--dim); font-weight: 500; }
 .line-chev { color: var(--faint); flex: none; }
-/* ردیفِ سطحِ اهمیت: وزنِ نقطه اهمیت را می‌گوید، نه رنگش. */
-.line-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text); }
-.line-dot.md { width: 8px; height: 8px; background: var(--dim); }
-.line-dot.lo { width: 6px; height: 6px; background: var(--faint); }
+/* ردیفِ سطحِ اهمیت. نقطه‌ی رنگی اینجا بود و برداشته شد: حالا همان
+   نشانِ سه‌میله‌ای می‌آید که در فهرستِ خبرها هم هست، تا سوییچ و آنچه
+   سوییچ کنترل می‌کند یک شکل داشته باشند. کمی بزرگ‌تر، چون اینجا
+   موضوعِ ردیف است نه یک برچسبِ کناری. */
+.line .sig { height: 13px; gap: 2px; }
+.line .sig i { width: 3px; }
+.line .sig i:nth-child(1) { height: 5px; }
+.line .sig i:nth-child(2) { height: 9px; }
+.line .sig i:nth-child(3) { height: 13px; }
 
 /* شبکه‌ی ارزها */
 .cur-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); padding: var(--sp-3); }
@@ -1371,9 +1440,9 @@ function hhmmInZone(instant, timeZone) {
 
 	// ── حالت ────────────────────────────────────────────────────────
 	var LEVELS = [
-		{ key: "high", fa: "مهم", en: "High impact", dot: "" },
-		{ key: "medium", fa: "متوسط", en: "Medium impact", dot: "md" },
-		{ key: "low", fa: "کم‌اهمیت", en: "Low impact", dot: "lo" }
+		{ key: "high", fa: "مهم", en: "High impact" },
+		{ key: "medium", fa: "متوسط", en: "Medium impact" },
+		{ key: "low", fa: "کم‌اهمیت", en: "Low impact" }
 	];
 	var LEVELS_KEY = "econ.levels";
 	var ROUTE_KEY = "econAppRoute";
@@ -1530,7 +1599,9 @@ function hhmmInZone(instant, timeZone) {
 		var dec = Math.max(decOf(e.actual), decOf(e.forecast));
 		if (Math.abs(d) < Math.pow(10, -dec) / 2) return { flat: true, text: "مطابق پیش‌بینی" };
 		var unit = unitOf(e.forecast) === "%" ? "" : unitOf(e.forecast);
-		return { flat: false, text: (d > 0 ? "+" : "−") + fa(Math.abs(d).toFixed(dec)) + unit };
+		// رقمِ لاتین، عمداً. هر عددی که «خوانده» می‌شود - نرخ، اختلاف،
+		// ساعت - در یک زبانِ رقمی می‌ماند تا چشم بینشان جابه‌جا نشود.
+		return { flat: false, text: (d > 0 ? "+" : "−") + Math.abs(d).toFixed(dec) + unit };
 	}
 
 	/** رنگِ عدد از قضاوتِ سرور می‌آید، نه بالا/پایینِ خام. */
@@ -1776,6 +1847,17 @@ function hhmmInZone(instant, timeZone) {
 			b.style.setProperty("--k", "var(--k-" + s.key + ")");
 			b.appendChild(el("span", "kdot"));
 			b.appendChild(el("span", null, s.name));
+			// ساعت روی خودِ تراشه.
+			//
+			// تا حالا تراشه فقط یک نقطه‌ی رنگی و یک نام بود: می‌گفت باز
+			// است یا نه، ولی نمی‌گفت «تا کِی». آن جواب یک ضربه پایین‌تر،
+			// داخلِ ورق، پنهان بود - درحالی‌که دقیقاً همان چیزی است که
+			// کاربر برای برنامه‌ریزیِ ساعتِ بعدی‌اش می‌خواهد.
+			var t = "";
+			if (hol) t = "تعطیل";
+			else if (st.open && st.until) t = "تا " + hhmmInZone(st.until, VIEW());
+			else if (st.nextOpen) t = hhmmInZone(st.nextOpen, VIEW());
+			if (t) b.appendChild(el("span", "kt n", t));
 			b.addEventListener("click", function () { openSession(s); });
 			lede.appendChild(b);
 		});
@@ -1794,6 +1876,7 @@ function hhmmInZone(instant, timeZone) {
 			var meta = el("div", "upnext-meta");
 			meta.appendChild(el("span", "n", hhmmInZone(atOf(nx), VIEW())));
 			meta.appendChild(el("span", "node-cur", nx.currency || ""));
+			meta.appendChild(impMark(nx.importance));
 			meta.appendChild(el("span", null, impWord(nx.importance)));
 			card.appendChild(meta);
 			wrap.appendChild(card);
@@ -1819,6 +1902,26 @@ function hhmmInZone(instant, timeZone) {
 
 	function impWord(imp) {
 		return imp === "high" ? "مهم" : imp === "medium" ? "متوسط" : "کم‌اهمیت";
+	}
+
+	/**
+	 * نشانِ اهمیت: سه میله‌ی پلکانی، یک تا سه‌تاش پُر.
+	 *
+	 * تا حالا اهمیت فقط با اندازه‌ی گره و بزرگیِ عنوان گفته می‌شد -
+	 * که وقتی دو خبرِ هم‌سطح پشتِ هم می‌آیند نسبی و نامرئی است. این
+	 * یک واحدِ مطلق است: سه میله یعنی سه میله، هرجای فهرست که باشد.
+	 *
+	 * عمداً بی‌رنگ. قرمز و نارنجیِ فارکس‌فکتوری همان چیزی است که قرار
+	 * بود از آن فاصله بگیریم؛ اینجا اهمیت با پُری گفته می‌شود، نه با
+	 * هشدارِ رنگی. تنها تفاوتِ رنگ، تیرگیِ میله‌های پُرِ خبرِ مهم است.
+	 */
+	function impMark(imp) {
+		var n = imp === "high" ? 3 : imp === "medium" ? 2 : 1;
+		var s = el("span", "sig lv-" + n);
+		s.setAttribute("role", "img");
+		s.setAttribute("aria-label", "اهمیت: " + impWord(imp));
+		for (var i = 1; i <= 3; i++) s.appendChild(el("i", i <= n ? "on" : null));
+		return s;
 	}
 
 	function emptyToday(weekend, market) {
@@ -1962,6 +2065,7 @@ function hhmmInZone(instant, timeZone) {
 		var top = el("div", "node-top");
 		top.appendChild(flagChipSmall(e));
 		top.appendChild(el("span", "node-cur", e.currency || ""));
+		top.appendChild(impMark(imp));
 		top.appendChild(el("span", "node-gap"));
 		if (live) top.appendChild(el("span", "node-tag is-live", "تا " + until(at)));
 		else if (!done && at !== null && !compact) top.appendChild(el("span", "node-tag", "تا " + until(at)));
@@ -1973,7 +2077,7 @@ function hhmmInZone(instant, timeZone) {
 
 		if (e.actual) {
 			var out = el("div", "node-out");
-			out.appendChild(el("span", "node-actual n " + tone(e), fa(e.actual)));
+			out.appendChild(el("span", "node-actual n " + tone(e), e.actual));
 			var d = deltaOf(e);
 			if (d) out.appendChild(el("span", "node-delta", d.flat ? d.text : d.text));
 			head.appendChild(out);
@@ -2022,11 +2126,11 @@ function hhmmInZone(instant, timeZone) {
 		function fact(k, v, extra) {
 			var s = el("span", null);
 			s.appendChild(document.createTextNode(k + " "));
-			s.appendChild(el("b", null, v ? fa(v) : "—"));
+			s.appendChild(el("b", null, v ? String(v) : "—"));
 			if (extra) s.appendChild(el("span", "rev", " " + extra));
 			facts.appendChild(s);
 		}
-		fact("قبلی", e.previous, e.previous_before ? "(بازنگری از " + fa(e.previous_before) + ")" : "");
+		fact("قبلی", e.previous, e.previous_before ? "(بازنگری از " + e.previous_before + ")" : "");
 		fact("پیش‌بینی", e.forecast, "");
 		if (!numOf(e.actual) && e.actual) fact("واقعی", e.actual, "");
 		box.appendChild(facts);
@@ -2078,7 +2182,7 @@ function hhmmInZone(instant, timeZone) {
 			g.appendChild(pinP);
 		}
 
-		var val = el("div", "gauge-val " + (e.read ? (e.read.good ? "is-up" : "is-down") : ""), fa(e.actual));
+		var val = el("div", "gauge-val " + (e.read ? (e.read.good ? "is-up" : "is-down") : ""), String(e.actual));
 		val.style.insetInlineStart = av + "%";
 		val.style.color = e.read ? (e.read.good ? "var(--up)" : "var(--down)") : "var(--text)";
 		g.appendChild(val);
@@ -2160,7 +2264,10 @@ function hhmmInZone(instant, timeZone) {
 		var b1 = el("div", "group-box");
 		LEVELS.forEach(function (l) {
 			var row = el("div", "line");
-			row.appendChild(el("span", "line-dot " + l.dot));
+			// همان نشانی که در فهرستِ خبرها دیده می‌شود، نه یک نقطه‌ی
+			// رنگیِ دیگر: کاربر باید بتواند سوییچِ اینجا را به چیزی که
+			// آنجا می‌بیند وصل کند.
+			row.appendChild(impMark(l.key));
 			var m = el("div", "line-main");
 			m.appendChild(el("div", "line-t", l.fa));
 			m.appendChild(el("div", "line-s n", l.en));
@@ -2519,7 +2626,7 @@ function hhmmInZone(instant, timeZone) {
 	<!-- Printed so a stale copy can be identified at a glance: the WebView
 	     caches this page and the URL is otherwise constant. Written by
 	     scripts/build-econ-app.mjs. -->
-	<span class="build" hidden>نسخه 7627dc502e</span>
+	<span class="build" hidden>نسخه c1ba9e42d3</span>
 </body>
 
 </html>

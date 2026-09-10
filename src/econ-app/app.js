@@ -112,9 +112,9 @@
 
 	// ── حالت ────────────────────────────────────────────────────────
 	var LEVELS = [
-		{ key: "high", fa: "مهم", en: "High impact", dot: "" },
-		{ key: "medium", fa: "متوسط", en: "Medium impact", dot: "md" },
-		{ key: "low", fa: "کم‌اهمیت", en: "Low impact", dot: "lo" }
+		{ key: "high", fa: "مهم", en: "High impact" },
+		{ key: "medium", fa: "متوسط", en: "Medium impact" },
+		{ key: "low", fa: "کم‌اهمیت", en: "Low impact" }
 	];
 	var LEVELS_KEY = "econ.levels";
 	var ROUTE_KEY = "econAppRoute";
@@ -271,7 +271,9 @@
 		var dec = Math.max(decOf(e.actual), decOf(e.forecast));
 		if (Math.abs(d) < Math.pow(10, -dec) / 2) return { flat: true, text: "مطابق پیش‌بینی" };
 		var unit = unitOf(e.forecast) === "%" ? "" : unitOf(e.forecast);
-		return { flat: false, text: (d > 0 ? "+" : "−") + fa(Math.abs(d).toFixed(dec)) + unit };
+		// رقمِ لاتین، عمداً. هر عددی که «خوانده» می‌شود - نرخ، اختلاف،
+		// ساعت - در یک زبانِ رقمی می‌ماند تا چشم بینشان جابه‌جا نشود.
+		return { flat: false, text: (d > 0 ? "+" : "−") + Math.abs(d).toFixed(dec) + unit };
 	}
 
 	/** رنگِ عدد از قضاوتِ سرور می‌آید، نه بالا/پایینِ خام. */
@@ -517,6 +519,17 @@
 			b.style.setProperty("--k", "var(--k-" + s.key + ")");
 			b.appendChild(el("span", "kdot"));
 			b.appendChild(el("span", null, s.name));
+			// ساعت روی خودِ تراشه.
+			//
+			// تا حالا تراشه فقط یک نقطه‌ی رنگی و یک نام بود: می‌گفت باز
+			// است یا نه، ولی نمی‌گفت «تا کِی». آن جواب یک ضربه پایین‌تر،
+			// داخلِ ورق، پنهان بود - درحالی‌که دقیقاً همان چیزی است که
+			// کاربر برای برنامه‌ریزیِ ساعتِ بعدی‌اش می‌خواهد.
+			var t = "";
+			if (hol) t = "تعطیل";
+			else if (st.open && st.until) t = "تا " + hhmmInZone(st.until, VIEW());
+			else if (st.nextOpen) t = hhmmInZone(st.nextOpen, VIEW());
+			if (t) b.appendChild(el("span", "kt n", t));
 			b.addEventListener("click", function () { openSession(s); });
 			lede.appendChild(b);
 		});
@@ -535,6 +548,7 @@
 			var meta = el("div", "upnext-meta");
 			meta.appendChild(el("span", "n", hhmmInZone(atOf(nx), VIEW())));
 			meta.appendChild(el("span", "node-cur", nx.currency || ""));
+			meta.appendChild(impMark(nx.importance));
 			meta.appendChild(el("span", null, impWord(nx.importance)));
 			card.appendChild(meta);
 			wrap.appendChild(card);
@@ -560,6 +574,26 @@
 
 	function impWord(imp) {
 		return imp === "high" ? "مهم" : imp === "medium" ? "متوسط" : "کم‌اهمیت";
+	}
+
+	/**
+	 * نشانِ اهمیت: سه میله‌ی پلکانی، یک تا سه‌تاش پُر.
+	 *
+	 * تا حالا اهمیت فقط با اندازه‌ی گره و بزرگیِ عنوان گفته می‌شد -
+	 * که وقتی دو خبرِ هم‌سطح پشتِ هم می‌آیند نسبی و نامرئی است. این
+	 * یک واحدِ مطلق است: سه میله یعنی سه میله، هرجای فهرست که باشد.
+	 *
+	 * عمداً بی‌رنگ. قرمز و نارنجیِ فارکس‌فکتوری همان چیزی است که قرار
+	 * بود از آن فاصله بگیریم؛ اینجا اهمیت با پُری گفته می‌شود، نه با
+	 * هشدارِ رنگی. تنها تفاوتِ رنگ، تیرگیِ میله‌های پُرِ خبرِ مهم است.
+	 */
+	function impMark(imp) {
+		var n = imp === "high" ? 3 : imp === "medium" ? 2 : 1;
+		var s = el("span", "sig lv-" + n);
+		s.setAttribute("role", "img");
+		s.setAttribute("aria-label", "اهمیت: " + impWord(imp));
+		for (var i = 1; i <= 3; i++) s.appendChild(el("i", i <= n ? "on" : null));
+		return s;
 	}
 
 	function emptyToday(weekend, market) {
@@ -703,6 +737,7 @@
 		var top = el("div", "node-top");
 		top.appendChild(flagChipSmall(e));
 		top.appendChild(el("span", "node-cur", e.currency || ""));
+		top.appendChild(impMark(imp));
 		top.appendChild(el("span", "node-gap"));
 		if (live) top.appendChild(el("span", "node-tag is-live", "تا " + until(at)));
 		else if (!done && at !== null && !compact) top.appendChild(el("span", "node-tag", "تا " + until(at)));
@@ -714,7 +749,7 @@
 
 		if (e.actual) {
 			var out = el("div", "node-out");
-			out.appendChild(el("span", "node-actual n " + tone(e), fa(e.actual)));
+			out.appendChild(el("span", "node-actual n " + tone(e), e.actual));
 			var d = deltaOf(e);
 			if (d) out.appendChild(el("span", "node-delta", d.flat ? d.text : d.text));
 			head.appendChild(out);
@@ -763,11 +798,11 @@
 		function fact(k, v, extra) {
 			var s = el("span", null);
 			s.appendChild(document.createTextNode(k + " "));
-			s.appendChild(el("b", null, v ? fa(v) : "—"));
+			s.appendChild(el("b", null, v ? String(v) : "—"));
 			if (extra) s.appendChild(el("span", "rev", " " + extra));
 			facts.appendChild(s);
 		}
-		fact("قبلی", e.previous, e.previous_before ? "(بازنگری از " + fa(e.previous_before) + ")" : "");
+		fact("قبلی", e.previous, e.previous_before ? "(بازنگری از " + e.previous_before + ")" : "");
 		fact("پیش‌بینی", e.forecast, "");
 		if (!numOf(e.actual) && e.actual) fact("واقعی", e.actual, "");
 		box.appendChild(facts);
@@ -819,7 +854,7 @@
 			g.appendChild(pinP);
 		}
 
-		var val = el("div", "gauge-val " + (e.read ? (e.read.good ? "is-up" : "is-down") : ""), fa(e.actual));
+		var val = el("div", "gauge-val " + (e.read ? (e.read.good ? "is-up" : "is-down") : ""), String(e.actual));
 		val.style.insetInlineStart = av + "%";
 		val.style.color = e.read ? (e.read.good ? "var(--up)" : "var(--down)") : "var(--text)";
 		g.appendChild(val);
@@ -901,7 +936,10 @@
 		var b1 = el("div", "group-box");
 		LEVELS.forEach(function (l) {
 			var row = el("div", "line");
-			row.appendChild(el("span", "line-dot " + l.dot));
+			// همان نشانی که در فهرستِ خبرها دیده می‌شود، نه یک نقطه‌ی
+			// رنگیِ دیگر: کاربر باید بتواند سوییچِ اینجا را به چیزی که
+			// آنجا می‌بیند وصل کند.
+			row.appendChild(impMark(l.key));
 			var m = el("div", "line-main");
 			m.appendChild(el("div", "line-t", l.fa));
 			m.appendChild(el("div", "line-s n", l.en));

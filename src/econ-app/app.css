@@ -27,7 +27,16 @@
 
 :root {
 	--f-ui: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
-	--f-num: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+	/* وزیرمتن انتهای این زنجیره هست چون بعضی برچسب‌ها رقم و واژه‌ی
+	   فارسی را با هم دارند - «تا 17:30»، «۲ روز 04:20» - و بدونِ آن،
+	   واژه به فونتِ پیش‌فرضِ سیستم می‌افتاد. پیش از monospace می‌آید،
+	   چون خانواده‌ی عام همیشه match می‌شود و هرچه بعدش بیاید خوانده
+	   نمی‌شود. */
+	--f-num: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Vazirmatn, monospace;
+	/* نامِ لاتینِ شاخص. وزیرمتن اینجا نمی‌ماند چون گلیفِ لاتینش
+	   همراهِ فارسی طراحی شده، نه برای عنوانِ فنیِ انگلیسی. اگر عنوان
+	   فارسی بود - وقتی en خالی است - همان وزیرمتنِ فالبک می‌گیردش. */
+	--f-en: "IBM Plex Sans", Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
 	/* ── سطح‌ها ─────────────────────────────────────────────────────
 	   خنثای گرم با انحرافِ خیلی کمِ سبز-آبی به سمتِ اکسنت. خاکسترِ
@@ -400,6 +409,22 @@ body {
 .lede button.is-open { color: var(--text); border-color: var(--hair-2); }
 .lede button.is-open .kdot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--k) 22%, transparent); }
 .lede button.is-hol { opacity: .55; }
+/* ساعتِ تراشه. رقمِ لاتینِ مونو تا با ساعتِ بالای صفحه و برچسبِ زمانِ
+   گره یک زبان بماند؛ نازک‌تر از نام، چون جوابِ دوم است نه اول. */
+.lede button .kt {
+	font-family: var(--f-num);
+	font-size: 10.5px;
+	font-weight: 500;
+	color: var(--faint);
+	padding-inline-start: 6px;
+	margin-inline-start: 1px;
+	border-inline-start: 1px solid var(--hair);
+	/* بدونِ direction: ltr. متن اینجا گاهی «تا 17:30» است - فارسی و
+	   رقم با هم - و راست‌به‌چپ بودنِ ظرف همان چیزی است که ترتیبش را
+	   درست نگه می‌دارد. isolate فقط از متنِ بغل جدایش می‌کند. */
+	unicode-bidi: isolate;
+}
+.lede button.is-open .kt { color: var(--live); }
 
 /* ───────────────────────────────────────────────────────────────────
    بلوکِ «رویدادِ بعدی»
@@ -429,9 +454,11 @@ body {
 }
 .upnext-name {
 	margin-top: var(--sp-2);
-	font-size: 15px;
+	font-family: var(--f-en);
+	font-size: 15.5px;
 	font-weight: 600;
-	line-height: 1.4;
+	line-height: 1.35;
+	letter-spacing: -.011em;
 	direction: ltr;
 	text-align: start;
 	unicode-bidi: isolate;
@@ -546,22 +573,53 @@ body {
 	color: var(--faint);
 }
 .node-gap { flex: 1; }
+
+/* نشانِ اهمیت: سه میله‌ی پلکانی، بی‌رنگ.
+   اندازه‌ی گره اهمیت را نسبی می‌گفت - فقط وقتی دو خبرِ ناهم‌سطح کنارِ
+   هم بودند دیده می‌شد. این واحدِ مطلق است. رنگ عمداً وارد نمی‌شود؛
+   قرمز و نارنجی همان چیزی است که قرار بود از آن فاصله بگیریم. */
+.sig {
+	display: inline-flex;
+	align-items: flex-end;
+	gap: 1.5px;
+	height: 9px;
+	flex: none;
+	/* پلکان همیشه از چپ بالا می‌رود - مثل هر نشانگرِ قدرتِ سیگنالی.
+	   بدونِ این، ظرفِ راست‌به‌چپ آینه‌اش می‌کرد. اینجا امن است چون
+	   هیچ inset منطقی‌ای در کار نیست، فقط ترتیبِ فلکس. */
+	direction: ltr;
+}
+.sig i {
+	display: block;
+	width: 2.5px;
+	border-radius: 1px;
+	background: var(--hair-2);
+}
+.sig i:nth-child(1) { height: 3.5px; }
+.sig i:nth-child(2) { height: 6px; }
+.sig i:nth-child(3) { height: 9px; }
+.sig i.on { background: var(--dim); }
+.sig.lv-3 i.on { background: var(--text); }
+.node.is-done .sig i.on { background: var(--faint); }
+.node.is-done .sig.lv-3 i.on { background: var(--dim); }
 .node-tag { font-size: 10.5px; font-weight: 600; color: var(--faint); }
 .node-tag.is-live { color: var(--live); }
 
 /* عنوان: اهمیت با اندازه و وزن. خبرِ مهم بزرگ‌تر است، نه قرمزتر. */
 .node-name {
 	margin-top: 3px;
-	font-size: 14px;
-	font-weight: 500;
-	line-height: 1.4;
+	font-family: var(--f-en);
+	font-size: 14.5px;
+	font-weight: 450;
+	line-height: 1.35;
+	letter-spacing: -.006em;
 	direction: ltr;
 	text-align: start;
 	unicode-bidi: isolate;
 	overflow-wrap: anywhere;
 }
-.node.imp-high .node-name { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; }
-.node.imp-low .node-name { font-size: 13px; color: var(--dim); }
+.node.imp-high .node-name { font-size: 16.5px; font-weight: 600; letter-spacing: -.018em; }
+.node.imp-low .node-name { font-size: 13.5px; font-weight: 400; color: var(--dim); }
 .node-fa { font-size: 12px; color: var(--dim); margin-top: 1px; }
 .node.is-done { opacity: .62; }
 .node.is-done.has-actual { opacity: 1; }
@@ -787,14 +845,19 @@ body {
 .line + .line { border-top: 1px solid var(--hair); }
 .line-main { flex: 1; min-width: 0; }
 .line-t { font-size: 14px; font-weight: 500; }
-.line-s { font-size: 11.5px; color: var(--dim); margin-top: 1px; line-height: 1.5; }
+.line-s { font-family: var(--f-en); font-size: 11.5px; color: var(--dim); margin-top: 1px; line-height: 1.5; }
 .line.is-tap { cursor: pointer; }
 .line-val { font-size: 13px; color: var(--dim); font-weight: 500; }
 .line-chev { color: var(--faint); flex: none; }
-/* ردیفِ سطحِ اهمیت: وزنِ نقطه اهمیت را می‌گوید، نه رنگش. */
-.line-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text); }
-.line-dot.md { width: 8px; height: 8px; background: var(--dim); }
-.line-dot.lo { width: 6px; height: 6px; background: var(--faint); }
+/* ردیفِ سطحِ اهمیت. نقطه‌ی رنگی اینجا بود و برداشته شد: حالا همان
+   نشانِ سه‌میله‌ای می‌آید که در فهرستِ خبرها هم هست، تا سوییچ و آنچه
+   سوییچ کنترل می‌کند یک شکل داشته باشند. کمی بزرگ‌تر، چون اینجا
+   موضوعِ ردیف است نه یک برچسبِ کناری. */
+.line .sig { height: 13px; gap: 2px; }
+.line .sig i { width: 3px; }
+.line .sig i:nth-child(1) { height: 5px; }
+.line .sig i:nth-child(2) { height: 9px; }
+.line .sig i:nth-child(3) { height: 13px; }
 
 /* شبکه‌ی ارزها */
 .cur-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); padding: var(--sp-3); }
