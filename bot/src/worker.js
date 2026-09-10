@@ -46,6 +46,7 @@ import {
 } from "./econ/ingest.js";
 import { EXPLAIN_FLAG, explainEnabled } from "./econ/explain.js";
 import { dispatchWorkflow } from "./ops/dispatch.js";
+import { isActualsSlot } from "./econ/actualsSchedule.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
 // آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
@@ -85,7 +86,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-89";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d1-90";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -902,6 +903,25 @@ export default {
     }
 
     if (cron === ALERT_CRON) {
+      // خواندنِ عددهای واقعی، سرِ وقت.
+      //
+      // این کار زمان‌بندیِ خودش را در گیت‌هاب دارد، ولی زمان‌بندِ گیت‌هاب
+      // «بهترین تلاش» است و در عمل حدود ۸۲٪ اجراها را نمی‌رساند؛ نتیجه‌اش
+      // ستونِ «واقعی» بود که دو تا سه ساعت بعد از انتشار پر می‌شد.
+      // کرانِ کلادفلر سرِ وقت است، پس صدا زدن از اینجا همان زمان‌بندیِ
+      // طراحی‌شده را واقعاً اجرا می‌کند.
+      //
+      // scheduledTime و نه Date.now(): همان لحظه‌ای که کران برایش
+      // برنامه‌ریزی شده. چند ثانیه تأخیر در اجرا نباید دقیقه را جابه‌جا
+      // کند و تیک را بیندازد.
+      if (isActualsSlot(new Date(event.scheduledTime || Date.now()))) {
+        ctx.waitUntil(
+          dispatchWorkflow(env, "ff-actuals.yml")
+            .then((r) => console.log("شروعِ خواندنِ عددها:", JSON.stringify(r)))
+            .catch((err) => console.error("شروعِ خواندنِ عددها شکست خورد:", err && err.message))
+        );
+      }
+
       // صفِ پیام همگانی. تبِ مرورگر ارسال را شروع می‌کند و تند پیش
       // می‌برد، ولی اگر بسته شود این هر پنج دقیقه ادامه‌اش می‌دهد - پس
       // هیچ ارسالی نصفه رها نمی‌ماند.
