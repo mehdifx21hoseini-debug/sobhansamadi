@@ -347,10 +347,8 @@
 			   برای حفظ نسبت، عرض را هم کوچک می‌کند و بنر از ستون محتوا
 			   باریک‌تر می‌شود. */
 			width: 100%;
-			/* کوتاه‌تر از قبل: بنر یک امضاست، نه محتوا. با ۱۵۵ پیکسل یک
-			   چهارمِ صفحه‌ی اول را می‌گرفت پیش از آنکه کاربر یک خبر ببیند. */
-			aspect-ratio: 3.9;
-			max-height: 108px;
+			aspect-ratio: 2.75;
+			max-height: 155px;
 			border-radius: var(--r);
 			/* رنگِ بنر در هر دو تم یکی است. عکس تُنِ ثابتی دارد و پرده باید در
 			   همان تُن محو شود؛ اگر --navy را می‌گرفت، در تم تیره پرده
@@ -1558,6 +1556,12 @@
 		.read-good { color: var(--up); }
 		.read-bad { color: var(--down); }
 
+		/* نشانِ بازنگری، زیرِ ستونِ «قبلی». */
+		.revised { margin-top: 4px; font-size: 0.6rem; color: var(--muted); }
+		/* خوانشِ پیش از انتشار آرام‌تر از خوانشِ پس از انتشار است: آن یکی
+		   قضاوتِ یک عددِ واقعی است، این یکی فقط یک قاعده‌ی کلی. */
+		.read-usual { color: var(--muted); font-weight: 500; }
+
 		.event-foot { padding: 9px 0 12px; font-size: 0.68rem; color: var(--muted); }
 		.event-foot .soon { color: var(--signal); font-weight: 700; }
 
@@ -1979,103 +1983,6 @@
 			outline: 2px solid var(--accent);
 			outline-offset: 2px;
 		}
-
-		/* ── مینیمال ─────────────────────────────────────────────────
-		   لبه‌ی هر کارت + سایه + نشانِ پُرِ اهمیت با هم صفحه را شلوغ کرده
-		   بودند: هر بلوک ادعا می‌کرد شیءِ جداست، و وقتی همه ادعا کنند
-		   هیچ‌کدام برجسته نمی‌شود.
-
-		   حالا جدا کردن با سفیدیِ کاغذ و فاصله انجام می‌شود. خطِ مو فقط
-		   جایی می‌ماند که واقعاً دو چیزِ متفاوت را از هم جدا می‌کند -
-		   داخلِ جدولِ عددها و زیرِ سرتیترها. */
-		.sb-status, .sb-board, .alerts, .event, .slim, .empty, .error, .sb-clocks {
-			border-color: transparent;
-			box-shadow: none;
-		}
-		/* ردیف‌های خبر یک ستون‌اند، نه چند کارت: فقط خطِ نازکِ بینشان. */
-		.event + .event, .slim + .slim, .event + .slim, .slim + .event {
-			border-top: 1px solid var(--line);
-		}
-		.slim { background: transparent; }
-		.event.is-past { background: transparent; opacity: .72; }
-
-		/* نشانِ اهمیت: مربعِ رنگی و کلمه‌ی هم‌رنگ، بی‌زمینه.
-		   رنگ همان‌قدر روشن است ولی دیگر داد نمی‌زند. */
-		.imp-badge {
-			background: none !important;
-			padding: 0;
-			display: inline-flex;
-			align-items: center;
-			gap: 6px;
-			font-size: 0.68rem;
-		}
-		.imp-badge::before {
-			content: "";
-			width: 8px;
-			height: 8px;
-			border-radius: var(--r-sm);
-			background: currentColor;
-		}
-		.imp-badge.imp-high { color: var(--high); }
-		.imp-badge.imp-medium { color: var(--medium); }
-		.imp-badge.imp-low { color: var(--imp-low); }
-
-		/* جدولِ عددها: بی‌خطِ عمودی. هم‌ترازی خودش ستون را می‌سازد. */
-		.num + .num { border-inline-start: 0; }
-		.nums { border-top: 1px solid var(--line); }
-
-		/* نشانِ نوسان: بی‌زمینه. */
-		.risk-pill { padding: 0; background: none !important; font-weight: 600; font-size: 0.72rem; }
-		.risk-high { color: var(--high); }
-		.risk-medium { color: var(--medium); }
-		.risk-low { color: var(--up); }
-
-		.revised { margin-top: 4px; font-size: 0.6rem; color: var(--muted); }
-		.read-usual { color: var(--muted); font-weight: 500; }
-
-		/* لبه‌ی رنگیِ کارتِ بالا برداشته شد.
-		   آن لبه توضیحِ جمله‌ی «بازار باز است» بود - رنگ می‌گفت باز است یا
-		   بسته. حالا که جمله رفته و جایش خلاصه‌ی اخبار نشسته، لبه چیزی را
-		   توضیح نمی‌دهد و فقط یک نوارِ سبزِ بی‌معنی است. */
-		.sb-status,
-		.sb-status.is-open,
-		.sb-status.is-break,
-		.sb-status.is-weekend { border-inline-start: 0; padding-inline-start: 15px; }
-
-		/* سرتیتر و تاریخ هرکدام یک خط. با دو خط شدنِ عنوان، کارت کنارِ
-		   ساعتِ بزرگ چهار خطی می‌شد. */
-		.sb-sum-title { white-space: nowrap; font-size: 0.88rem; }
-		.sb-sum-date { white-space: nowrap; font-size: 0.63rem; }
-
-		/* ── نمودارِ سشن‌ها، ساده‌تر ───────────────────────────────────
-		   سه چیز هم‌زمان روی هر ردیف حرف می‌زدند: زمینه‌ی نوار، نوارِ
-		   رنگیِ سشن، و راه‌راهِ مورب برای ساعتِ تسویه و تعطیلی. راه‌راه
-		   پرسروصداترینشان بود و کم‌ترین حرف را داشت.
-
-		   حالا نوار زمینه ندارد - فقط یک خطِ نازک به‌عنوان محورِ روز - و
-		   راه‌راه‌ها یک تُنِ تخت شده‌اند. خودِ نوارِ رنگی حالا تنها چیزی
-		   است که روی خط دیده می‌شود، که همان چیزی است که باید دیده شود. */
-		.sb-track {
-			background: none;
-			border-bottom: 1px solid var(--sb-line);
-			border-radius: 0;
-		}
-		/* تُنِ خنثی، نه رنگی.
-		   با رنگِ --sb-rest، این لکه هم‌وزنِ نوارهای رنگیِ سشن می‌شد و
-		   مثل یک بازارِ دیگر خوانده می‌شد - در حالی که معنی‌اش دقیقاً
-		   برعکس است: اینجا چیزی نیست. */
-		.sb-break,
-		.sb-hol {
-			background: color-mix(in srgb, var(--sb-muted) 14%, transparent) !important;
-		}
-		/* برچسبِ «تعطیل» می‌ماند - آن یکی متن است، نه بافت. */
-		.sb-hol { color: var(--sb-rest); }
-
-		/* ریلِ نام کمی باریک‌تر: ۱۱۶ پیکسل از عرضِ یک گوشیِ ۳۹۰ پیکسلی سهمِ
-		   بزرگی است. ولی نه بیش از این - با ۹۶ پیکسل «بورس نیویورک»
-		   بریده می‌شد. */
-		.sb-board { --rail: 108px; }
-		.sb-row { min-height: 34px; padding: 4px 0; }
 	</style>
 </head>
 
@@ -2212,7 +2119,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 8a3d02866a</span>
+			<span class="build">نسخه bd2823c202</span>
 		</p>
 	</div>
 
