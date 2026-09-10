@@ -1,3 +1,5 @@
+import { ensureCrmSchema } from "./crm/schema.js";
+
 // دفترچه‌ی شماره‌ها.
 //
 // تا امروز شماره‌ی کاربر فقط در دو جا می‌نشست: ستون phone در user_state
@@ -133,6 +135,17 @@ export async function savePhone(env, { telegramUserId, phone, name, username, so
  */
 export async function listPhones(env, { limit = 2000 } = {}) {
   await ensurePhoneSchema(env);
+  // این کوئری از crm_leads هم می‌خواند، و آن جدول را طرحِ CRM می‌سازد نه
+  // طرحِ دفترچه‌ی شماره.
+  //
+  // تا امروز کار می‌کرد چون کرانِ هر پنج دقیقه ensureCrmSchema را صدا
+  // می‌زند و جدول از قبل ساخته شده بود - یعنی درستیِ این تابع به این
+  // بسته بود که چیزِ دیگری زودتر اجرا شده باشد. روی یک دیتابیسِ تازه، یا
+  // اگر مدیر پیش از اولین تیکِ کران دفترچه را باز کند، همین کوئری با
+  // «no such table: crm_leads» می‌افتاد و کاربر فقط یک خطای مبهم می‌دید.
+  //
+  // هر دو idempotent‌اند، پس صدا زدنشان کنار هم هزینه‌ای ندارد.
+  await ensureCrmSchema(env);
   const { results } = await env.DB
     .prepare(
       `SELECT p.telegram_user_id, p.phone, p.name, p.username, p.sources,
