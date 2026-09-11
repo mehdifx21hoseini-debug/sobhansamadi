@@ -28,6 +28,7 @@ import {
   markBlocked,
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
+import { eventToken } from "./explain.js";
 import { readConfig, writeConfig } from "../content/channel.js";
 import {
   RLM,
@@ -595,12 +596,28 @@ export function buildAlertText(e, minutesLeft) {
   return lines.join("\n");
 }
 
-const ALERT_KEYBOARD = {
-  inline_keyboard: [
-    [{ text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" }],
-    [{ text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS" }],
-  ],
-};
+/**
+ * کیبوردِ پیامِ هشدار و نتیجه.
+ *
+ * تابع است نه ثابت، چون حالا یک دکمه به خودِ رویداد گره خورده. تا امروز
+ * این دو پیام - «۱۵ دقیقه تا فلان خبر» و «عدد منتشر شد» - هیچ راهی برای
+ * پرسیدن نداشتند: کاربر دقیقاً در لحظه‌ای که بیشترین سؤال را دارد باید
+ * مینی‌اپ را باز می‌کرد. موتورِ توضیحِ تک‌خبر روی سرور هست؛ فقط این دکمه
+ * نبود که به آن وصل شود.
+ *
+ * در دکمه نشانه‌ی کوتاه می‌رود نه شناسه‌ی رویداد: callback_data سقفِ ۶۴
+ * بایت دارد و شناسه‌های بلند از آن رد می‌شوند - که یعنی تلگرام کلِ پیام
+ * را رد می‌کند و هشدار بی‌صدا ارسال نمی‌شود، آن هم فقط برای بعضی خبرها.
+ */
+function alertKeyboard(e) {
+  const rows = [];
+  if (e && e.event_id) {
+    rows.push([{ text: "🤖 توضیح این خبر", callback_data: "ECON_X_" + eventToken(e.event_id), style: "primary" }]);
+  }
+  rows.push([{ text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" }]);
+  rows.push([{ text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS" }]);
+  return { inline_keyboard: rows };
+}
 
 /**
  * رویدادهایی که همین حالا در پنجره‌ی هشدارِ این کاربر هستند.
@@ -666,7 +683,7 @@ export async function runAlertSweep(env, now = new Date()) {
         s,
         () => ({
           method: "sendMessage",
-          payload: { text: buildAlertText(e, left), reply_markup: ALERT_KEYBOARD },
+          payload: { text: buildAlertText(e, left), reply_markup: alertKeyboard(e) },
         }),
         stats
       );
@@ -746,7 +763,7 @@ export async function runResultSweep(env, now = new Date()) {
         s,
         () => ({
           method: "sendMessage",
-          payload: { text: buildResultText(e, helpers), reply_markup: ALERT_KEYBOARD },
+          payload: { text: buildResultText(e, helpers), reply_markup: alertKeyboard(e) },
         }),
         stats
       );

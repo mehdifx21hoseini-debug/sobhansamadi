@@ -18,9 +18,10 @@ import {
   formatAiAnswer,
   buildAiHeader,
 } from "./views.js";
-import { relativeTimeFa } from "./format.js";
+import { relativeTimeFa, etTimeToTehran } from "./format.js";
+import { makeLabelHelpers } from "./labels.js";
 import { sendSection } from "../content/sectionText.js";
-import { explainEnabled, explainToday } from "./explain.js";
+import { explainEnabled, explainToday, explainEvent, eventByToken } from "./explain.js";
 import {
   readSubscription,
   saveSubscription,
@@ -261,7 +262,13 @@ export async function handleEconCallback(ctx, action) {
     // ندارد و دکمه عملاً مرده است.
     const cacheKey = todayCacheKey();
     const events = await readEvents(ctx.env);
-    const context = buildExplainContext(events, await readHolidays(ctx.env).catch(() => []));
+    // برچسب‌ها هم می‌روند: بدونِ آن‌ها نامِ فارسیِ خبر به مدل نمی‌رسد و
+    // آنچه می‌بیند همان عنوانِ انگلیسیِ فید است.
+    const [holidayRows, labelRows] = await Promise.all([
+      readHolidays(ctx.env).catch(() => []),
+      readLabels(ctx.env).catch(() => []),
+    ]);
+    const context = buildExplainContext(events, holidayRows, labelRows);
 
     // ساختن پاسخ چند ثانیه طول می‌کشد؛ بدون این نشانه کاربر فکر می‌کند
     // دکمه کار نکرده و دوباره می‌زند.
@@ -323,6 +330,81 @@ export async function handleEconCallback(ctx, action) {
         parse_mode: "HTML",
         reply_markup: backToEconMenu(),
       });
+    } catch (err) {
+      console.error("ارسال HTML شکست خورد، متن ساده فرستاده شد:", err && err.message);
+      await ctx.reply(message.replace(/<[^>]+>/g, ""), { reply_markup: backToEconMenu() });
+    }
+    return true;
+  }
+
+  // ── توضیحِ یک خبر، از دکمه‌ی همان پیام ─────────────────────────────
+  //
+  // دکمه روی پیامِ هشدار و پیامِ نتیجه می‌نشیند، پس کاربر همان‌جا در چت
+  // جواب می‌گیرد. متن روی سرور به شناسه‌ی خبر و منتشرشدنِ عددش کش
+  // می‌شود، یعنی اولین کسی که بزند هزینه‌اش را می‌دهد و بقیه همان را
+  // می‌گیرند - چه از ربات، چه از مینی‌اپ.
+  if (action.startsWith("ECON_X_")) {
+    if (!(await explainEnabled(ctx.env))) {
+      await ctx.reply("🤖 سرویس توضیح فعلاً خاموش است.", { reply_markup: backToEconMenu() });
+      return true;
+    }
+
+    const [events, labelRows] = await Promise.all([
+      readEvents(ctx.env),
+      readLabels(ctx.env).catch(() => []),
+    ]);
+    const row = eventByToken(events, action.slice("ECON_X_".length));
+    if (!row) {
+      // خبر از جدول رفته - افق ۴۵ روزه است و ردیف‌های قدیمی پاک می‌شوند.
+      await ctx.reply("🤖 این خبر دیگر در تقویم نیست.", { reply_markup: backToEconMenu() });
+      return true;
+    }
+
+    await ctx.replyWithChatAction("typing").catch(() => {});
+
+    // شکلِ ردیفِ جدول با چیزی که explainEvent می‌خواهد یکی نیست: آنجا
+    // همان شکلی است که مینی‌اپ می‌سازد. این نگاشت تنها جایی است که دو
+    // شکل به هم می‌رسند، پس عمداً صریح نوشته شده.
+    const { labelFor, enFull, faName } = makeLabelHelpers(labelRows);
+    const hit = labelFor(row);
+    const ev = {
+      event_id: row.event_id,
+      en: enFull(row) || row.event || "",
+      title: faName(row),
+      currency: row.currency || "USD",
+      importance: row.importance || "low",
+      time_tehran: row.time ? etTimeToTehran(row.date, row.time, "+1") : "",
+      forecast: row.forecast || "",
+      previous: row.previous || "",
+      actual: row.actual || "",
+      direction: (hit && hit.direction) || "",
+      source: row.source || "",
+    };
+
+    let out = null;
+    try {
+      out = await explainEvent(ctx.env, ev);
+    } catch (err) {
+      console.error("توضیح خبر شکست خورد:", err && err.message);
+    }
+    if (!out || !out.answer) {
+      await ctx.reply("🤖 توضیح این خبر ساخته نشد. کمی بعد دوباره بزنید.", {
+        reply_markup: backToEconMenu(),
+      });
+      return true;
+    }
+
+    const head = "🤖 <b>" + (ev.title || ev.en) + "</b>\n\n";
+    const foot =
+      "\n\n➖➖➖\n" +
+      (out.created_at ? "🕘 تهیه‌شده " + relativeTimeFa(out.created_at) + "\n" : "") +
+      "<i>این متن آموزشی است، نه توصیه‌ی معاملاتی.</i>";
+    const message = head + formatAiAnswer(out.answer) + foot;
+
+    // همان حفاظِ مسیرِ تحلیلِ روز: تگِ ناقصِ مدل کلِ پیام را رد می‌کند و
+    // کاربر هیچ نمی‌بیند، پس در آن حالت متنِ ساده می‌رود.
+    try {
+      await ctx.reply(message, { parse_mode: "HTML", reply_markup: backToEconMenu() });
     } catch (err) {
       console.error("ارسال HTML شکست خورد، متن ساده فرستاده شد:", err && err.message);
       await ctx.reply(message.replace(/<[^>]+>/g, ""), { reply_markup: backToEconMenu() });

@@ -651,32 +651,59 @@ export function buildHolidaysMarkdown(holidays) {
 // زمینه‌ای که به ایجنت هوش مصنوعی داده می‌شود. عیناً از نود
 // Build Explain Prompt. برخلاف نماهای بالا اینجا رویدادهای کم‌اهمیت هم
 // می‌آیند - ایجنت باید کل تصویر روز را ببیند، نه فقط تیترها.
-export function buildExplainContext(events, holidays) {
+export function buildExplainContext(events, holidays, labels) {
   const today = new Date().toISOString().slice(0, 10);
-  const todays = (events || []).filter((e) => e.date === today);
   const holiday = holidayOn(holidays, today);
 
-  return (
+  // فقط مهم و متوسط.
+  //
+  // تا امروز همه‌ی رویدادهای روز می‌رفتند - سخنرانی‌ها، ذخایر نفت،
+  // شاخص‌های فرعی - با این استدلال که «مدل باید کل تصویر روز را ببیند».
+  // نتیجه‌اش متنی بود که کاربر تا آخر نمی‌خواند. آنچه از تحلیل انتظار
+  // می‌رود همان چیزی است که خودِ تقویم هم برجسته می‌کند.
+  const pick = (events || []).filter(
+    (e) => e.date === today && (e.importance === "high" || e.importance === "medium")
+  );
+
+  const help = labels ? makeLabelHelpers(labels) : null;
+  const faOf = (e) => (help ? help.faName(e) : "") || e.event_fa || e.event || "";
+
+  const head =
     "امروز: " + formatJalaliDate(today) + "\n" +
     // بدونِ این خط، مدل در روزِ تعطیل نمی‌داند چرا جدول خالی است و
     // درباره‌ی روزی حرف می‌زند که اصلاً بازارش باز نبوده.
     (holiday
       ? "توجه: امروز تعطیلی بانکی آمریکا است (" + holidayLabel(holiday) +
         "). نقدینگی بازار پایین است و داده‌ی اقتصادی مهمی منتشر نمی‌شود.\n"
-      : "") +
-    (todays.length === 0
-      ? "امروز رویداد مهم اقتصادی ثبت‌شده‌ای برای دلار در منبع داده وجود ندارد."
-      : todays
-          .map(
-            (e) =>
-              "- " + e.event_fa +
-              (e.time ? " | ساعت " + etTimeToTehran(e.date, e.time) + " (به‌وقت تهران)" : "") +
-              (e.actual ? " | Actual: " + e.actual : "") +
-              (e.previous ? " | Previous: " + e.previous : "") +
-              " | منبع: " + e.source
-          )
-          .join("\n"))
-  );
+      : "");
+
+  if (pick.length === 0) {
+    return head + "امروز رویداد مهم یا متوسطی در منبع داده ثبت نشده است.";
+  }
+
+  // هر رویداد یک خط با برچسب‌های صریح.
+  //
+  // «پیش‌بینی» تا امروز اصلاً در این متن نبود، در حالی که پرامپت از مدل
+  // می‌خواست بنویسدش - یعنی مدل یا جایش را خالی می‌گذاشت یا عددی از خودش
+  // می‌ساخت. اهمیت و ارز هم نبودند، پس نشانِ 🔴/🟡 و نامِ ارز حدس بود.
+  const rows = pick
+    .slice()
+    .sort((a, b) => String(a.time || "99:99").localeCompare(String(b.time || "99:99")))
+    .map((e) =>
+      [
+        "- ساعت " + (e.time ? etTimeToTehran(e.date, e.time) : "نامشخص"),
+        "اهمیت: " + (e.importance === "high" ? "زیاد" : "متوسط"),
+        "ارز: " + (e.currency || "USD"),
+        "نام فارسی: " + faOf(e),
+        "نام انگلیسی: " + (e.event || ""),
+        "قبلی: " + (e.previous || "—"),
+        "پیش‌بینی: " + (e.forecast || "—"),
+        "واقعی: " + (e.actual || "هنوز منتشر نشده"),
+      ].join(" | ")
+    )
+    .join("\n");
+
+  return head + rows;
 }
 
 // ---------------------------------------------------------------------
