@@ -6,9 +6,10 @@
    سه تصمیمِ ریشه‌ای که همه‌چیز از آن‌ها می‌آید:
 
    ۱. یک رنگِ اکسنت، و آن رنگ فقط معنیِ «زنده» می‌دهد.
-      سبز و قرمز فقط برای عدد. اهمیت هیچ رنگی ندارد - با اندازه،
-      وزن و فضا گفته می‌شود. این تنها راهی است که یک صفحه‌ی پرداده
-      شلوغ به‌نظر نرسد.
+      سبز و قرمز فقط برای عدد. اهمیت هم یک نقطه‌ی رنگی دارد - قرمز،
+      نارنجی، طلایی - ولی رنگش از همان نقطه بیرون نمی‌زند: عنوان،
+      زمینه و عددها هیچ‌کدام رنگِ اهمیت نمی‌گیرند. چیزی که صفحه را
+      شلوغ می‌کند سطحِ رنگی است، نه خودِ رنگ.
 
    ۲. کارت تقریباً وجود ندارد.
       جدا کردن با سطحِ زمینه و فاصله انجام می‌شود. لبه فقط جایی است
@@ -64,6 +65,14 @@
 	--up: #16785a;
 	--down: #b03a3a;
 
+	/* ── اهمیت ────────────────────────────────────────────────────
+	   جدا از --up/--down عمداً: آن‌ها می‌گویند عدد به نفعِ ارز بود یا
+	   نه، این‌ها می‌گویند خبر چقدر مهم است. یک قرمز برای هر دو کار،
+	   دو معنیِ متفاوت را یکی نشان می‌داد. */
+	--imp-3: #d64545;
+	--imp-2: #e08b2e;
+	--imp-1: #b8912a;
+
 	/* ── سشن‌ها ───────────────────────────────────────────────────
 	   هر بازار یک ته‌رنگ دارد تا در دیال از هم جدا شوند. اشباعشان
 	   عمداً پایین است: این‌ها هویت‌اند، نه هشدار. */
@@ -112,6 +121,9 @@
 		--live-wash: rgba(45, 212, 191, .12);
 		--up: #4ade8c;
 		--down: #f87171;
+		--imp-3: #f06a6a;
+		--imp-2: #f0a850;
+		--imp-1: #c9a83f;
 		--k-sydney: #5fbfb2;
 		--k-tokyo: #7d9ae0;
 		--k-london: #a48cdc;
@@ -138,6 +150,9 @@
 	--live-wash: rgba(45, 212, 191, .12);
 	--up: #4ade8c;
 	--down: #f87171;
+	--imp-3: #f06a6a;
+	--imp-2: #f0a850;
+	--imp-1: #c9a83f;
 	--k-sydney: #5fbfb2;
 	--k-tokyo: #7d9ae0;
 	--k-london: #a48cdc;
@@ -451,6 +466,15 @@ body {
 	letter-spacing: -.03em;
 	margin-top: var(--sp-1);
 	color: var(--live);
+	transition: font-weight .2s var(--ease);
+}
+/* دقیقه‌ی آخر: وزن بالا می‌رود و یک نفسِ خیلی کند می‌گیرد.
+   رنگ عوض نمی‌شود چون همین حالا هم --live است؛ چیزی که اضافه می‌شود
+   حرکت است، و حرکت تنها چیزی است که چشم در حاشیه‌ی دید می‌گیرد. */
+.upnext-cd.is-hot { font-weight: 700; animation: breathe 2s var(--ease) infinite; }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) {
+	.upnext-cd.is-hot { animation: none; }
 }
 .upnext-name {
 	margin-top: var(--sp-2);
@@ -573,35 +597,34 @@ body {
 	color: var(--faint);
 }
 .node-gap { flex: 1; }
+/* جای پرچم و کدِ ارزِ تکراری. هم‌عرضِ همان دوتا - ۱۸ پرچم + ۸ فاصله +
+   حدودِ ۲۶ کد - تا نقطه‌ی اهمیت و عنوان‌ها زیرِ هم بمانند و فهرست
+   دندانه‌دار نشود. متنِ داخلش فقط برای صفحه‌خوان است. */
+.node-cur-echo { flex: none; width: 52px; height: 12px; }
+.sr {
+	color: transparent;
+	font-size: 1px;
+	line-height: 1;
+	overflow: hidden;
+	user-select: none;
+}
 
-/* نشانِ اهمیت: سه میله‌ی پلکانی، بی‌رنگ.
-   اندازه‌ی گره اهمیت را نسبی می‌گفت - فقط وقتی دو خبرِ ناهم‌سطح کنارِ
-   هم بودند دیده می‌شد. این واحدِ مطلق است. رنگ عمداً وارد نمی‌شود؛
-   قرمز و نارنجی همان چیزی است که قرار بود از آن فاصله بگیریم. */
+/* نشانِ اهمیت: یک نقطه‌ی رنگی.
+   کوچک می‌ماند و رنگ فقط همین‌جاست. هاله‌ی خیلی کم‌رنگِ دورش کارِ
+   جدا کردنِ نقطه از هر زمینه‌ای را می‌کند بی‌آنکه لکه‌ی رنگی بسازد. */
 .sig {
-	display: inline-flex;
-	align-items: flex-end;
-	gap: 1.5px;
-	height: 9px;
+	display: inline-block;
 	flex: none;
-	/* پلکان همیشه از چپ بالا می‌رود - مثل هر نشانگرِ قدرتِ سیگنالی.
-	   بدونِ این، ظرفِ راست‌به‌چپ آینه‌اش می‌کرد. اینجا امن است چون
-	   هیچ inset منطقی‌ای در کار نیست، فقط ترتیبِ فلکس. */
-	direction: ltr;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--imp-1);
 }
-.sig i {
-	display: block;
-	width: 2.5px;
-	border-radius: 1px;
-	background: var(--hair-2);
-}
-.sig i:nth-child(1) { height: 3.5px; }
-.sig i:nth-child(2) { height: 6px; }
-.sig i:nth-child(3) { height: 9px; }
-.sig i.on { background: var(--dim); }
-.sig.lv-3 i.on { background: var(--text); }
-.node.is-done .sig i.on { background: var(--faint); }
-.node.is-done .sig.lv-3 i.on { background: var(--dim); }
+.sig.lv-2 { background: var(--imp-2); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--imp-2) 15%, transparent); }
+.sig.lv-3 { background: var(--imp-3); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--imp-3) 18%, transparent); }
+/* خبرِ گذشته کم‌رنگ می‌شود - .node.is-done روی کلِ گره opacity
+   می‌گذارد، ولی نقطه‌ی قرمز آن‌قدر قوی است که همچنان جلب‌توجه کند. */
+.node.is-done .sig { opacity: .55; box-shadow: none; }
 .node-tag { font-size: 10.5px; font-weight: 600; color: var(--faint); }
 .node-tag.is-live { color: var(--live); }
 
@@ -849,15 +872,10 @@ body {
 .line.is-tap { cursor: pointer; }
 .line-val { font-size: 13px; color: var(--dim); font-weight: 500; }
 .line-chev { color: var(--faint); flex: none; }
-/* ردیفِ سطحِ اهمیت. نقطه‌ی رنگی اینجا بود و برداشته شد: حالا همان
-   نشانِ سه‌میله‌ای می‌آید که در فهرستِ خبرها هم هست، تا سوییچ و آنچه
-   سوییچ کنترل می‌کند یک شکل داشته باشند. کمی بزرگ‌تر، چون اینجا
-   موضوعِ ردیف است نه یک برچسبِ کناری. */
-.line .sig { height: 13px; gap: 2px; }
-.line .sig i { width: 3px; }
-.line .sig i:nth-child(1) { height: 5px; }
-.line .sig i:nth-child(2) { height: 9px; }
-.line .sig i:nth-child(3) { height: 13px; }
+/* ردیفِ سطحِ اهمیت: همان نقطه‌ای که در فهرستِ خبرها هم هست، تا سوییچ
+   و آنچه کنترل می‌کند یک شکل داشته باشند. کمی بزرگ‌تر، چون اینجا
+   موضوعِ ردیف است نه برچسبی کنارِ چیزِ دیگر. */
+.line .sig { width: 11px; height: 11px; }
 
 /* شبکه‌ی ارزها */
 .cur-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); padding: var(--sp-3); }

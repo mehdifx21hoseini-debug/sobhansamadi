@@ -130,7 +130,12 @@
 		{ code: "NZD", fa: "دلار نیوزیلند" },
 		{ code: "CHF", fa: "فرانک سوئیس" }
 	];
-	var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
+	// هشت ارز داریم و تا حالا فقط چهار پرچم در اسپرایت بود؛ چهارتای
+	// دیگر - یورو، کانادا، نیوزیلند، سوییس - به کره‌ی خاکستری می‌افتادند.
+	var FLAG_BY_CCY = {
+		USD: "us", GBP: "gb", JPY: "jp", AUD: "au",
+		EUR: "eu", CAD: "ca", NZD: "nz", CHF: "ch"
+	};
 	var CUR_FA = {
 		USD: "دلار", EUR: "یورو", GBP: "پوند", JPY: "ین",
 		AUD: "دلار استرالیا", CAD: "دلار کانادا", NZD: "دلار نیوزیلند", CHF: "فرانک"
@@ -542,7 +547,21 @@
 			card.appendChild(el("div", "upnext-k", "رویداد بعدی"));
 			var cd = el("div", "upnext-cd n", countdown(atOf(nx)));
 			card.appendChild(cd);
-			tickers.push(function () { cd.textContent = countdown(atOf(nx)); });
+			// دقیقه‌ی آخر.
+			//
+			// زیر یک دقیقه هیچ اتفاقی در رفتارِ شمارنده نمی‌افتاد -
+			// همان رقم‌ها، همان رنگ. ولی این دقیقاً لحظه‌ای است که
+			// کاربر باید بداند باید نگاه کند. رنگ به «زنده» می‌رود و
+			// یک ضربانِ خیلی ملایم می‌گیرد.
+			var lastMin = null;
+			function beat() {
+				cd.textContent = countdown(atOf(nx));
+				var left = atOf(nx) - Date.now();
+				var hot = left > 0 && left <= 60000;
+				if (hot !== lastMin) { cd.classList.toggle("is-hot", hot); lastMin = hot; }
+			}
+			beat();
+			tickers.push(beat);
 			card.appendChild(el("div", "upnext-name", nx.en || nx.title || nx.short || ""));
 			if (nx.title) card.appendChild(el("div", "upnext-fa", nx.title));
 			var meta = el("div", "upnext-meta");
@@ -577,22 +596,22 @@
 	}
 
 	/**
-	 * نشانِ اهمیت: سه میله‌ی پلکانی، یک تا سه‌تاش پُر.
+	 * نشانِ اهمیت: یک دایره‌ی رنگی - قرمز، نارنجی، طلایی.
 	 *
-	 * تا حالا اهمیت فقط با اندازه‌ی گره و بزرگیِ عنوان گفته می‌شد -
-	 * که وقتی دو خبرِ هم‌سطح پشتِ هم می‌آیند نسبی و نامرئی است. این
-	 * یک واحدِ مطلق است: سه میله یعنی سه میله، هرجای فهرست که باشد.
+	 * اول با سه میله‌ی بی‌رنگ ساخته شد تا از زبانِ رنگیِ فارکس‌فکتوری
+	 * فاصله بگیرد، ولی در عمل کافی نبود: سطحِ خبر باید در یک نگاه و از
+	 * فاصله خوانده شود، و رنگ این کار را می‌کند که شکل نمی‌کند.
 	 *
-	 * عمداً بی‌رنگ. قرمز و نارنجیِ فارکس‌فکتوری همان چیزی است که قرار
-	 * بود از آن فاصله بگیریم؛ اینجا اهمیت با پُری گفته می‌شود، نه با
-	 * هشدارِ رنگی. تنها تفاوتِ رنگ، تیرگیِ میله‌های پُرِ خبرِ مهم است.
+	 * چیزی که از آن پرهیز می‌شود پُر شدنِ صفحه از قرمز است، نه خودِ
+	 * رنگ. پس دایره کوچک می‌ماند و رنگ فقط همین‌جاست: عنوان و عددها
+	 * رنگِ اهمیت نمی‌گیرند. دو نشانه‌ی موازی هم سرِ جایشان‌اند -
+	 * اندازه‌ی گره روی خط و بزرگیِ عنوان - تا اگر کسی رنگ را تشخیص
+	 * نمی‌دهد، سطح همچنان دیده شود.
 	 */
 	function impMark(imp) {
-		var n = imp === "high" ? 3 : imp === "medium" ? 2 : 1;
-		var s = el("span", "sig lv-" + n);
+		var s = el("span", "sig lv-" + (imp === "high" ? 3 : imp === "medium" ? 2 : 1));
 		s.setAttribute("role", "img");
 		s.setAttribute("aria-label", "اهمیت: " + impWord(imp));
-		for (var i = 1; i <= 3; i++) s.appendChild(el("i", i <= n ? "on" : null));
 		return s;
 	}
 
@@ -713,11 +732,23 @@
 			if (x === null) return 1;
 			if (y === null) return -1;
 			return x - y;
-		}).forEach(function (e) { s.appendChild(buildNode(e, compact)); });
+		}).forEach(function (e, i, all) {
+			// تکرارِ پرچم و کدِ ارز.
+			//
+			// وقتی چهار خبرِ دلاری پشتِ هم می‌آیند، چهار بار همان پرچم
+			// و همان «USD» نوشته می‌شود. این‌ها نه اطلاعاتِ تازه‌ای
+			// دارند و نه چشم را جایی می‌برند - فقط شلوغی‌اند. بارِ اولِ
+			// هر دسته نگه داشته می‌شود و بقیه کنار می‌روند؛ همان‌جا که
+			// ارز عوض می‌شود، دوباره ظاهر می‌شود و همان تغییر را نشان
+			// می‌دهد. برچسبِ دسترس‌پذیر روی خودِ گره می‌ماند.
+			var prev = i > 0 ? all[i - 1] : null;
+			var same = !!prev && (prev.currency || "") === (e.currency || "");
+			s.appendChild(buildNode(e, compact, same));
+		});
 		return s;
 	}
 
-	function buildNode(e, compact) {
+	function buildNode(e, compact, sameCur) {
 		var imp = e.importance || "low";
 		var at = atOf(e);
 		var done = isPast(e);
@@ -735,8 +766,14 @@
 		head.setAttribute("aria-expanded", state.open[e.event_id] ? "true" : "false");
 
 		var top = el("div", "node-top");
-		top.appendChild(flagChipSmall(e));
-		top.appendChild(el("span", "node-cur", e.currency || ""));
+		if (sameCur) {
+			// جای‌گیرِ هم‌عرض تا عنوان‌ها زیرِ هم بمانند؛ کدِ ارز داخلش
+			// هست ولی فقط برای صفحه‌خوان.
+			top.appendChild(el("span", "node-cur-echo sr", e.currency || ""));
+		} else {
+			top.appendChild(flagChipSmall(e));
+			top.appendChild(el("span", "node-cur", e.currency || ""));
+		}
 		top.appendChild(impMark(imp));
 		top.appendChild(el("span", "node-gap"));
 		if (live) top.appendChild(el("span", "node-tag is-live", "تا " + until(at)));

@@ -48,9 +48,10 @@
    سه تصمیمِ ریشه‌ای که همه‌چیز از آن‌ها می‌آید:
 
    ۱. یک رنگِ اکسنت، و آن رنگ فقط معنیِ «زنده» می‌دهد.
-      سبز و قرمز فقط برای عدد. اهمیت هیچ رنگی ندارد - با اندازه،
-      وزن و فضا گفته می‌شود. این تنها راهی است که یک صفحه‌ی پرداده
-      شلوغ به‌نظر نرسد.
+      سبز و قرمز فقط برای عدد. اهمیت هم یک نقطه‌ی رنگی دارد - قرمز،
+      نارنجی، طلایی - ولی رنگش از همان نقطه بیرون نمی‌زند: عنوان،
+      زمینه و عددها هیچ‌کدام رنگِ اهمیت نمی‌گیرند. چیزی که صفحه را
+      شلوغ می‌کند سطحِ رنگی است، نه خودِ رنگ.
 
    ۲. کارت تقریباً وجود ندارد.
       جدا کردن با سطحِ زمینه و فاصله انجام می‌شود. لبه فقط جایی است
@@ -106,6 +107,14 @@
 	--up: #16785a;
 	--down: #b03a3a;
 
+	/* ── اهمیت ────────────────────────────────────────────────────
+	   جدا از --up/--down عمداً: آن‌ها می‌گویند عدد به نفعِ ارز بود یا
+	   نه، این‌ها می‌گویند خبر چقدر مهم است. یک قرمز برای هر دو کار،
+	   دو معنیِ متفاوت را یکی نشان می‌داد. */
+	--imp-3: #d64545;
+	--imp-2: #e08b2e;
+	--imp-1: #b8912a;
+
 	/* ── سشن‌ها ───────────────────────────────────────────────────
 	   هر بازار یک ته‌رنگ دارد تا در دیال از هم جدا شوند. اشباعشان
 	   عمداً پایین است: این‌ها هویت‌اند، نه هشدار. */
@@ -154,6 +163,9 @@
 		--live-wash: rgba(45, 212, 191, .12);
 		--up: #4ade8c;
 		--down: #f87171;
+		--imp-3: #f06a6a;
+		--imp-2: #f0a850;
+		--imp-1: #c9a83f;
 		--k-sydney: #5fbfb2;
 		--k-tokyo: #7d9ae0;
 		--k-london: #a48cdc;
@@ -180,6 +192,9 @@
 	--live-wash: rgba(45, 212, 191, .12);
 	--up: #4ade8c;
 	--down: #f87171;
+	--imp-3: #f06a6a;
+	--imp-2: #f0a850;
+	--imp-1: #c9a83f;
 	--k-sydney: #5fbfb2;
 	--k-tokyo: #7d9ae0;
 	--k-london: #a48cdc;
@@ -493,6 +508,15 @@ body {
 	letter-spacing: -.03em;
 	margin-top: var(--sp-1);
 	color: var(--live);
+	transition: font-weight .2s var(--ease);
+}
+/* دقیقه‌ی آخر: وزن بالا می‌رود و یک نفسِ خیلی کند می‌گیرد.
+   رنگ عوض نمی‌شود چون همین حالا هم --live است؛ چیزی که اضافه می‌شود
+   حرکت است، و حرکت تنها چیزی است که چشم در حاشیه‌ی دید می‌گیرد. */
+.upnext-cd.is-hot { font-weight: 700; animation: breathe 2s var(--ease) infinite; }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .62; } }
+@media (prefers-reduced-motion: reduce) {
+	.upnext-cd.is-hot { animation: none; }
 }
 .upnext-name {
 	margin-top: var(--sp-2);
@@ -615,35 +639,34 @@ body {
 	color: var(--faint);
 }
 .node-gap { flex: 1; }
+/* جای پرچم و کدِ ارزِ تکراری. هم‌عرضِ همان دوتا - ۱۸ پرچم + ۸ فاصله +
+   حدودِ ۲۶ کد - تا نقطه‌ی اهمیت و عنوان‌ها زیرِ هم بمانند و فهرست
+   دندانه‌دار نشود. متنِ داخلش فقط برای صفحه‌خوان است. */
+.node-cur-echo { flex: none; width: 52px; height: 12px; }
+.sr {
+	color: transparent;
+	font-size: 1px;
+	line-height: 1;
+	overflow: hidden;
+	user-select: none;
+}
 
-/* نشانِ اهمیت: سه میله‌ی پلکانی، بی‌رنگ.
-   اندازه‌ی گره اهمیت را نسبی می‌گفت - فقط وقتی دو خبرِ ناهم‌سطح کنارِ
-   هم بودند دیده می‌شد. این واحدِ مطلق است. رنگ عمداً وارد نمی‌شود؛
-   قرمز و نارنجی همان چیزی است که قرار بود از آن فاصله بگیریم. */
+/* نشانِ اهمیت: یک نقطه‌ی رنگی.
+   کوچک می‌ماند و رنگ فقط همین‌جاست. هاله‌ی خیلی کم‌رنگِ دورش کارِ
+   جدا کردنِ نقطه از هر زمینه‌ای را می‌کند بی‌آنکه لکه‌ی رنگی بسازد. */
 .sig {
-	display: inline-flex;
-	align-items: flex-end;
-	gap: 1.5px;
-	height: 9px;
+	display: inline-block;
 	flex: none;
-	/* پلکان همیشه از چپ بالا می‌رود - مثل هر نشانگرِ قدرتِ سیگنالی.
-	   بدونِ این، ظرفِ راست‌به‌چپ آینه‌اش می‌کرد. اینجا امن است چون
-	   هیچ inset منطقی‌ای در کار نیست، فقط ترتیبِ فلکس. */
-	direction: ltr;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--imp-1);
 }
-.sig i {
-	display: block;
-	width: 2.5px;
-	border-radius: 1px;
-	background: var(--hair-2);
-}
-.sig i:nth-child(1) { height: 3.5px; }
-.sig i:nth-child(2) { height: 6px; }
-.sig i:nth-child(3) { height: 9px; }
-.sig i.on { background: var(--dim); }
-.sig.lv-3 i.on { background: var(--text); }
-.node.is-done .sig i.on { background: var(--faint); }
-.node.is-done .sig.lv-3 i.on { background: var(--dim); }
+.sig.lv-2 { background: var(--imp-2); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--imp-2) 15%, transparent); }
+.sig.lv-3 { background: var(--imp-3); box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--imp-3) 18%, transparent); }
+/* خبرِ گذشته کم‌رنگ می‌شود - .node.is-done روی کلِ گره opacity
+   می‌گذارد، ولی نقطه‌ی قرمز آن‌قدر قوی است که همچنان جلب‌توجه کند. */
+.node.is-done .sig { opacity: .55; box-shadow: none; }
 .node-tag { font-size: 10.5px; font-weight: 600; color: var(--faint); }
 .node-tag.is-live { color: var(--live); }
 
@@ -891,15 +914,10 @@ body {
 .line.is-tap { cursor: pointer; }
 .line-val { font-size: 13px; color: var(--dim); font-weight: 500; }
 .line-chev { color: var(--faint); flex: none; }
-/* ردیفِ سطحِ اهمیت. نقطه‌ی رنگی اینجا بود و برداشته شد: حالا همان
-   نشانِ سه‌میله‌ای می‌آید که در فهرستِ خبرها هم هست، تا سوییچ و آنچه
-   سوییچ کنترل می‌کند یک شکل داشته باشند. کمی بزرگ‌تر، چون اینجا
-   موضوعِ ردیف است نه یک برچسبِ کناری. */
-.line .sig { height: 13px; gap: 2px; }
-.line .sig i { width: 3px; }
-.line .sig i:nth-child(1) { height: 5px; }
-.line .sig i:nth-child(2) { height: 9px; }
-.line .sig i:nth-child(3) { height: 13px; }
+/* ردیفِ سطحِ اهمیت: همان نقطه‌ای که در فهرستِ خبرها هم هست، تا سوییچ
+   و آنچه کنترل می‌کند یک شکل داشته باشند. کمی بزرگ‌تر، چون اینجا
+   موضوعِ ردیف است نه برچسبی کنارِ چیزِ دیگر. */
+.line .sig { width: 11px; height: 11px; }
 
 /* شبکه‌ی ارزها */
 .cur-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); padding: var(--sp-3); }
@@ -1063,7 +1081,7 @@ body {
 	<!-- Flag artwork from flag-icons (MIT, Panayiotis Lipiridis), inlined
 	     once as symbols: emoji flags do not render on Windows, where
 	     Telegram Desktop shows the two-letter code instead. -->
-	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol></defs></svg>
+	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol><symbol id="fi-eu" viewBox="0 0 512 512"><defs><g id="fi-eu-eu-d"><g id="fi-eu-eu-b"><path id="fi-eu-eu-a" d="m0-1-.3 1 .5.1z"/><use href="#fi-eu-eu-a" transform="scale(-1 1)"/></g><g id="fi-eu-eu-c"><use href="#fi-eu-eu-b" transform="rotate(72)"/><use href="#fi-eu-eu-b" transform="rotate(144)"/></g><use href="#fi-eu-eu-c" transform="scale(-1 1)"/></g></defs><path fill="#039" d="M0 0h512v512H0z"/><g fill="#fc0" transform="translate(256 258.4)scale(25.28395)"><use href="#fi-eu-eu-d" width="100%" height="100%" y="-6"/><use href="#fi-eu-eu-d" width="100%" height="100%" y="6"/><g id="fi-eu-eu-e"><use href="#fi-eu-eu-d" width="100%" height="100%" x="-6"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(-144 -2.3 -2.1)"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(144 -2.1 -2.3)"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(72 -4.7 -2)"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(72 -5 .5)"/></g><use href="#fi-eu-eu-e" width="100%" height="100%" transform="scale(-1 1)"/></g></symbol><symbol id="fi-ca" viewBox="0 0 512 512"><path fill="#fff" d="M81.1 0h362.3v512H81.1z"/><path fill="#d52b1e" d="M-100 0H81.1v512H-100zm543.4 0h181.1v512H443.4zM135.3 247.4l-14 4.8 65.4 57.5c5 14.8-1.7 19.1-6 26.9l71-9-1.8 71.5 14.8-.5-3.3-70.9 71.2 8.4c-4.4-9.3-8.3-14.2-4.3-29l65.4-54.5-11.4-4.1c-9.4-7.3 4-34.8 6-52.2 0 0-38.1 13.1-40.6 6.2l-9.9-18.5-34.6 38c-3.8 1-5.4-.6-6.3-3.8l16-79.7-25.4 14.3c-2.1.9-4.2 0-5.6-2.4l-24.5-49-25.2 50.9c-1.9 1.8-3.8 2-5.4.8l-24.2-13.6 14.5 79.2c-1.1 3-3.9 4-7.1 2.3l-33.3-37.8c-4.3 7-7.3 18.4-13 21-5.7 2.3-25-4.9-37.9-7.7 4.4 15.9 18.2 42.3 9.5 51z"/></symbol><symbol id="fi-nz" viewBox="0 0 512 512"><defs><g id="fi-nz-nz-b"><g id="fi-nz-nz-a"><path d="M0-.3v.5l1-.5z"/><path d="M.2.3 0-.1l1-.2z"/></g><use href="#fi-nz-nz-a" transform="scale(-1 1)"/><use href="#fi-nz-nz-a" transform="rotate(72 0 0)"/><use href="#fi-nz-nz-a" transform="rotate(-72 0 0)"/><use href="#fi-nz-nz-a" transform="scale(-1 1)rotate(72)"/></g></defs><path fill="#00247d" fill-rule="evenodd" d="M0 0h512v512H0z"/><g transform="translate(-148.7 90.5)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="translate(900 120)scale(45.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="matrix(30 0 0 30 900 120)"/></g><g transform="rotate(82 418.7 105.1)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="rotate(-82 519 -457.7)scale(40.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="rotate(-82 519 -457.7)scale(25)"/></g><g transform="rotate(82 418.7 105.1)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="rotate(-82 668.6 -327.7)scale(45.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="rotate(-82 668.6 -327.7)scale(30)"/></g><g transform="translate(-148.7 90.5)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="translate(900 480)scale(50.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="matrix(35 0 0 35 900 480)"/></g><path fill="#012169" d="M0 0h256v256H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="#c8102e" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="#c8102e" d="M0 104v48h256v-48zM104 0v256h48V0z"/></symbol><symbol id="fi-ch" viewBox="0 0 512 512"><g fill-rule="evenodd" stroke-width="1pt"><path fill="red" d="M0 0h512v512H0z"/><g fill="#fff"><path d="M96 208h320v96H96z"/><path d="M208 96h96v320h-96z"/></g></g></symbol></defs></svg>
 
 	<!--
 		چیدمان: یک نوارِ باریکِ بالا، یک صحنه که عوض می‌شود، و یک داکِ
@@ -1458,7 +1476,12 @@ function hhmmInZone(instant, timeZone) {
 		{ code: "NZD", fa: "دلار نیوزیلند" },
 		{ code: "CHF", fa: "فرانک سوئیس" }
 	];
-	var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
+	// هشت ارز داریم و تا حالا فقط چهار پرچم در اسپرایت بود؛ چهارتای
+	// دیگر - یورو، کانادا، نیوزیلند، سوییس - به کره‌ی خاکستری می‌افتادند.
+	var FLAG_BY_CCY = {
+		USD: "us", GBP: "gb", JPY: "jp", AUD: "au",
+		EUR: "eu", CAD: "ca", NZD: "nz", CHF: "ch"
+	};
 	var CUR_FA = {
 		USD: "دلار", EUR: "یورو", GBP: "پوند", JPY: "ین",
 		AUD: "دلار استرالیا", CAD: "دلار کانادا", NZD: "دلار نیوزیلند", CHF: "فرانک"
@@ -1870,7 +1893,21 @@ function hhmmInZone(instant, timeZone) {
 			card.appendChild(el("div", "upnext-k", "رویداد بعدی"));
 			var cd = el("div", "upnext-cd n", countdown(atOf(nx)));
 			card.appendChild(cd);
-			tickers.push(function () { cd.textContent = countdown(atOf(nx)); });
+			// دقیقه‌ی آخر.
+			//
+			// زیر یک دقیقه هیچ اتفاقی در رفتارِ شمارنده نمی‌افتاد -
+			// همان رقم‌ها، همان رنگ. ولی این دقیقاً لحظه‌ای است که
+			// کاربر باید بداند باید نگاه کند. رنگ به «زنده» می‌رود و
+			// یک ضربانِ خیلی ملایم می‌گیرد.
+			var lastMin = null;
+			function beat() {
+				cd.textContent = countdown(atOf(nx));
+				var left = atOf(nx) - Date.now();
+				var hot = left > 0 && left <= 60000;
+				if (hot !== lastMin) { cd.classList.toggle("is-hot", hot); lastMin = hot; }
+			}
+			beat();
+			tickers.push(beat);
 			card.appendChild(el("div", "upnext-name", nx.en || nx.title || nx.short || ""));
 			if (nx.title) card.appendChild(el("div", "upnext-fa", nx.title));
 			var meta = el("div", "upnext-meta");
@@ -1905,22 +1942,22 @@ function hhmmInZone(instant, timeZone) {
 	}
 
 	/**
-	 * نشانِ اهمیت: سه میله‌ی پلکانی، یک تا سه‌تاش پُر.
+	 * نشانِ اهمیت: یک دایره‌ی رنگی - قرمز، نارنجی، طلایی.
 	 *
-	 * تا حالا اهمیت فقط با اندازه‌ی گره و بزرگیِ عنوان گفته می‌شد -
-	 * که وقتی دو خبرِ هم‌سطح پشتِ هم می‌آیند نسبی و نامرئی است. این
-	 * یک واحدِ مطلق است: سه میله یعنی سه میله، هرجای فهرست که باشد.
+	 * اول با سه میله‌ی بی‌رنگ ساخته شد تا از زبانِ رنگیِ فارکس‌فکتوری
+	 * فاصله بگیرد، ولی در عمل کافی نبود: سطحِ خبر باید در یک نگاه و از
+	 * فاصله خوانده شود، و رنگ این کار را می‌کند که شکل نمی‌کند.
 	 *
-	 * عمداً بی‌رنگ. قرمز و نارنجیِ فارکس‌فکتوری همان چیزی است که قرار
-	 * بود از آن فاصله بگیریم؛ اینجا اهمیت با پُری گفته می‌شود، نه با
-	 * هشدارِ رنگی. تنها تفاوتِ رنگ، تیرگیِ میله‌های پُرِ خبرِ مهم است.
+	 * چیزی که از آن پرهیز می‌شود پُر شدنِ صفحه از قرمز است، نه خودِ
+	 * رنگ. پس دایره کوچک می‌ماند و رنگ فقط همین‌جاست: عنوان و عددها
+	 * رنگِ اهمیت نمی‌گیرند. دو نشانه‌ی موازی هم سرِ جایشان‌اند -
+	 * اندازه‌ی گره روی خط و بزرگیِ عنوان - تا اگر کسی رنگ را تشخیص
+	 * نمی‌دهد، سطح همچنان دیده شود.
 	 */
 	function impMark(imp) {
-		var n = imp === "high" ? 3 : imp === "medium" ? 2 : 1;
-		var s = el("span", "sig lv-" + n);
+		var s = el("span", "sig lv-" + (imp === "high" ? 3 : imp === "medium" ? 2 : 1));
 		s.setAttribute("role", "img");
 		s.setAttribute("aria-label", "اهمیت: " + impWord(imp));
-		for (var i = 1; i <= 3; i++) s.appendChild(el("i", i <= n ? "on" : null));
 		return s;
 	}
 
@@ -2041,11 +2078,23 @@ function hhmmInZone(instant, timeZone) {
 			if (x === null) return 1;
 			if (y === null) return -1;
 			return x - y;
-		}).forEach(function (e) { s.appendChild(buildNode(e, compact)); });
+		}).forEach(function (e, i, all) {
+			// تکرارِ پرچم و کدِ ارز.
+			//
+			// وقتی چهار خبرِ دلاری پشتِ هم می‌آیند، چهار بار همان پرچم
+			// و همان «USD» نوشته می‌شود. این‌ها نه اطلاعاتِ تازه‌ای
+			// دارند و نه چشم را جایی می‌برند - فقط شلوغی‌اند. بارِ اولِ
+			// هر دسته نگه داشته می‌شود و بقیه کنار می‌روند؛ همان‌جا که
+			// ارز عوض می‌شود، دوباره ظاهر می‌شود و همان تغییر را نشان
+			// می‌دهد. برچسبِ دسترس‌پذیر روی خودِ گره می‌ماند.
+			var prev = i > 0 ? all[i - 1] : null;
+			var same = !!prev && (prev.currency || "") === (e.currency || "");
+			s.appendChild(buildNode(e, compact, same));
+		});
 		return s;
 	}
 
-	function buildNode(e, compact) {
+	function buildNode(e, compact, sameCur) {
 		var imp = e.importance || "low";
 		var at = atOf(e);
 		var done = isPast(e);
@@ -2063,8 +2112,14 @@ function hhmmInZone(instant, timeZone) {
 		head.setAttribute("aria-expanded", state.open[e.event_id] ? "true" : "false");
 
 		var top = el("div", "node-top");
-		top.appendChild(flagChipSmall(e));
-		top.appendChild(el("span", "node-cur", e.currency || ""));
+		if (sameCur) {
+			// جای‌گیرِ هم‌عرض تا عنوان‌ها زیرِ هم بمانند؛ کدِ ارز داخلش
+			// هست ولی فقط برای صفحه‌خوان.
+			top.appendChild(el("span", "node-cur-echo sr", e.currency || ""));
+		} else {
+			top.appendChild(flagChipSmall(e));
+			top.appendChild(el("span", "node-cur", e.currency || ""));
+		}
 		top.appendChild(impMark(imp));
 		top.appendChild(el("span", "node-gap"));
 		if (live) top.appendChild(el("span", "node-tag is-live", "تا " + until(at)));
@@ -2626,7 +2681,7 @@ function hhmmInZone(instant, timeZone) {
 	<!-- Printed so a stale copy can be identified at a glance: the WebView
 	     caches this page and the URL is otherwise constant. Written by
 	     scripts/build-econ-app.mjs. -->
-	<span class="build" hidden>نسخه c1ba9e42d3</span>
+	<span class="build" hidden>نسخه 04b5b7592c</span>
 </body>
 
 </html>
