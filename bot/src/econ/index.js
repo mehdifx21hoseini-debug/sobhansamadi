@@ -14,7 +14,7 @@ import {
   buildHolidaysMarkdown,
   buildNextEventText,
   buildAlertSettingsText,
-  buildExplainContext,
+  buildExplainPlan,
   formatAiAnswer,
   buildAiHeader,
 } from "./views.js";
@@ -268,7 +268,7 @@ export async function handleEconCallback(ctx, action) {
       readHolidays(ctx.env).catch(() => []),
       readLabels(ctx.env).catch(() => []),
     ]);
-    const context = buildExplainContext(events, holidayRows, labelRows);
+    const { context, rows } = buildExplainPlan(events, holidayRows, labelRows);
 
     // ساختن پاسخ چند ثانیه طول می‌کشد؛ بدون این نشانه کاربر فکر می‌کند
     // دکمه کار نکرده و دوباره می‌زند.
@@ -281,7 +281,7 @@ export async function handleEconCallback(ctx, action) {
       // D1 کش می‌کند. تا وقتی کلیدش خاموش است، همان مسیر n8n می‌ماند -
       // یعنی برگرداندن یک دستور است، نه یک دیپلوی.
       row = (await explainEnabled(ctx.env))
-        ? await explainToday(ctx.env, { cacheKey, question: EXPLAIN_QUESTION, context })
+        ? await explainToday(ctx.env, { cacheKey, question: EXPLAIN_QUESTION, context, rows })
         : await askExplain(ctx.env, { cacheKey, question: EXPLAIN_QUESTION, context });
     } catch (err) {
       failure = err && err.message;
