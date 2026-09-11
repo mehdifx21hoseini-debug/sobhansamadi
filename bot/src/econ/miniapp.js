@@ -18,6 +18,7 @@ import { filterByCurrencies, DEFAULT_CURRENCIES } from "./currencies.js";
 import { makeLabelHelpers, numOf } from "./labels.js";
 import { etTimeToTehran, etInstantIso } from "./format.js";
 import { readSubscription, saveSubscription, defaultSubscription } from "./subscribers.js";
+import { explainEvent, explainEnabled } from "./explain.js";
 
 // مینی‌اپ از GitHub Pages سرو می‌شود، پس مبدأ درخواست با مبدأ ورکر یکی
 // نیست و بدون این هدرها مرورگر پاسخ را به صفحه نمی‌دهد.
@@ -300,8 +301,32 @@ export async function handleMiniapp(request, env) {
   }
 
   if (action === "explain") {
-    // همان کشی که ربات پر می‌کند. مینی‌اپ عمداً نسخه‌ی تازه نمی‌سازد تا
-    // دو متن متفاوت برای یک روز وجود نداشته باشد.
+    // ── توضیحِ یک خبر ─────────────────────────────────────────────
+    //
+    // با event_id، متنِ همان یک شاخص ساخته می‌شود. این تنها جایی است
+    // که مینی‌اپ باعثِ یک تماسِ تازه با مدل می‌شود، پس دو مهار دارد:
+    //
+    //  - کلیدِ کش به شناسه‌ی رویداد و منتشرشدنِ عددش بسته است، پس هر
+    //    خبر حداکثر دو بار پرسیده می‌شود - نه به‌ازای هر کاربر.
+    //  - شناسه باید در همان فهرستی باشد که به این کاربر داده می‌شود؛
+    //    رشته‌ی دلخواه از مرورگر نمی‌تواند تماسی بسازد.
+    const wantId = String(body.event_id || "").trim();
+    if (wantId) {
+      if (!(await explainEnabled(env))) return reply({ success: true, available: false });
+      const payload = await buildMiniappPayload(env, user);
+      const ev = (payload.events || []).find((e) => e.event_id === wantId);
+      if (!ev) return reply({ success: true, available: false });
+      try {
+        const out = await explainEvent(env, ev);
+        return reply({ success: true, available: true, answer: out.answer, created_at: out.created_at });
+      } catch (err) {
+        console.error("توضیح خبر ساخته نشد:", err && err.message);
+        return reply({ success: true, available: false });
+      }
+    }
+
+    // بدونِ شناسه: همان تحلیلِ روز که ربات پر می‌کند. مینی‌اپ عمداً
+    // نسخه‌ی تازه نمی‌سازد تا دو متن متفاوت برای یک روز وجود نداشته باشد.
     const row = await readAiAnswer(env, todayCacheKey());
     if (!row) return reply({ success: true, available: false });
     return reply({ success: true, available: true, answer: row.answer, created_at: row.created_at });

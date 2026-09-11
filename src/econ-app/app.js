@@ -151,7 +151,11 @@
 		saving: false,
 		savePending: false,
 		levels: { high: true, medium: true, low: false },
-		open: {}
+		open: {},
+		// توضیحِ هر خبر، بعد از اولین درخواست. عمداً فقط در حافظه:
+		// متن روی سرور کش می‌شود، این فقط جلوی درخواستِ تکراری در همین
+		// نشست را می‌گیرد.
+		explain: {}
 	};
 
 	function levelOn(imp) {
@@ -492,10 +496,12 @@
 		dialBox.appendChild(read);
 		wrap.appendChild(dialBox);
 
-		// یک جمله به‌جای پنج ردیف.
-		var openNames = SESSIONS.filter(function (s) {
-			return sessionState(s, now).open && !holidayToday(s);
-		}).map(function (s) { return s.name; });
+		// جمله‌ی زیرِ دیال: تغییرِ بعدی، نه فهرستِ بازِ فعلی.
+		//
+		// تا حالا اینجا نوشته می‌شد «لندن و نیویورک هم‌زمان باز» و بعد
+		// تراشه‌ها همان نام‌ها را دوباره می‌گفتند - یک حرف، دو بار، پشتِ
+		// هم. تنها چیزی که تراشه‌ها نمی‌گویند این است که *بعدی* کِی
+		// اتفاق می‌افتد؛ حالا جمله همان را می‌گوید.
 		var line = el("div", "now-line");
 		line.style.marginInline = "auto";
 		if (weekend && market.nextOpen) {
@@ -504,21 +510,35 @@
 		} else if (market.onBreak && market.resumesAt) {
 			line.innerHTML = "تسویه‌ی روزانه — از سر گرفته می‌شود <b>" +
 				'<span class="n">' + hhmmInZone(market.resumesAt, VIEW()) + "</span></b>";
-		} else if (openNames.length >= 2) {
-			line.innerHTML = "<b>" + openNames.join(" و ") + "</b> هم‌زمان باز — پرنوسان‌ترین ساعت‌های روز.";
-		} else if (openNames.length === 1) {
-			line.innerHTML = "<b>" + openNames[0] + "</b> باز است.";
-		} else if (market.nextOpen) {
-			line.innerHTML = "بازارِ بعدی <b>" + '<span class="n">' + hhmmInZone(market.nextOpen, VIEW()) + "</span></b> باز می‌شود.";
+		} else {
+			var nt = nextTurn(now);
+			if (nt) {
+				line.innerHTML = "<b>" + until(nt.at) + "</b> تا " +
+					(nt.closing ? "بسته شدنِ " : "باز شدنِ ") + "<b>" + nt.name + "</b>";
+			} else if (market.nextOpen) {
+				line.innerHTML = "بازارِ بعدی <b>" + '<span class="n">' +
+					hhmmInZone(market.nextOpen, VIEW()) + "</span></b> باز می‌شود.";
+			}
 		}
 		if (line.innerHTML) wrap.appendChild(line);
 
 		// لژِ سشن‌ها: تراشه‌های کوچک، هرکدام درِ ورودیِ جزئیات.
+		//
+		// چیدمان شبکه است نه wrapِ وسط‌چین. با wrap، پنج تراشه با نام‌های
+		// نابرابر به ۳+۲ می‌شکستند و بلوک دندانه‌دار می‌شد؛ در شبکه هر
+		// ستون یک عرض دارد و تراشه‌ی پنجم عمداً کلِ ردیف را می‌گیرد.
+		//
+		// بازها اول می‌آیند. در حالتِ wrap ترتیب ثابت بود و کاربر باید
+		// بینِ پنج‌تا دنبالِ روشن‌ها می‌گشت.
 		var lede = el("div", "lede");
-		SESSIONS.forEach(function (s) {
+		SESSIONS.slice().sort(function (a, b2) {
+			var oa = sessionState(a, now).open && !holidayToday(a) ? 0 : 1;
+			var ob = sessionState(b2, now).open && !holidayToday(b2) ? 0 : 1;
+			return oa - ob;
+		}).forEach(function (s) {
 			var st = sessionState(s, now);
 			var hol = holidayToday(s);
-			var b = el("button", "lede" + (st.open && !hol ? "" : ""));
+			var b = el("button", null);
 			b.type = "button";
 			b.className = (st.open && !hol ? "is-open" : "") + (hol ? " is-hol" : "");
 			b.style.setProperty("--k", "var(--k-" + s.key + ")");
@@ -574,21 +594,48 @@
 		}
 
 		// جریانِ امروز.
+		//
+		// رویدادِ بعدی از این فهرست کنار می‌رود. nextEvent خودش از
+		// todays می‌آید، پس تا امروز همان خبر دو بار روی صفحه بود - یک
+		// بار در کارتِ بزرگ، یک بار چند سانت پایین‌تر در فهرست. حالا
+		// کارت همان «بعدی» است و فهرست «بقیه».
+		var todayShown = todays().filter(function (e) {
+			return levelOn(e.importance) && !(nx && e.event_id === nx.event_id);
+		});
 		var h = el("div", "sec-h");
-		h.appendChild(el("h2", null, "امروز"));
-		var todayShown = todays().filter(function (e) { return levelOn(e.importance); });
+		h.appendChild(el("h2", null, nx ? "بقیه‌ی امروز" : "امروز"));
 		h.appendChild(el("span", "aside", state.data ? jalaliLabel(state.data.today) : ""));
 		wrap.appendChild(h);
 
 		if (todayShown.length) {
 			wrap.appendChild(buildStream(todayShown, false));
+		} else if (nx) {
+			// فهرست خالی است ولی روز خالی نیست: کارتِ بالا تنها رویدادِ
+			// امروز بود. حالتِ خالیِ کاملِ «امروز خبری نیست» اینجا دروغ
+			// می‌گفت.
+			wrap.appendChild(el("div", "thin", "رویدادِ دیگری برای امروز نمانده."));
 		} else {
 			wrap.appendChild(emptyToday(weekend, market));
 		}
-
-		// تحلیل.
-		wrap.appendChild(aiBlock());
 		return wrap;
+	}
+
+	/**
+	 * نزدیک‌ترین تغییرِ وضعیتِ بازارها - باز شدن یا بسته شدن.
+	 *
+	 * بینِ همه‌ی سشن‌ها می‌گردد و زودترین لحظه را برمی‌گرداند. تعطیلیِ
+	 * بانکی کنار گذاشته می‌شود: بازاری که امروز تعطیل است «باز» نمی‌شود.
+	 */
+	function nextTurn(now) {
+		var best = null;
+		SESSIONS.forEach(function (s) {
+			if (holidayToday(s)) return;
+			var st = sessionState(s, now);
+			var at = st.open ? st.until : st.nextOpen;
+			if (!at) return;
+			if (!best || at < best.at) best = { at: at, name: s.name, closing: !!st.open };
+		});
+		return best;
 	}
 
 	function impWord(imp) {
@@ -788,7 +835,7 @@
 			var out = el("div", "node-out");
 			out.appendChild(el("span", "node-actual n " + tone(e), e.actual));
 			var d = deltaOf(e);
-			if (d) out.appendChild(el("span", "node-delta", d.flat ? d.text : d.text));
+			if (d) out.appendChild(el("span", "node-delta" + (d.flat ? " is-flat" : ""), d.text));
 			head.appendChild(out);
 		}
 
@@ -859,7 +906,106 @@
 
 		var sp = sparkline(e);
 		if (sp) box.appendChild(sp);
+
+		box.appendChild(explainRow(e));
 		return box;
+	}
+
+	/**
+	 * توضیحِ هوش مصنوعیِ همین خبر.
+	 *
+	 * تا امروز یک بلوکِ «تحلیل هوش مصنوعی» تهِ صفحه‌ی «اکنون» بود که
+	 * کلِ روز را یکجا توضیح می‌داد: سنگین‌ترین عنصرِ صفحه، برای متنی که
+	 * درباره‌ی خبری بود که کاربر شاید اصلاً بازش نکرده. حالا توضیح
+	 * همان‌جایی است که خبر است و فقط وقتی می‌آید که خواسته شود.
+	 *
+	 * پاسخ در همان لحظه در حافظه‌ی صفحه می‌ماند، پس بستن و باز کردنِ
+	 * دوباره‌ی خبر درخواستِ تازه نمی‌فرستد.
+	 */
+	function explainRow(e) {
+		var wrap = el("div", "xai");
+		var btn = el("button", "xai-b");
+		btn.type = "button";
+		var out = el("div", "xai-out");
+		out.hidden = true;
+
+		function show(text, stamp) {
+			out.hidden = false;
+			out.textContent = "";
+			// متن از سرور می‌آید و <b> دارد؛ فقط همین چند تگ اجازه دارند.
+			out.appendChild(safeRich(text));
+			if (stamp) out.appendChild(el("span", "xai-stamp", stamp));
+		}
+
+		var cached = state.explain[e.event_id];
+		btn.textContent = cached ? "توضیح این خبر" : "توضیح این خبر";
+		if (cached) show(cached.text, cached.stamp);
+
+		btn.addEventListener("click", function () {
+			if (!out.hidden) { out.hidden = true; return; }
+			if (state.explain[e.event_id]) {
+				var c = state.explain[e.event_id];
+				show(c.text, c.stamp);
+				return;
+			}
+			btn.disabled = true;
+			btn.textContent = "در حال نوشتن…";
+			haptic();
+			call({ action: "explain", event_id: e.event_id }).then(function (body) {
+				if (body && body.available && body.answer) {
+					var stamp = "";
+					if (body.created_at) {
+						var d = new Date(body.created_at);
+						if (!isNaN(d.getTime())) {
+							stamp = "تهیه‌شده در " + d.toLocaleTimeString("en-GB",
+								{ hour: "2-digit", minute: "2-digit" });
+						}
+					}
+					state.explain[e.event_id] = { text: body.answer, stamp: stamp };
+					show(body.answer, stamp);
+				} else {
+					out.hidden = false;
+					out.textContent = "توضیحِ این خبر فعلاً در دسترس نیست.";
+				}
+			}).catch(function () {
+				out.hidden = false;
+				out.textContent = "دریافت توضیح ناموفق بود. دوباره بزن.";
+			}).then(function () {
+				btn.disabled = false;
+				btn.textContent = "توضیح این خبر";
+			});
+		});
+
+		wrap.appendChild(btn);
+		wrap.appendChild(out);
+		return wrap;
+	}
+
+	/**
+	 * متنِ سرور با چند تگِ ساده، بدونِ innerHTML.
+	 *
+	 * پاسخِ مدل <b> و <i> دارد. innerHTML اینجا یعنی هر چیزی که از آن
+	 * سمت بیاید اجرا می‌شود؛ به‌جایش متن تکه‌تکه می‌شود و فقط همین دو
+	 * تگ به عنصرِ واقعی تبدیل می‌شوند - بقیه متنِ خام می‌مانند.
+	 */
+	function safeRich(text) {
+		var frag = document.createDocumentFragment();
+		var re = /<(\/?)(b|i|u|code)>/gi;
+		var stack = [frag], m, last = 0, s = String(text || "");
+		while ((m = re.exec(s))) {
+			if (m.index > last) stack[stack.length - 1].appendChild(
+				document.createTextNode(s.slice(last, m.index)));
+			if (m[1]) { if (stack.length > 1) stack.pop(); }
+			else {
+				var node = el(m[2].toLowerCase(), null);
+				stack[stack.length - 1].appendChild(node);
+				stack.push(node);
+			}
+			last = m.index + m[0].length;
+		}
+		if (last < s.length) stack[stack.length - 1].appendChild(
+			document.createTextNode(s.slice(last)));
+		return frag;
 	}
 
 	function buildGauge(e, f, a, p) {
@@ -916,49 +1062,6 @@
 		wrap.appendChild(bars);
 		wrap.appendChild(el("div", "spark-k", fa(ordered.length) + " انتشار اخیر"));
 		return wrap;
-	}
-
-	// ── تحلیل ───────────────────────────────────────────────────────
-	function aiBlock() {
-		var g = el("div", "group");
-		g.appendChild(el("div", "group-k", "تحلیل هوش مصنوعی"));
-		var box = el("div", "group-box");
-		box.style.padding = "16px";
-		var btn = el("button", "btn", "نمایش تحلیل امروز");
-		btn.type = "button";
-		var out = el("div", "ai-out");
-		out.hidden = true;
-		btn.addEventListener("click", function () {
-			btn.disabled = true;
-			btn.textContent = "در حال دریافت…";
-			haptic();
-			call({ action: "explain" }).then(function (body) {
-				out.hidden = false;
-				out.textContent = "";
-				if (body.available) {
-					out.textContent = body.answer;
-					if (body.created_at) {
-						var d = new Date(body.created_at);
-						if (!isNaN(d.getTime())) {
-							out.appendChild(el("span", "ai-stamp", "تهیه‌شده در " +
-								clock(d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))));
-						}
-					}
-					btn.textContent = "بروزرسانی تحلیل";
-				} else {
-					out.textContent = "تحلیل امروز هنوز ساخته نشده. یک بار از دکمه‌ی «🤖 توضیح AI» داخل ربات استفاده کن.";
-					btn.textContent = "بررسی دوباره";
-				}
-			}).catch(function () {
-				out.hidden = false;
-				out.textContent = "دریافت تحلیل ناموفق بود.";
-				btn.textContent = "تلاش دوباره";
-			}).then(function () { btn.disabled = false; });
-		});
-		box.appendChild(btn);
-		box.appendChild(out);
-		g.appendChild(box);
-		return g;
 	}
 
 	// ── تنظیمات ─────────────────────────────────────────────────────

@@ -397,13 +397,17 @@ body {
 
 /* لژِ سشن‌ها: نقطه‌های رنگی با نام، زیرِ دیال. کلیک‌شان ورق را باز
    می‌کند. این جای «پنج ردیفِ نواری» را گرفته. */
+/* شبکه، نه wrapِ وسط‌چین.
+   پنج تراشه با نام‌های نابرابر در wrap به ۳+۲ می‌شکستند و لبه‌ها
+   دندانه‌دار می‌شد. اینجا دو ستونِ هم‌عرض است و تراشه‌ی تنهای آخر کلِ
+   ردیف را می‌گیرد - یعنی چیدمان عمدی به‌نظر می‌رسد، نه شکسته. */
 .lede {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
 	gap: var(--sp-2);
 	margin-top: var(--sp-4);
 }
+.lede button:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .lede button {
 	appearance: none;
 	border: 1px solid var(--hair);
@@ -413,13 +417,20 @@ body {
 	font-size: 11.5px;
 	font-weight: 600;
 	border-radius: 999px;
-	padding: 6px 11px 6px 9px;
-	display: inline-flex;
+	padding: 6px 11px;
+	display: flex;
 	align-items: center;
 	gap: 6px;
 	cursor: pointer;
-	min-height: 34px;
+	min-height: 40px;
+	min-width: 0;
+	/* بدونِ این، «بورس نیویورک» دو خطی می‌شد و کلِ ردیفِ شبکه را بلند
+	   می‌کرد - یعنی دو تراشه‌ی کنارِ هم دو ارتفاعِ متفاوت می‌گرفتند. */
+	white-space: nowrap;
 }
+/* نام فضای باقی‌مانده را می‌گیرد و ساعت به لبه می‌چسبد، پس ساعت‌ها در
+   هر دو ستون زیرِ هم می‌افتند. */
+.lede button > span:nth-child(2) { flex: 1; min-width: 0; text-align: start; }
 .lede button .kdot { width: 7px; height: 7px; border-radius: 50%; background: var(--k); }
 .lede button.is-open { color: var(--text); border-color: var(--hair-2); }
 .lede button.is-open .kdot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--k) 22%, transparent); }
@@ -427,12 +438,12 @@ body {
 /* ساعتِ تراشه. رقمِ لاتینِ مونو تا با ساعتِ بالای صفحه و برچسبِ زمانِ
    گره یک زبان بماند؛ نازک‌تر از نام، چون جوابِ دوم است نه اول. */
 .lede button .kt {
+	flex: none;
 	font-family: var(--f-num);
 	font-size: 10.5px;
 	font-weight: 500;
 	color: var(--faint);
-	padding-inline-start: 6px;
-	margin-inline-start: 1px;
+	padding-inline-start: 7px;
 	border-inline-start: 1px solid var(--hair);
 	/* بدونِ direction: ltr. متن اینجا گاهی «تا 17:30» است - فارسی و
 	   رقم با هم - و راست‌به‌چپ بودنِ ظرف همان چیزی است که ترتیبش را
@@ -658,6 +669,10 @@ body {
 .node-actual.is-up { color: var(--up); }
 .node-actual.is-down { color: var(--down); }
 .node-delta { font-family: var(--f-num); font-size: 11.5px; font-weight: 500; color: var(--faint); }
+/* «مطابق پیش‌بینی» عدد نیست، جمله است.
+   با فونتِ مونو هر حرفِ فارسی در یک خانه‌ی هم‌عرض می‌افتد و اتصالِ
+   حروف می‌شکند - «مطا بق پیش‌بـیـنـی». فونتِ متن این را درست می‌کند. */
+.node-delta.is-flat { font-family: var(--f-ui); letter-spacing: 0; }
 
 /* ── بازشده ────────────────────────────────────────────────────── */
 .node-more { overflow: hidden; }
@@ -1014,8 +1029,38 @@ body {
 .skel { height: 62px; border-radius: var(--r-sm); background: var(--s2); margin-bottom: var(--sp-2); animation: pulse 1.4s var(--ease) infinite; }
 @keyframes pulse { 50% { opacity: .5; } }
 
-.ai-out { margin-top: var(--sp-3); font-size: 13px; line-height: 2; color: var(--dim); }
-.ai-stamp { display: block; margin-top: var(--sp-2); font-size: 10.5px; color: var(--faint); }
+/* توضیحِ هوش مصنوعیِ یک خبر، داخلِ بازشده‌ی همان خبر.
+   بلوکِ «تحلیل امروز» تهِ صفحه بود و با دکمه‌ی مشکیِ تمام‌عرضش
+   سنگین‌ترین چیزِ صفحه؛ اینجا دکمه سبک است چون در جایِ خودش نشسته و
+   لازم نیست کسی را صدا بزند. */
+.xai { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--hair); }
+.xai-b {
+	appearance: none;
+	border: 1px solid var(--hair-2);
+	background: none;
+	border-radius: 999px;
+	font-family: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--dim);
+	padding: 0 14px;
+	min-height: 36px;
+	cursor: pointer;
+}
+.xai-b:active { background: var(--s3); }
+.xai-b[disabled] { opacity: .55; }
+.xai-out {
+	margin-top: var(--sp-3);
+	font-size: 13px;
+	line-height: 2;
+	color: var(--dim);
+	white-space: pre-wrap;
+}
+.xai-out b { color: var(--text); font-weight: 600; }
+.xai-stamp { display: block; margin-top: var(--sp-2); font-size: 10.5px; color: var(--faint); }
+
+/* یک خطِ توضیحیِ کم‌رنگ، جایی که فهرست خالی است ولی روز خالی نیست. */
+.thin { font-size: 12.5px; color: var(--faint); padding: var(--sp-2) 0; }
 
 .build { display: none; }
 
