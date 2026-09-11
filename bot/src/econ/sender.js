@@ -52,6 +52,22 @@ export async function senderEnabled(env) {
   return String(v).toLowerCase() === "on";
 }
 
+// ─── کلیدِ اعلامِ عدد ────────────────────────────────────────────────
+//
+// به خواستِ آکادمی خاموش است: کاربر هشدارِ پیش از خبر را می‌گیرد و عدد
+// را خودش در مینی‌اپ می‌بیند. پیش از این، سه شاخصی که ساعت ۱۶:۰۰ با هم
+// منتشر می‌شوند سه پیامِ جدا پشتِ سرِ هم می‌فرستادند.
+//
+// کلید است و نه حذفِ کد، چون این پیام دو سال رفته و اگر نبودنش دیده شد،
+// روشن کردنش نباید به دیپلوی نیاز داشته باشد. پیش‌فرضْ خاموش: هر مقداری
+// جز "on" یعنی نه.
+export const RESULT_FLAG = "econ_result_notice";
+
+export async function resultNoticeEnabled(env) {
+  const v = await readConfig(env, RESULT_FLAG).catch(() => "");
+  return String(v).toLowerCase() === "on";
+}
+
 // ─── روز هفته به وقت تهران ──────────────────────────────────────────
 //
 // این را نمی‌شود از getUTCDay گرفت: شنبه‌ی ایران از جمعه ساعت ۲۰:۳۰ به
@@ -801,6 +817,8 @@ export function buildResultText(e, labels) {
 
 export async function runResultSweep(env, now = new Date()) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  // پیش‌فرض خاموش - دلیلش کنارِ RESULT_FLAG نوشته است.
+  if (!(await resultNoticeEnabled(env))) return { skipped: "اعلام نتیجه خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
   if (isWeekend(now)) return { skipped: "آخر هفته" };
 
@@ -861,6 +879,7 @@ export async function runResultSweep(env, now = new Date()) {
 // روشن است یا نه.
 export async function senderStatus(env) {
   const enabled = await senderEnabled(env).catch(() => false);
+  const resultNotice = await resultNoticeEnabled(env).catch(() => false);
   let today = 0;
   try {
     await ensureSentSchema(env);
@@ -882,5 +901,5 @@ export async function senderStatus(env) {
   } catch {
     digest = null;
   }
-  return { enabled, sent_24h: today, weekend: isWeekend(), digest };
+  return { enabled, result_notice: resultNotice, sent_24h: today, weekend: isWeekend(), digest };
 }
