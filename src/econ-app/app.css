@@ -190,6 +190,42 @@ body {
 .flag-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* ───────────────────────────────────────────────────────────────────
+   نشانِ برند در پس‌زمینه
+
+   تصویر عمداً به‌شکلِ ماسک می‌آید نه عکس. لوگو دو رنگ دارد - سرمه‌ای و
+   طلایی - و هر دو در حالتِ تیره روی زمینه‌ی تیره گم می‌شوند و در روشن
+   لکه‌ی رنگی می‌سازند. ماسک فقط شکل را نگه می‌دارد و رنگش از توکنِ متن
+   می‌آید، پس در هر دو تم درست می‌نشیند و با تمِ کاربر عوض می‌شود.
+
+   ثابت است نه اسکرولی: با صفحه بالا و پایین نمی‌رود، پس پشتِ محتوا
+   می‌ماند و حرکت نمی‌سازد. شفافیتش عمداً در مرزِ دیده‌شدن است.
+   ─────────────────────────────────────────────────────────────────── */
+.brandmark {
+	position: fixed;
+	z-index: 0;
+	pointer-events: none;
+	inset-inline-start: 50%;
+	top: 50%;
+	width: min(78vw, 420px);
+	aspect-ratio: 1;
+	transform: translate(50%, -50%);
+	background: var(--text);
+	opacity: .028;
+	/* یک بار تعریف، دو بار مصرف: تکرارِ خودِ base64 برای پیشوندِ
+	   وبکیت، چهار کیلوبایت به خروجی اضافه می‌کرد. */
+	--mark: url("data:image/png;base64,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");
+	-webkit-mask: var(--mark) center/contain no-repeat;
+	mask: var(--mark) center/contain no-repeat;
+}
+/* روی زمینه‌ی تیره همان شفافیت کم‌رنگ‌تر دیده می‌شود، پس کمی بالاتر. */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brandmark { opacity: .045; } }
+:root[data-theme="dark"] .brandmark { opacity: .045; }
+
+/* محتوا بالای نشان. بدونِ این، نشان روی متن می‌افتد. */
+.shell { position: relative; z-index: 1; }
+
+
+/* ───────────────────────────────────────────────────────────────────
    چیدمان
    ─────────────────────────────────────────────────────────────────── */
 
