@@ -34,6 +34,7 @@ import {
   currencyCode,
   toggleCurrency,
   filterByCurrencies,
+  DEFAULT_CURRENCIES,
 } from "./currencies.js";
 
 // «?v=» کشِ وب‌ویوی تلگرام را می‌شکند. پیش از این عددش دستی نوشته می‌شد و
@@ -260,7 +261,6 @@ export async function handleEconCallback(ctx, action) {
     // Gemini آنجاست. تحلیل مثل قبل «درجا» ساخته می‌شود، نه از یک آینه‌ی
     // خوانده‌شده - وگرنه روزهایی که کسی دکمه را نزده باشد پاسخی وجود
     // ندارد و دکمه عملاً مرده است.
-    const cacheKey = todayCacheKey();
     const events = await readEvents(ctx.env);
     // برچسب‌ها هم می‌روند: بدونِ آن‌ها نامِ فارسیِ خبر به مدل نمی‌رسد و
     // آنچه می‌بیند همان عنوانِ انگلیسیِ فید است.
@@ -268,7 +268,24 @@ export async function handleEconCallback(ctx, action) {
       readHolidays(ctx.env).catch(() => []),
       readLabels(ctx.env).catch(() => []),
     ]);
-    const { context, rows } = buildExplainPlan(events, holidayRows, labelRows);
+
+    // تحلیل هم همان ارزهایی را می‌بیند که کاربر انتخاب کرده.
+    //
+    // نمای «اخبار امروز» از این فیلتر پیروی می‌کرد و تحلیل نمی‌کرد، پس
+    // کسی که فقط دلار را روشن گذاشته بود در فهرست دلار می‌دید و در
+    // تحلیل پوند و یورو هم.
+    const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+    const chosen = sub.currencies && sub.currencies.length ? sub.currencies : DEFAULT_CURRENCIES;
+    const mine = filterByCurrencies(events, chosen);
+
+    // کلیدِ کش باید انتخابِ ارز را هم در خود داشته باشد.
+    //
+    // بدونِ این، اولین کسی که دکمه را می‌زد تحلیلِ ارزهای *خودش* را در
+    // کشِ روز می‌نشاند و تا ۱۵ دقیقه همه همان را می‌گرفتند - کسی که فقط
+    // دلار می‌خواست، خبرِ پوند می‌دید و برعکس. خطایی هم نمی‌داد.
+    const cacheKey = todayCacheKey() + "|" + chosen.slice().sort().join(",");
+
+    const { context, rows } = buildExplainPlan(mine, holidayRows, labelRows);
 
     // ساختن پاسخ چند ثانیه طول می‌کشد؛ بدون این نشانه کاربر فکر می‌کند
     // دکمه کار نکرده و دوباره می‌زند.
