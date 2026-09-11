@@ -424,6 +424,13 @@ function eventDetails(e, h, opts = {}) {
       " | " + cell(actual) + " |"
   );
   const notes = [];
+  // در پیامِ هشدار، «چقدر مانده» مهم‌ترین عدد است و اولِ یادداشت‌ها
+  // می‌آید. در نماهای امروز و هفته نمی‌آید: آنجا خودِ نما شمارشِ معکوسِ
+  // نزدیک‌ترین خبر را جدا نشان می‌دهد و تکرارش در هر ردیف فقط شلوغی است.
+  if (opts.countdown && e.time) {
+    const cd = formatCountdown(etMinutesUntilNow(e.date, e.time));
+    if (cd) notes.push(cd);
+  }
   // پسوندی که از خطِ خلاصه برداشته شد، اینجا برمی‌گردد - وگرنه کاربر
   // ساعتِ بامداد را روزِ خودِ خبر می‌خواند.
   if (nextDay) notes.push("\u23ed این ساعت به روزِ بعد می‌افتد");
@@ -435,6 +442,58 @@ function eventDetails(e, h, opts = {}) {
   lines.push("</details>");
   lines.push("");
   return lines.join("\n");
+}
+
+/**
+ * هشدارِ پیش از خبر - یک پیام برای همه‌ی خبرهای پنجره، نه یکی برای هر خبر.
+ *
+ * چرا عوض شد: در ساعتِ ۸:۳۰ شرق آمریکا چند شاخص هم‌زمان منتشر می‌شوند و
+ * کاربر پنج پیامِ پشتِ سرِ هم می‌گرفت که هرکدام یک خط بیشتر نداشت. همان
+ * پنج خبر در یک پیامِ کشویی هم کوتاه‌تر است، هم کنارِ هم قابلِ مقایسه، و
+ * هم پنج برابر کمتر به سقفِ درخواستِ ورکر و سقفِ نرخِ تلگرام فشار می‌آورد.
+ *
+ * شکلش عمداً همان شکلِ نمای «اخبار امروز» است: همان ردیفِ تاشو، همان
+ * ستون‌بندیِ ساعت. کاربر یک زبانِ بصری را یاد می‌گیرد، نه دو تا.
+ *
+ * @param {Array} events رویدادهایی که همین حالا در پنجره‌ی هشدارند
+ * @param {Array} labels ردیف‌های جدولِ برچسب
+ */
+export function buildAlertMarkdown(events, labels) {
+  const list = byTime(events || []);
+  if (list.length === 0) return "";
+
+  const helpers = makeLabelHelpers(labels);
+  const row = (e) => eventDetails(e, helpers, { flag: multiOf(list), countdown: true });
+  // همان سقفِ کاراکتریِ نماهای دیگر. یک پنجره‌ی شلوغ با نُه ارز می‌تواند
+  // ده‌ها خبر داشته باشد و پیامِ بلندتر از سقفِ تلگرام اصلاً نمی‌رسد -
+  // که از نرسیدنِ چند خبر بدتر است.
+  const kept = fitByBudget(list, row, TEXT_BUDGET);
+  if (kept.length === 0) return "";
+
+  // نزدیک‌ترین خبر، نه اولینِ فهرست: فهرست به ترتیبِ زمان است ولی خبری
+  // که ساعت ندارد آخر می‌نشیند و نباید در این حساب بیاید.
+  const mins = kept
+    .filter((e) => e.time)
+    .map((e) => etMinutesUntilNow(e.date, e.time))
+    .filter((m) => m > 0);
+  const soonest = mins.length ? Math.max(1, Math.min(...mins)) : 0;
+
+  let markdown =
+    kept.length === 1
+      ? "## " + RLM + "🔔 خبر مهم" +
+        (soonest ? " — " + toPersianDigits(soonest) + " دقیقه دیگر" : "") + "\n\n"
+      : "## " + RLM + "🔔 " + toPersianDigits(kept.length) + " خبر مهم در راه است\n\n";
+
+  if (kept.length > 1 && soonest) {
+    markdown += RLM + "نزدیک‌ترین تا " + toPersianDigits(soonest) + " دقیقه دیگر\n\n";
+  }
+
+  for (const e of kept) markdown += row(e);
+
+  // هیچ جمله‌ای درباره‌ی وضعیتِ بازار. همان تصمیمی که در buildAlertText
+  // گرفته شد و دلیلش آنجا نوشته است.
+  markdown += "\n" + RLM + "⏰ ساعت‌ها به وقت تهران است.";
+  return markdown;
 }
 
 export function buildTodayMarkdown(events, labels, holidays) {

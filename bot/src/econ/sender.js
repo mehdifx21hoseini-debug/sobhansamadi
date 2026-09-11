@@ -19,7 +19,7 @@
 import { readEvents, readLabels, readHolidays } from "./store.js";
 import { holidayLabel, holidayNameFa } from "./holidayNames.js";
 import { filterByCurrencies, DEFAULT_CURRENCIES, currencyFlag } from "./currencies.js";
-import { buildTodayMarkdown } from "./views.js";
+import { buildTodayMarkdown, buildAlertMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
   listPendingSubscribers,
@@ -572,7 +572,30 @@ export async function drainDailyDigest(env, now = new Date(), shard = null) {
  * ۳. پرچمِ ارز آمده. از وقتی کاربر می‌تواند چند ارز را روشن کند،
  *    هشداری که نمی‌گوید مالِ کدام ارز است نصفِ اطلاعات را جا می‌گذارد.
  */
-export function buildAlertText(e, minutesLeft) {
+export function buildAlertText(event, minutesLeft) {
+  // پشتیبانِ متنِ ساده‌ی پیامِ گروهی هم هست: اگر فهرست بگیرد، هر خبر را
+  // با همین قالب می‌سازد و با یک خطِ جداکننده به هم می‌چسباند. آرگومانِ
+  // دوم آنجا زمانِ مبناست نه دقیقه، چون هر خبر شمارشِ خودش را دارد.
+  if (Array.isArray(event)) {
+    const list = event;
+    if (list.length === 0) return "";
+    const head =
+      list.length === 1
+        ? ""
+        : RLM + "🔔 " + toPersianDigits(list.length) + " خبر مهم در راه است\n\n";
+    const each = list.map((e) => {
+      const left = e.time ? etMinutesUntilNow(e.date, e.time) : 0;
+      const one = buildAlertText(e, left);
+      // سرتیترِ «🔔 خبر مهم» زیرِ سرتیترِ گروه تکراری است؛ همان خط به یک
+      // شمارشِ معکوسِ ساده تبدیل می‌شود.
+      return list.length === 1
+        ? one
+        : one.replace(/^.*?🔔 خبر مهم — /, RLM + "⏳ ");
+    });
+    return head + each.join("\n\n" + RLM + "—\n\n");
+  }
+
+  const e = event;
   const emoji = IMPORTANCE_EMOJI[e.importance] || "⚪";
   const when = e.time ? etTimeToTehran(e.date, e.time) : "";
   const flag = currencyFlag(e.currency);
@@ -609,10 +632,30 @@ export function buildAlertText(e, minutesLeft) {
  * بایت دارد و شناسه‌های بلند از آن رد می‌شوند - که یعنی تلگرام کلِ پیام
  * را رد می‌کند و هشدار بی‌صدا ارسال نمی‌شود، آن هم فقط برای بعضی خبرها.
  */
-function alertKeyboard(e) {
+/**
+ * نامِ خبر روی دکمه.
+ *
+ * وقتی یک پیام چند خبر دارد، «توضیح این خبر» دیگر معنی ندارد - باید
+ * معلوم باشد کدام. نام کوتاه می‌شود چون دکمه‌ی بلند در تلگرام وسطش را
+ * می‌خورد و کاربر هیچ‌کدام را کامل نمی‌بیند.
+ */
+function buttonName(e) {
+  const name = String(e.event_fa || e.event || "").trim();
+  return name.length > 26 ? name.slice(0, 25) + "…" : name;
+}
+
+function alertKeyboard(list) {
+  const events = (Array.isArray(list) ? list : [list]).filter((e) => e && e.event_id);
   const rows = [];
-  if (e && e.event_id) {
-    rows.push([{ text: "🤖 توضیح این خبر", callback_data: "ECON_X_" + eventToken(e.event_id), style: "primary" }]);
+  if (events.length === 1) {
+    rows.push([{ text: "🤖 توضیح این خبر", callback_data: "ECON_X_" + eventToken(events[0].event_id), style: "primary" }]);
+  } else {
+    // چهار تا، نه همه: کیبوردِ ده‌ردیفه خودش یک دیوارِ دیگر است. بقیه از
+    // «اخبار امروز» در دسترس‌اند، و ترتیب زمانی است پس این چهار تا
+    // نزدیک‌ترین‌هایند.
+    for (const e of events.slice(0, 4)) {
+      rows.push([{ text: "🤖 " + buttonName(e), callback_data: "ECON_X_" + eventToken(e.event_id), style: "primary" }]);
+    }
   }
   rows.push([{ text: "📅 اخبار امروز", callback_data: "ECON_TODAY", style: "primary" }]);
   rows.push([{ text: "🔔 تنظیمات هشدار", callback_data: "ECON_ALERT_SETTINGS" }]);
@@ -650,53 +693,89 @@ export function dueEvents(events, sub) {
     .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
 }
 
+/**
+ * هشدارها - یک پیام برای هر کاربر، نه یکی برای هر خبر.
+ *
+ * دفترِ ارسال هنوز خبر-به-خبر است و باید باشد: تضمینِ «هیچ خبری دو بار
+ * اعلام نمی‌شود» از همان‌جا می‌آید. چیزی که عوض شده جای ارسال است -
+ * اول همه‌ی خبرهای تازه‌ی این کاربر claim می‌شوند، بعد یک پیام برای همه‌شان
+ * می‌رود.
+ *
+ * اگر ارسال به سقفِ زیرساخت بخورد، claimِ همه‌شان پس گرفته می‌شود؛ وگرنه
+ * آن خبرها برای همیشه «فرستاده شده» علامت می‌خوردند بی‌آنکه رفته باشند.
+ */
 export async function runAlertSweep(env, now = new Date()) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
   if (isWeekend(now)) return { skipped: "آخر هفته" };
 
   await ensureSentSchema(env);
-  const events = await readEvents(env);
+  const [events, labelRows] = await Promise.all([readEvents(env), readLabels(env)]);
   if (events.length === 0) return { sent: 0, failed: 0, blocked: 0 };
 
   const subs = await listActiveSubscribers(env);
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let budget = SEND_BUDGET;
   let stopped = false;
+  let grouped = 0;
 
-  outer: for (const s of subs) {
-    for (const e of dueEvents(events, s)) {
-      // بودجه که تمام شد، بقیه دست‌نخورده می‌مانند: هیچ‌کس claim نشده،
-      // پس اجرای پنج دقیقه‌ی بعد دقیقاً از همین‌جا ادامه می‌دهد.
-      if (budget <= 0) {
-        stopped = true;
-        break outer;
-      }
-      budget--;
-      // فاصله در کلید نیست: کاربر باید برای هر رویداد یک هشدار بگیرد،
-      // نه یکی به ازای هر اجرای کران.
-      const left = etMinutesUntilNow(e.date, e.time);
-      const res = await claimAndSend(
-        env,
-        "alert",
-        e.event_id,
-        s,
-        () => ({
-          method: "sendMessage",
-          payload: { text: buildAlertText(e, left), reply_markup: alertKeyboard(e) },
-        }),
-        stats
-      );
-      // claim تکراری بودجه نمی‌خورد؛ این هشدار قبلاً رفته.
-      if (res === "skip") budget++;
-      if (res === "stop") {
-        stopped = true;
-        break outer;
-      }
+  for (const s of subs) {
+    const due = dueEvents(events, s);
+    if (due.length === 0) continue;
+
+    // بودجه که تمام شد، بقیه دست‌نخورده می‌مانند: هنوز چیزی claim نشده،
+    // پس اجرای پنج دقیقه‌ی بعد دقیقاً از همین‌جا ادامه می‌دهد.
+    if (budget <= 0) {
+      stopped = true;
+      break;
     }
+
+    // فقط خبرهایی که هنوز برای این کاربر نرفته‌اند. claim پیش از ارسال
+    // انجام می‌شود - دلیلش بالای claim نوشته است.
+    const fresh = [];
+    for (const e of due) {
+      if (await claim(env, "alert", e.event_id, s.telegram_user_id)) fresh.push(e);
+    }
+    if (fresh.length === 0) continue;
+
+    budget--;
+    const markdown = buildAlertMarkdown(fresh, labelRows);
+    const keyboard = alertKeyboard(fresh);
+    let r;
+    try {
+      r = await tg(env, "sendRichMessage", {
+        chat_id: s.chat_id,
+        rich_message: { markdown },
+        reply_markup: keyboard,
+      });
+      // sendRichMessage متدی غیرمستند است. اگر روزی برداشته شود، هشدارها
+      // بی‌صدا قطع می‌شدند - و هشدارِ نرسیده بدترین خرابیِ این رباتست. پس
+      // متنِ ساده پشتِ سرش می‌ایستد.
+      if (!r.ok && !r.blocked) {
+        r = await tg(env, "sendMessage", {
+          chat_id: s.chat_id,
+          text: buildAlertText(fresh, now),
+          reply_markup: keyboard,
+        });
+      }
+    } catch {
+      for (const e of fresh) {
+        await unclaim(env, "alert", e.event_id, s.telegram_user_id).catch(() => {});
+      }
+      stopped = true;
+      break;
+    }
+
+    if (r.ok) {
+      stats.sent++;
+      grouped += fresh.length;
+    } else if (r.blocked) {
+      stats.blocked++;
+      await markBlocked(env, s.telegram_user_id);
+    } else stats.failed++;
   }
 
-  return { ...stats, throttled: stopped };
+  return { ...stats, events: grouped, throttled: stopped };
 }
 
 // ─── ۳) اعلام نتیجه ─────────────────────────────────────────────────
