@@ -91,6 +91,15 @@
 	--k-newyork: #a8794a;
 	--k-nyse: #a05a52;
 
+	/* هدرِ تبِ تقویم.
+	   منبع: assets/img/calendar-hero-source.png - ۲۰۰۵×۷۸۴.
+	   اینجا ۳٫۸۱:۱ لازم است، پس ۲۵۸ پیکسل از پایین بریده و به ۹۷۶×۲۵۶
+	   کوچک شد. بریدن فقط از پایین: سرِ سبحان چسبیده به لبه‌ی بالاست و
+	   ۱۵ درصدِ پایینِ قاب تقریباً خالی است (روشناییِ سمتِ نقشه آنجا به
+	   ۰٫۳ می‌رسد). ۲ برابرِ اندازه‌ی نمایش، نه ۳: تصویر کم‌جزئیات است -
+	   مشکی، نقشه‌ی محو، یک چهره - و ۳ برابر فقط حجم اضافه می‌کرد. */
+	--hero: url("data:image/webp;base64,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");
+
 	--r: 14px;
 	--r-sm: 9px;
 	--r-xs: 5px;
@@ -1222,3 +1231,64 @@ body {
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ───────────────────────────────────────────────────────────────────
+   هدرِ تبِ تقویم
+   ─────────────────────────────────────────────────────────────────── */
+
+.calhero {
+	position: relative;
+	margin-top: var(--sp-3);
+	height: 128px;
+	border-radius: var(--r);
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	padding-inline: var(--sp-4);
+	/* لنگرِ راست، نه وسط.
+	   قاب ارتفاعِ ثابت دارد و عرضش با صفحه عوض می‌شود، پس در گوشیِ باریک
+	   نسبتش از ۳٫۸۱ کمتر می‌شود و cover از دو طرف می‌بُرد - که یعنی بخشی
+	   از صورتِ سبحان از لبه‌ی راست می‌رفت. با لنگرِ راست، بریدن فقط از
+	   سمتِ چپ است؛ آنجا جز حاشیه‌ی نقشه چیزی نیست. */
+	background: #000 var(--hero) 100% 50% / cover no-repeat;
+}
+
+/* عنوان در نیمه‌ی چپ می‌نشیند - سمتی که در خودِ بنر عمداً خالی گذاشته
+   شده. حاشیه‌ی خودکار در سمتِ آغاز، عنصر را به سمتِ پایان هل می‌دهد. */
+.calhero-t {
+	position: relative;
+	z-index: 2;
+	margin-inline-start: auto;
+	max-width: 62%;
+}
+
+.calhero-t h2 {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 700;
+	letter-spacing: -.02em;
+	color: #f4f7f6;
+}
+
+.calhero-t p {
+	margin: 3px 0 0;
+	font-size: 11.5px;
+	color: rgba(244, 247, 246, .62);
+}
+
+/* بیمه‌ی خوانایی برای عرض‌های باریک: آنجا سوژه به متن نزدیک می‌شود.
+   در عرضِ کامل تقریباً هیچ کاری نمی‌کند، چون آن نیمه از قبل مشکی است. */
+.calhero::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	background: linear-gradient(to right, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .2) 40%, transparent 66%);
+}
+
+/* در تمِ روشن هم همین بنر می‌ماند - یک کارتِ تصویری است، نه سطحِ اپ -
+   ولی لبه‌اش باید از زمینه جدا شود وگرنه شناور به‌نظر می‌رسد. */
+.calhero { box-shadow: var(--lift); }
+
+/* هدرِ تقویم خودش نقشه دارد؛ نقشه‌ی پشتِ کلِ صفحه آنجا فقط تکرار است. */
+:root.has-hero .worldmap { display: none; }

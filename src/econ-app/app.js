@@ -434,6 +434,11 @@
 		$("zoneName").textContent = viewZone.name;
 		$("zoneOff").textContent = offsetLabel(VIEW());
 
+		// نقشه‌ی پس‌زمینه‌ی صفحه در تبِ تقویم خاموش می‌شود: هدرِ آن تب خودش
+		// نقشه دارد و دو نقشه‌ی روی هم - یکی داخلِ کارت و یکی پشتِ کلِ صفحه -
+		// مثل خطای رندر دیده می‌شد، نه مثل یک تصمیم.
+		document.documentElement.classList.toggle("has-hero", state.route === "cal");
+
 		if (state.failure) { stage.appendChild(failureView()); return; }
 		if (!state.data) { stage.appendChild(loadingView()); return; }
 
@@ -709,6 +714,16 @@
 	function viewCal() {
 		tickers = [];
 		var wrap = el("div", null);
+
+		// هدرِ تصویری. تصویر در CSS است نه اینجا: یک data-URI که با بقیه‌ی
+		// استایل‌ها در همان فایلِ تک‌تکه می‌نشیند، پس درخواستِ شبکه‌ی
+		// اضافه‌ای ندارد.
+		var hero = el("div", "calhero");
+		var ht = el("div", "calhero-t");
+		ht.appendChild(el("h2", null, "تقویم اقتصادی"));
+		ht.appendChild(el("p", null, "رویدادهای مهمِ پیشِ رو"));
+		hero.appendChild(ht);
+		wrap.appendChild(hero);
 
 		var bar = el("div", null);
 		bar.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px";
