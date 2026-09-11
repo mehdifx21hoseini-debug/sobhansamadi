@@ -527,6 +527,27 @@ body {
 }
 .lede button.is-open .kt { color: var(--live); }
 
+/* «ساعت‌ها به وقتِ …» زیرِ تراشه‌ها.
+   دکمه است نه برچسب: همان‌جایی که کاربر متوجه می‌شود ساعت‌ها به وقتِ
+   کجاست، همان‌جا هم باید بتواند عوضش کند. ظاهرش عمداً سبک است تا با
+   خودِ ساعت‌ها رقابت نکند. */
+.tz-note {
+	display: block;
+	margin: var(--sp-3) auto 0;
+	appearance: none;
+	border: 0;
+	background: none;
+	font-family: inherit;
+	font-size: 11.5px;
+	color: var(--faint);
+	padding: 6px 8px;
+	cursor: pointer;
+	min-height: 32px;
+}
+.tz-note b { color: var(--dim); font-weight: 600; }
+.tz-note .n { font-size: 10.5px; }
+.tz-note:active { color: var(--dim); }
+
 /* ───────────────────────────────────────────────────────────────────
    بلوکِ «رویدادِ بعدی»
    ─────────────────────────────────────────────────────────────────── */
@@ -1070,6 +1091,8 @@ body {
 }
 .pick + .pick { border-top: 1px solid var(--hair); }
 .pick-off { font-family: var(--f-num); font-size: 11.5px; color: var(--faint); }
+/* زیرنویسِ گزینه، جایی که نام به‌تنهایی گویا نیست - «بروکر» شهر نیست. */
+.pick-sub { display: block; font-style: normal; font-size: 10.5px; color: var(--faint); margin-top: 1px; }
 .pick-now { font-family: var(--f-num); font-size: 13px; color: var(--dim); margin-inline-start: auto; }
 .pick[aria-checked="true"] .pick-now { color: var(--live); }
 .pick-tick { color: var(--live); flex: none; opacity: 0; }

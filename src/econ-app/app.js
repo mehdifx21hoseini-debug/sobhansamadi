@@ -80,6 +80,14 @@
 	// ── منطقه‌ی زمانی ───────────────────────────────────────────────
 	var ZONES = [
 		{ key: "tehran", name: "تهران", zone: "Asia/Tehran" },
+		// ساعتِ سرورِ بروکر.
+		//
+		// Etc/GMT-3 است نه Etc/GMT+3: در پایگاه‌داده‌ی مناطق، علامتِ
+		// Etc/* وارونه است و این یکی یعنی UTC+3. ثابت هم هست - ساعتِ
+		// تابستانی ندارد، پس نیم‌ساعت اختلافش با تهران تمامِ سال همان
+		// می‌ماند. همین ساعت است که پنجره‌ی تسویه‌ی روزانه با آن تعریف
+		// می‌شود (۰۰:۰۰ تا ۰۱:۰۰ سرور = ۰۰:۳۰ تا ۰۱:۳۰ تهران).
+		{ key: "broker", name: "بروکر معتمد", sub: "ساعت سرور", zone: "Etc/GMT-3" },
 		{ key: "gmt", name: "گرینویچ", zone: "UTC" },
 		{ key: "london", name: "لندن", zone: "Europe/London" },
 		{ key: "newyork", name: "نیویورک", zone: "America/New_York" },
@@ -559,6 +567,19 @@
 			lede.appendChild(b);
 		});
 		wrap.appendChild(lede);
+
+		// ساعت‌ها به وقتِ کدام منطقه‌اند.
+		//
+		// تراشه‌ها ساعتِ باز و بسته شدن را می‌گویند ولی هیچ‌جا نمی‌گفت
+		// این ساعت‌ها به وقتِ کجاست. کسی که منطقه را عوض کرده - یا
+		// نکرده و فرض کرده وقتِ بروکر است - عددها را اشتباه می‌خواند.
+		// خودِ این خط دکمه است، پس همان‌جا هم می‌شود عوضش کرد.
+		var tzNote = el("button", "tz-note");
+		tzNote.type = "button";
+		tzNote.innerHTML = "ساعت‌ها به وقتِ <b>" + viewZone.name + "</b> " +
+			'<span class="n">' + offsetLabel(VIEW(), now) + "</span>";
+		tzNote.addEventListener("click", openZones);
+		wrap.appendChild(tzNote);
 
 		// رویدادِ بعدی — بزرگ‌ترین چیزِ صفحه بعد از ساعت.
 		var nx = nextEvent();
@@ -1331,7 +1352,11 @@
 				var tick = svgEl("svg", { class: "pick-tick", viewBox: "0 0 24 24", width: "17", height: "17", fill: "none", stroke: "currentColor", "stroke-width": "2.4", "stroke-linecap": "round" });
 				tick.appendChild(svgEl("path", { d: "M5 12.5l4.5 4.5L19 7.5" }));
 				b.appendChild(tick);
-				b.appendChild(el("span", null, z.name));
+				var nm = el("span", null, z.name);
+				// زیرنویس فقط جایی که نام به‌تنهایی گویا نیست - «بروکر»
+				// یک شهر نیست و باید گفته شود منظور ساعتِ سرور است.
+				if (z.sub) nm.appendChild(el("i", "pick-sub", z.sub));
+				b.appendChild(nm);
 				b.appendChild(el("span", "pick-off n", offsetLabel(z.zone, now)));
 				b.appendChild(el("span", "pick-now n", hhmmInZone(now.getTime(), z.zone)));
 				b.addEventListener("click", function () {

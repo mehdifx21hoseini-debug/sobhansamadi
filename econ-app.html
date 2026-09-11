@@ -569,6 +569,27 @@ body {
 }
 .lede button.is-open .kt { color: var(--live); }
 
+/* «ساعت‌ها به وقتِ …» زیرِ تراشه‌ها.
+   دکمه است نه برچسب: همان‌جایی که کاربر متوجه می‌شود ساعت‌ها به وقتِ
+   کجاست، همان‌جا هم باید بتواند عوضش کند. ظاهرش عمداً سبک است تا با
+   خودِ ساعت‌ها رقابت نکند. */
+.tz-note {
+	display: block;
+	margin: var(--sp-3) auto 0;
+	appearance: none;
+	border: 0;
+	background: none;
+	font-family: inherit;
+	font-size: 11.5px;
+	color: var(--faint);
+	padding: 6px 8px;
+	cursor: pointer;
+	min-height: 32px;
+}
+.tz-note b { color: var(--dim); font-weight: 600; }
+.tz-note .n { font-size: 10.5px; }
+.tz-note:active { color: var(--dim); }
+
 /* ───────────────────────────────────────────────────────────────────
    بلوکِ «رویدادِ بعدی»
    ─────────────────────────────────────────────────────────────────── */
@@ -1112,6 +1133,8 @@ body {
 }
 .pick + .pick { border-top: 1px solid var(--hair); }
 .pick-off { font-family: var(--f-num); font-size: 11.5px; color: var(--faint); }
+/* زیرنویسِ گزینه، جایی که نام به‌تنهایی گویا نیست - «بروکر» شهر نیست. */
+.pick-sub { display: block; font-style: normal; font-size: 10.5px; color: var(--faint); margin-top: 1px; }
 .pick-now { font-family: var(--f-num); font-size: 13px; color: var(--dim); margin-inline-start: auto; }
 .pick[aria-checked="true"] .pick-now { color: var(--live); }
 .pick-tick { color: var(--live); flex: none; opacity: 0; }
@@ -1560,6 +1583,14 @@ function hhmmInZone(instant, timeZone) {
 	// ── منطقه‌ی زمانی ───────────────────────────────────────────────
 	var ZONES = [
 		{ key: "tehran", name: "تهران", zone: "Asia/Tehran" },
+		// ساعتِ سرورِ بروکر.
+		//
+		// Etc/GMT-3 است نه Etc/GMT+3: در پایگاه‌داده‌ی مناطق، علامتِ
+		// Etc/* وارونه است و این یکی یعنی UTC+3. ثابت هم هست - ساعتِ
+		// تابستانی ندارد، پس نیم‌ساعت اختلافش با تهران تمامِ سال همان
+		// می‌ماند. همین ساعت است که پنجره‌ی تسویه‌ی روزانه با آن تعریف
+		// می‌شود (۰۰:۰۰ تا ۰۱:۰۰ سرور = ۰۰:۳۰ تا ۰۱:۳۰ تهران).
+		{ key: "broker", name: "بروکر معتمد", sub: "ساعت سرور", zone: "Etc/GMT-3" },
 		{ key: "gmt", name: "گرینویچ", zone: "UTC" },
 		{ key: "london", name: "لندن", zone: "Europe/London" },
 		{ key: "newyork", name: "نیویورک", zone: "America/New_York" },
@@ -2039,6 +2070,19 @@ function hhmmInZone(instant, timeZone) {
 			lede.appendChild(b);
 		});
 		wrap.appendChild(lede);
+
+		// ساعت‌ها به وقتِ کدام منطقه‌اند.
+		//
+		// تراشه‌ها ساعتِ باز و بسته شدن را می‌گویند ولی هیچ‌جا نمی‌گفت
+		// این ساعت‌ها به وقتِ کجاست. کسی که منطقه را عوض کرده - یا
+		// نکرده و فرض کرده وقتِ بروکر است - عددها را اشتباه می‌خواند.
+		// خودِ این خط دکمه است، پس همان‌جا هم می‌شود عوضش کرد.
+		var tzNote = el("button", "tz-note");
+		tzNote.type = "button";
+		tzNote.innerHTML = "ساعت‌ها به وقتِ <b>" + viewZone.name + "</b> " +
+			'<span class="n">' + offsetLabel(VIEW(), now) + "</span>";
+		tzNote.addEventListener("click", openZones);
+		wrap.appendChild(tzNote);
 
 		// رویدادِ بعدی — بزرگ‌ترین چیزِ صفحه بعد از ساعت.
 		var nx = nextEvent();
@@ -2811,7 +2855,11 @@ function hhmmInZone(instant, timeZone) {
 				var tick = svgEl("svg", { class: "pick-tick", viewBox: "0 0 24 24", width: "17", height: "17", fill: "none", stroke: "currentColor", "stroke-width": "2.4", "stroke-linecap": "round" });
 				tick.appendChild(svgEl("path", { d: "M5 12.5l4.5 4.5L19 7.5" }));
 				b.appendChild(tick);
-				b.appendChild(el("span", null, z.name));
+				var nm = el("span", null, z.name);
+				// زیرنویس فقط جایی که نام به‌تنهایی گویا نیست - «بروکر»
+				// یک شهر نیست و باید گفته شود منظور ساعتِ سرور است.
+				if (z.sub) nm.appendChild(el("i", "pick-sub", z.sub));
+				b.appendChild(nm);
 				b.appendChild(el("span", "pick-off n", offsetLabel(z.zone, now)));
 				b.appendChild(el("span", "pick-now n", hhmmInZone(now.getTime(), z.zone)));
 				b.addEventListener("click", function () {
@@ -2918,7 +2966,7 @@ function hhmmInZone(instant, timeZone) {
 	<!-- Printed so a stale copy can be identified at a glance: the WebView
 	     caches this page and the URL is otherwise constant. Written by
 	     scripts/build-econ-app.mjs. -->
-	<span class="build" hidden>نسخه afb924e030</span>
+	<span class="build" hidden>نسخه 08f6d8ef29</span>
 </body>
 
 </html>
