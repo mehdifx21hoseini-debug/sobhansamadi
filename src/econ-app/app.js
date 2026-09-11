@@ -1417,8 +1417,10 @@
 
 	// ── تم ──────────────────────────────────────────────────────────
 	function applyScheme() {
-		if (!tg || !tg.colorScheme) return;
-		document.documentElement.setAttribute("data-theme", tg.colorScheme === "dark" ? "dark" : "light");
+		// تمِ تلگرام دیگر خوانده نمی‌شود: اپ یک تم دارد و آن تیره است.
+		// تنها کاری که اینجا می‌ماند هم‌رنگ کردنِ نوارِ خودِ تلگرام با
+		// زمینه است، وگرنه بالای صفحه یک نوارِ روشن می‌ماند.
+		if (!tg) return;
 		if (tg.setHeaderColor) {
 			var st = getComputedStyle(document.documentElement);
 			try { tg.setHeaderColor(st.getPropertyValue("--bg").trim()); } catch (e) { /* older clients */ }
