@@ -898,7 +898,12 @@ export async function senderStatus(env) {
   let digest = null;
   try {
     digest = await digestAudienceStats(env, "digest", digestRef());
-    digest.pending = Math.max(0, digest.total - digest.opted_out - digest.sent_today);
+    // بلاک‌کرده‌ها هم کم می‌شوند - وگرنه «در صف» تقریباً همان تعدادِ
+    // بلاک‌کرده را نشان می‌دهد و ارسالِ تمام‌شده ناتمام به‌نظر می‌رسد.
+    digest.pending = Math.max(
+      0,
+      digest.total - digest.blocked - digest.opted_out - digest.sent_today
+    );
   } catch {
     digest = null;
   }

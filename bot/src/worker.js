@@ -93,7 +93,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-22";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-23";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -444,7 +444,13 @@ async function handleAdmin(request, url, env) {
     let progress = null;
     try {
       progress = await greetAudienceStats(env, "greet", ref);
-      progress.pending = Math.max(0, progress.total - progress.opted_out - progress.sent_today);
+      // بلاک‌کرده‌ها هم کم می‌شوند. بدونِ آن، «در صف» عملاً همان تعدادِ
+      // بلاک‌کرده را نشان می‌داد - کسانی که هرگز پیامی نمی‌گیرند - و
+      // ارسالِ تمام‌شده ناتمام به‌نظر می‌رسید.
+      progress.pending = Math.max(
+        0,
+        progress.total - progress.blocked - progress.opted_out - progress.sent_today
+      );
     } catch {
       progress = null;
     }
