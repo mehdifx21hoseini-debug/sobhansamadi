@@ -80,14 +80,6 @@
 	// ── منطقه‌ی زمانی ───────────────────────────────────────────────
 	var ZONES = [
 		{ key: "tehran", name: "تهران", zone: "Asia/Tehran" },
-		// ساعتِ سرورِ بروکر.
-		//
-		// Etc/GMT-3 است نه Etc/GMT+3: در پایگاه‌داده‌ی مناطق، علامتِ
-		// Etc/* وارونه است و این یکی یعنی UTC+3. ثابت هم هست - ساعتِ
-		// تابستانی ندارد، پس نیم‌ساعت اختلافش با تهران تمامِ سال همان
-		// می‌ماند. همین ساعت است که پنجره‌ی تسویه‌ی روزانه با آن تعریف
-		// می‌شود (۰۰:۰۰ تا ۰۱:۰۰ سرور = ۰۰:۳۰ تا ۰۱:۳۰ تهران).
-		{ key: "broker", name: "بروکر معتمد", sub: "ساعت سرور", zone: "Etc/GMT-3" },
 		{ key: "gmt", name: "گرینویچ", zone: "UTC" },
 		{ key: "london", name: "لندن", zone: "Europe/London" },
 		{ key: "newyork", name: "نیویورک", zone: "America/New_York" },
@@ -385,16 +377,7 @@
 		});
 
 		// یک کمان برای هر سشن، هرکدام روی شعاعِ خودش.
-		//
-		// شعاعِ شروع و گامِ حلقه‌ها هر دو از یک قیدِ واقعی آمده‌اند، نه از
-		// سلیقه. بیرون: خط‌چه‌های خبر تا r0-14 پایین می‌آیند، پس بیرونی‌ترین
-		// کمان با ضخامتِ ۷ نباید از ۱۰۰ رد شود. داخل: ساعتِ وسط باید کامل
-		// داخلِ درونی‌ترین حلقه بنشیند.
-		//
-		// با گامِ ۱۲ درونی‌ترین حلقه روی ۴۶ می‌افتاد و لبه‌ی داخلی‌اش ۴۲٫۵،
-		// در حالی که نیم‌پهنای «17:11» ۴۸ واحد است - یعنی ساعت شش پیکسل
-		// روی حلقه می‌نشست. اندازه‌گیری شد، حدس نیست.
-		var r = DIAL.r0 - 22;
+		var r = DIAL.r0 - 24;
 		SESSIONS.forEach(function (s) {
 			var st = sessionState(s, now);
 			var hol = holidayToday(s);
@@ -411,16 +394,12 @@
 				});
 				svg.appendChild(arc);
 			}
-			r -= 10;
+			r -= 12;
 		});
 
 		// عقربه‌ی «حالا».
 		var nowMin = minutesInZone(now.getTime(), VIEW());
-		// عقربه از لبه تا کمی داخل‌ترِ درونی‌ترین حلقه می‌آید و همان‌جا
-		// می‌ایستد. پیش از این تا ۴۰ پایین می‌آمد و نوکش کنارِ رقم‌های
-		// ساعت می‌نشست؛ حالا که حلقه‌ها بیرون‌تر رفته‌اند، ۴۸ هم از همه‌ی
-		// آن‌ها رد می‌شود و هم به متن نمی‌رسد.
-		var h1 = polar(nowMin, DIAL.r0 - 2), h2 = polar(nowMin, DIAL.r0 - 70);
+		var h1 = polar(nowMin, DIAL.r0 - 2), h2 = polar(nowMin, DIAL.r0 - 78);
 		svg.appendChild(svgEl("line", { class: "dial-hand", x1: h1[0], y1: h1[1], x2: h2[0], y2: h2[1] }));
 		svg.appendChild(svgEl("circle", { class: "dial-dot", cx: h1[0], cy: h1[1], r: 3.4 }));
 		return svg;
@@ -446,11 +425,6 @@
 		stage.textContent = "";
 		$("zoneName").textContent = viewZone.name;
 		$("zoneOff").textContent = offsetLabel(VIEW());
-
-		// نقشه‌ی پس‌زمینه‌ی صفحه در تبِ تقویم خاموش می‌شود: هدرِ آن تب خودش
-		// نقشه دارد و دو نقشه‌ی روی هم - یکی داخلِ کارت و یکی پشتِ کلِ صفحه -
-		// مثل خطای رندر دیده می‌شد، نه مثل یک تصمیم.
-		document.documentElement.classList.toggle("has-hero", state.route === "cal");
 
 		if (state.failure) { stage.appendChild(failureView()); return; }
 		if (!state.data) { stage.appendChild(loadingView()); return; }
@@ -586,19 +560,6 @@
 		});
 		wrap.appendChild(lede);
 
-		// ساعت‌ها به وقتِ کدام منطقه‌اند.
-		//
-		// تراشه‌ها ساعتِ باز و بسته شدن را می‌گویند ولی هیچ‌جا نمی‌گفت
-		// این ساعت‌ها به وقتِ کجاست. کسی که منطقه را عوض کرده - یا
-		// نکرده و فرض کرده وقتِ بروکر است - عددها را اشتباه می‌خواند.
-		// خودِ این خط دکمه است، پس همان‌جا هم می‌شود عوضش کرد.
-		var tzNote = el("button", "tz-note");
-		tzNote.type = "button";
-		tzNote.innerHTML = "ساعت‌ها به وقتِ <b>" + viewZone.name + "</b> " +
-			'<span class="n">' + offsetLabel(VIEW(), now) + "</span>";
-		tzNote.addEventListener("click", openZones);
-		wrap.appendChild(tzNote);
-
 		// رویدادِ بعدی — بزرگ‌ترین چیزِ صفحه بعد از ساعت.
 		var nx = nextEvent();
 		if (nx) {
@@ -727,16 +688,6 @@
 	function viewCal() {
 		tickers = [];
 		var wrap = el("div", null);
-
-		// هدرِ تصویری. تصویر در CSS است نه اینجا: یک data-URI که با بقیه‌ی
-		// استایل‌ها در همان فایلِ تک‌تکه می‌نشیند، پس درخواستِ شبکه‌ی
-		// اضافه‌ای ندارد.
-		var hero = el("div", "calhero");
-		var ht = el("div", "calhero-t");
-		ht.appendChild(el("h2", null, "تقویم اقتصادی"));
-		ht.appendChild(el("p", null, "رویدادهای مهمِ پیشِ رو"));
-		hero.appendChild(ht);
-		wrap.appendChild(hero);
 
 		var bar = el("div", null);
 		bar.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px";
@@ -1380,11 +1331,7 @@
 				var tick = svgEl("svg", { class: "pick-tick", viewBox: "0 0 24 24", width: "17", height: "17", fill: "none", stroke: "currentColor", "stroke-width": "2.4", "stroke-linecap": "round" });
 				tick.appendChild(svgEl("path", { d: "M5 12.5l4.5 4.5L19 7.5" }));
 				b.appendChild(tick);
-				var nm = el("span", null, z.name);
-				// زیرنویس فقط جایی که نام به‌تنهایی گویا نیست - «بروکر»
-				// یک شهر نیست و باید گفته شود منظور ساعتِ سرور است.
-				if (z.sub) nm.appendChild(el("i", "pick-sub", z.sub));
-				b.appendChild(nm);
+				b.appendChild(el("span", null, z.name));
 				b.appendChild(el("span", "pick-off n", offsetLabel(z.zone, now)));
 				b.appendChild(el("span", "pick-now n", hhmmInZone(now.getTime(), z.zone)));
 				b.addEventListener("click", function () {

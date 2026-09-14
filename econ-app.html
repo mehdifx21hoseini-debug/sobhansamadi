@@ -69,15 +69,6 @@
 [hidden] { display: none !important; }
 
 :root {
-	/* ── برند ─────────────────────────────────────────────────────
-	   رنگ‌های واقعیِ لوگو. طلایی در حالتِ روشن برای متن تیره‌تر می‌شود:
-	   خودِ #d2ae6d روی سفید نسبتِ کنتراستِ حدودِ ۱٫۹ دارد و خوانده
-	   نمی‌شود. شکلِ نشان یک بار اینجا تعریف می‌شود و هم پس‌زمینه و هم
-	   نشانِ کوچکِ نوارِ بالا از همین یکی می‌خوانند. */
-	--brand-navy: #29386c;
-	--brand-gold: #8a6a2c;
-	--mark: url("data:image/png;base64,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");
-
 	--f-ui: Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
 	/* وزیرمتن انتهای این زنجیره هست چون بعضی برچسب‌ها رقم و واژه‌ی
 	   فارسی را با هم دارند - «تا 17:30»، «۲ روز 04:20» - و بدونِ آن،
@@ -133,15 +124,6 @@
 	--k-newyork: #a8794a;
 	--k-nyse: #a05a52;
 
-	/* هدرِ تبِ تقویم.
-	   منبع: assets/img/calendar-hero-source.png - ۲۰۰۵×۷۸۴.
-	   اینجا ۳٫۸۱:۱ لازم است، پس ۲۵۸ پیکسل از پایین بریده و به ۹۷۶×۲۵۶
-	   کوچک شد. بریدن فقط از پایین: سرِ سبحان چسبیده به لبه‌ی بالاست و
-	   ۱۵ درصدِ پایینِ قاب تقریباً خالی است (روشناییِ سمتِ نقشه آنجا به
-	   ۰٫۳ می‌رسد). ۲ برابرِ اندازه‌ی نمایش، نه ۳: تصویر کم‌جزئیات است -
-	   مشکی، نقشه‌ی محو، یک چهره - و ۳ برابر فقط حجم اضافه می‌کرد. */
-	--hero: url("data:image/webp;base64,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");
-
 	--r: 14px;
 	--r-sm: 9px;
 	--r-xs: 5px;
@@ -166,19 +148,17 @@
    OLED لبه‌ها را می‌بلعد و صفحه بی‌عمق می‌شود. */
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--bg: #000000;
-		--s1: #0d100f;
-		--s2: #151918;
-		--s3: #1f2423;
+		--bg: #0c100f;
+		--s1: #151a19;
+		--s2: #1c2221;
+		--s3: #252c2b;
 		--ink: #e8edec;
 		--text: #e8edec;
 		--dim: #9aa4a2;
 		--faint: #6b7573;
 		--hair: rgba(232, 237, 236, .08);
 		--hair-2: rgba(232, 237, 236, .15);
-		--brand-gold: #d2ae6d;
-		--brand-gold: #d2ae6d;
-	--live: #2dd4bf;
+		--live: #2dd4bf;
 		--live-ink: #04211e;
 		--live-wash: rgba(45, 212, 191, .12);
 		--up: #4ade8c;
@@ -197,10 +177,10 @@
 }
 
 :root[data-theme="dark"] {
-	--bg: #000000;
-	--s1: #0d100f;
-	--s2: #151918;
-	--s3: #1f2423;
+	--bg: #0c100f;
+	--s1: #151a19;
+	--s2: #1c2221;
+	--s3: #252c2b;
 	--ink: #e8edec;
 	--text: #e8edec;
 	--dim: #9aa4a2;
@@ -250,68 +230,6 @@ body {
 }
 
 .flag-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
-/* ───────────────────────────────────────────────────────────────────
-   نقشه‌ی جهان در پس‌زمینه
-
-   مثلِ نشانِ برند ثابت است و با اسکرول حرکت نمی‌کند، ولی جای دیگری
-   می‌نشیند: بالای صفحه، پشتِ دیال. دلیلش معنایی است نه تزئینی - دیال
-   ساعتِ بازارهای جهان را نشان می‌دهد و نقشه همان جهان است.
-
-   محو شدنِ لبه‌ها با ماسکِ گرادیانی انجام می‌شود، نه با کم کردنِ
-   شفافیتِ کل: نقشه‌ی یک‌دستِ کم‌رنگ مثلِ لکه دیده می‌شود، ولی وقتی
-   لبه‌ها در زمینه حل شوند، انگار از دلِ صفحه درآمده.
-   ─────────────────────────────────────────────────────────────────── */
-.worldmap {
-	position: fixed;
-	z-index: 0;
-	pointer-events: none;
-	inset-inline: 0;
-	top: 0;
-	height: 46vh;
-	max-height: 380px;
-	overflow: hidden;
-	opacity: .07;
-	-webkit-mask-image: radial-gradient(120% 95% at 50% 34%, #000 26%, transparent 72%);
-	mask-image: radial-gradient(120% 95% at 50% 34%, #000 26%, transparent 72%);
-}
-.worldmap svg { width: 100%; height: 100%; display: block; }
-.worldmap path { fill: var(--text); }
-
-
-/* ───────────────────────────────────────────────────────────────────
-   نشانِ برند در پس‌زمینه
-
-   تصویر عمداً به‌شکلِ ماسک می‌آید نه عکس. لوگو دو رنگ دارد - سرمه‌ای و
-   طلایی - و هر دو در حالتِ تیره روی زمینه‌ی تیره گم می‌شوند و در روشن
-   لکه‌ی رنگی می‌سازند. ماسک فقط شکل را نگه می‌دارد و رنگش از توکنِ متن
-   می‌آید، پس در هر دو تم درست می‌نشیند و با تمِ کاربر عوض می‌شود.
-
-   ثابت است نه اسکرولی: با صفحه بالا و پایین نمی‌رود، پس پشتِ محتوا
-   می‌ماند و حرکت نمی‌سازد. شفافیتش عمداً در مرزِ دیده‌شدن است.
-   ─────────────────────────────────────────────────────────────────── */
-.brandmark {
-	position: fixed;
-	z-index: 0;
-	pointer-events: none;
-	inset-inline-start: 50%;
-	top: 62%;
-	width: min(62vw, 330px);
-	aspect-ratio: 1;
-	transform: translate(50%, -50%);
-	background: var(--text);
-	/* پایین‌تر و کوچک‌تر از قبل: نقشه‌ی جهان حالا بالای صفحه را گرفته و
-	   دو واترمارکِ هم‌اندازه روی هم فقط نویز می‌ساختند. */
-	opacity: .028;
-	-webkit-mask: var(--mark) center/contain no-repeat;
-	mask: var(--mark) center/contain no-repeat;
-}
-/* روی زمینه‌ی تیره همان شفافیت کم‌رنگ‌تر دیده می‌شود، پس کمی بالاتر. */
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .brandmark { opacity: .045; } }
-:root[data-theme="dark"] .brandmark { opacity: .045; }
-
-/* محتوا بالای نشان. بدونِ این، نشان روی متن می‌افتد. */
-.shell { position: relative; z-index: 1; }
-
 
 /* ───────────────────────────────────────────────────────────────────
    چیدمان
@@ -333,51 +251,20 @@ body {
 	height: 56px;
 	padding-top: env(safe-area-inset-top, 0px);
 	box-sizing: content-box;
-	position: relative;
-}
-/* خطِ زیرِ هدر: طلایی در سمتِ برند و محوشونده به سمتِ دیگر.
-   یک خطِ تخت، نوار را به یک جداکننده‌ی معمولی تبدیل می‌کرد؛ این یکی
-   وزنش را از همان‌جایی می‌گیرد که نشان نشسته. */
-.bar::after {
-	content: "";
-	position: absolute;
-	inset-inline: 0;
-	bottom: 0;
-	height: 1px;
-	background: linear-gradient(to left,
-		color-mix(in srgb, var(--brand-gold) 55%, transparent),
-		var(--hair) 42%, transparent);
 }
 .bar-gap { flex: 1; }
 
-/* برند: نشان + نامِ کامل، بدونِ جعبه.
-   چیپِ خاکستریِ قبلی زمینه داشت و به‌همین خاطر سنگین‌تر از نقشش
-   دیده می‌شد. حالا وزن از خودِ نشان می‌آید نه از یک مستطیلِ پررنگ.
-   نام دو سطری است تا در ۵۶ پیکسلِ نوار جا شود و جای منطقه‌ی زمانی را
-   نگیرد: «آکادمی» ریز و طلایی، «سبحان صمدی» زیرش با وزنِ بیشتر. */
-.brand { display: flex; align-items: center; gap: 7px; flex: none; }
-.brand-i {
-	width: 22px;
-	height: 22px;
-	flex: none;
-	/* همان ماسکی که پس‌زمینه هم از آن می‌خواند - شکل یک بار در فایل
-	   است. رنگش طلاییِ برند، که در هر دو تم روی زمینه می‌نشیند؛ خودِ
-	   سرمه‌ای روی زمینه‌ی تیره تقریباً نامرئی می‌شد. */
-	background: var(--brand-gold);
-	-webkit-mask: var(--mark) center/contain no-repeat;
-	mask: var(--mark) center/contain no-repeat;
-}
-/* نامِ کامل در یک خط. «آکادمی» به رنگِ برند، «سبحان صمدی» به رنگِ متن
-   - همان تقسیمی که در خودِ لوگو هست: طلایی دورِ سرمه‌ای. */
-.brand-n {
-	font-size: 13px;
-	font-weight: 700;
-	line-height: 1.2;
-	letter-spacing: -.015em;
+/* برند: یک نشانِ کوچک، نه یک سربرگ.
+   نامِ کامل جای خبرها را می‌گرفت و هیچ‌کس دو بار نمی‌خواندش. */
+.mark {
+	font-size: 12.5px;
+	font-weight: 800;
+	letter-spacing: .02em;
 	color: var(--text);
-	white-space: nowrap;
+	padding: 5px 10px;
+	border-radius: var(--r-xs);
+	background: var(--s2);
 }
-.brand-n b { font-weight: 700; color: var(--brand-gold); }
 
 .zone {
 	appearance: none;
@@ -394,18 +281,6 @@ body {
 	cursor: pointer;
 }
 .zone-off { font-size: 11px; opacity: .75; }
-
-/* نوارِ بالا در عرض‌های خیلی باریک.
-   تلگرامِ دسکتاپ پنجره‌ی مینی‌اپ را تا حدودِ ۳۰۰ پیکسل هم باریک
-   می‌کند و آنجا برند + منطقه + بروزرسانی جا نمی‌شدند: دکمه‌ی
-   بروزرسانی از لبه بیرون می‌زد. اول اختلافِ ساعت کنار می‌رود - که
-   حالا زیرِ تراشه‌ها هم نوشته می‌شود - و اگر باز کم بیاید، نامِ برند
-   کوتاه می‌شود نه اینکه چیزی از صفحه بیفتد. */
-.bar > * { min-width: 0; }
-@media (max-width: 359px) { .zone-off { display: none; } }
-@media (max-width: 319px) {
-	.brand-n { overflow: hidden; text-overflow: ellipsis; }
-}
 
 .ghost {
 	appearance: none;
@@ -491,14 +366,8 @@ body {
 	display: grid;
 	place-items: center;
 	padding: var(--sp-3) 0 var(--sp-5);
-	/* اندازه‌ی دیال یک بار اینجا تعریف می‌شود و هرچه رویش می‌نشیند از
-	   همین می‌خواند. تا امروز دیال با min(272px, 74vw) کوچک می‌شد ولی
-	   ساعتِ وسطش روی ۴۰ پیکسلِ ثابت مانده بود - در پنجره‌ی باریکِ
-	   تلگرامِ دسکتاپ، دیال جمع می‌شد و ساعت همان‌جا می‌ماند و روی
-	   کمان‌ها می‌افتاد. */
-	--dial: min(272px, 74vw);
 }
-.dial { width: var(--dial); height: auto; display: block; overflow: visible; }
+.dial { width: min(272px, 74vw); height: auto; display: block; overflow: visible; }
 .dial-ring { fill: none; stroke: var(--hair); stroke-width: 1; }
 .dial-tick { stroke: var(--hair-2); stroke-width: 1; }
 .dial-hour {
@@ -530,18 +399,14 @@ body {
 }
 .now-time {
 	font-family: var(--f-num);
-	/* ‎.۱۲ و نه ‎.۱۳: با ‎.۱۳ نیم‌پهنای «17:11» از لبه‌ی درونی‌ترین حلقه رد
-	   می‌شد. نصفِ راه‌حل اینجاست و نصفِ دیگرش در app.js، جایی که حلقه‌ها
-	   کمی بیرون‌تر رفتند - تا نه ساعت خیلی کوچک شود و نه حلقه‌ها به هم
-	   بچسبند. */
-	font-size: calc(var(--dial) * .12);
+	font-size: 40px;
 	font-weight: 500;
 	line-height: 1;
 	letter-spacing: -.04em;
 }
 .now-state {
 	margin-top: var(--sp-2);
-	font-size: calc(var(--dial) * .04);
+	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: .06em;
 	color: var(--live);
@@ -628,27 +493,6 @@ body {
 	unicode-bidi: isolate;
 }
 .lede button.is-open .kt { color: var(--live); }
-
-/* «ساعت‌ها به وقتِ …» زیرِ تراشه‌ها.
-   دکمه است نه برچسب: همان‌جایی که کاربر متوجه می‌شود ساعت‌ها به وقتِ
-   کجاست، همان‌جا هم باید بتواند عوضش کند. ظاهرش عمداً سبک است تا با
-   خودِ ساعت‌ها رقابت نکند. */
-.tz-note {
-	display: block;
-	margin: var(--sp-3) auto 0;
-	appearance: none;
-	border: 0;
-	background: none;
-	font-family: inherit;
-	font-size: 11.5px;
-	color: var(--faint);
-	padding: 6px 8px;
-	cursor: pointer;
-	min-height: 32px;
-}
-.tz-note b { color: var(--dim); font-weight: 600; }
-.tz-note .n { font-size: 10.5px; }
-.tz-note:active { color: var(--dim); }
 
 /* ───────────────────────────────────────────────────────────────────
    بلوکِ «رویدادِ بعدی»
@@ -1193,8 +1037,6 @@ body {
 }
 .pick + .pick { border-top: 1px solid var(--hair); }
 .pick-off { font-family: var(--f-num); font-size: 11.5px; color: var(--faint); }
-/* زیرنویسِ گزینه، جایی که نام به‌تنهایی گویا نیست - «بروکر» شهر نیست. */
-.pick-sub { display: block; font-style: normal; font-size: 10.5px; color: var(--faint); margin-top: 1px; }
 .pick-now { font-family: var(--f-num); font-size: 13px; color: var(--dim); margin-inline-start: auto; }
 .pick[aria-checked="true"] .pick-now { color: var(--live); }
 .pick-tick { color: var(--live); flex: none; opacity: 0; }
@@ -1277,67 +1119,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { animation: none !important; transition: none !important; }
 }
-
-/* ───────────────────────────────────────────────────────────────────
-   هدرِ تبِ تقویم
-   ─────────────────────────────────────────────────────────────────── */
-
-.calhero {
-	position: relative;
-	margin-top: var(--sp-3);
-	height: 128px;
-	border-radius: var(--r);
-	overflow: hidden;
-	display: flex;
-	align-items: center;
-	padding-inline: var(--sp-4);
-	/* لنگرِ راست، نه وسط.
-	   قاب ارتفاعِ ثابت دارد و عرضش با صفحه عوض می‌شود، پس در گوشیِ باریک
-	   نسبتش از ۳٫۸۱ کمتر می‌شود و cover از دو طرف می‌بُرد - که یعنی بخشی
-	   از صورتِ سبحان از لبه‌ی راست می‌رفت. با لنگرِ راست، بریدن فقط از
-	   سمتِ چپ است؛ آنجا جز حاشیه‌ی نقشه چیزی نیست. */
-	background: #000 var(--hero) 100% 50% / cover no-repeat;
-}
-
-/* عنوان در نیمه‌ی چپ می‌نشیند - سمتی که در خودِ بنر عمداً خالی گذاشته
-   شده. حاشیه‌ی خودکار در سمتِ آغاز، عنصر را به سمتِ پایان هل می‌دهد. */
-.calhero-t {
-	position: relative;
-	z-index: 2;
-	margin-inline-start: auto;
-	max-width: 62%;
-}
-
-.calhero-t h2 {
-	margin: 0;
-	font-size: 17px;
-	font-weight: 700;
-	letter-spacing: -.02em;
-	color: #f4f7f6;
-}
-
-.calhero-t p {
-	margin: 3px 0 0;
-	font-size: 11.5px;
-	color: rgba(244, 247, 246, .62);
-}
-
-/* بیمه‌ی خوانایی برای عرض‌های باریک: آنجا سوژه به متن نزدیک می‌شود.
-   در عرضِ کامل تقریباً هیچ کاری نمی‌کند، چون آن نیمه از قبل مشکی است. */
-.calhero::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	z-index: 1;
-	background: linear-gradient(to right, rgba(0, 0, 0, .62) 0%, rgba(0, 0, 0, .2) 40%, transparent 66%);
-}
-
-/* در تمِ روشن هم همین بنر می‌ماند - یک کارتِ تصویری است، نه سطحِ اپ -
-   ولی لبه‌اش باید از زمینه جدا شود وگرنه شناور به‌نظر می‌رسد. */
-.calhero { box-shadow: var(--lift); }
-
-/* هدرِ تقویم خودش نقشه دارد؛ نقشه‌ی پشتِ کلِ صفحه آنجا فقط تکرار است. */
-:root.has-hero .worldmap { display: none; }
 	</style>
 </head>
 
@@ -1355,39 +1136,9 @@ body {
 		است؛ بقیه‌ی نوار برای چیزی است که کاربر واقعاً لازم دارد - منطقه‌ی
 		زمانی و بروزرسانی.
 	-->
-	<!-- نشانِ آکادمی، خیلی کم‌رنگ، پشتِ همه‌چیز. شکلش از ماسکِ CSS
-	     می‌آید و رنگش از تمِ کاربر - جزئیاتش در app.css. -->
-	<div class="brandmark" aria-hidden="true"></div>
-
-	<!--
-		نقشه‌ی جهان، پشتِ دیال.
-
-		خشکی‌ها از داده‌ی طبیعی‌زمین (Natural Earth، مالکیت عمومی) با
-		نمایه‌ی استوانه‌ای ساده. سه کار رویش انجام شده تا به یک واترمارک
-		تبدیل شود: ساده‌سازیِ داگلاس-پوکر - چون در این اندازه جزئیاتِ
-		ساحلی فقط حجم است - کنار گذاشتنِ قطبِ جنوب و کلاهکِ قطبِ شمال، و
-		شکستنِ مسیر روی نصف‌النهارِ ۱۸۰ تا روسیه خطی از این سرِ نقشه تا
-		آن سر نکشد.
-
-		ثابت است مثلِ نشانِ برند: با اسکرول حرکت نمی‌کند.
-	-->
-	<div class="worldmap" aria-hidden="true">
-		<svg viewBox="0 19 1000 392" preserveAspectRatio="xMidYMid slice"><path d="M312 400L319 402L308 404L293 397L302 400L307 396L312 400ZM337 392L339 394L330 394L337 392ZM695 388L691 388L691 385L696 386L695 388ZM904 363L912 364L911 370L906 371L902 364L904 363ZM981 364L984 365L981 372L976 373L970 380L963 378L964 375L981 364ZM985 350L991 355L996 355L987 366L986 361L983 360L985 354L980 346L985 350ZM995 298L996 300L993 300L995 298ZM639 288L640 294L638 294L631 319L626 321L622 319L620 311L623 306L623 295L633 291L637 283L639 288ZM899 288L904 292L907 303L913 307L925 322L925 336L917 354L906 358L903 355L899 358L891 356L888 350L884 349L884 346L880 348L883 341L878 347L873 341L865 337L850 339L843 344L833 344L828 347L820 345L821 338L815 323L817 323L815 318L817 310L817 313L824 308L836 305L842 296L844 297L843 296L849 290L853 288L860 292L863 285L868 284L866 281L868 281L876 284L879 283L880 284L876 292L889 299L894 292L895 281L899 288ZM846 278L843 278L844 276L854 273L846 278ZM827 272L831 274L824 275L827 272ZM802 269L808 268L821 273L801 272L793 269L795 266L802 269ZM922 265L917 268L912 266L919 265L921 262L923 262L922 265ZM862 259L863 261L855 259L862 259ZM873 253L873 258L876 259L884 255L902 261L910 267L909 271L919 279L911 278L902 271L896 276L886 272L882 273L885 270L883 265L871 260L869 261L867 258L871 256L867 256L863 253L868 251L873 253ZM848 246L844 249L834 249L836 254L843 252L838 255L842 265L840 265L841 262L837 263L836 257L834 258L835 265L832 265L832 260L830 258L833 248L836 246L848 246ZM857 247L856 252L854 245L857 247ZM794 266L785 262L765 235L771 235L788 250L787 252L795 259L794 266ZM827 245L831 247L827 248L823 261L806 258L803 251L805 244L809 245L809 243L814 241L824 231L831 235L826 241L827 245ZM851 227L851 230L851 233L850 230L848 231L848 234L845 233L843 228L839 230L843 226L849 225L848 223L851 227ZM726 233L723 233L722 231L723 223L727 229L726 233ZM844 221L842 225L840 223L842 220L843 221L845 219L844 221ZM829 224L825 227L832 218L829 224ZM839 217L842 218L839 221L839 217ZM849 216L849 219L847 219L847 222L845 215L849 216ZM838 214L837 216L834 213L838 214ZM837 199L840 199L840 203L838 210L844 212L845 215L835 212L836 210L834 208L833 205L837 199ZM298 195L310 198L304 199L302 201L295 200L293 198L299 198L296 195L298 195ZM806 198L802 199L802 196L808 194L806 198ZM68 197L67 194L70 196L68 197ZM279 187L294 194L284 195L286 193L281 190L273 187L264 189L271 186L279 187ZM837 187L835 189L834 185L837 180L837 187ZM874 155L873 158L868 158L869 155L874 155ZM596 151L592 154L590 152L596 151ZM566 151L573 152L569 153L566 151ZM543 144L542 148L535 146L543 144ZM526 136L527 141L524 142L523 136L526 136ZM892 147L890 152L881 154L877 157L875 154L864 156L867 158L865 163L862 163L862 160L859 158L868 152L877 151L880 146L882 148L887 144L890 136L893 135L894 139L892 147ZM527 133L526 135L524 133L526 131L527 133ZM900 127L904 127L904 130L898 133L893 131L892 134L889 135L888 132L893 129L894 123L900 127ZM157 115L151 114L143 109L151 110L157 115ZM344 109L342 112L351 113L351 115L353 115L354 118L353 120L350 120L349 117L346 120L344 118L335 118L341 109L345 107L344 109ZM131 100L134 100L133 103L136 105L130 102L131 100ZM899 109L902 114L898 113L896 117L899 122L897 120L895 122L894 102L896 99L899 109ZM481 105L472 106L475 103L473 100L481 97L484 98L481 105ZM535 96L534 98L530 95L535 96ZM75 91L72 92L70 90L76 89L75 91ZM492 87L489 90L495 90L491 95L505 104L504 108L485 111L491 107L485 106L488 105L487 101L492 100L487 98L486 95L484 96L483 92L486 87L492 87ZM263 68L277 73L258 73L261 67L263 68ZM460 65L459 67L462 69L448 74L437 72L440 71L433 70L438 68L432 68L439 66L443 67L460 65ZM289 63L285 62L289 60L291 61L289 63ZM0 58L14 63L16 66L15 64L23 64L28 67L21 68L20 72L5 68L4 66L0 67L0 70ZM1000 70L993 71L998 77L982 79L973 84L969 82L954 84L950 88L953 90L953 94L949 96L950 98L945 99L945 102L940 103L936 108L932 96L933 92L955 80L957 76L945 82L943 78L935 79L928 84L931 86L920 87L920 85L916 84L895 86L875 98L884 101L889 99L893 105L889 115L884 121L875 129L867 130L854 140L860 148L859 153L851 154L850 148L852 148L846 144L848 140L836 142L839 138L838 136L828 141L826 142L830 146L840 146L831 153L839 162L837 165L839 167L838 172L830 182L822 187L808 191L807 193L801 190L794 195L804 213L803 218L792 226L792 222L778 213L776 224L786 235L790 246L782 242L778 232L774 227L773 228L774 218L770 203L765 206L762 205L762 199L754 187L751 187L751 189L742 190L740 194L723 206L722 221L715 228L704 206L702 191L696 192L684 179L659 179L657 175L652 176L643 173L639 166L633 167L641 181L642 178L643 178L644 183L650 183L657 177L658 183L666 188L661 194L660 197L654 202L635 211L621 215L618 203L609 191L607 184L596 172L597 168L594 173L590 167L599 186L602 189L604 198L620 216L619 217L624 221L642 217L642 220L633 238L612 257L609 263L609 274L612 280L613 291L611 295L597 305L598 317L590 321L590 329L583 337L572 344L554 347L551 345L551 338L542 325L540 311L532 296L538 283L537 274L533 264L524 253L527 241L524 237L516 238L512 233L507 233L495 237L487 236L478 238L464 228L454 216L451 209L455 202L455 194L453 192L456 184L464 173L473 167L474 160L484 151L494 152L504 148L526 146L531 147L529 156L553 166L556 160L560 159L580 164L586 162L594 164L600 154L600 148L590 150L577 148L573 140L581 136L593 133L607 136L615 135L615 132L602 124L609 119L597 121L601 125L594 127L590 124L592 122L585 121L577 132L580 136L573 138L569 136L566 137L566 139L563 138L567 145L564 145L564 149L562 149L554 138L554 134L537 123L534 124L535 128L551 138L547 138L547 142L545 144L543 139L525 127L518 130L509 130L508 134L502 136L499 141L500 142L494 148L485 150L482 147L475 148L474 130L478 128L495 129L496 128L497 122L487 115L496 115L495 112L504 111L513 103L523 101L524 100L523 96L524 91L529 90L530 93L527 96L530 100L555 99L559 97L560 91L567 92L568 88L565 86L581 83L564 84L559 81L560 74L571 69L566 67L562 67L559 71L550 76L548 80L552 83L547 87L544 94L536 96L529 85L523 88L516 87L514 78L553 56L578 52L587 54L583 55L586 57L612 61L614 64L611 66L592 65L597 67L597 71L603 73L601 70L603 69L610 71L612 70L610 68L617 65L622 66L624 65L621 60L628 60L630 62L627 64L629 65L649 59L651 59L649 61L663 59L667 60L670 58L667 57L668 56L690 61L692 59L686 57L685 53L694 47L702 49L700 52L702 54L702 58L705 60L698 66L701 66L708 62L708 58L704 57L707 54L703 52L708 50L707 48L710 49L709 52L712 52L711 50L715 49L726 51L724 45L741 45L739 43L742 41L780 38L790 34L798 38L809 37L817 39L804 44L842 47L842 45L853 46L865 53L867 50L889 51L887 49L890 48L915 49L925 53L942 53L947 57L966 57L971 59L974 58L972 57L973 55L996 57ZM636 135L640 138L636 142L637 146L650 147L650 142L646 139L647 136L652 136L649 133L647 136L646 131L640 126L647 124L647 120L636 121L630 126L636 135ZM234 58L223 57L227 55L234 58ZM0 51L7 52L0 53L0 51ZM248 57L248 60L252 58L257 63L262 59L262 56L270 57L274 58L272 61L274 62L268 66L262 65L257 70L241 78L237 86L241 87L244 91L271 97L272 102L278 108L282 104L278 98L287 93L282 87L285 84L283 77L295 77L307 80L308 86L312 88L321 82L329 92L328 94L341 98L345 102L345 105L333 110L316 110L302 120L319 113L322 115L319 116L321 122L329 123L332 119L334 122L318 129L316 126L321 124L314 125L304 130L306 134L295 136L300 136L295 137L292 142L290 140L292 143L289 147L288 141L288 144L286 144L290 151L274 163L278 175L277 180L273 178L266 166L252 166L252 169L250 169L239 167L232 171L230 174L228 188L233 196L238 200L244 198L248 196L249 192L258 190L253 206L264 206L268 208L267 219L274 226L279 223L287 226L292 219L301 215L302 216L300 218L301 225L302 220L306 216L311 221L320 222L328 220L326 221L327 222L341 233L350 234L357 238L361 245L360 250L365 251L365 253L367 252L375 254L376 257L389 258L401 264L404 270L402 275L393 286L391 300L386 311L368 319L364 330L351 346L344 347L338 344L342 353L335 358L327 358L326 364L319 364L320 367L324 368L319 371L318 375L313 377L312 379L318 381L317 384L308 391L311 395L303 397L303 400L292 395L290 385L294 380L290 380L293 373L297 373L298 368L296 367L295 370L294 370L297 359L296 353L302 340L305 305L301 298L289 291L278 270L274 267L274 263L278 257L275 256L275 253L286 239L283 227L279 225L275 230L262 222L257 213L247 211L237 205L232 207L213 199L207 195L205 187L197 179L184 162L181 162L181 166L196 185L194 187L188 181L188 178L180 173L183 171L179 168L174 158L165 154L154 138L156 124L154 116L158 117L159 119L159 114L146 109L145 105L141 103L128 89L91 81L79 86L82 80L72 85L74 86L72 88L60 94L42 99L62 90L64 86L50 87L50 84L45 84L39 79L43 75L53 73L51 71L53 70L42 71L33 68L43 65L51 66L37 60L65 52L121 59L144 54L151 57L154 55L155 57L163 56L180 59L184 60L180 61L198 63L201 61L198 60L200 59L205 59L218 62L227 62L229 60L233 60L233 63L238 58L232 55L232 52L236 50L242 52L246 55L243 56L248 57ZM183 47L181 48L192 49L195 47L199 51L201 50L199 47L204 47L210 53L220 55L215 57L215 59L185 60L177 58L174 56L188 55L172 54L171 53L177 52L168 51L173 48L183 47ZM210 46L207 48L203 46L210 46ZM260 47L262 49L271 45L276 48L276 50L284 48L294 52L299 51L311 55L314 58L309 59L328 64L322 69L311 66L320 74L319 76L309 73L316 78L292 70L284 72L282 71L284 69L295 68L297 62L281 55L254 54L251 53L254 52L250 52L249 49L254 46L262 45L260 47ZM221 45L230 45L228 47L232 48L231 51L224 52L215 49L221 48L218 46L221 45ZM899 47L889 46L895 45L899 47ZM241 48L235 50L233 46L237 44L249 45L241 48ZM165 52L158 53L150 50L156 45L153 44L173 44L179 46L169 49L165 52ZM240 42L231 42L237 40L240 42ZM903 40L901 42L886 43L880 41L886 39L903 40ZM226 37L229 38L227 42L215 40L215 38L226 37ZM199 38L206 39L205 42L184 43L189 41L173 41L179 38L197 40L193 38L199 38ZM660 54L643 51L655 41L684 37L691 37L662 44L654 49L660 54ZM237 36L252 40L275 40L278 42L243 42L239 38L230 37L237 36ZM177 34L175 37L159 39L177 34ZM569 34L558 34L564 32L569 34ZM234 33L227 33L226 31L234 33ZM222 32L208 32L211 31L207 30L222 32ZM792 32L776 34L784 30L792 32ZM551 29L560 31L553 32L548 37L544 37L529 29L551 29ZM571 27L576 28L564 29L548 27L571 27ZM778 31L764 30L753 27L766 24L778 28L778 31ZM258 29L262 30L248 33L231 27L243 24L258 29ZM310 19L328 21L312 24L318 24L302 28L286 30L291 32L278 36L284 37L276 38L251 38L256 36L255 34L264 35L256 32L264 30L259 27L273 26L257 26L246 23L280 19L310 19ZM425 18L442 20L413 22L436 22L439 23L436 25L456 22L466 24L444 27L451 27L445 31L445 34L449 36L440 37L445 39L446 41L443 41L446 44L435 46L438 49L431 49L440 54L435 54L429 52L430 53L427 55L438 55L389 68L381 76L382 78L380 83L366 81L357 73L350 63L359 56L348 57L349 53L357 54L345 51L348 48L337 40L310 39L302 36L315 35L296 33L317 29L311 27L327 24L326 23L360 21L376 23L370 20L379 19L425 18Z" /></svg>
-	</div>
-
 	<div class="shell">
 		<header class="bar">
-			<!--
-				برند: نشان + نامِ کامل.
-
-				تا امروز اینجا یک چیپِ خاکستری با نوشته‌ی «صمدی» بود -
-				نه لوگو داشت، نه نامِ کامل، و چون زمینه‌ی پررنگ داشت
-				سنگین‌تر از چیزی به‌نظر می‌رسید که هست.
-			-->
-			<span class="brand">
-				<span class="brand-i" aria-hidden="true"></span>
-				<span class="brand-n"><b>آکادمی</b> سبحان صمدی</span>
-			</span>
+			<span class="mark" aria-label="آکادمی سبحان صمدی">صمدی</span>
 			<button class="zone" type="button" id="btnZone">
 				<span id="zoneName">تهران</span>
 				<span class="zone-off n" id="zoneOff">GMT+3:30</span>
@@ -1720,14 +1471,6 @@ function hhmmInZone(instant, timeZone) {
 	// ── منطقه‌ی زمانی ───────────────────────────────────────────────
 	var ZONES = [
 		{ key: "tehran", name: "تهران", zone: "Asia/Tehran" },
-		// ساعتِ سرورِ بروکر.
-		//
-		// Etc/GMT-3 است نه Etc/GMT+3: در پایگاه‌داده‌ی مناطق، علامتِ
-		// Etc/* وارونه است و این یکی یعنی UTC+3. ثابت هم هست - ساعتِ
-		// تابستانی ندارد، پس نیم‌ساعت اختلافش با تهران تمامِ سال همان
-		// می‌ماند. همین ساعت است که پنجره‌ی تسویه‌ی روزانه با آن تعریف
-		// می‌شود (۰۰:۰۰ تا ۰۱:۰۰ سرور = ۰۰:۳۰ تا ۰۱:۳۰ تهران).
-		{ key: "broker", name: "بروکر معتمد", sub: "ساعت سرور", zone: "Etc/GMT-3" },
 		{ key: "gmt", name: "گرینویچ", zone: "UTC" },
 		{ key: "london", name: "لندن", zone: "Europe/London" },
 		{ key: "newyork", name: "نیویورک", zone: "America/New_York" },
@@ -2025,16 +1768,7 @@ function hhmmInZone(instant, timeZone) {
 		});
 
 		// یک کمان برای هر سشن، هرکدام روی شعاعِ خودش.
-		//
-		// شعاعِ شروع و گامِ حلقه‌ها هر دو از یک قیدِ واقعی آمده‌اند، نه از
-		// سلیقه. بیرون: خط‌چه‌های خبر تا r0-14 پایین می‌آیند، پس بیرونی‌ترین
-		// کمان با ضخامتِ ۷ نباید از ۱۰۰ رد شود. داخل: ساعتِ وسط باید کامل
-		// داخلِ درونی‌ترین حلقه بنشیند.
-		//
-		// با گامِ ۱۲ درونی‌ترین حلقه روی ۴۶ می‌افتاد و لبه‌ی داخلی‌اش ۴۲٫۵،
-		// در حالی که نیم‌پهنای «17:11» ۴۸ واحد است - یعنی ساعت شش پیکسل
-		// روی حلقه می‌نشست. اندازه‌گیری شد، حدس نیست.
-		var r = DIAL.r0 - 22;
+		var r = DIAL.r0 - 24;
 		SESSIONS.forEach(function (s) {
 			var st = sessionState(s, now);
 			var hol = holidayToday(s);
@@ -2051,16 +1785,12 @@ function hhmmInZone(instant, timeZone) {
 				});
 				svg.appendChild(arc);
 			}
-			r -= 10;
+			r -= 12;
 		});
 
 		// عقربه‌ی «حالا».
 		var nowMin = minutesInZone(now.getTime(), VIEW());
-		// عقربه از لبه تا کمی داخل‌ترِ درونی‌ترین حلقه می‌آید و همان‌جا
-		// می‌ایستد. پیش از این تا ۴۰ پایین می‌آمد و نوکش کنارِ رقم‌های
-		// ساعت می‌نشست؛ حالا که حلقه‌ها بیرون‌تر رفته‌اند، ۴۸ هم از همه‌ی
-		// آن‌ها رد می‌شود و هم به متن نمی‌رسد.
-		var h1 = polar(nowMin, DIAL.r0 - 2), h2 = polar(nowMin, DIAL.r0 - 70);
+		var h1 = polar(nowMin, DIAL.r0 - 2), h2 = polar(nowMin, DIAL.r0 - 78);
 		svg.appendChild(svgEl("line", { class: "dial-hand", x1: h1[0], y1: h1[1], x2: h2[0], y2: h2[1] }));
 		svg.appendChild(svgEl("circle", { class: "dial-dot", cx: h1[0], cy: h1[1], r: 3.4 }));
 		return svg;
@@ -2086,11 +1816,6 @@ function hhmmInZone(instant, timeZone) {
 		stage.textContent = "";
 		$("zoneName").textContent = viewZone.name;
 		$("zoneOff").textContent = offsetLabel(VIEW());
-
-		// نقشه‌ی پس‌زمینه‌ی صفحه در تبِ تقویم خاموش می‌شود: هدرِ آن تب خودش
-		// نقشه دارد و دو نقشه‌ی روی هم - یکی داخلِ کارت و یکی پشتِ کلِ صفحه -
-		// مثل خطای رندر دیده می‌شد، نه مثل یک تصمیم.
-		document.documentElement.classList.toggle("has-hero", state.route === "cal");
 
 		if (state.failure) { stage.appendChild(failureView()); return; }
 		if (!state.data) { stage.appendChild(loadingView()); return; }
@@ -2226,19 +1951,6 @@ function hhmmInZone(instant, timeZone) {
 		});
 		wrap.appendChild(lede);
 
-		// ساعت‌ها به وقتِ کدام منطقه‌اند.
-		//
-		// تراشه‌ها ساعتِ باز و بسته شدن را می‌گویند ولی هیچ‌جا نمی‌گفت
-		// این ساعت‌ها به وقتِ کجاست. کسی که منطقه را عوض کرده - یا
-		// نکرده و فرض کرده وقتِ بروکر است - عددها را اشتباه می‌خواند.
-		// خودِ این خط دکمه است، پس همان‌جا هم می‌شود عوضش کرد.
-		var tzNote = el("button", "tz-note");
-		tzNote.type = "button";
-		tzNote.innerHTML = "ساعت‌ها به وقتِ <b>" + viewZone.name + "</b> " +
-			'<span class="n">' + offsetLabel(VIEW(), now) + "</span>";
-		tzNote.addEventListener("click", openZones);
-		wrap.appendChild(tzNote);
-
 		// رویدادِ بعدی — بزرگ‌ترین چیزِ صفحه بعد از ساعت.
 		var nx = nextEvent();
 		if (nx) {
@@ -2367,16 +2079,6 @@ function hhmmInZone(instant, timeZone) {
 	function viewCal() {
 		tickers = [];
 		var wrap = el("div", null);
-
-		// هدرِ تصویری. تصویر در CSS است نه اینجا: یک data-URI که با بقیه‌ی
-		// استایل‌ها در همان فایلِ تک‌تکه می‌نشیند، پس درخواستِ شبکه‌ی
-		// اضافه‌ای ندارد.
-		var hero = el("div", "calhero");
-		var ht = el("div", "calhero-t");
-		ht.appendChild(el("h2", null, "تقویم اقتصادی"));
-		ht.appendChild(el("p", null, "رویدادهای مهمِ پیشِ رو"));
-		hero.appendChild(ht);
-		wrap.appendChild(hero);
 
 		var bar = el("div", null);
 		bar.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px";
@@ -3020,11 +2722,7 @@ function hhmmInZone(instant, timeZone) {
 				var tick = svgEl("svg", { class: "pick-tick", viewBox: "0 0 24 24", width: "17", height: "17", fill: "none", stroke: "currentColor", "stroke-width": "2.4", "stroke-linecap": "round" });
 				tick.appendChild(svgEl("path", { d: "M5 12.5l4.5 4.5L19 7.5" }));
 				b.appendChild(tick);
-				var nm = el("span", null, z.name);
-				// زیرنویس فقط جایی که نام به‌تنهایی گویا نیست - «بروکر»
-				// یک شهر نیست و باید گفته شود منظور ساعتِ سرور است.
-				if (z.sub) nm.appendChild(el("i", "pick-sub", z.sub));
-				b.appendChild(nm);
+				b.appendChild(el("span", null, z.name));
 				b.appendChild(el("span", "pick-off n", offsetLabel(z.zone, now)));
 				b.appendChild(el("span", "pick-now n", hhmmInZone(now.getTime(), z.zone)));
 				b.addEventListener("click", function () {
@@ -3131,7 +2829,7 @@ function hhmmInZone(instant, timeZone) {
 	<!-- Printed so a stale copy can be identified at a glance: the WebView
 	     caches this page and the URL is otherwise constant. Written by
 	     scripts/build-econ-app.mjs. -->
-	<span class="build" hidden>نسخه 7dc6f5f30f</span>
+	<span class="build" hidden>نسخه 92a6e10e27</span>
 </body>
 
 </html>
