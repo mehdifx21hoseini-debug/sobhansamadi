@@ -46,7 +46,7 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { readConfig, writeConfig } from "./content/channel.js";
-import { NOTICE_TEXT, NOTICE_DATES } from "./content/notices.js";
+import { NOTICES, NOTICE_DATES, noticeTextFor } from "./content/notices.js";
 import { digestAudienceStats as greetAudienceStats } from "./econ/subscribers.js";
 import {
   ingestHolidays,
@@ -97,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-24";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-25";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -558,7 +558,10 @@ async function handleAdmin(request, url, env) {
         today: ref,
         active_today: NOTICE_DATES.includes(ref),
         dates: NOTICE_DATES,
-        text: NOTICE_TEXT,
+        // متنِ امروز - و اگر امروز روزِ اطلاعیه نباشد، فهرستِ همه‌ی
+        // متن‌ها تا پیش از رفتن قابلِ بازبینی باشد.
+        text: noticeTextFor(ref),
+        texts: NOTICES,
         progress,
       },
     });

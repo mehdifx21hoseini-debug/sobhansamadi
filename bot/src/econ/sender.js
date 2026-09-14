@@ -29,7 +29,7 @@ import {
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
-import { NOTICE_TEXT, NOTICE_DATES } from "../content/notices.js";
+import { noticeTextFor, NOTICE_DATES } from "../content/notices.js";
 import { eventToken } from "./explain.js";
 import { readConfig, writeConfig } from "../content/channel.js";
 import {
@@ -1109,7 +1109,13 @@ export async function runNotice(env, now = new Date(), shard = null) {
     return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
   }
 
-  const build = () => ({ method: "sendMessage", payload: { text: NOTICE_TEXT } });
+  // متن از روی تاریخ برداشته می‌شود، نه یک متنِ ثابت: هر روزِ اطلاعیه
+  // متنِ خودش را دارد. اگر روزی در جدول نباشد، gate بالاتر جلویش را
+  // گرفته - این بررسی فقط برای آن است که هرگز رشته‌ی خالی نرود.
+  const text = noticeTextFor(ref);
+  if (!text) return { skipped: "متنی برای امروز نیست" };
+
+  const build = () => ({ method: "sendMessage", payload: { text } });
 
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let stopped = false;
