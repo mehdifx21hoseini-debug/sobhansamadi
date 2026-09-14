@@ -34,6 +34,9 @@ import {
   runResultSweep,
   drainWeeklyGreeting,
   runWeeklyGreeting,
+  drainNotice,
+  runNotice,
+  NOTICE_FLAG,
   greetTextFor,
   digestRef,
   GREET_FLAG,
@@ -43,6 +46,7 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { readConfig, writeConfig } from "./content/channel.js";
+import { NOTICE_TEXT, NOTICE_DATES } from "./content/notices.js";
 import { digestAudienceStats as greetAudienceStats } from "./econ/subscribers.js";
 import {
   ingestHolidays,
@@ -93,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-23";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-24";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -528,6 +532,50 @@ async function handleAdmin(request, url, env) {
     return json({ ok: true, build: BUILD, ...r });
   }
 
+  // اطلاعیه‌ی موردی: وضعیت، و کلیدِ روشن/خاموش.
+  //
+  // خواندنِ بی‌پارامتر چیزی را عوض نمی‌کند و متنِ کامل را نشان می‌دهد،
+  // تا پیش از روشن کردن بشود دید چه چیزی قرار است برود.
+  if (url.pathname === "/admin/econ-notice") {
+    const state = (url.searchParams.get("state") || "").toLowerCase();
+    if (state === "on" || state === "off") await writeConfig(env, NOTICE_FLAG, state);
+    const ref = digestRef();
+    let progress = null;
+    try {
+      progress = await greetAudienceStats(env, "notice", ref);
+      progress.pending = Math.max(
+        0,
+        progress.total - progress.blocked - progress.opted_out - progress.sent_today
+      );
+    } catch {
+      progress = null;
+    }
+    return json({
+      ok: true,
+      build: BUILD,
+      notice: {
+        enabled: String(await readConfig(env, NOTICE_FLAG).catch(() => "")).toLowerCase() === "on",
+        today: ref,
+        active_today: NOTICE_DATES.includes(ref),
+        dates: NOTICE_DATES,
+        text: NOTICE_TEXT,
+        progress,
+      },
+    });
+  }
+
+  /** یک تکه از اطلاعیه - همان شکلِ /admin/econ-digest. */
+  if (url.pathname === "/admin/econ-notice-drain") {
+    const force = url.searchParams.get("force") === "1";
+    const of = Number(url.searchParams.get("shards")) || 0;
+    const index = Number(url.searchParams.get("shard")) || 0;
+    const shard = of > 1 ? { of, index } : null;
+    const r = force
+      ? await runNotice(env, new Date(), shard)
+      : await drainNotice(env, new Date(), shard);
+    return json({ ok: true, build: BUILD, ...r });
+  }
+
   /**
    * یک تکه از سلامِ دوشنبه - همان شکلِ /admin/econ-digest.
    *
@@ -746,6 +794,8 @@ export default {
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/econ-greet" ||
       url.pathname === "/admin/econ-greet-drain" ||
+      url.pathname === "/admin/econ-notice" ||
+      url.pathname === "/admin/econ-notice-drain" ||
       url.pathname === "/admin/crm-import" ||
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
@@ -1033,6 +1083,15 @@ export default {
           })
           .catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
       );
+      // اطلاعیه‌ی موردی، اگر امروز یکی از روزهایش باشد.
+      ctx.waitUntil(
+        drainNotice(env)
+          .then((n) => {
+            if (n && !n.skipped && n.sent) console.log("اطلاعیه:", JSON.stringify(n));
+          })
+          .catch((err) => console.error("اطلاعیه شکست خورد:", err && err.message))
+      );
+
       // سلامِ صبحِ دوشنبه. خودش می‌داند امروز روزش هست یا نه، و تا کلیدش
       // روشن نشود با یک خواندنِ کوچک برمی‌گردد.
       ctx.waitUntil(

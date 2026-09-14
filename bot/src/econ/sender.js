@@ -29,6 +29,7 @@ import {
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
+import { NOTICE_TEXT, NOTICE_DATES } from "../content/notices.js";
 import { eventToken } from "./explain.js";
 import { readConfig, writeConfig } from "../content/channel.js";
 import {
@@ -1048,4 +1049,88 @@ export async function drainWeeklyGreeting(env, now = new Date(), shard = null) {
   const done = await readConfig(env, GREET_DONE).catch(() => "");
   if (String(done) === ref) return { skipped: "تمام شده" };
   return runWeeklyGreeting(env, now, shard);
+}
+
+// ─── ۵) اطلاعیه‌ی موردی ──────────────────────────────────────────────
+//
+// یک متن، در چند روزِ مشخص، به همه‌ی اعضا. همان ماشینِ سلام با kind
+// دیگر - پس همان تکه‌بندی، همان دفترِ ارسال، و همان درِینِ موازی.
+//
+// فرقش با سلام در دو چیز است: تاریخ‌ها دستی تعیین می‌شوند نه هفتگی، و
+// پنجره‌ی روز تا شب باز می‌ماند. دومی عمدی است - اطلاعیه خبرِ فوری
+// است و کسی که ظهر عضو شود هم باید ببیندش، برخلافِ سلامِ صبح.
+
+export const NOTICE_FLAG = "econ_notice";
+
+export async function noticeEnabled(env) {
+  const v = await readConfig(env, NOTICE_FLAG).catch(() => "");
+  return String(v).toLowerCase() === "on";
+}
+
+const NOTICE_DONE = "econ_notice_done";
+
+/**
+ * امروز روزِ اطلاعیه است؟
+ *
+ * شرطِ «خلاصه رفته باشد» فقط پیش از ۹ صبح اعمال می‌شود، همان‌جا که دو
+ * پیام می‌توانند پشتِ سرِ هم بیفتند. بعد از ۹ خلاصه مدت‌هاست رفته و
+ * منتظر ماندن فقط تأخیر است.
+ */
+async function noticeDue(env, now) {
+  const ref = digestRef(now);
+  if (!NOTICE_DATES.includes(ref)) return { due: false, why: "امروز روزِ اطلاعیه نیست" };
+
+  const hhmm = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(now);
+  if (hhmm < "08:00") return { due: false, why: "هنوز ۸ نشده" };
+
+  if (hhmm < "09:00") {
+    const done = String(await readConfig(env, DIGEST_DONE).catch(() => ""));
+    if (done !== ref) return { due: false, why: "منتظرِ تمام شدنِ خلاصه" };
+  }
+  return { due: true, ref };
+}
+
+export async function runNotice(env, now = new Date(), shard = null) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  if (!(await noticeEnabled(env))) return { skipped: "اطلاعیه خاموش" };
+  if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
+
+  const gate = await noticeDue(env, now);
+  if (!gate.due) return { skipped: gate.why };
+
+  await ensureSentSchema(env);
+  const ref = gate.ref;
+
+  const { rows: pending, swept, throttled } = await nextChunk(env, "notice", ref, shard, now.getTime());
+  if (pending.length === 0) {
+    if (!shard && swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
+  }
+
+  const build = () => ({ method: "sendMessage", payload: { text: NOTICE_TEXT } });
+
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let stopped = false;
+  let lastId = "";
+  for (let i = 0; i < pending.length; i++) {
+    const res = await claimAndSend(env, "notice", ref, pending[i], build, stats);
+    if (res === "stop") { stopped = true; break; }
+    lastId = pending[i].telegram_user_id;
+    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+  }
+  await advanceCursor(env, "notice", ref, shard, lastId);
+
+  return { ...stats, chunk: pending.length, throttled: stopped };
+}
+
+/** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
+export async function drainNotice(env, now = new Date(), shard = null) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  if (!(await noticeEnabled(env))) return { skipped: "اطلاعیه خاموش" };
+  const ref = digestRef(now);
+  const done = await readConfig(env, NOTICE_DONE).catch(() => "");
+  if (String(done) === ref) return { skipped: "تمام شده" };
+  return runNotice(env, now, shard);
 }
