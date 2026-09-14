@@ -32,11 +32,16 @@ import {
   drainHolidayNotice,
   runAlertSweep,
   runResultSweep,
+  drainWeeklyGreeting,
+  greetTextFor,
+  digestRef,
+  GREET_FLAG,
+  GREET_FORCE,
   pruneSentLog,
   senderStatus,
   SENDER_FLAG,
 } from "./econ/sender.js";
-import { writeConfig } from "./content/channel.js";
+import { readConfig, writeConfig } from "./content/channel.js";
 import {
   ingestHolidays,
   handleIngestPost,
@@ -86,7 +91,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-17";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-18";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -417,6 +422,32 @@ async function handleAdmin(request, url, env) {
   // همان لحظه به n8n هم دسترسی دارد. مجبور کردنش به رفتن به تلگرام وسط
   // کار، یعنی چند دقیقه فاصله بین دو قدم - که دقیقاً همان چند دقیقه‌ای
   // است که یا هیچ پیامی نمی‌رود یا هر پیام دو بار می‌رود.
+  // کلیدِ سلامِ دوشنبه، و «امروز را استثنائاً بفرست».
+  //
+  // خواندنِ بی‌پارامتر چیزی را عوض نمی‌کند و فقط وضعیت و متنِ این هفته
+  // را نشان می‌دهد - تا بشود پیش از روشن کردن، دید چه چیزی قرار است
+  // برود.
+  if (url.pathname === "/admin/econ-greet") {
+    const state = (url.searchParams.get("state") || "").toLowerCase();
+    if (state === "on" || state === "off") await writeConfig(env, GREET_FLAG, state);
+    // today=1 یعنی همین امروز، حتی اگر دوشنبه نباشد. تاریخِ تهران نوشته
+    // می‌شود نه یک پرچمِ خالی، پس فردا خودبه‌خود بی‌اثر می‌شود.
+    const today = url.searchParams.get("today");
+    if (today === "1") await writeConfig(env, GREET_FORCE, digestRef());
+    if (today === "0") await writeConfig(env, GREET_FORCE, "");
+    const ref = digestRef();
+    return json({
+      ok: true,
+      build: BUILD,
+      greet: {
+        enabled: String(await readConfig(env, GREET_FLAG).catch(() => "")).toLowerCase() === "on",
+        force_date: String(await readConfig(env, GREET_FORCE).catch(() => "")),
+        today: ref,
+        text_this_week: greetTextFor(ref),
+      },
+    });
+  }
+
   if (url.pathname === "/admin/econ-sender") {
     const state = (url.searchParams.get("state") || "").toLowerCase();
     if (state === "on" || state === "off") {
@@ -960,6 +991,15 @@ export default {
             }
           })
           .catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
+      );
+      // سلامِ صبحِ دوشنبه. خودش می‌داند امروز روزش هست یا نه، و تا کلیدش
+      // روشن نشود با یک خواندنِ کوچک برمی‌گردد.
+      ctx.waitUntil(
+        drainWeeklyGreeting(env)
+          .then((n) => {
+            if (n && !n.skipped && n.sent) console.log("سلام دوشنبه:", JSON.stringify(n));
+          })
+          .catch((err) => console.error("سلام دوشنبه شکست خورد:", err && err.message))
       );
       ctx.waitUntil(
         runResultSweep(env)

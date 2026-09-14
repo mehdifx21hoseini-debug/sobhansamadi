@@ -28,6 +28,7 @@ import {
   markBlocked,
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
+import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
 import { eventToken } from "./explain.js";
 import { readConfig, writeConfig } from "../content/channel.js";
 import {
@@ -902,4 +903,131 @@ export async function senderStatus(env) {
     digest = null;
   }
   return { enabled, result_notice: resultNotice, sent_24h: today, weekend: isWeekend(), digest };
+}
+
+// ─── ۴) سلامِ صبحِ دوشنبه ────────────────────────────────────────────
+//
+// یکی از سی متنی که آکادمی نوشته، هر دوشنبه صبح، به همه‌ی اعضای ربات.
+//
+// چرا با همان ماشینِ خلاصه: مخاطب همان است و مسئله‌ها هم همان - سقفِ
+// subrequest، تکه‌بندی، دفترِ ارسال، و کاربری که ربات را بلاک کرده.
+// تنها فرقش kind است.
+
+export const GREET_FLAG = "econ_greet";
+
+export async function greetEnabled(env) {
+  const v = await readConfig(env, GREET_FLAG).catch(() => "");
+  return String(v).toLowerCase() === "on";
+}
+
+// کلیدِ «امروز را استثنائاً بفرست»: هر تاریخی که اینجا نوشته شود، همان
+// روز حتی اگر دوشنبه نباشد سلام می‌رود. یک بار مصرف است چون با تاریخ
+// سنجیده می‌شود، پس جا گذاشتنش خطری ندارد.
+export const GREET_FORCE = "econ_greet_force";
+
+const GREET_DONE = "econ_greet_done";
+
+/**
+ * شماره‌ی متنِ این هفته.
+ *
+ * از خودِ تاریخ درمی‌آید نه از یک شمارنده، و دلیلش عملی است: ارسال در
+ * ده‌ها تکه و روی چند اجرای کران پخش می‌شود، و شمارنده‌ای که وسطِ کار
+ * جلو برود یعنی نیمی از اعضا یک متن بگیرند و نیمی متنِ بعدی. با تاریخ،
+ * هر تکه‌ی هر اجرا به یک عدد می‌رسد.
+ *
+ * مبدأ ۱۹۷۰-۰۱-۰۵ است - اولین دوشنبه‌ی تاریخِ یونیکس - پس تقسیم بر هفت
+ * همیشه رُند درمی‌آید.
+ */
+// اولین دوشنبه‌ای که این پیام قرار است برود. بودنش برای این است که
+// شماره از یک شروع شود؛ بدونِ آن، عددِ هفته‌ی مطلق یک جای دلخواهِ وسطِ
+// فهرست را می‌داد.
+export const GREET_EPOCH = "2026-09-14";
+
+function weekOf(dateIso) {
+  return Math.floor(Date.UTC(
+    +dateIso.slice(0, 4), +dateIso.slice(5, 7) - 1, +dateIso.slice(8, 10)
+  ) / (7 * 86400000));
+}
+
+export function greetIndex(dateIso, total) {
+  const week = weekOf(dateIso) - weekOf(GREET_EPOCH);
+  return ((week % total) + total) % total;
+}
+
+/** متنِ همین هفته. جدا نوشته شده تا بشود بدونِ فرستادن دیدش. */
+export function greetTextFor(dateIso) {
+  return MONDAY_GREETINGS[greetIndex(dateIso, MONDAY_GREETINGS.length)];
+}
+
+/**
+ * امروز روزِ سلام است؟
+ *
+ * سه شرط، و هر سه از خواسته‌ی آکادمی می‌آید:
+ *
+ *  ۱) دوشنبه باشد - یا کلیدِ «استثنائاً امروز» برای همین تاریخ نوشته
+ *     شده باشد.
+ *  ۲) ساعتِ تهران از ۸ گذشته باشد.
+ *  ۳) خلاصه‌ی اقتصادیِ امروز کامل رفته باشد، تا دو پیام پشتِ سرِ هم
+ *     نیفتند. اگر خلاصه تا ۹ تمام نشد، سلام دیگر منتظرش نمی‌ماند -
+ *     وگرنه یک گیرِ نادر در خلاصه، سلام را هم تا هفته‌ی بعد می‌بلعد.
+ */
+async function greetDue(env, now) {
+  const ref = digestRef(now);
+  const forced = String(await readConfig(env, GREET_FORCE).catch(() => "")) === ref;
+  if (!forced && tehranWeekday(now) !== "Mon") return { due: false, why: "دوشنبه نیست" };
+
+  const hhmm = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(now);
+  if (!forced && hhmm < "08:00") return { due: false, why: "هنوز ۸ نشده" };
+
+  if (!forced && hhmm < "09:00") {
+    const done = String(await readConfig(env, DIGEST_DONE).catch(() => ""));
+    if (done !== ref) return { due: false, why: "منتظرِ تمام شدنِ خلاصه" };
+  }
+  return { due: true, ref };
+}
+
+export async function runWeeklyGreeting(env, now = new Date(), shard = null) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  if (!(await greetEnabled(env))) return { skipped: "سلام خاموش" };
+  if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
+
+  const gate = await greetDue(env, now);
+  if (!gate.due) return { skipped: gate.why };
+
+  await ensureSentSchema(env);
+  const ref = gate.ref;
+
+  const { rows: pending, swept, throttled } = await nextChunk(env, "greet", ref, shard, now.getTime());
+  if (pending.length === 0) {
+    if (!shard && swept) await writeConfig(env, GREET_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
+  }
+
+  const text = greetTextFor(ref);
+  const build = () => ({ method: "sendMessage", payload: { text } });
+
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let stopped = false;
+  let lastId = "";
+  for (let i = 0; i < pending.length; i++) {
+    const res = await claimAndSend(env, "greet", ref, pending[i], build, stats);
+    if (res === "stop") { stopped = true; break; }
+    lastId = pending[i].telegram_user_id;
+    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+  }
+  await advanceCursor(env, "greet", ref, shard, lastId);
+
+  return { ...stats, index: greetIndex(ref, MONDAY_GREETINGS.length) + 1, chunk: pending.length, throttled: stopped };
+}
+
+/** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
+export async function drainWeeklyGreeting(env, now = new Date(), shard = null) {
+  if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  if (!(await greetEnabled(env))) return { skipped: "سلام خاموش" };
+  const ref = digestRef(now);
+  const done = await readConfig(env, GREET_DONE).catch(() => "");
+  if (String(done) === ref) return { skipped: "تمام شده" };
+  return runWeeklyGreeting(env, now, shard);
 }
