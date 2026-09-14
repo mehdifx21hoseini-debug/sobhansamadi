@@ -1,0 +1,104 @@
+# سلامِ صبحِ دوشنبه را تا آخر می‌راند.
+#
+# چرا هست: هر پیامِ تلگرام یک subrequest است و سقفش در هر فراخوانیِ
+# ورکر است، نه در روز. کرانِ داخلیِ ورکر تک‌رشته‌ای است و ۴۵ پیام در هر
+# تیکِ پنج‌دقیقه‌ای می‌فرستد - برای سیزده هزار نفر یعنی حدود بیست‌وسه
+# ساعت. این کار همان اندپوینت را پشتِ سرِ هم و شش‌تا هم‌زمان صدا می‌زند،
+# و هر فراخوانی بودجه‌ی تازه می‌گیرد.
+#
+# دقیقاً همان شکلِ econ-digest.yml است و همان دلیل. اگر روزی یکی‌شان
+# عوض شد، آن یکی هم باید.
+#
+# موازی بودن بی‌خطر است: ورکر پیش از ارسال، گیرنده را با درجِ
+# «تکراری‌ها را نادیده بگیر» در دفترِ ارسال می‌نویسد. دو فراخوانی که یک
+# نفر را بردارند هر دو نمی‌فرستند؛ بازنده رد می‌شود.
+name: Econ Monday Greeting
+
+on:
+  schedule:
+    # ۰۵:۰۰ UTC یعنی ۸:۳۰ تهران، دوشنبه‌ها.
+    #
+    # نیم‌ساعت بعد از ۸ عمدی است: خودِ ورکر پیش از ۹ صبح منتظر می‌ماند
+    # تا خلاصه‌ی اقتصادی به همه برسد، تا دو پیام پشتِ سرِ هم نیفتند. اگر
+    # این کار زودتر صدا بزند، ورکر «هنوز ۸ نشده» یا «منتظرِ خلاصه»
+    # برمی‌گرداند و دور بی‌فایده می‌شود.
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: econ-greet
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Drain the greeting queue
+        env:
+          ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+          BASE: https://sobhansamadi.mehdifx21hoseini.workers.dev
+        run: |
+          set -u
+          test -n "$ADMIN_KEY" || { echo "::error::WORKER_ADMIN_KEY تنظیم نشده"; exit 1; }
+
+          WORKERS=6
+          MAX=80
+          ENDPOINT="econ-greet-drain"
+
+          # force=1 پرچمِ «امروز تمام شد» را نادیده می‌گیرد. لازم است
+          # چون کرانِ ورکر ممکن است پیش از این کار پرچم را زده باشد -
+          # مثلاً وقتی همان لحظه کسی تازه عضو شده. دوباره نمی‌فرستد:
+          # دفترِ ارسال همچنان تصمیم می‌گیرد چه کسی پیام می‌گیرد.
+          FORCE="force=1"
+
+          drain_one() {
+            w="$1"
+            body="body-$w.json"
+            total=0
+            for i in $(seq 1 $MAX); do
+              code=$(curl -sS -o "$body" -w '%{http_code}' \
+                -H "x-admin-key: $ADMIN_KEY" \
+                "$BASE/admin/$ENDPOINT?$FORCE&shards=$WORKERS&shard=$((w - 1))") || code=000
+
+              if [ "$code" != "200" ]; then
+                echo "[سلام] کارگر $w دور $i: کد $code - دوباره تلاش می‌شود"
+                sleep 5
+                continue
+              fi
+
+              # پاسخ خام هرگز چاپ نمی‌شود: از یک مسیرِ ادمین می‌آید و هر
+              # چیزِ توکن‌شکلی در آن نباید به لاگِ عمومی برسد.
+              flat=$(sed -E 's/[0-9]{6,}:[A-Za-z0-9_-]{30,}/<توکن پنهان شد>/g' "$body" | tr -d ' \n')
+              sent=$(echo "$flat" | grep -o '"sent":[0-9]*' | head -1 | cut -d: -f2)
+              sent=${sent:-0}
+              total=$((total + sent))
+              echo "[سلام] کارگر $w دور $i: $sent پیام (جمع این کارگر: $total)"
+
+              case "$flat" in
+                *'"done":true'*|*'"skipped":'*)
+                  echo "$total" > "count-$w.txt"
+                  echo "[سلام] کارگر $w تمام کرد - $total پیام در $i دور."
+                  return 0
+                  ;;
+              esac
+
+              sleep 1
+            done
+            echo "$total" > "count-$w.txt"
+            echo "::warning::[سلام] کارگر $w بعد از $MAX دور هنوز تمام نکرده."
+          }
+
+          for w in $(seq 1 $WORKERS); do
+            drain_one "$w" &
+          done
+          wait
+
+          grand=0
+          for w in $(seq 1 $WORKERS); do
+            n=$(cat "count-$w.txt" 2>/dev/null || echo 0)
+            grand=$((grand + n))
+          done
+          echo "✅ مجموع: $grand پیام"

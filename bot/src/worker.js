@@ -33,6 +33,7 @@ import {
   runAlertSweep,
   runResultSweep,
   drainWeeklyGreeting,
+  runWeeklyGreeting,
   greetTextFor,
   digestRef,
   GREET_FLAG,
@@ -92,7 +93,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-20";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-21";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -522,6 +523,26 @@ async function handleAdmin(request, url, env) {
   }
 
   /**
+   * یک تکه از سلامِ دوشنبه - همان شکلِ /admin/econ-digest.
+   *
+   * چرا لازم شد: کرانِ هر پنج دقیقه تک‌رشته‌ای است و ۴۵ پیام در هر تیک
+   * می‌فرستد؛ برای سیزده هزار نفر یعنی حدود بیست‌وسه ساعت. خلاصه‌ی صبح
+   * دقیقاً به همین دلیل سریع می‌رود نه با کران، بلکه با ورک‌فلویی که
+   * این شکل اندپوینت را با شش کارگرِ موازی صدا می‌زند. سقف در هر
+   * فراخوانی است نه در روز، پس هر درخواستِ تازه بودجه‌ی تازه می‌گیرد.
+   */
+  if (url.pathname === "/admin/econ-greet-drain") {
+    const force = url.searchParams.get("force") === "1";
+    const of = Number(url.searchParams.get("shards")) || 0;
+    const index = Number(url.searchParams.get("shard")) || 0;
+    const shard = of > 1 ? { of, index } : null;
+    const r = force
+      ? await runWeeklyGreeting(env, new Date(), shard)
+      : await drainWeeklyGreeting(env, new Date(), shard);
+    return json({ ok: true, build: BUILD, ...r });
+  }
+
+  /**
    * فهرستِ اسمِ متغیرهایی که ورکر می‌بیند - فقط اسم، هیچ مقداری.
    *
    * چرا لازم شد: «گذاشتم» و «ورکر می‌بیندش» دو چیزند، و وقتی از هم جدا
@@ -718,6 +739,7 @@ export default {
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
       url.pathname === "/admin/econ-greet" ||
+      url.pathname === "/admin/econ-greet-drain" ||
       url.pathname === "/admin/crm-import" ||
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
