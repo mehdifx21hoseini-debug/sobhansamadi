@@ -42,6 +42,7 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { readConfig, writeConfig } from "./content/channel.js";
+import { digestAudienceStats as greetAudienceStats } from "./econ/subscribers.js";
 import {
   ingestHolidays,
   handleIngestPost,
@@ -91,7 +92,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-19";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-20";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -436,6 +437,16 @@ async function handleAdmin(request, url, env) {
     if (today === "1") await writeConfig(env, GREET_FORCE, digestRef());
     if (today === "0") await writeConfig(env, GREET_FORCE, "");
     const ref = digestRef();
+    // پیشرفتِ ارسالِ امروز. بدونِ این، تنها راهِ فهمیدنِ «به چند نفر
+    // رسیده» شمردنِ دستی در D1 بود - و سلام دقیقاً همان چیزی است که
+    // وسطِ ارسال می‌خواهی بدانی کجای کار است.
+    let progress = null;
+    try {
+      progress = await greetAudienceStats(env, "greet", ref);
+      progress.pending = Math.max(0, progress.total - progress.opted_out - progress.sent_today);
+    } catch {
+      progress = null;
+    }
     return json({
       ok: true,
       build: BUILD,
@@ -444,6 +455,7 @@ async function handleAdmin(request, url, env) {
         force_date: String(await readConfig(env, GREET_FORCE).catch(() => "")),
         today: ref,
         text_this_week: greetTextFor(ref),
+        progress,
       },
     });
   }
