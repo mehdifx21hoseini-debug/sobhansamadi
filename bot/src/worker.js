@@ -97,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-26";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-27";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -516,6 +516,96 @@ async function handleAdmin(request, url, env) {
   }
 
   /**
+   * گزارشِ استفاده: کدام بخشِ ربات بیشتر به کار می‌رود.
+   *
+   * فقط می‌خواند و فقط جمع می‌زند - هیچ شناسه‌ی کاربری، نام یا شماره‌ای
+   * برنمی‌گردد. برای همین است که می‌شود از یک ورک‌فلوی عمومی صدایش زد.
+   *
+   * منبعِ اصلی content_requests است: هر بار که کاربر فایلی، ویسی یا
+   * جلسه‌ای را می‌گیرد یک ردیف اینجا می‌نشیند. این دقیق‌ترین چیزی است که
+   * داریم، ولی همه‌ی ربات نیست - زدنِ دکمه‌ی منو جایی ثبت نمی‌شود، پس
+   * بخش‌هایی که فقط متن نشان می‌دهند در این شمارش دیده نمی‌شوند.
+   * بقیه‌ی جدول‌ها (تقویم، هوش مصنوعی، لید، تیکت) هر کدام رد پای بخشِ
+   * خودشان‌اند و کنارِ هم تصویر را کامل می‌کنند.
+   *
+   * ?days=N پنجره را عوض می‌کند؛ پیش‌فرض ۳۰ روز.
+   */
+  if (url.pathname === "/admin/usage") {
+    const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 30, 1), 365);
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    const one = async (sql, ...args) => {
+      try {
+        const r = await env.DB.prepare(sql).bind(...args).first();
+        return r ? Number(Object.values(r)[0]) || 0 : 0;
+      } catch {
+        return null;
+      }
+    };
+    const many = async (sql, ...args) => {
+      try {
+        const r = await env.DB.prepare(sql).bind(...args).all();
+        return r.results || [];
+      } catch {
+        return [];
+      }
+    };
+
+    const [items, families, aiCount, aiUsers, econSubs, econOn, leadKinds,
+           tickets, mentoring, activeWeek, activeMonth, totalUsers, reqTotal] =
+      await Promise.all([
+        many(
+          `SELECT content_id AS id, COUNT(*) AS n, COUNT(DISTINCT telegram_user_id) AS people
+             FROM content_requests WHERE created_at >= ?
+            GROUP BY content_id ORDER BY n DESC LIMIT 40`, since),
+        // خانواده‌ها از پیشوندِ کد درمی‌آیند، چون کدها از همان روز اول
+        // با همین قاعده ساخته شده‌اند (BOOK_..., INTRO_P..., EXPERT_...).
+        many(
+          `SELECT CASE
+                    WHEN content_id LIKE 'BOOK_00%'      THEN 'کتاب من (ذهن ثروتمند)'
+                    WHEN content_id LIKE 'BOOK_%'        THEN 'کتابخانه'
+                    WHEN content_id LIKE 'INTRO_%'       THEN 'دوره مقدماتی'
+                    WHEN content_id LIKE 'EMOTIONAL_%'   THEN 'هوش هیجانی'
+                    WHEN content_id LIKE 'EXPERT_%'      THEN 'اکسپرت'
+                    WHEN content_id LIKE 'PSY_VOICE_%'   THEN 'ویس روانشناسی'
+                    WHEN content_id LIKE 'LIVE_TRADE_%'  THEN 'لایو ترید'
+                    WHEN content_id LIKE 'COURSE_%'      THEN 'معرفی دوره‌ها'
+                    WHEN content_id LIKE 'TRUSTED_BROKER%' THEN 'بروکر معتمد'
+                    ELSE 'سایر'
+                  END AS family,
+                  COUNT(*) AS n, COUNT(DISTINCT telegram_user_id) AS people
+             FROM content_requests WHERE created_at >= ?
+            GROUP BY family ORDER BY n DESC`, since),
+        one(`SELECT COUNT(*) FROM ai_log WHERE created_at >= ?`, since),
+        one(`SELECT COUNT(DISTINCT telegram_user_id) FROM ai_log WHERE created_at >= ?`, since),
+        one(`SELECT COUNT(*) FROM econ_subscriber`),
+        one(`SELECT COUNT(*) FROM econ_subscriber WHERE subscribed = 1`),
+        many(`SELECT request_type AS kind, COUNT(*) AS n FROM leads
+               WHERE created_at >= ? GROUP BY request_type ORDER BY n DESC`, since),
+        one(`SELECT COUNT(*) FROM support_tickets WHERE created_at >= ?`, since),
+        one(`SELECT COUNT(*) FROM mentoring_intake WHERE received_at >= ?`, since),
+        one(`SELECT COUNT(*) FROM user_state WHERE last_interaction_at >= ?`,
+            new Date(Date.now() - 7 * 86400000).toISOString()),
+        one(`SELECT COUNT(*) FROM user_state WHERE last_interaction_at >= ?`, since),
+        one(`SELECT COUNT(*) FROM user_state`),
+        one(`SELECT COUNT(*) FROM content_requests WHERE created_at >= ?`, since),
+      ]);
+
+    return json({
+      ok: true,
+      build: BUILD,
+      window_days: days,
+      since,
+      users: { total: totalUsers, active_7d: activeWeek, active_window: activeMonth },
+      content: { total_requests: reqTotal, by_family: families, top_items: items },
+      econ_app: { subscribers_total: econSubs, alerts_on: econOn },
+      ai_assistant: { questions: aiCount, people: aiUsers },
+      leads: leadKinds,
+      support_tickets: tickets,
+      mentoring_forms: mentoring,
+    });
+  }
+
+  /**
    * یک تکه از اعلانِ تعطیلیِ بانکی - همان شکلِ /admin/econ-digest.
    *
    * اگر امروز تعطیل نباشد بی‌درنگ برمی‌گردد، پس ورک‌فلو می‌تواند هر روز
@@ -799,6 +889,7 @@ export default {
       url.pathname === "/admin/econ-greet-drain" ||
       url.pathname === "/admin/econ-notice" ||
       url.pathname === "/admin/econ-notice-drain" ||
+      url.pathname === "/admin/usage" ||
       url.pathname === "/admin/crm-import" ||
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
