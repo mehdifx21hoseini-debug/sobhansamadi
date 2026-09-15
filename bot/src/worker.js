@@ -97,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-27";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-28";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -532,6 +532,11 @@ async function handleAdmin(request, url, env) {
    */
   if (url.pathname === "/admin/usage") {
     const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 30, 1), 365);
+    // ?top=N فهرستِ تک‌به‌تک را کوتاه می‌کند (۰ یعنی هیچ). لازم است چون
+    // خواندنِ این گزارش از راهِ لاگِ ورک‌فلو است و لاگ سقفِ حجم دارد:
+    // با چهل ردیف، خلاصه‌ی بالای پاسخ از تهِ لاگ بیرون می‌افتد.
+    const topRaw = url.searchParams.get("top");
+    const top = topRaw === null ? 40 : Math.min(Math.max(Number(topRaw) || 0, 0), 100);
     const since = new Date(Date.now() - days * 86400000).toISOString();
     const one = async (sql, ...args) => {
       try {
@@ -553,10 +558,10 @@ async function handleAdmin(request, url, env) {
     const [items, families, aiCount, aiUsers, econSubs, econOn, leadKinds,
            tickets, mentoring, activeWeek, activeMonth, totalUsers, reqTotal] =
       await Promise.all([
-        many(
+        top === 0 ? [] : many(
           `SELECT content_id AS id, COUNT(*) AS n, COUNT(DISTINCT telegram_user_id) AS people
              FROM content_requests WHERE created_at >= ?
-            GROUP BY content_id ORDER BY n DESC LIMIT 40`, since),
+            GROUP BY content_id ORDER BY n DESC LIMIT ?`, since, top),
         // خانواده‌ها از پیشوندِ کد درمی‌آیند، چون کدها از همان روز اول
         // با همین قاعده ساخته شده‌اند (BOOK_..., INTRO_P..., EXPERT_...).
         many(
