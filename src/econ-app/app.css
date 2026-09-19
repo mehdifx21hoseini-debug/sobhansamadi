@@ -1072,104 +1072,48 @@
 		.td-ai:active { background: var(--card-2); }
 		.td-ai-i { font-size: .9rem; }
 
-		/* ── دیالِ ۲۴ ساعته ────────────────────────────────────────────────
-		   شکلِ روز، نه ساعتِ دقیقِ آن: آن را نوارهای پایین می‌گویند. اینجا
-		   هم‌پوشانیِ سشن‌ها و جای «حالا» در یک نگاه دیده می‌شود.
+		/* ── وضعیتِ بازار، یک خط ───────────────────────────────────────────
+		   کارتِ دایره‌ای اینجا بود و برداشته شد. خودِ جمله ماند چون
+		   نوارهای پایین وضعیتِ *کل* بازار و فاصله تا تغییرِ بعدی را
+		   نمی‌گویند - هر کدام فقط سشنِ خودش را می‌گوید.
 
-		   اندازه متغیر است نه ثابت: در پنجره‌ی باریکِ تلگرامِ دسکتاپ دیال
-		   جمع می‌شود و اگر ساعتِ وسط روی عددِ ثابت می‌ماند، روی کمان‌ها
-		   می‌افتاد - همان باگی که یک بار اندازه‌گیری و رفع شد. */
-		.dial-box {
-			--dial: min(272px, 74vw);
-			position: relative;
-			display: grid;
-			justify-items: center;
-			background: var(--card);
-			border: 1px solid var(--line);
-			border-radius: 18px;
-			box-shadow: var(--shadow-sm);
-			padding: 16px 14px 14px;
-			margin-bottom: 12px;
-		}
-
-		.dial { width: var(--dial); height: auto; display: block; overflow: visible; }
-		.dial-ring { fill: none; stroke: var(--line); stroke-width: 1; }
-		.dial-tick { stroke: var(--line-strong); stroke-width: 1; }
-
-		.dial-hour {
-			font-size: 8.5px;
-			font-weight: 700;
-			fill: var(--muted);
-			text-anchor: middle;
-			dominant-baseline: middle;
-		}
-
-		.dial-arc {
-			fill: none;
-			stroke-linecap: round;
-			opacity: .34;
-		}
-
-		.dial-arc.is-open { opacity: 1; }
-		.dial-hand { stroke: var(--signal); stroke-width: 1.5; stroke-linecap: round; }
-		.dial-dot { fill: var(--signal); }
-
-		/* هر خبر یک خط‌چه روی حلقه‌ی بیرونی، و هرچه مهم‌تر بلندتر. */
-		.dial-ev { stroke: var(--muted); stroke-linecap: round; }
-		.dial-ev.is-high { stroke: var(--text); }
-		.dial-ev.is-done { opacity: .3; }
-
-		/* خوانشِ مرکز. مطلق است تا دقیقاً وسطِ دیال بنشیند، و
-		   pointer-events ندارد تا جلوی هیچ لمسی را نگیرد. */
-		.dial-read {
-			position: absolute;
-			top: 16px;
-			height: var(--dial);
-			width: var(--dial);
-			display: grid;
-			place-content: center;
-			justify-items: center;
-			text-align: center;
-			pointer-events: none;
-		}
-
-		.dial-state {
-			font-size: calc(var(--dial) * .058);
-			font-weight: 800;
-			letter-spacing: .04em;
-			color: var(--up);
+		   کارت نیست: یک خط روی زمینه‌ی صفحه، تا میانِ «اخبار امروز» و
+		   تابلوی سشن‌ها یک بلوکِ سومِ سنگین نسازد. */
+		.mk-state {
 			display: flex;
 			align-items: center;
-			gap: 5px;
+			justify-content: center;
+			flex-wrap: wrap;
+			gap: 3px;
+			margin: 0 2px 12px;
+			font-size: .82rem;
+			line-height: 1.7;
+			color: var(--muted);
+			font-variant-numeric: tabular-nums;
 		}
 
-		.dial-dot-i {
-			width: 6px;
-			height: 6px;
+		.mk-state b { color: var(--text); font-weight: 800; }
+
+		.mk-dot {
+			width: 7px;
+			height: 7px;
 			border-radius: 50%;
-			background: currentColor;
-			animation: dial-breathe 2.6s var(--ease-out-3) infinite;
+			margin-inline-end: 4px;
+			background: var(--low);
 		}
 
-		.dial-state.is-break { color: var(--medium); }
-		.dial-state.is-shut { color: var(--muted); }
-		.dial-state.is-shut .dial-dot-i { animation: none; }
+		.mk-state.is-open .mk-dot {
+			background: var(--up);
+			animation: mk-breathe 2.6s var(--ease-out-3) infinite;
+		}
 
-		@keyframes dial-breathe { 50% { opacity: .3; } }
+		.mk-state.is-break .mk-dot { background: var(--medium); }
+
+		@keyframes mk-breathe { 50% { opacity: .3; } }
 
 		@media (prefers-reduced-motion: reduce) {
-			.dial-dot-i { animation: none; }
+			.mk-state .mk-dot { animation: none; }
 		}
-
-		.dial-line {
-			margin-top: 12px;
-			text-align: center;
-			font-size: .8rem;
-			line-height: 1.85;
-			color: var(--muted);
-		}
-
-		.dial-line b { color: var(--text); font-weight: 800; }
 
 		/* ---- status ----
 		   Set in the largest type on the tab: it answers the one question the
