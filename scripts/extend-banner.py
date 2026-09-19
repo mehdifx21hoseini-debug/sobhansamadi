@@ -17,7 +17,10 @@
 from PIL import Image, ImageFilter
 
 SRC = "banner.webp"   # عکسِ اصلی، استخراج‌شده از --img-banner قبلی
-INK = (0x1f, 0x1e, 0x26)
+# همان --hb-ink در app.css. اگر آن عوض شد، این هم باید عوض شود: روی
+# صفحه‌های پهن، بنر از خودِ عکس پهن‌تر می‌شود و بقیه‌اش را همین رنگ پر
+# می‌کند - اگر دو رنگ یکی نباشند، یک درزِ عمودی می‌ماند.
+INK = (0x17, 0x16, 0x20)
 W0, H = 700, 388
 OUT_W = 1067          # ۳۸۸ × ۲٫۷۵ - دقیقاً نسبتِ خودِ بنر
 PERIOD = 123
@@ -37,6 +40,15 @@ def wall_strip():
     band = s.crop((0, TEXT_BOTTOM - 8, PERIOD, TEXT_BOTTOM + 18))
     s.paste(band.filter(ImageFilter.GaussianBlur(3)), (0, TEXT_BOTTOM - 8))
     return s
+
+
+# HOLD: آخرین ستون‌ها دقیقاً جوهرِ خالص‌اند، نه «تقریباً».
+#
+# روی صفحه‌ی پهن، بنر از عکس پهن‌تر می‌شود و بقیه را رنگِ زمینه پر
+# می‌کند. اگر محوشدن تازه در ستونِ آخر به جوهر برسد، چند ستونِ قبلی
+# هنوز روشن‌ترند و یک درزِ کم‌رنگِ عمودی می‌ماند - اندازه‌گیری شد: شش
+# پله. با این نوار، مرز کاملاً صاف است.
+HOLD = 70
 
 
 def build(out, end_k=0.93, start=0.0, blur=1.2, fade_from=W0 - 60):
@@ -67,9 +79,9 @@ def build(out, end_k=0.93, start=0.0, blur=1.2, fade_from=W0 - 60):
                         int(a[2] + (b[2] - a[2]) * w))
 
     # و بعد، کم‌رنگ و کم‌رنگ‌تر تا در جوهرِ بنر حل شود.
-    span = OUT_W - fade_from
+    span = OUT_W - HOLD - fade_from
     for x in range(fade_from, OUT_W):
-        t = (x - fade_from) / span
+        t = min(1.0, (x - fade_from) / span)
         s = t * t * (3 - 2 * t)
         k = start + (end_k - start) * s
         for y in range(H):
@@ -87,4 +99,6 @@ def build(out, end_k=0.93, start=0.0, blur=1.2, fade_from=W0 - 60):
 #
 # خروجی را باید به data-URI تبدیل کرد و جای --img-banner در
 # src/econ-app/app.css گذاشت؛ این اسکریپت خودش فایل را دست نمی‌زند.
-build("ext-qq.webp", end_k=0.985, fade_from=400)
+# end_k برابرِ ۱ است تا ستونِ آخر دقیقاً همان جوهر باشد و وصله‌ی سمتِ
+# راست بی‌درز بنشیند.
+build("ext-qq.webp", end_k=1.0, fade_from=400)
