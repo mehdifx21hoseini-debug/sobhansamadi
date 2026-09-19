@@ -798,50 +798,6 @@
 		}
 
 		/* ---------- search ---------- */
-		/* ── ارزها، بالای فهرستِ اخبار ─────────────────────────────────────
-		   همان‌جا که خالی بودنِ فهرست دیده می‌شود، همان‌جا هم حل می‌شود.
-		   کارتِ کاملِ تنظیمات اینجا زیادی بود - کدِ ارز به‌تنهایی کافی
-		   است و نامِ فارسی در title می‌ماند. */
-		.news-cur {
-			background: var(--card);
-			border: 1px solid var(--line);
-			border-radius: 14px;
-			padding: 9px 11px;
-			margin-bottom: 10px;
-		}
-
-		.news-cur-k {
-			font-size: .62rem;
-			font-weight: 700;
-			color: var(--muted);
-			margin-bottom: 7px;
-		}
-
-		.news-cur-row {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 6px;
-		}
-
-		.news-cur-chip {
-			font: inherit;
-			font-size: .68rem;
-			font-weight: 800;
-			letter-spacing: .02em;
-			cursor: pointer;
-			color: var(--muted);
-			background: transparent;
-			border: 1px solid var(--line);
-			border-radius: 999px;
-			padding: 5px 12px;
-		}
-
-		.news-cur-chip.on {
-			background: var(--accent);
-			color: var(--accent-text);
-			border-color: var(--accent);
-		}
-
 		.search-row {
 			position: relative;
 			margin-bottom: 10px;
@@ -1029,6 +985,35 @@
 			text-align: center;
 			padding: 6px 2px 2px;
 		}
+
+		/* روزِ خالی: به‌جای یک جمله‌ی تسلیت، دو عددِ به‌دردبخور. */
+		.td-quiet-h {
+			font-size: .84rem;
+			font-weight: 700;
+			color: var(--muted);
+			text-align: center;
+			padding: 2px 2px 10px;
+		}
+
+		.td-quiet-r {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 10px;
+			border-top: 1px solid var(--line);
+			padding: 8px 2px;
+			font-size: .78rem;
+		}
+
+		.td-quiet-k { color: var(--muted); font-weight: 700; flex: none; }
+
+		.td-quiet-v {
+			text-align: left;
+			color: var(--muted);
+			min-width: 0;
+		}
+
+		.td-quiet-v b { color: var(--text); font-weight: 800; }
 
 		/* ---- سه عدد ---- */
 		.td-stats {
@@ -1478,6 +1463,27 @@
 			overflow: hidden;
 		}
 
+		/* ── هم‌پوشانیِ لندن و نیویورک، روی خودِ نمودار ───────────────────
+		   پرمعامله‌ترین ساعتِ روز تا امروز فقط یک جمله‌ی ریز زیرِ نمودار
+		   بود - کم‌رنگ‌ترین چیزِ صفحه، برای مهم‌ترین بازه‌اش.
+
+		   زیرِ کمانِ سشن می‌نشیند نه رویش: نوار باید بگوید «این بازه»، نه
+		   اینکه خودِ سشن را بپوشاند. برای همین فقط دو لبه‌ی عمودی و یک
+		   ته‌رنگِ خیلی کم دارد. */
+		.sb-ov-band {
+			position: absolute;
+			top: -2px;
+			bottom: -2px;
+			z-index: 0;
+			pointer-events: none;
+			background: color-mix(in srgb, var(--sb-signal) 11%, transparent);
+			border-inline: 1px dashed color-mix(in srgb, var(--sb-signal) 45%, transparent);
+		}
+
+		/* کمان و نوارِ استراحت باید بالای آن بمانند. */
+		.sb-seg,
+		.sb-break { z-index: 1; }
+
 		/* The rollover hour, over whatever sits beneath it. */
 		.sb-break {
 			position: absolute;
@@ -1586,6 +1592,15 @@
 			padding: 8px 4px 7px;
 			text-align: center;
 			border-bottom: 2px solid var(--ck);
+		}
+
+		/* نشانِ شب و روز. رنگ نمی‌گیرد و وزن هم ندارد: یک نشانه است،
+		   نه عددِ دیگری که باید خوانده شود. */
+		.sb-ck-dn {
+			font-size: .82rem;
+			line-height: 1;
+			margin-bottom: 3px;
+			color: var(--muted);
 		}
 
 		.sb-ck-city {
@@ -1913,6 +1928,57 @@
 
 		.revised { font-variant-numeric: tabular-nums; }
 
+		/* ── توضیحِ یک خبر ─────────────────────────────────────────────────
+		   دکمه‌ی سبک داخلِ بازشده‌ی هر ردیف، نه یک دکمه‌ی تمام‌عرضِ مشکی:
+		   این توضیحِ یک شاخص است، نه کارِ اصلیِ صفحه. */
+		.ex { margin-top: 9px; }
+
+		.ex-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			width: 100%;
+			font: inherit;
+			font-size: .74rem;
+			font-weight: 700;
+			cursor: pointer;
+			color: var(--text);
+			background: var(--card-2);
+			border: 1px solid var(--line-strong);
+			border-radius: 9px;
+			padding: 8px;
+		}
+
+		.ex-btn:active { background: var(--card); }
+		.ex-btn:disabled { cursor: default; opacity: .75; }
+		.ex-i { font-size: .84rem; }
+
+		/* در حالِ انتظار، نبضِ ملایم - تا معلوم باشد چیزی در راه است و
+		   دکمه فقط خاموش نشده. */
+		.ex-btn.is-busy { animation: ex-pulse 1.4s var(--ease-out-3) infinite; }
+
+		@keyframes ex-pulse { 50% { opacity: .55; } }
+
+		@media (prefers-reduced-motion: reduce) {
+			.ex-btn.is-busy { animation: none; }
+		}
+
+		.ex-body {
+			margin-top: 8px;
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			border-radius: 9px;
+			padding: 10px 11px;
+			font-size: .78rem;
+			line-height: 2;
+			color: var(--text);
+			/* متنِ مدل خطِ خالی دارد و باید همان‌طور بماند. */
+			white-space: pre-wrap;
+		}
+
+		.ex-body.is-empty { color: var(--muted); text-align: center; }
+
 		/* Expanded detail, revealed on tap. Keeps the list scannable while the
 		   full numbers stay one tap away. */
 		.event-detail {
@@ -2039,11 +2105,31 @@
 			cursor: pointer;
 		}
 
-		.cur.on {
-			background: var(--accent);
-			border-color: var(--accent);
-			color: var(--accent-text);
+		/* ته‌رنگِ پرچم روی کارتِ خاموش هم دیده می‌شود، خیلی کم‌رنگ: هشت
+		   خانه‌ی یک‌شکل یک فهرستِ بی‌ترتیب بود، و رنگ همان چیزی است که
+		   چشم را سرِ جای درست می‌برد. */
+		.cur {
+			position: relative;
+			border-color: color-mix(in srgb, var(--tint, var(--line-strong)) 26%, var(--line));
+			background: color-mix(in srgb, var(--tint, transparent) 5%, transparent);
 		}
+
+		.cur .event-flag {
+			width: 22px;
+			height: 22px;
+			margin-bottom: 3px;
+		}
+
+		/* روشن: خودِ رنگِ پرچم، نه جوهرِ خنثا. انتخاب باید از یک نگاه
+		   دیده شود و رنگ این کار را بهتر از وزنِ متن می‌کند. */
+		.cur.on {
+			background: var(--tint, var(--accent));
+			border-color: var(--tint, var(--accent));
+			color: #ffffff;
+		}
+
+		/* حلقه‌ی دورِ پرچم روی زمینه‌ی رنگی گم می‌شد. */
+		.cur.on .event-flag { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .55); }
 
 		/* کدِ ارز لاتین است و داخل صفحه‌ی راست‌چین می‌نشیند؛ بدون این،
 		   ترتیبِ حروف در کنارِ نویسه‌های فارسیِ همسایه جابه‌جا می‌شود. */

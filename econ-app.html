@@ -824,50 +824,6 @@
 		}
 
 		/* ---------- search ---------- */
-		/* ── ارزها، بالای فهرستِ اخبار ─────────────────────────────────────
-		   همان‌جا که خالی بودنِ فهرست دیده می‌شود، همان‌جا هم حل می‌شود.
-		   کارتِ کاملِ تنظیمات اینجا زیادی بود - کدِ ارز به‌تنهایی کافی
-		   است و نامِ فارسی در title می‌ماند. */
-		.news-cur {
-			background: var(--card);
-			border: 1px solid var(--line);
-			border-radius: 14px;
-			padding: 9px 11px;
-			margin-bottom: 10px;
-		}
-
-		.news-cur-k {
-			font-size: .62rem;
-			font-weight: 700;
-			color: var(--muted);
-			margin-bottom: 7px;
-		}
-
-		.news-cur-row {
-			display: flex;
-			flex-wrap: wrap;
-			gap: 6px;
-		}
-
-		.news-cur-chip {
-			font: inherit;
-			font-size: .68rem;
-			font-weight: 800;
-			letter-spacing: .02em;
-			cursor: pointer;
-			color: var(--muted);
-			background: transparent;
-			border: 1px solid var(--line);
-			border-radius: 999px;
-			padding: 5px 12px;
-		}
-
-		.news-cur-chip.on {
-			background: var(--accent);
-			color: var(--accent-text);
-			border-color: var(--accent);
-		}
-
 		.search-row {
 			position: relative;
 			margin-bottom: 10px;
@@ -1055,6 +1011,35 @@
 			text-align: center;
 			padding: 6px 2px 2px;
 		}
+
+		/* روزِ خالی: به‌جای یک جمله‌ی تسلیت، دو عددِ به‌دردبخور. */
+		.td-quiet-h {
+			font-size: .84rem;
+			font-weight: 700;
+			color: var(--muted);
+			text-align: center;
+			padding: 2px 2px 10px;
+		}
+
+		.td-quiet-r {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 10px;
+			border-top: 1px solid var(--line);
+			padding: 8px 2px;
+			font-size: .78rem;
+		}
+
+		.td-quiet-k { color: var(--muted); font-weight: 700; flex: none; }
+
+		.td-quiet-v {
+			text-align: left;
+			color: var(--muted);
+			min-width: 0;
+		}
+
+		.td-quiet-v b { color: var(--text); font-weight: 800; }
 
 		/* ---- سه عدد ---- */
 		.td-stats {
@@ -1504,6 +1489,27 @@
 			overflow: hidden;
 		}
 
+		/* ── هم‌پوشانیِ لندن و نیویورک، روی خودِ نمودار ───────────────────
+		   پرمعامله‌ترین ساعتِ روز تا امروز فقط یک جمله‌ی ریز زیرِ نمودار
+		   بود - کم‌رنگ‌ترین چیزِ صفحه، برای مهم‌ترین بازه‌اش.
+
+		   زیرِ کمانِ سشن می‌نشیند نه رویش: نوار باید بگوید «این بازه»، نه
+		   اینکه خودِ سشن را بپوشاند. برای همین فقط دو لبه‌ی عمودی و یک
+		   ته‌رنگِ خیلی کم دارد. */
+		.sb-ov-band {
+			position: absolute;
+			top: -2px;
+			bottom: -2px;
+			z-index: 0;
+			pointer-events: none;
+			background: color-mix(in srgb, var(--sb-signal) 11%, transparent);
+			border-inline: 1px dashed color-mix(in srgb, var(--sb-signal) 45%, transparent);
+		}
+
+		/* کمان و نوارِ استراحت باید بالای آن بمانند. */
+		.sb-seg,
+		.sb-break { z-index: 1; }
+
 		/* The rollover hour, over whatever sits beneath it. */
 		.sb-break {
 			position: absolute;
@@ -1612,6 +1618,15 @@
 			padding: 8px 4px 7px;
 			text-align: center;
 			border-bottom: 2px solid var(--ck);
+		}
+
+		/* نشانِ شب و روز. رنگ نمی‌گیرد و وزن هم ندارد: یک نشانه است،
+		   نه عددِ دیگری که باید خوانده شود. */
+		.sb-ck-dn {
+			font-size: .82rem;
+			line-height: 1;
+			margin-bottom: 3px;
+			color: var(--muted);
 		}
 
 		.sb-ck-city {
@@ -1939,6 +1954,57 @@
 
 		.revised { font-variant-numeric: tabular-nums; }
 
+		/* ── توضیحِ یک خبر ─────────────────────────────────────────────────
+		   دکمه‌ی سبک داخلِ بازشده‌ی هر ردیف، نه یک دکمه‌ی تمام‌عرضِ مشکی:
+		   این توضیحِ یک شاخص است، نه کارِ اصلیِ صفحه. */
+		.ex { margin-top: 9px; }
+
+		.ex-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			width: 100%;
+			font: inherit;
+			font-size: .74rem;
+			font-weight: 700;
+			cursor: pointer;
+			color: var(--text);
+			background: var(--card-2);
+			border: 1px solid var(--line-strong);
+			border-radius: 9px;
+			padding: 8px;
+		}
+
+		.ex-btn:active { background: var(--card); }
+		.ex-btn:disabled { cursor: default; opacity: .75; }
+		.ex-i { font-size: .84rem; }
+
+		/* در حالِ انتظار، نبضِ ملایم - تا معلوم باشد چیزی در راه است و
+		   دکمه فقط خاموش نشده. */
+		.ex-btn.is-busy { animation: ex-pulse 1.4s var(--ease-out-3) infinite; }
+
+		@keyframes ex-pulse { 50% { opacity: .55; } }
+
+		@media (prefers-reduced-motion: reduce) {
+			.ex-btn.is-busy { animation: none; }
+		}
+
+		.ex-body {
+			margin-top: 8px;
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			border-radius: 9px;
+			padding: 10px 11px;
+			font-size: .78rem;
+			line-height: 2;
+			color: var(--text);
+			/* متنِ مدل خطِ خالی دارد و باید همان‌طور بماند. */
+			white-space: pre-wrap;
+		}
+
+		.ex-body.is-empty { color: var(--muted); text-align: center; }
+
 		/* Expanded detail, revealed on tap. Keeps the list scannable while the
 		   full numbers stay one tap away. */
 		.event-detail {
@@ -2065,11 +2131,31 @@
 			cursor: pointer;
 		}
 
-		.cur.on {
-			background: var(--accent);
-			border-color: var(--accent);
-			color: var(--accent-text);
+		/* ته‌رنگِ پرچم روی کارتِ خاموش هم دیده می‌شود، خیلی کم‌رنگ: هشت
+		   خانه‌ی یک‌شکل یک فهرستِ بی‌ترتیب بود، و رنگ همان چیزی است که
+		   چشم را سرِ جای درست می‌برد. */
+		.cur {
+			position: relative;
+			border-color: color-mix(in srgb, var(--tint, var(--line-strong)) 26%, var(--line));
+			background: color-mix(in srgb, var(--tint, transparent) 5%, transparent);
 		}
+
+		.cur .event-flag {
+			width: 22px;
+			height: 22px;
+			margin-bottom: 3px;
+		}
+
+		/* روشن: خودِ رنگِ پرچم، نه جوهرِ خنثا. انتخاب باید از یک نگاه
+		   دیده شود و رنگ این کار را بهتر از وزنِ متن می‌کند. */
+		.cur.on {
+			background: var(--tint, var(--accent));
+			border-color: var(--tint, var(--accent));
+			color: #ffffff;
+		}
+
+		/* حلقه‌ی دورِ پرچم روی زمینه‌ی رنگی گم می‌شد. */
+		.cur.on .event-flag { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .55); }
 
 		/* کدِ ارز لاتین است و داخل صفحه‌ی راست‌چین می‌نشیند؛ بدون این،
 		   ترتیبِ حروف در کنارِ نویسه‌های فارسیِ همسایه جابه‌جا می‌شود. */
@@ -2325,7 +2411,7 @@
 	<!-- Flag artwork from flag-icons (MIT, Panayiotis Lipiridis), inlined
 	     once as symbols: emoji flags do not render on Windows, where
 	     Telegram Desktop shows the two-letter code instead. -->
-	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/><path fill="#fff" d="m202 402.8-45.8 5.4 4.6 45.9-32.8-32.4-33 32.2 4.9-45.9-45.8-5.8L93 377.4 69 338l43.6 15 15.8-43.4 15.5 43.5 43.7-14.7-24.3 39.2 38.8 25.1Zm222.7 8-20.5 2.6 2.2 20.5-14.8-14.4-14.7 14.5 2-20.5-20.5-2.4 17.3-11.2-10.9-17.5 19.6 6.5 6.9-19.5 7.1 19.4 19.5-6.7-10.7 17.6zM415 293.6l2.7-13-9.8-9 13.2-1.5 5.5-12.1 5.5 12.1 13.2 1.5-9.8 9 2.7 13-11.6-6.6zm-84.1-60-20.3 2.2 1.8 20.3-14.4-14.5-14.8 14.1 2.4-20.3-20.2-2.7 17.3-10.8-10.5-17.5 19.3 6.8 7.2-19.1 6.7 19.3 19.4-6.3-10.9 17.3zm175.8-32.8-20.9 2.7 2.3 20.9-15.1-14.7-15 14.8 2.1-21-20.9-2.4 17.7-11.5-11.1-17.9 20 6.7 7-19.8 7.2 19.8 19.9-6.9-11 18zm-82.1-83.5-20.7 2.3 1.9 20.8-14.7-14.8L376 140l2.4-20.7-20.7-2.8 17.7-11-10.7-17.9 19.7 6.9 7.3-19.5 6.8 19.7 19.8-6.5-11.1 17.6z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol></defs></svg>
+	<svg xmlns="http://www.w3.org/2000/svg" class="flag-sprite" aria-hidden="true" focusable="false"><defs><symbol id="fi-au" viewBox="0 0 512 512"><path fill="#00008B" d="M0 0h512v512H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="red" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="red" d="M0 104v48h256v-48zM104 0v256h48V0z"/><path fill="#fff" d="m202 402.8-45.8 5.4 4.6 45.9-32.8-32.4-33 32.2 4.9-45.9-45.8-5.8L93 377.4 69 338l43.6 15 15.8-43.4 15.5 43.5 43.7-14.7-24.3 39.2 38.8 25.1Zm222.7 8-20.5 2.6 2.2 20.5-14.8-14.4-14.7 14.5 2-20.5-20.5-2.4 17.3-11.2-10.9-17.5 19.6 6.5 6.9-19.5 7.1 19.4 19.5-6.7-10.7 17.6zM415 293.6l2.7-13-9.8-9 13.2-1.5 5.5-12.1 5.5 12.1 13.2 1.5-9.8 9 2.7 13-11.6-6.6zm-84.1-60-20.3 2.2 1.8 20.3-14.4-14.5-14.8 14.1 2.4-20.3-20.2-2.7 17.3-10.8-10.5-17.5 19.3 6.8 7.2-19.1 6.7 19.3 19.4-6.3-10.9 17.3zm175.8-32.8-20.9 2.7 2.3 20.9-15.1-14.7-15 14.8 2.1-21-20.9-2.4 17.7-11.5-11.1-17.9 20 6.7 7-19.8 7.2 19.8 19.9-6.9-11 18zm-82.1-83.5-20.7 2.3 1.9 20.8-14.7-14.8L376 140l2.4-20.7-20.7-2.8 17.7-11-10.7-17.9 19.7 6.9 7.3-19.5 6.8 19.7 19.8-6.5-11.1 17.6z"/></symbol><symbol id="fi-jp" viewBox="0 0 512 512"><defs><clipPath id="fi-jp-jp-a"><path fill-opacity=".7" d="M177.2 0h708.6v708.7H177.2z"/></clipPath></defs><g fill-rule="evenodd" stroke-width="1pt" clip-path="url(#fi-jp-jp-a)" transform="translate(-128)scale(.72249)"><path fill="#fff" d="M0 0h1063v708.7H0z"/><circle cx="523.1" cy="344.1" r="194.9" fill="#bc002d" transform="translate(-59.7 -34.5)scale(1.1302)"/></g></symbol><symbol id="fi-gb" viewBox="0 0 512 512"><path fill="#012169" d="M0 0h512v512H0z"/><path fill="#FFF" d="M512 0v64L322 256l190 187v69h-67L254 324 68 512H0v-68l186-187L0 74V0h62l192 188L440 0z"/><path fill="#C8102E" d="m184 324 11 34L42 512H0v-3zm124-12 54 8 150 147v45zM512 0 320 196l-4-44L466 0zM0 1l193 189-59-8L0 49z"/><path fill="#FFF" d="M176 0v512h160V0zM0 176v160h512V176z"/><path fill="#C8102E" d="M0 208v96h512v-96zM208 0v512h96V0z"/></symbol><symbol id="fi-us" viewBox="0 0 512 512"><path fill="#bd3d44" d="M0 0h512v512H0"/><path stroke="#fff" stroke-width="40" d="M0 58h512M0 137h512M0 216h512M0 295h512M0 374h512M0 453h512"/><path fill="#192f5d" d="M0 0h390v275H0z"/><marker id="fi-us-us-a" markerHeight="30" markerWidth="30"><path fill="#fff" d="m15 0 9.3 28.6L0 11h30L5.7 28.6"/></marker><path fill="none" marker-mid="url(#fi-us-us-a)" d="m0 0 18 11h65 65 65 65 66L51 39h65 65 65 65L18 66h65 65 65 65 66L51 94h65 65 65 65L18 121h65 65 65 65 66L51 149h65 65 65 65L18 177h65 65 65 65 66L51 205h65 65 65 65L18 232h65 65 65 65 66z"/></symbol><symbol id="fi-eu" viewBox="0 0 512 512"><defs><g id="fi-eu-eu-d"><g id="fi-eu-eu-b"><path id="fi-eu-eu-a" d="m0-1-.3 1 .5.1z"/><use href="#fi-eu-eu-a" transform="scale(-1 1)"/></g><g id="fi-eu-eu-c"><use href="#fi-eu-eu-b" transform="rotate(72)"/><use href="#fi-eu-eu-b" transform="rotate(144)"/></g><use href="#fi-eu-eu-c" transform="scale(-1 1)"/></g></defs><path fill="#039" d="M0 0h512v512H0z"/><g fill="#fc0" transform="translate(256 258.4)scale(25.28395)"><use href="#fi-eu-eu-d" width="100%" height="100%" y="-6"/><use href="#fi-eu-eu-d" width="100%" height="100%" y="6"/><g id="fi-eu-eu-e"><use href="#fi-eu-eu-d" width="100%" height="100%" x="-6"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(-144 -2.3 -2.1)"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(144 -2.1 -2.3)"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(72 -4.7 -2)"/><use href="#fi-eu-eu-d" width="100%" height="100%" transform="rotate(72 -5 .5)"/></g><use href="#fi-eu-eu-e" width="100%" height="100%" transform="scale(-1 1)"/></g></symbol><symbol id="fi-ca" viewBox="0 0 512 512"><path fill="#fff" d="M81.1 0h362.3v512H81.1z"/><path fill="#d52b1e" d="M-100 0H81.1v512H-100zm543.4 0h181.1v512H443.4zM135.3 247.4l-14 4.8 65.4 57.5c5 14.8-1.7 19.1-6 26.9l71-9-1.8 71.5 14.8-.5-3.3-70.9 71.2 8.4c-4.4-9.3-8.3-14.2-4.3-29l65.4-54.5-11.4-4.1c-9.4-7.3 4-34.8 6-52.2 0 0-38.1 13.1-40.6 6.2l-9.9-18.5-34.6 38c-3.8 1-5.4-.6-6.3-3.8l16-79.7-25.4 14.3c-2.1.9-4.2 0-5.6-2.4l-24.5-49-25.2 50.9c-1.9 1.8-3.8 2-5.4.8l-24.2-13.6 14.5 79.2c-1.1 3-3.9 4-7.1 2.3l-33.3-37.8c-4.3 7-7.3 18.4-13 21-5.7 2.3-25-4.9-37.9-7.7 4.4 15.9 18.2 42.3 9.5 51z"/></symbol><symbol id="fi-nz" viewBox="0 0 512 512"><defs><g id="fi-nz-nz-b"><g id="fi-nz-nz-a"><path d="M0-.3v.5l1-.5z"/><path d="M.2.3 0-.1l1-.2z"/></g><use href="#fi-nz-nz-a" transform="scale(-1 1)"/><use href="#fi-nz-nz-a" transform="rotate(72 0 0)"/><use href="#fi-nz-nz-a" transform="rotate(-72 0 0)"/><use href="#fi-nz-nz-a" transform="scale(-1 1)rotate(72)"/></g></defs><path fill="#00247d" fill-rule="evenodd" d="M0 0h512v512H0z"/><g transform="translate(-148.7 90.5)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="translate(900 120)scale(45.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="matrix(30 0 0 30 900 120)"/></g><g transform="rotate(82 418.7 105.1)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="rotate(-82 519 -457.7)scale(40.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="rotate(-82 519 -457.7)scale(25)"/></g><g transform="rotate(82 418.7 105.1)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="rotate(-82 668.6 -327.7)scale(45.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="rotate(-82 668.6 -327.7)scale(30)"/></g><g transform="translate(-148.7 90.5)scale(.60566)"><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#fff" transform="translate(900 480)scale(50.4)"/><use href="#fi-nz-nz-b" width="100%" height="100%" fill="#cc142b" transform="matrix(35 0 0 35 900 480)"/></g><path fill="#012169" d="M0 0h256v256H0z"/><path fill="#fff" d="M256 0v32l-95 96 95 93.5V256h-33.5L127 162l-93 94H0v-34l93-93.5L0 37V0h31l96 94 93-94z"/><path fill="#c8102e" d="m92 162 5.5 17L21 256H0v-1.5zm62-6 27 4 75 73.5V256zM256 0l-96 98-2-22 75-76zM0 .5 96.5 95 67 91 0 24.5z"/><path fill="#fff" d="M88 0v256h80V0zM0 88v80h256V88z"/><path fill="#c8102e" d="M0 104v48h256v-48zM104 0v256h48V0z"/></symbol><symbol id="fi-ch" viewBox="0 0 512 512"><g fill-rule="evenodd" stroke-width="1pt"><path fill="red" d="M0 0h512v512H0z"/><g fill="#fff"><path d="M96 208h320v96H96z"/><path d="M208 96h96v320h-96z"/></g></g></symbol></defs></svg>
 	<!-- نقشه‌ی جهان و نشانِ آکادمی، پشتِ همه‌چیز.
 	     خشکی‌ها از داده‌ی Natural Earth‌اند، ساده‌شده و بدونِ قطب‌ها. معنا
 	     دارد نه تزئین: این اپ ساعتِ بازارهای جهان را می‌گوید و نقشه همان
@@ -2402,14 +2488,6 @@
 			<button type="button" data-range="week" aria-pressed="false">این هفته</button>
 		</div>
 
-		<!-- انتخابِ ارز، در همان صفحه‌ای که نتیجه‌اش دیده می‌شود.
-		     پیش از این فقط در تبِ تنظیمات بود، پس وقتی فهرست به‌خاطرِ
-		     همین فیلتر خالی می‌شد، راهِ برگشت در صفحه‌ی دیگری بود و صفحه
-		     هیچ اشاره‌ای به آن نمی‌کرد. -->
-		<div class="news-cur" id="newsCur" hidden>
-			<div class="news-cur-k">ارزهای نمایش‌داده‌شده</div>
-			<div class="news-cur-row" id="newsCurRow"></div>
-		</div>
 		<div class="search-row">
 			<input type="search" id="searchInput" class="search-input" autocomplete="off"
 				placeholder="جستجوی شاخص… مثلاً CPI یا تورم">
@@ -2483,7 +2561,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 7176a058fd</span>
+			<span class="build">نسخه 992f0b91c5</span>
 		</p>
 	</div>
 
@@ -2711,6 +2789,9 @@ function hhmmInZone(instant, timeZone) {
 				// message and its retry button back instead of a blank list.
 				failure: null,
 				open: {},
+				// پاسخِ «توضیح این خبر» به‌ازای هر رویداد، فقط برای همین
+				// نشست. باز و بسته کردنِ ردیف نباید تماسِ تازه بسازد.
+				explain: {},
 				saving: false,
 				refreshing: false,
 				selectedDay: null,
@@ -3147,7 +3228,24 @@ function hhmmInZone(instant, timeZone) {
 			// ارزِ خالی یعنی ردیفی که پیش از افزوده شدن ستونِ ارز ذخیره
 			// شده. دلاری فرض می‌شود، که برای عملاً همه‌شان درست است و با
 			// اولین همگام‌سازیِ ساعتی خودش اصلاح می‌شود.
-			var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
+			var FLAG_BY_CCY = {
+				USD: "us", GBP: "gb", JPY: "jp", AUD: "au",
+				// چهار پرچمی که تا امروز جا مانده بودند و ردیفشان کره‌ی
+				// خاکستریِ «رویداد جهانی» می‌گرفت - که برای یورو و کانادا
+				// و نیوزیلند و سوئیس غلط بود، نه فقط بی‌جزئیات.
+				EUR: "eu", CAD: "ca", NZD: "nz", CHF: "ch"
+			};
+
+			// رنگِ شاخصِ هر پرچم. از خودِ پرچم برداشته شده - قرمزِ پرچم
+			// ژاپن، آبیِ پرچم اتحادیه، و همین‌طور بقیه - تا کارت واقعاً
+			// «هم‌رنگِ پرچمش» باشد و نه یک رنگِ دلخواه.
+			//
+			// فقط برای لبه و ته‌رنگ به کار می‌رود، نه برای متن: چند تایشان
+			// روی زمینه‌ی روشن کنتراستِ کافی ندارند.
+			var FLAG_TINT = {
+				USD: "#3c3b6e", EUR: "#003399", GBP: "#c8102e", JPY: "#bc002d",
+				AUD: "#00008b", CAD: "#d52b1e", NZD: "#00247d", CHF: "#d52b1e"
+			};
 
 			function svgNode(viewBox) {
 				var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -3287,6 +3385,79 @@ function hhmmInZone(instant, timeZone) {
 				detail.appendChild(el("div", null, "اهمیت: " +
 					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
 				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
+
+				// ── توضیحِ همین خبر ───────────────────────────────────
+				//
+				// تا امروز فقط یک تحلیلِ کلی برای کلِ روز بود، ته تبِ
+				// اخبار - متنی که همه‌ی خبرها را با هم توضیح می‌داد، از
+				// جمله آن‌هایی که کاربر اصلاً بازشان نکرده بود.
+				//
+				// سرور از قبل شاخه‌ی تک‌خبری را دارد و دو مهار روی آن
+				// گذاشته: کشِ پاسخ به شناسه‌ی رویداد و منتشرشدنِ عددش بسته
+				// است، پس هر خبر حداکثر دو بار از مدل پرسیده می‌شود نه
+				// به‌ازای هر کاربر؛ و شناسه باید در فهرستِ همان کاربر باشد.
+				var exWrap = el("div", "ex");
+				var exBtn = el("button", "ex-btn");
+				exBtn.type = "button";
+				exBtn.appendChild(el("span", "ex-i", "🤖"));
+				exBtn.appendChild(el("span", null, "توضیح این خبر"));
+				var exBody = el("div", "ex-body");
+				exBody.hidden = true;
+
+				exBtn.addEventListener("click", function (ev) {
+					// بدونِ این، خودِ ردیف - که یک <button> است - بسته
+					// می‌شود و پاسخ همان لحظه از چشم پنهان می‌ماند.
+					ev.stopPropagation();
+
+					// یک بار پرسیده، همیشه نشان داده: باز و بسته کردنِ
+					// ردیف نباید تماسِ تازه بسازد.
+					if (state.explain[e.event_id]) {
+						exBody.hidden = !exBody.hidden;
+						return;
+					}
+					if (exBtn.disabled) return;
+					exBtn.disabled = true;
+					exBtn.classList.add("is-busy");
+					var label = exBtn.lastChild;
+					label.textContent = "در حال نوشتن…";
+
+					call({ action: "explain", event_id: e.event_id })
+						.then(function (body) {
+							exBody.hidden = false;
+							if (body && body.available && body.answer) {
+								state.explain[e.event_id] = body.answer;
+								exBody.className = "ex-body";
+								exBody.textContent = body.answer;
+								label.textContent = "پنهان کردن توضیح";
+							} else {
+								exBody.className = "ex-body is-empty";
+								exBody.textContent = "توضیح این خبر فعلاً در دسترس نیست.";
+								label.textContent = "تلاش دوباره";
+							}
+						})
+						.catch(function () {
+							exBody.hidden = false;
+							exBody.className = "ex-body is-empty";
+							exBody.textContent = "دریافت توضیح ناموفق بود.";
+							label.textContent = "تلاش دوباره";
+						})
+						.finally(function () {
+							exBtn.disabled = false;
+							exBtn.classList.remove("is-busy");
+						});
+				});
+
+				// پاسخی که در همین نشست گرفته شده، با باز شدنِ دوباره‌ی
+				// ردیف سرِ جایش است.
+				if (state.explain[e.event_id]) {
+					exBody.hidden = false;
+					exBody.textContent = state.explain[e.event_id];
+					exBtn.lastChild.textContent = "پنهان کردن توضیح";
+				}
+
+				exWrap.appendChild(exBtn);
+				exWrap.appendChild(exBody);
+				detail.appendChild(exWrap);
 				node.appendChild(detail);
 
 				node.addEventListener("click", function () {
@@ -3710,7 +3881,25 @@ function hhmmInZone(instant, timeZone) {
 				return badge;
 			}
 
-			var selectedSession = "london";
+			// null یعنی «هنوز چیزی انتخاب نشده» و فرق دارد با یک نامِ
+			// ثابت: تا وقتی کاربر خودش ردیفی را نزده، کارتِ جزئیات باید
+			// سشنی را نشان بدهد که همین حالا باز است.
+			//
+			// پیش از این روی «لندن» ثابت بود، حتی وقتی لندن بسته و توکیو
+			// باز بود - یعنی کارتِ جزئیات در نیمی از شبانه‌روز درباره‌ی
+			// بازاری حرف می‌زد که خبری در آن نبود.
+			var selectedSession = null;
+
+			function defaultSession(refs, market) {
+				var open = null, soonest = null;
+				SESSIONS.forEach(function (sx) {
+					var it = refs[sx.key];
+					if (!it || it.holiday) return;
+					if (it.st.open && market.open && !open) open = sx.key;
+					if (it.ref.open && (!soonest || it.ref.open < refs[soonest].ref.open)) soonest = sx.key;
+				});
+				return open || soonest || SESSIONS[0].key;
+			}
 
 			// ═══════════════════════════════════════════════════════════
 			// اخبار امروز، بالای صفحه‌ی سشن‌ها
@@ -3755,8 +3944,51 @@ function hhmmInZone(instant, timeZone) {
 				var highs = todays.filter(function (e) { return e.importance === "high"; }).length;
 
 				if (todays.length === 0) {
-					wrap.appendChild(el("div", "td-empty",
-						"امروز خبری برای ارزهای شما ثبت نشده — روز آرامی است."));
+					// روزِ خالی بیشترین جایی است که این کارت می‌تواند مفید
+					// باشد، نه کمترین: آخرِ هفته و تعطیلیِ بانکی، همان
+					// روزهایی‌اند که کاربر می‌خواهد بداند کِی دوباره خبری
+					// هست. پیش از این فقط می‌نوشت «روز آرامی است» و تمام.
+					var quiet = el("div", "td-quiet");
+					quiet.appendChild(el("div", "td-quiet-h",
+						"امروز خبری برای ارزهای شما نیست"));
+
+					// نزدیک‌ترین خبرِ پیشِ رو، از همان داده‌ای که در حافظه
+					// است - بدونِ هیچ تماسِ تازه.
+					var ahead = (state.data.events || []).filter(function (x) {
+						return x.date > state.data.today;
+					});
+					if (ahead.length) {
+						var nx = ahead[0];
+						var line = el("div", "td-quiet-r");
+						line.appendChild(el("span", "td-quiet-k", "خبر بعدی"));
+						var v = el("span", "td-quiet-v");
+						v.appendChild(el("b", null, relDay(nx.date)));
+						if (nx.time_tehran) {
+							v.appendChild(document.createTextNode(
+								" ساعت " + fa(nx.time_tehran.replace("+1", ""))));
+						}
+						v.appendChild(document.createTextNode(" — " + (nx.short || nx.title || "")));
+						line.appendChild(v);
+						quiet.appendChild(line);
+					}
+
+					// و اگر بازار هم بسته است، تا باز شدنش.
+					var mk = marketState(new Date(nowT));
+					if (!mk.open && mk.nextOpen) {
+						var l2 = el("div", "td-quiet-r");
+						l2.appendChild(el("span", "td-quiet-k", "بازار باز می‌شود"));
+						var v2 = el("span", "td-quiet-v");
+						var cd2 = el("b", null, countdownText(mk.nextOpen, nowT));
+						v2.appendChild(cd2);
+						v2.appendChild(document.createTextNode(
+							" دیگر — " + dayInZone(mk.nextOpen, VIEW()) +
+							" ساعت " + fa(hhmmInZone(mk.nextOpen, VIEW()))));
+						l2.appendChild(v2);
+						quiet.appendChild(l2);
+						tickers.push(function (t) { cd2.textContent = countdownText(mk.nextOpen, t); });
+					}
+
+					wrap.appendChild(quiet);
 					return wrap;
 				}
 
@@ -3973,6 +4205,21 @@ function hhmmInZone(instant, timeZone) {
 				var brkStart = (BREAK_START_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
 				var brkEnd = (BREAK_END_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
 
+				// ---- هم‌پوشانیِ لندن و نیویورک، یک بار
+				//
+				// پیش از این فقط برای جمله‌ی زیر نمودار حساب می‌شد. حالا
+				// نوارها هم از همین می‌خوانند، پس نوارِ کشیده‌شده و جمله
+				// هرگز نمی‌توانند دو بازه‌ی متفاوت بگویند.
+				var lo0 = refs.london.ref, ny0 = refs.newyork.ref;
+				var ovStart = null, ovEnd = null;
+				if (lo0.open && ny0.open && !refs.newyork.holiday && !refs.london.holiday) {
+					var a0 = Math.max(lo0.open, ny0.open), z0 = Math.min(lo0.close, ny0.close);
+					if (z0 > a0) { ovStart = a0; ovEnd = z0; }
+				}
+				var ovSpans = ovStart
+					? spansOf(viewMinutesOf(ovStart), viewMinutesOf(ovEnd))
+					: [];
+
 				// ---- rows
 				var rows = el("div", "sb-rows");
 				SESSIONS.forEach(function (s) {
@@ -3986,7 +4233,8 @@ function hhmmInZone(instant, timeZone) {
 					// The hue lives on the row, so the flag ring, the bar and the
 					// drawer's edge all read it from one place.
 					row.style.setProperty("--seg", "var(--sb-" + s.key + ")");
-					row.setAttribute("aria-pressed", s.key === selectedSession ? "true" : "false");
+					row.setAttribute("aria-pressed",
+						s.key === (selectedSession || defaultSession(refs, market)) ? "true" : "false");
 					row.addEventListener("click", function () { selectedSession = s.key; renderList(); });
 
 					var who = el("div", "sb-who");
@@ -4027,6 +4275,18 @@ function hhmmInZone(instant, timeZone) {
 							track.appendChild(seg);
 						});
 					}
+					// نوارِ هم‌پوشانی، فقط روی همان دو ردیفی که می‌سازندش.
+					// روی هر پنج ردیف کشیدنش یعنی ادعای چیزی که سیدنی و
+					// توکیو در آن نقشی ندارند.
+					if (!hol && ovSpans.length && (s.key === "london" || s.key === "newyork")) {
+						ovSpans.forEach(function (sp) {
+							var ov = el("div", "sb-ov-band");
+							ov.style.right = (sp[0] / 1440 * 100) + "%";
+							ov.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
+							track.appendChild(ov);
+						});
+					}
+
 					if (!hol && brkEnd > brkStart) {
 						var brk = el("div", "sb-break");
 						brk.style.right = (brkStart / 1440 * 100) + "%";
@@ -4055,15 +4315,9 @@ function hhmmInZone(instant, timeZone) {
 				// it can never claim an hour the chart above does not show, and it
 				// follows the DST gap in March and October on its own.
 				var ovNote = el("div", "sb-ov");
-				var lo = refs.london.ref, ny = refs.newyork.ref;
-				var ovStart = null, ovEnd = null;
-				if (lo.open && ny.open && !refs.newyork.holiday) {
-					var a = Math.max(lo.open, ny.open), z = Math.min(lo.close, ny.close);
-					if (z > a) { ovStart = a; ovEnd = z; }
-				}
 				if (ovStart) {
 					var inNow = false;
-					spansOf(viewMinutesOf(ovStart), viewMinutesOf(ovEnd)).forEach(function (sp) {
+					ovSpans.forEach(function (sp) {
 						if (nowM >= sp[0] && nowM < sp[1]) inNow = true;
 					});
 					ovNote.appendChild(document.createTextNode("هم‌پوشانی لندن و نیویورک، "));
@@ -4083,7 +4337,7 @@ function hhmmInZone(instant, timeZone) {
 				// ---- detail drawer for the selected row
 				// Only the row you tapped: five rows each carrying three numbers
 				// is a wall, and four of them are numbers you did not ask for.
-				var sel = sessionByKey(selectedSession) || SESSIONS[0];
+				var sel = sessionByKey(selectedSession || defaultSession(refs, market)) || SESSIONS[0];
 				var selRef = refs[sel.key];
 				var live2 = selRef.st.open && market.open, paused2 = selRef.st.open && !market.open;
 				var d = el("div", "sb-detail");
@@ -4134,6 +4388,19 @@ function hhmmInZone(instant, timeZone) {
 					var ss = refs[s.key].st;
 					var c = el("div", "sb-ck" + (ss.open && market.open && !refs[s.key].holiday ? " is-live" : ""));
 					c.style.setProperty("--ck", "var(--sb-" + s.key + ")");
+
+					// روز یا شب، از ساعتِ محلیِ همان شهر.
+					//
+					// چهار عدد کنار هم بودند و هیچ‌کدام نمی‌گفت آنجا شب
+					// است یا روز؛ خواندنش یعنی حساب کردنِ اختلافِ ساعت در
+					// ذهن. مرز ۶ تا ۱۸ است - ساده و به‌اندازه‌ی کافی درست
+					// برای چیزی که فقط یک نشانه است، نه یک ادعای نجومی.
+					var lh = Number(hhmmInZone(nowT, s.zone).slice(0, 2));
+					var day = lh >= 6 && lh < 18;
+					var mark = el("div", "sb-ck-dn", day ? "☀" : "☾");
+					mark.title = day ? "روز است" : "شب است";
+					c.appendChild(mark);
+
 					c.appendChild(el("div", "sb-ck-city", s.name));
 					var ct = el("div", "sb-ck-time", fa(hhmmInZone(nowT, s.zone)));
 					c.appendChild(ct);
@@ -4150,10 +4417,6 @@ function hhmmInZone(instant, timeZone) {
 			function renderList() {
 				var list = document.getElementById("list");
 				list.textContent = "";
-
-				// ردیفِ ارز با هر رندر هم‌راستا می‌شود، چون هم تب عوض
-				// می‌شود و هم جستجو پنهانش می‌کند.
-				renderNewsCurrencies();
 
 				// منطقه‌ی زمانی از همین‌جا عوض می‌شود، و ساعتِ بنر همان
 				// منطقه را نشان می‌دهد. بدونِ این، تا تیکِ بعدی - یک ثانیه
@@ -4490,45 +4753,14 @@ function hhmmInZone(instant, timeZone) {
 					var b = el("button", "cur" + (on ? " on" : ""));
 					b.type = "button";
 					b.setAttribute("aria-pressed", on ? "true" : "false");
+					if (FLAG_TINT[c.code]) b.style.setProperty("--tint", FLAG_TINT[c.code]);
+					b.appendChild(flagChip({ currency: c.code }));
 					b.appendChild(el("span", "cur-code", c.code));
 					b.appendChild(el("span", "cur-fa", c.fa));
 					b.addEventListener("click", function () { toggleCurrency(c.code); });
 					grid.appendChild(b);
 				});
 				renderAlertScope();
-			}
-
-			// همان انتخابِ ارز، این‌بار در تبِ اخبار.
-			//
-			// روی همان state.data.subscription می‌نویسد که کارتِ تنظیمات -
-			// پس دو کنترل نیستند، یک کنترل با دو جا. هر کدام که عوض شود،
-			// آن یکی هم با رندرِ بعدی هم‌راستا می‌شود.
-			function renderNewsCurrencies() {
-				var box = document.getElementById("newsCur");
-				var row = document.getElementById("newsCurRow");
-				if (!box || !row) return;
-
-				var sub = state.data && state.data.subscription;
-				// فقط در تبِ اخبار، و نه وقتی کاربر در حالِ جستجوست:
-				// جستجو عمداً از فیلترِ ارز رد می‌شود.
-				if (!sub || !isNewsScope(state.scope) || state.query) {
-					box.hidden = true;
-					return;
-				}
-				box.hidden = false;
-
-				var chosen = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
-				row.textContent = "";
-				CURRENCIES.forEach(function (c) {
-					var on = chosen.indexOf(c.code) >= 0;
-					var b = el("button", "news-cur-chip" + (on ? " on" : ""));
-					b.type = "button";
-					b.setAttribute("aria-pressed", on ? "true" : "false");
-					b.textContent = c.code;
-					b.title = c.fa;
-					b.addEventListener("click", function () { toggleCurrency(c.code); });
-					row.appendChild(b);
-				});
 			}
 
 			// چند ارز را با یک ذخیره روشن می‌کند.
@@ -4550,7 +4782,6 @@ function hhmmInZone(instant, timeZone) {
 					.filter(function (x) { return list.indexOf(x) >= 0; });
 				haptic("select");
 				renderCurrencies();
-				renderNewsCurrencies();
 				saveSubscription({ undo: before });
 			}
 
@@ -4576,7 +4807,6 @@ function hhmmInZone(instant, timeZone) {
 					.filter(function (x) { return list.indexOf(x) >= 0; });
 				haptic("select");
 				renderCurrencies();
-				renderNewsCurrencies();
 				saveSubscription({ undo: before });
 			}
 
@@ -4624,7 +4854,6 @@ function hhmmInZone(instant, timeZone) {
 							// انتخابی را نشان بدهد که سرور هرگز ذخیره‌اش نکرد.
 							s.currencies = undo;
 							renderCurrencies();
-							renderNewsCurrencies();
 							if (tg && tg.showAlert) tg.showAlert("ذخیره‌ی ارزها ناموفق بود.");
 						} else {
 							s.subscribed = !s.subscribed;

@@ -46,6 +46,9 @@
 				// message and its retry button back instead of a blank list.
 				failure: null,
 				open: {},
+				// پاسخِ «توضیح این خبر» به‌ازای هر رویداد، فقط برای همین
+				// نشست. باز و بسته کردنِ ردیف نباید تماسِ تازه بسازد.
+				explain: {},
 				saving: false,
 				refreshing: false,
 				selectedDay: null,
@@ -482,7 +485,24 @@
 			// ارزِ خالی یعنی ردیفی که پیش از افزوده شدن ستونِ ارز ذخیره
 			// شده. دلاری فرض می‌شود، که برای عملاً همه‌شان درست است و با
 			// اولین همگام‌سازیِ ساعتی خودش اصلاح می‌شود.
-			var FLAG_BY_CCY = { USD: "us", GBP: "gb", JPY: "jp", AUD: "au" };
+			var FLAG_BY_CCY = {
+				USD: "us", GBP: "gb", JPY: "jp", AUD: "au",
+				// چهار پرچمی که تا امروز جا مانده بودند و ردیفشان کره‌ی
+				// خاکستریِ «رویداد جهانی» می‌گرفت - که برای یورو و کانادا
+				// و نیوزیلند و سوئیس غلط بود، نه فقط بی‌جزئیات.
+				EUR: "eu", CAD: "ca", NZD: "nz", CHF: "ch"
+			};
+
+			// رنگِ شاخصِ هر پرچم. از خودِ پرچم برداشته شده - قرمزِ پرچم
+			// ژاپن، آبیِ پرچم اتحادیه، و همین‌طور بقیه - تا کارت واقعاً
+			// «هم‌رنگِ پرچمش» باشد و نه یک رنگِ دلخواه.
+			//
+			// فقط برای لبه و ته‌رنگ به کار می‌رود، نه برای متن: چند تایشان
+			// روی زمینه‌ی روشن کنتراستِ کافی ندارند.
+			var FLAG_TINT = {
+				USD: "#3c3b6e", EUR: "#003399", GBP: "#c8102e", JPY: "#bc002d",
+				AUD: "#00008b", CAD: "#d52b1e", NZD: "#00247d", CHF: "#d52b1e"
+			};
 
 			function svgNode(viewBox) {
 				var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -622,6 +642,79 @@
 				detail.appendChild(el("div", null, "اهمیت: " +
 					(e.importance === "high" ? "خیلی مهم" : e.importance === "medium" ? "مهم" : "کم‌اهمیت")));
 				if (e.source) detail.appendChild(el("div", null, "منبع: " + e.source));
+
+				// ── توضیحِ همین خبر ───────────────────────────────────
+				//
+				// تا امروز فقط یک تحلیلِ کلی برای کلِ روز بود، ته تبِ
+				// اخبار - متنی که همه‌ی خبرها را با هم توضیح می‌داد، از
+				// جمله آن‌هایی که کاربر اصلاً بازشان نکرده بود.
+				//
+				// سرور از قبل شاخه‌ی تک‌خبری را دارد و دو مهار روی آن
+				// گذاشته: کشِ پاسخ به شناسه‌ی رویداد و منتشرشدنِ عددش بسته
+				// است، پس هر خبر حداکثر دو بار از مدل پرسیده می‌شود نه
+				// به‌ازای هر کاربر؛ و شناسه باید در فهرستِ همان کاربر باشد.
+				var exWrap = el("div", "ex");
+				var exBtn = el("button", "ex-btn");
+				exBtn.type = "button";
+				exBtn.appendChild(el("span", "ex-i", "🤖"));
+				exBtn.appendChild(el("span", null, "توضیح این خبر"));
+				var exBody = el("div", "ex-body");
+				exBody.hidden = true;
+
+				exBtn.addEventListener("click", function (ev) {
+					// بدونِ این، خودِ ردیف - که یک <button> است - بسته
+					// می‌شود و پاسخ همان لحظه از چشم پنهان می‌ماند.
+					ev.stopPropagation();
+
+					// یک بار پرسیده، همیشه نشان داده: باز و بسته کردنِ
+					// ردیف نباید تماسِ تازه بسازد.
+					if (state.explain[e.event_id]) {
+						exBody.hidden = !exBody.hidden;
+						return;
+					}
+					if (exBtn.disabled) return;
+					exBtn.disabled = true;
+					exBtn.classList.add("is-busy");
+					var label = exBtn.lastChild;
+					label.textContent = "در حال نوشتن…";
+
+					call({ action: "explain", event_id: e.event_id })
+						.then(function (body) {
+							exBody.hidden = false;
+							if (body && body.available && body.answer) {
+								state.explain[e.event_id] = body.answer;
+								exBody.className = "ex-body";
+								exBody.textContent = body.answer;
+								label.textContent = "پنهان کردن توضیح";
+							} else {
+								exBody.className = "ex-body is-empty";
+								exBody.textContent = "توضیح این خبر فعلاً در دسترس نیست.";
+								label.textContent = "تلاش دوباره";
+							}
+						})
+						.catch(function () {
+							exBody.hidden = false;
+							exBody.className = "ex-body is-empty";
+							exBody.textContent = "دریافت توضیح ناموفق بود.";
+							label.textContent = "تلاش دوباره";
+						})
+						.finally(function () {
+							exBtn.disabled = false;
+							exBtn.classList.remove("is-busy");
+						});
+				});
+
+				// پاسخی که در همین نشست گرفته شده، با باز شدنِ دوباره‌ی
+				// ردیف سرِ جایش است.
+				if (state.explain[e.event_id]) {
+					exBody.hidden = false;
+					exBody.textContent = state.explain[e.event_id];
+					exBtn.lastChild.textContent = "پنهان کردن توضیح";
+				}
+
+				exWrap.appendChild(exBtn);
+				exWrap.appendChild(exBody);
+				detail.appendChild(exWrap);
 				node.appendChild(detail);
 
 				node.addEventListener("click", function () {
@@ -1045,7 +1138,25 @@
 				return badge;
 			}
 
-			var selectedSession = "london";
+			// null یعنی «هنوز چیزی انتخاب نشده» و فرق دارد با یک نامِ
+			// ثابت: تا وقتی کاربر خودش ردیفی را نزده، کارتِ جزئیات باید
+			// سشنی را نشان بدهد که همین حالا باز است.
+			//
+			// پیش از این روی «لندن» ثابت بود، حتی وقتی لندن بسته و توکیو
+			// باز بود - یعنی کارتِ جزئیات در نیمی از شبانه‌روز درباره‌ی
+			// بازاری حرف می‌زد که خبری در آن نبود.
+			var selectedSession = null;
+
+			function defaultSession(refs, market) {
+				var open = null, soonest = null;
+				SESSIONS.forEach(function (sx) {
+					var it = refs[sx.key];
+					if (!it || it.holiday) return;
+					if (it.st.open && market.open && !open) open = sx.key;
+					if (it.ref.open && (!soonest || it.ref.open < refs[soonest].ref.open)) soonest = sx.key;
+				});
+				return open || soonest || SESSIONS[0].key;
+			}
 
 			// ═══════════════════════════════════════════════════════════
 			// اخبار امروز، بالای صفحه‌ی سشن‌ها
@@ -1090,8 +1201,51 @@
 				var highs = todays.filter(function (e) { return e.importance === "high"; }).length;
 
 				if (todays.length === 0) {
-					wrap.appendChild(el("div", "td-empty",
-						"امروز خبری برای ارزهای شما ثبت نشده — روز آرامی است."));
+					// روزِ خالی بیشترین جایی است که این کارت می‌تواند مفید
+					// باشد، نه کمترین: آخرِ هفته و تعطیلیِ بانکی، همان
+					// روزهایی‌اند که کاربر می‌خواهد بداند کِی دوباره خبری
+					// هست. پیش از این فقط می‌نوشت «روز آرامی است» و تمام.
+					var quiet = el("div", "td-quiet");
+					quiet.appendChild(el("div", "td-quiet-h",
+						"امروز خبری برای ارزهای شما نیست"));
+
+					// نزدیک‌ترین خبرِ پیشِ رو، از همان داده‌ای که در حافظه
+					// است - بدونِ هیچ تماسِ تازه.
+					var ahead = (state.data.events || []).filter(function (x) {
+						return x.date > state.data.today;
+					});
+					if (ahead.length) {
+						var nx = ahead[0];
+						var line = el("div", "td-quiet-r");
+						line.appendChild(el("span", "td-quiet-k", "خبر بعدی"));
+						var v = el("span", "td-quiet-v");
+						v.appendChild(el("b", null, relDay(nx.date)));
+						if (nx.time_tehran) {
+							v.appendChild(document.createTextNode(
+								" ساعت " + fa(nx.time_tehran.replace("+1", ""))));
+						}
+						v.appendChild(document.createTextNode(" — " + (nx.short || nx.title || "")));
+						line.appendChild(v);
+						quiet.appendChild(line);
+					}
+
+					// و اگر بازار هم بسته است، تا باز شدنش.
+					var mk = marketState(new Date(nowT));
+					if (!mk.open && mk.nextOpen) {
+						var l2 = el("div", "td-quiet-r");
+						l2.appendChild(el("span", "td-quiet-k", "بازار باز می‌شود"));
+						var v2 = el("span", "td-quiet-v");
+						var cd2 = el("b", null, countdownText(mk.nextOpen, nowT));
+						v2.appendChild(cd2);
+						v2.appendChild(document.createTextNode(
+							" دیگر — " + dayInZone(mk.nextOpen, VIEW()) +
+							" ساعت " + fa(hhmmInZone(mk.nextOpen, VIEW()))));
+						l2.appendChild(v2);
+						quiet.appendChild(l2);
+						tickers.push(function (t) { cd2.textContent = countdownText(mk.nextOpen, t); });
+					}
+
+					wrap.appendChild(quiet);
 					return wrap;
 				}
 
@@ -1308,6 +1462,21 @@
 				var brkStart = (BREAK_START_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
 				var brkEnd = (BREAK_END_UTC + tzOffsetMinutes(now, VIEW()) + 1440) % 1440;
 
+				// ---- هم‌پوشانیِ لندن و نیویورک، یک بار
+				//
+				// پیش از این فقط برای جمله‌ی زیر نمودار حساب می‌شد. حالا
+				// نوارها هم از همین می‌خوانند، پس نوارِ کشیده‌شده و جمله
+				// هرگز نمی‌توانند دو بازه‌ی متفاوت بگویند.
+				var lo0 = refs.london.ref, ny0 = refs.newyork.ref;
+				var ovStart = null, ovEnd = null;
+				if (lo0.open && ny0.open && !refs.newyork.holiday && !refs.london.holiday) {
+					var a0 = Math.max(lo0.open, ny0.open), z0 = Math.min(lo0.close, ny0.close);
+					if (z0 > a0) { ovStart = a0; ovEnd = z0; }
+				}
+				var ovSpans = ovStart
+					? spansOf(viewMinutesOf(ovStart), viewMinutesOf(ovEnd))
+					: [];
+
 				// ---- rows
 				var rows = el("div", "sb-rows");
 				SESSIONS.forEach(function (s) {
@@ -1321,7 +1490,8 @@
 					// The hue lives on the row, so the flag ring, the bar and the
 					// drawer's edge all read it from one place.
 					row.style.setProperty("--seg", "var(--sb-" + s.key + ")");
-					row.setAttribute("aria-pressed", s.key === selectedSession ? "true" : "false");
+					row.setAttribute("aria-pressed",
+						s.key === (selectedSession || defaultSession(refs, market)) ? "true" : "false");
 					row.addEventListener("click", function () { selectedSession = s.key; renderList(); });
 
 					var who = el("div", "sb-who");
@@ -1362,6 +1532,18 @@
 							track.appendChild(seg);
 						});
 					}
+					// نوارِ هم‌پوشانی، فقط روی همان دو ردیفی که می‌سازندش.
+					// روی هر پنج ردیف کشیدنش یعنی ادعای چیزی که سیدنی و
+					// توکیو در آن نقشی ندارند.
+					if (!hol && ovSpans.length && (s.key === "london" || s.key === "newyork")) {
+						ovSpans.forEach(function (sp) {
+							var ov = el("div", "sb-ov-band");
+							ov.style.right = (sp[0] / 1440 * 100) + "%";
+							ov.style.width = Math.max(1, (sp[1] - sp[0]) / 1440 * 100) + "%";
+							track.appendChild(ov);
+						});
+					}
+
 					if (!hol && brkEnd > brkStart) {
 						var brk = el("div", "sb-break");
 						brk.style.right = (brkStart / 1440 * 100) + "%";
@@ -1390,15 +1572,9 @@
 				// it can never claim an hour the chart above does not show, and it
 				// follows the DST gap in March and October on its own.
 				var ovNote = el("div", "sb-ov");
-				var lo = refs.london.ref, ny = refs.newyork.ref;
-				var ovStart = null, ovEnd = null;
-				if (lo.open && ny.open && !refs.newyork.holiday) {
-					var a = Math.max(lo.open, ny.open), z = Math.min(lo.close, ny.close);
-					if (z > a) { ovStart = a; ovEnd = z; }
-				}
 				if (ovStart) {
 					var inNow = false;
-					spansOf(viewMinutesOf(ovStart), viewMinutesOf(ovEnd)).forEach(function (sp) {
+					ovSpans.forEach(function (sp) {
 						if (nowM >= sp[0] && nowM < sp[1]) inNow = true;
 					});
 					ovNote.appendChild(document.createTextNode("هم‌پوشانی لندن و نیویورک، "));
@@ -1418,7 +1594,7 @@
 				// ---- detail drawer for the selected row
 				// Only the row you tapped: five rows each carrying three numbers
 				// is a wall, and four of them are numbers you did not ask for.
-				var sel = sessionByKey(selectedSession) || SESSIONS[0];
+				var sel = sessionByKey(selectedSession || defaultSession(refs, market)) || SESSIONS[0];
 				var selRef = refs[sel.key];
 				var live2 = selRef.st.open && market.open, paused2 = selRef.st.open && !market.open;
 				var d = el("div", "sb-detail");
@@ -1469,6 +1645,19 @@
 					var ss = refs[s.key].st;
 					var c = el("div", "sb-ck" + (ss.open && market.open && !refs[s.key].holiday ? " is-live" : ""));
 					c.style.setProperty("--ck", "var(--sb-" + s.key + ")");
+
+					// روز یا شب، از ساعتِ محلیِ همان شهر.
+					//
+					// چهار عدد کنار هم بودند و هیچ‌کدام نمی‌گفت آنجا شب
+					// است یا روز؛ خواندنش یعنی حساب کردنِ اختلافِ ساعت در
+					// ذهن. مرز ۶ تا ۱۸ است - ساده و به‌اندازه‌ی کافی درست
+					// برای چیزی که فقط یک نشانه است، نه یک ادعای نجومی.
+					var lh = Number(hhmmInZone(nowT, s.zone).slice(0, 2));
+					var day = lh >= 6 && lh < 18;
+					var mark = el("div", "sb-ck-dn", day ? "☀" : "☾");
+					mark.title = day ? "روز است" : "شب است";
+					c.appendChild(mark);
+
 					c.appendChild(el("div", "sb-ck-city", s.name));
 					var ct = el("div", "sb-ck-time", fa(hhmmInZone(nowT, s.zone)));
 					c.appendChild(ct);
@@ -1485,10 +1674,6 @@
 			function renderList() {
 				var list = document.getElementById("list");
 				list.textContent = "";
-
-				// ردیفِ ارز با هر رندر هم‌راستا می‌شود، چون هم تب عوض
-				// می‌شود و هم جستجو پنهانش می‌کند.
-				renderNewsCurrencies();
 
 				// منطقه‌ی زمانی از همین‌جا عوض می‌شود، و ساعتِ بنر همان
 				// منطقه را نشان می‌دهد. بدونِ این، تا تیکِ بعدی - یک ثانیه
@@ -1825,45 +2010,14 @@
 					var b = el("button", "cur" + (on ? " on" : ""));
 					b.type = "button";
 					b.setAttribute("aria-pressed", on ? "true" : "false");
+					if (FLAG_TINT[c.code]) b.style.setProperty("--tint", FLAG_TINT[c.code]);
+					b.appendChild(flagChip({ currency: c.code }));
 					b.appendChild(el("span", "cur-code", c.code));
 					b.appendChild(el("span", "cur-fa", c.fa));
 					b.addEventListener("click", function () { toggleCurrency(c.code); });
 					grid.appendChild(b);
 				});
 				renderAlertScope();
-			}
-
-			// همان انتخابِ ارز، این‌بار در تبِ اخبار.
-			//
-			// روی همان state.data.subscription می‌نویسد که کارتِ تنظیمات -
-			// پس دو کنترل نیستند، یک کنترل با دو جا. هر کدام که عوض شود،
-			// آن یکی هم با رندرِ بعدی هم‌راستا می‌شود.
-			function renderNewsCurrencies() {
-				var box = document.getElementById("newsCur");
-				var row = document.getElementById("newsCurRow");
-				if (!box || !row) return;
-
-				var sub = state.data && state.data.subscription;
-				// فقط در تبِ اخبار، و نه وقتی کاربر در حالِ جستجوست:
-				// جستجو عمداً از فیلترِ ارز رد می‌شود.
-				if (!sub || !isNewsScope(state.scope) || state.query) {
-					box.hidden = true;
-					return;
-				}
-				box.hidden = false;
-
-				var chosen = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
-				row.textContent = "";
-				CURRENCIES.forEach(function (c) {
-					var on = chosen.indexOf(c.code) >= 0;
-					var b = el("button", "news-cur-chip" + (on ? " on" : ""));
-					b.type = "button";
-					b.setAttribute("aria-pressed", on ? "true" : "false");
-					b.textContent = c.code;
-					b.title = c.fa;
-					b.addEventListener("click", function () { toggleCurrency(c.code); });
-					row.appendChild(b);
-				});
 			}
 
 			// چند ارز را با یک ذخیره روشن می‌کند.
@@ -1885,7 +2039,6 @@
 					.filter(function (x) { return list.indexOf(x) >= 0; });
 				haptic("select");
 				renderCurrencies();
-				renderNewsCurrencies();
 				saveSubscription({ undo: before });
 			}
 
@@ -1911,7 +2064,6 @@
 					.filter(function (x) { return list.indexOf(x) >= 0; });
 				haptic("select");
 				renderCurrencies();
-				renderNewsCurrencies();
 				saveSubscription({ undo: before });
 			}
 
@@ -1959,7 +2111,6 @@
 							// انتخابی را نشان بدهد که سرور هرگز ذخیره‌اش نکرد.
 							s.currencies = undo;
 							renderCurrencies();
-							renderNewsCurrencies();
 							if (tg && tg.showAlert) tg.showAlert("ذخیره‌ی ارزها ناموفق بود.");
 						} else {
 							s.subscribed = !s.subscribed;
