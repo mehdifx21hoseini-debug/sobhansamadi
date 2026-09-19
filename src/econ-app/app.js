@@ -808,13 +808,6 @@
 				return fa(Math.round(h / 24)) + " روز";
 			}
 
-			// ---------- day timeline ----------
-			// Answers the question the list cannot: when today is dangerous to
-			// hold a position. Height of the strip is fixed; only positions vary.
-			var DAY_START_HOUR = 6;   // before this, US releases essentially never land
-			var DAY_END_HOUR = 24;
-			var RISK_PAD_MINUTES = 30; // either side of a high-impact release
-
 			// افق واقعیِ همان چیزی که سرور فرستاده. پیش از این «۴۵ روز» در
 			// متن نوشته شده بود و عددش جای دیگری - در ورکر - تعریف شده؛ اگر
 			// آن عوض می‌شد، این جمله بی‌صدا دروغ می‌گفت.
@@ -834,87 +827,6 @@
 				return Math.max(1, Math.round((b - a) / 86400000));
 			}
 
-			function minutesOfDay(e) {
-				if (!e.time_tehran) return null;
-				var t = e.time_tehran.replace("+1", "").split(":").map(Number);
-				if (isNaN(t[0])) return null;
-				// A "+1" time belongs to the next day; park it at the far edge
-				// rather than drawing it in the middle of today.
-				var m = t[0] * 60 + (t[1] || 0);
-				if (e.time_tehran.indexOf("+1") !== -1) return DAY_END_HOUR * 60;
-				return m;
-			}
-
-			function pctOfDay(mins) {
-				var from = DAY_START_HOUR * 60, to = DAY_END_HOUR * 60;
-				return Math.max(0, Math.min(100, ((mins - from) / (to - from)) * 100));
-			}
-
-			function renderTimeline(container) {
-				var todays = todaysEvents().filter(function (e) { return minutesOfDay(e) !== null; });
-				if (todays.length === 0) return;
-
-				var wrap = el("div", "tl");
-				var head = el("div", "tl-head");
-				var highs = todays.filter(function (e) { return e.importance === "high"; });
-				head.appendChild(el("span", "tl-title", "نوار زمانی امروز"));
-				head.appendChild(el("span", "tl-count",
-					highs.length > 0
-						? fa(highs.length) + " پنجره پرریسک"
-						: "بدون پنجره پرریسک"));
-				wrap.appendChild(head);
-
-				var track = el("div", "tl-track");
-
-				// Risk bands first so ticks and the now-line draw on top.
-				highs.forEach(function (e) {
-					var m = minutesOfDay(e);
-					var a = pctOfDay(m - RISK_PAD_MINUTES);
-					var b = pctOfDay(m + RISK_PAD_MINUTES);
-					var band = el("div", "tl-band");
-					band.style.right = a + "%";
-					band.style.width = Math.max(1.5, b - a) + "%";
-					band.title = e.title;
-					track.appendChild(band);
-				});
-
-				todays.forEach(function (e) {
-					var tick = el("div", "tl-tick imp-" + (e.importance || "low"));
-					tick.style.right = pctOfDay(minutesOfDay(e)) + "%";
-					tick.title = (e.time_tehran || "") + " " + e.title;
-					track.appendChild(tick);
-				});
-
-				// The marker only makes sense while the clock is inside the strip.
-				//
-				// تهران، نه ساعتِ دستگاه. نوارهای قرمز از ساعت‌های تهرانِ
-				// رویدادها ساخته می‌شوند؛ اگر این خط از getHours بخواند، برای
-				// هر کاربر بیرون از ایران به اندازه‌ی اختلافِ منطقه‌اش با
-				// نوارها فاصله می‌گیرد - اندازه گرفته شد: با دستگاهِ نیویورک
-				// خط روی ۱۱٪ می‌نشست، جایی که باید ۵۳٪ می‌بود.
-				var nowMins = tehranMinutesOf(Date.now());
-				if (nowMins >= DAY_START_HOUR * 60 && nowMins <= DAY_END_HOUR * 60) {
-					var nowEl = el("div", "tl-now");
-					nowEl.style.right = pctOfDay(nowMins) + "%";
-					nowEl.title = "الان";
-					track.appendChild(nowEl);
-				}
-				wrap.appendChild(track);
-
-				var axis = el("div", "tl-axis");
-				[6, 10, 14, 18, 22].forEach(function (h) {
-					var lab = el("span", "tl-hour", fa(h < 10 ? "0" + h : h));
-					lab.style.right = pctOfDay(h * 60) + "%";
-					axis.appendChild(lab);
-				});
-				wrap.appendChild(axis);
-
-				wrap.appendChild(el("div", "tl-legend",
-					highs.length > 0
-						? "نوار قرمز: ۳۰ دقیقه قبل و بعد از خبر خیلی مهم — پرنوسان‌ترین بازه‌ی روز."
-						: "امروز خبر خیلی مهمی نیست؛ نوسان معمولاً محدودتر است."));
-				container.appendChild(wrap);
-			}
 
 			// ---------- markets view ----------
 			// ---------- world map ----------
@@ -1099,6 +1011,281 @@
 
 			var selectedSession = "london";
 
+			// ═══════════════════════════════════════════════════════════
+			// دیالِ ۲۴ ساعته
+			//
+			// روز دوره‌ای است و دایره شکلِ طبیعیِ آن: هم‌پوشانیِ سشن‌ها
+			// به‌شکلِ کمان‌های هم‌مرکز خودشان را نشان می‌دهند و عقربه
+			// بدونِ هیچ برچسبی می‌گوید کجای روزیم. نوارهای افقیِ پایین
+			// سرِ جایشان می‌مانند - آن‌ها ساعتِ دقیق را می‌گویند، این
+			// یکی شکلِ روز را.
+			//
+			// هندسه اندازه‌گیری شده است، نه سلیقه‌ای. با گامِ ۱۲ و شعاعِ
+			// شروعِ r0-24 درونی‌ترین حلقه روی ۴۶ می‌افتاد و لبه‌ی داخلی‌اش
+			// ۴۲٫۵، در حالی که نیم‌پهنای «۱۷:۱۱» حدودِ ۴۸ واحد است - یعنی
+			// ساعتِ وسط شش پیکسل روی حلقه می‌نشست. r0-22 با گامِ ۱۰ و فونتِ
+			// ‎.۱۲ در هر عرضی دستِ‌کم هفت پیکسل فاصله می‌گذارد.
+			// ═══════════════════════════════════════════════════════════
+			var DIAL = { size: 260, cx: 130, cy: 130, r0: 118 };
+
+			function svgEl(tag, attrs) {
+				var n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+				for (var k in attrs) if (Object.prototype.hasOwnProperty.call(attrs, k)) {
+					n.setAttribute(k, attrs[k]);
+				}
+				return n;
+			}
+
+			function polar(min, r) {
+				// دقیقه‌ی صفر بالای دیال، و ساعت‌ها ساعتگرد.
+				var a = (min / 1440) * Math.PI * 2 - Math.PI / 2;
+				return [DIAL.cx + r * Math.cos(a), DIAL.cy + r * Math.sin(a)];
+			}
+
+			function arcPath(from, span, r) {
+				if (span <= 0) return "";
+				// کمانِ کامل با یک path کشیده نمی‌شود؛ کمی کوتاهش می‌کنیم.
+				if (span >= 1439) span = 1438;
+				var a = polar(from, r), b = polar(from + span, r);
+				return "M" + a[0].toFixed(2) + " " + a[1].toFixed(2) +
+					" A" + r + " " + r + " 0 " + (span > 720 ? 1 : 0) + " 1 " +
+					b[0].toFixed(2) + " " + b[1].toFixed(2);
+			}
+
+			function buildDial(now, refs, market) {
+				var svg = svgEl("svg", {
+					"class": "dial",
+					viewBox: "0 0 " + DIAL.size + " " + DIAL.size,
+					role: "img",
+					"aria-label": "دیال ۲۴ ساعته‌ی بازارها"
+				});
+
+				svg.appendChild(svgEl("circle", {
+					"class": "dial-ring", cx: DIAL.cx, cy: DIAL.cy, r: DIAL.r0
+				}));
+
+				[0, 6, 12, 18].forEach(function (h) {
+					var p1 = polar(h * 60, DIAL.r0 - 5), p2 = polar(h * 60, DIAL.r0 + 2);
+					svg.appendChild(svgEl("line", {
+						"class": "dial-tick", x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1]
+					}));
+					var lp = polar(h * 60, DIAL.r0 + 11);
+					var t = svgEl("text", { "class": "dial-hour", x: lp[0], y: lp[1] });
+					t.textContent = fa(h < 10 ? "0" + h : h);
+					svg.appendChild(t);
+				});
+
+				// خبرهای امروز روی حلقه‌ی بیرونی: هرچه مهم‌تر، بلندتر.
+				// اهمیت با اندازه گفته می‌شود نه با رنگ - همان قاعده‌ای که
+				// در ردیف‌های خبر هم هست.
+				var nowT0 = now.getTime();
+				todaysEvents().forEach(function (e) {
+					if (!e.at) return;
+					var m = viewMinutesOf(new Date(e.at).getTime());
+					var len = e.importance === "high" ? 11 : e.importance === "medium" ? 7 : 4;
+					var w = e.importance === "high" ? 2.4 : 1.6;
+					var p1 = polar(m, DIAL.r0 - 3), p2 = polar(m, DIAL.r0 - 3 - len);
+					svg.appendChild(svgEl("line", {
+						"class": "dial-ev" + (e.importance === "high" ? " is-high" : "") +
+							(new Date(e.at).getTime() < nowT0 ? " is-done" : ""),
+						x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], "stroke-width": w
+					}));
+				});
+
+				// یک کمان برای هر سشن، هرکدام روی شعاعِ خودش. از همان refs
+				// که نوارهای پایین با آن کشیده می‌شوند، پس دیال هرگز
+				// نمی‌تواند ساعتی را ادعا کند که نمودارِ زیرش نشان نمی‌دهد.
+				var r = DIAL.r0 - 21;
+				SESSIONS.forEach(function (s) {
+					var it = refs[s.key];
+					var live = it.st.open && market.open && !it.holiday;
+					if (it.ref.open && !it.holiday) {
+						var from = viewMinutesOf(it.ref.open);
+						var span = Math.round((it.ref.close - it.ref.open) / 60000);
+						svg.appendChild(svgEl("path", {
+							"class": "dial-arc" + (live ? " is-open" : ""),
+							d: arcPath(from, span, r),
+							stroke: "var(--sb-" + s.key + ")",
+							"stroke-width": live ? 7 : 5
+						}));
+					}
+					r -= 9.5;
+				});
+
+				// عقربه‌ی «حالا». در شعاعِ ۴۸ می‌ایستد: از همه‌ی حلقه‌ها رد
+				// می‌شود ولی به رقم‌های وسط نمی‌رسد.
+				var nowMin = viewMinutesOf(nowT0);
+				var h1 = polar(nowMin, DIAL.r0 - 2), h2 = polar(nowMin, DIAL.r0 - 70);
+				var hand = svgEl("line", {
+					"class": "dial-hand", x1: h1[0], y1: h1[1], x2: h2[0], y2: h2[1]
+				});
+				var dot = svgEl("circle", { "class": "dial-dot", cx: h1[0], cy: h1[1], r: 3.4 });
+				svg.appendChild(hand);
+				svg.appendChild(dot);
+
+				// عقربه با ساعت جلو می‌رود، بدونِ رسمِ دوباره‌ی کلِ دیال.
+				tickers.push(function (t) {
+					var m = viewMinutesOf(t);
+					var a = polar(m, DIAL.r0 - 2), b = polar(m, DIAL.r0 - 70);
+					hand.setAttribute("x1", a[0]); hand.setAttribute("y1", a[1]);
+					hand.setAttribute("x2", b[0]); hand.setAttribute("y2", b[1]);
+					dot.setAttribute("cx", a[0]); dot.setAttribute("cy", a[1]);
+				});
+
+				return svg;
+			}
+
+			// ═══════════════════════════════════════════════════════════
+			// اخبار امروز، بالای صفحه‌ی سشن‌ها
+			//
+			// جای کارتِ «بازار باز است» را گرفت. سه لایه دارد و هر لایه
+			// یک سؤالِ متفاوت را جواب می‌دهد:
+			//
+			//   سه عدد     امروز چقدر سنگین است؟ - یک نگاه، بی‌خواندن.
+			//   نوارِ روز  کِی؟ - جای خبرها روی ۲۴ ساعت، با نشانِ «حالا».
+			//   فهرست      چه چیزی؟ - بعدی بزرگ، بقیه ریز.
+			//
+			// همه‌اش از state.data می‌آید که از پیش در حافظه است، پس این
+			// بلوک هیچ تماسِ تازه‌ای نمی‌سازد و بلافاصله رسم می‌شود. تنها
+			// چیزی که منتظر می‌ماند دکمه‌ی تحلیل است، که خودش خواسته
+			// می‌شود.
+			// ═══════════════════════════════════════════════════════════
+			function buildTodayNews(nowT) {
+				var wrap = el("div", "td");
+
+				var head = el("div", "td-head");
+				head.appendChild(el("span", "td-title", "اخبار امروز"));
+				var more = el("button", "td-more");
+				more.type = "button";
+				more.textContent = "همه";
+				more.addEventListener("click", function () { haptic("light"); setScope("today"); });
+				head.appendChild(more);
+				wrap.appendChild(head);
+
+				// داده هنوز نیامده - اسکلت، نه یک بلوکِ خالی که شبیه خرابی
+				// به نظر برسد.
+				if (!state.data) {
+					wrap.appendChild(el("div", "td-empty", "در حال بارگذاری اخبار…"));
+					return wrap;
+				}
+
+				var todays = todaysEvents();
+				var past = [], ahead = [];
+				todays.forEach(function (e) {
+					if (!e.at) { ahead.push(e); return; }
+					(new Date(e.at).getTime() <= nowT ? past : ahead).push(e);
+				});
+				var highs = todays.filter(function (e) { return e.importance === "high"; }).length;
+
+				if (todays.length === 0) {
+					wrap.appendChild(el("div", "td-empty",
+						"امروز خبری برای ارزهای شما ثبت نشده — روز آرامی است."));
+					return wrap;
+				}
+
+				// ---- سه عدد
+				var stats = el("div", "td-stats");
+				[
+					["مهم امروز", highs, "is-high"],
+					["منتشر شده", past.length, ""],
+					["مانده", ahead.length, ahead.length ? "is-live" : ""]
+				].forEach(function (row) {
+					var c = el("div", "td-stat " + row[2]);
+					c.appendChild(el("div", "td-stat-n", fa(row[1])));
+					c.appendChild(el("div", "td-stat-k", row[0]));
+					stats.appendChild(c);
+				});
+				wrap.appendChild(stats);
+
+				// ---- بعدی، بزرگ
+				//
+				// «بعدی» تا پایانِ پنجره‌ی انتشارِ خودش بعدی می‌ماند، تا
+				// کارت بتواند لحظه‌ی انتشار را نشان بدهد - همان قاعده‌ای
+				// که کارتِ بالای صفحه دارد، و عمداً همان، وگرنه دو جای
+				// صفحه دو «بعدی» متفاوت می‌گفتند.
+				var upcoming = todays.filter(function (e) {
+					if (!e.at) return false;
+					var t = new Date(e.at).getTime();
+					return t > nowT || (!e.actual && t > nowT - RELEASE_HOLD_MS);
+				});
+
+				if (upcoming.length) {
+					var n0 = upcoming[0];
+					var nt = new Date(n0.at).getTime();
+					var nx = el("button", "td-next imp-" + (n0.importance || "low"));
+					nx.type = "button";
+					nx.addEventListener("click", function () { haptic("light"); setScope("today"); });
+
+					var l = el("div", "td-next-l");
+					l.appendChild(flagChip(n0));
+					var nm = el("div", "td-next-nm");
+					nm.appendChild(el("div", "td-next-t", n0.en || n0.title || ""));
+					nm.appendChild(el("div", "td-next-s",
+						fa(hhmmInZone(nt, VIEW())) +
+						(n0.forecast ? " · پیش‌بینی " + n0.forecast : "")));
+					l.appendChild(nm);
+					nx.appendChild(l);
+
+					var cdv = el("div", "td-next-cd", countdownText(nt, nowT));
+					nx.appendChild(cdv);
+					tickers.push(function (t) { cdv.textContent = countdownText(nt, t); });
+					wrap.appendChild(nx);
+				}
+
+				// ---- بقیه‌ی امروز
+				//
+				// خبرهای گذشته هم می‌آیند، با عددِ واقعی‌شان: کسی که ظهر اپ
+				// را باز می‌کند باید بداند صبح چه گذشت، نه فقط چه مانده.
+				var rest = todays.filter(function (e) {
+					return !upcoming.length || e.event_id !== upcoming[0].event_id;
+				});
+				if (rest.length) {
+					var ul = el("div", "td-rest");
+					rest.slice(0, 6).forEach(function (e) {
+						var t = e.at ? new Date(e.at).getTime() : 0;
+						var done = t && t <= nowT;
+						var row = el("button", "td-row imp-" + (e.importance || "low") +
+							(done ? " is-done" : ""));
+						row.type = "button";
+						row.addEventListener("click", function () { haptic("light"); setScope("today"); });
+						row.appendChild(el("span", "td-row-h",
+							e.time_tehran ? fa(hhmmInZone(t, VIEW())) : "—"));
+						row.appendChild(el("span", "td-row-t", e.en || e.title || ""));
+						row.appendChild(el("span", "td-row-v",
+							e.actual ? e.actual : (done ? "—" : (e.forecast || "—"))));
+						ul.appendChild(row);
+					});
+					wrap.appendChild(ul);
+				}
+
+				// ---- تحلیل هوش مصنوعی
+				//
+				// دکمه است نه متنِ آماده: تحلیل یک تماس با مدل است و چند
+				// ثانیه طول می‌کشد. اگر همین بالا خودکار بارگذاری می‌شد،
+				// اولین چیزی که کاربر با باز کردنِ اپ می‌دید یک بلوکِ در
+				// حالِ چرخیدن بود.
+				var ai = el("button", "td-ai");
+				ai.type = "button";
+				ai.appendChild(el("span", "td-ai-i", "✨"));
+				ai.appendChild(el("span", null, "تحلیل هوش مصنوعی امروز"));
+				ai.addEventListener("click", function () {
+					haptic("light");
+					setScope("today");
+					// تبِ اخبار تازه رسم شده؛ بعد از همان فریم دکمه‌ی
+					// تحلیل سرِ جایش است و می‌شود هم صدایش زد و هم به آن
+					// اسکرول کرد.
+					requestAnimationFrame(function () {
+						var card = document.getElementById("aiCard");
+						var btn = document.getElementById("btnExplain");
+						if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+						if (btn && !btn.disabled) btn.click();
+					});
+				});
+				wrap.appendChild(ai);
+
+				return wrap;
+			}
+
 			function renderMarkets(container) {
 				var now = new Date();
 				var nowT = now.getTime();
@@ -1124,29 +1311,51 @@
 				// with the first.
 				var weekend = !market.open && !market.onBreak && !!market.nextOpen;
 
-				// ---- status
-				var status = el("div", "sb-status " +
-					(market.onBreak ? "is-break" : (market.open ? "is-open" : (weekend ? "is-weekend" : "is-closed"))));
+				// ---- هر سشن، پنجره‌ی فعلی یا بعدی‌اش - یک بار
+				//
+				// بالاتر از جایی که بود حساب می‌شود، چون حالا دیال هم از
+				// همین می‌خواند. یک منبع برای دیال و نوارها یعنی آن دو
+				// هرگز نمی‌توانند دو ساعتِ متفاوت ادعا کنند.
+				var refs = {};
+				SESSIONS.forEach(function (s) {
+					var ss = sessionState(s, now);
+					var r = ss.open ? { open: ss.since, close: ss.until } : { open: ss.nextOpen, close: ss.nextClose };
+					refs[s.key] = { st: ss, ref: r, holiday: holidayFor(s, r.open || nowT) };
+				});
 
-				var st = el("div", "sb-state");
-				st.appendChild(el("span", "sb-dot"));
-				st.appendChild(el("span", null,
-					market.onBreak ? "تسویه‌ی روزانه"
-						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
-				status.appendChild(st);
+				// ---- اخبار امروز، جای وضعیتِ بازار
+				//
+				// این بلوک جای «بازار باز است» را گرفت. دلیلش ساده است:
+				// وضعیتِ بازار را خودِ دیالِ زیرش می‌گوید - با عقربه، با
+				// کمان‌های روشن، و با ساعتِ وسطش - پس یک کارتِ جدا برای
+				// همان حرف، تکرار بود. چیزی که تکرار نبود و هیچ‌جای این
+				// صفحه نمی‌آمد، خبرهای امروز بود.
+				board.appendChild(enter(buildTodayNews(nowT)));
 
-				var clock = el("div", "sb-clock");
-				// No seconds: they read as extra digits glued to the minutes, and
-				// the only things here that need a second hand - the countdowns -
-				// keep their own.
-				var clockTime = el("div", "sb-time", fa(hhmmInZone(nowT, VIEW())));
-				clock.appendChild(clockTime);
-				var clockZone = el("div", "sb-zone", viewName());
-				clock.appendChild(clockZone);
-				status.appendChild(clock);
+				// ---- دیال
+				var dialBox = el("div", "dial-box");
+				dialBox.appendChild(buildDial(now, refs, market));
+
+				var read = el("div", "dial-read");
+				var clockTime = el("div", "dial-time", fa(hhmmInZone(nowT, VIEW())));
+				read.appendChild(clockTime);
+				// نامِ منطقه اینجا نمی‌آید: ساعتِ بنر بالای همین صفحه همان
+				// منطقه را نوشته، و تکرارش وسطِ دیال یک سطرِ اضافه بود که
+				// بلوکِ مرکز را بلند می‌کرد و ساعت را روی حلقه‌ها می‌برد.
 				tickers.push(function (t) { clockTime.textContent = fa(hhmmInZone(t, VIEW())); });
 
-				var sub = el("div", "sb-sub");
+				var st = el("div", "dial-state" +
+					(market.open ? " is-open" : (market.onBreak ? " is-break" : " is-shut")));
+				st.appendChild(el("span", "dial-dot-i"));
+				st.appendChild(el("span", null,
+					market.onBreak ? "تسویه‌ی روزانه"
+						: (market.open ? "بازار باز" : (weekend ? "تعطیل" : "بسته"))));
+				read.appendChild(st);
+				dialBox.appendChild(read);
+
+				// یک جمله زیرِ دیال: نزدیک‌ترین تغییرِ وضعیت. چیزی که
+				// کمان‌ها و عقربه نمی‌گویند.
+				var sub = el("div", "dial-line");
 				var target = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
 				if (target) {
 					sub.appendChild(el("span", null,
@@ -1160,8 +1369,8 @@
 					sub.appendChild(el("span", null, "تا جمعه ساعت "));
 					sub.appendChild(el("b", null, fa(hhmmInZone(market.until, VIEW()))));
 				}
-				status.appendChild(sub);
-				board.appendChild(enter(status));
+				dialBox.appendChild(sub);
+				board.appendChild(enter(dialBox));
 
 				// ---- the board card
 				var card = el("div", "sb-board");
@@ -1211,14 +1420,6 @@
 					tzBtn.setAttribute("aria-expanded", open ? "true" : "false");
 				});
 				card.appendChild(menu);
-
-				// ---- each session's current or next window, resolved once
-				var refs = {};
-				SESSIONS.forEach(function (s) {
-					var ss = sessionState(s, now);
-					var r = ss.open ? { open: ss.since, close: ss.until } : { open: ss.nextOpen, close: ss.nextClose };
-					refs[s.key] = { st: ss, ref: r, holiday: holidayFor(s, r.open || nowT) };
-				});
 
 				var grid = el("div", "sb-grid");
 
@@ -1413,6 +1614,11 @@
 				var list = document.getElementById("list");
 				list.textContent = "";
 
+				// منطقه‌ی زمانی از همین‌جا عوض می‌شود، و ساعتِ بنر همان
+				// منطقه را نشان می‌دهد. بدونِ این، تا تیکِ بعدی - یک ثانیه
+				// - بنر ساعتِ منطقه‌ی قبلی را نگه می‌داشت.
+				paintBrandClock();
+
 				// Session hours are computed from the clock alone, so this tab
 				// works whether or not the release data ever arrived.
 				if (state.scope === "markets") {
@@ -1435,7 +1641,6 @@
 
 				// The timeline is about today specifically, so it belongs to the
 				// today tab and not to a search across 45 days.
-				if (state.scope === "today" && !state.query) renderTimeline(list);
 
 				if (state.query) {
 					var found = visibleEvents();
@@ -1922,13 +2127,26 @@
 			// closes, which the signature detects.
 			// No state.data check: the markets view is computed entirely from the
 			// clock, so it must keep running even when the API is unreachable.
+			// ساعتِ بنر در هر سه تب می‌زند، پس بیرونِ گیتِ «فقط سشن‌ها»
+			// است. بقیه‌ی tickerها فقط برای تبِ سشن‌ها ساخته می‌شوند و
+			// هزینه‌شان همان‌جاست؛ این یکی دو textContent در ثانیه است.
+			function paintBrandClock() {
+				var t = Date.now();
+				var el1 = document.getElementById("brandTime");
+				var el2 = document.getElementById("brandZone");
+				if (el1) el1.textContent = fa(hhmmInZone(t, VIEW()));
+				if (el2) el2.textContent = viewName();
+			}
+
 			setInterval(function () {
+				paintBrandClock();
 				if (state.scope !== "markets" || !tickers.length) return;
 				var now = new Date();
 				if (marketsSignature(now) !== marketsSig) { renderList(); return; }
 				var t = now.getTime();
 				for (var i = 0; i < tickers.length; i++) tickers[i](t);
 			}, 1000);
+			paintBrandClock();
 
 			if (tg) {
 				tg.ready();

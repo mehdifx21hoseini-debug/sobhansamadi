@@ -25,6 +25,24 @@
 		   یک قاعده‌ی سراسری جلوی بارِ چهارم را می‌گیرد. */
 		[hidden] { display: none !important; }
 
+		/* ── دارایی‌های برند، درون‌خطی ──────────────────────────────────────
+		   چرا data-URI و نه فایل: این صفحه از /econ/app سرو می‌شود و ورکر
+		   هیچ مسیری برای /econ/assets ندارد. آدرسِ نسبیِ قبلی -
+		   assets/img/sobhan-banner-2.jpg - روی پروداکشن ۴۰۴ می‌گرفت، یعنی
+		   بنر ماه‌ها فقط یک مستطیلِ تیره بود. آزموده شد، حدس نیست.
+
+		   وزن با تبدیل به WebP پرداخت شد نه با کوچک کردنِ تصویر: بنر از
+		   ۳۶ کیلوبایت JPEG به ۱۱ کیلوبایت رسید و در همان ۷۰۰×۳۸۸ ماند.
+
+		   نشان فقط کانالِ آلفاست، چون همه‌جا ماسک می‌شود نه عکس: لوگو دو
+		   رنگِ ثابت دارد که در تمِ تیره گم می‌شوند و در روشن لکه می‌سازند.
+		   ماسک شکل را نگه می‌دارد و رنگ را از توکنِ متن می‌گیرد، پس در هر
+		   دو تم درست می‌نشیند. ۲ کیلوبایت. */
+		:root {
+			--img-banner: url("data:image/webp;base64,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");
+			--img-mark: url("data:image/webp;base64,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");
+		}
+
 		:root {
 			/* «navy» دیگر سرمه‌ای نیست: جوهرِ خنثای همین پالت است. اسمش مانده
 			   چون سایه‌ها و واشِ پس‌زمینه از آن مشتق می‌شوند. */
@@ -213,7 +231,6 @@
 		.sb-status,
 		.sb-board,
 		.sb-ck,
-		.tl,
 		.event,
 		.alerts,
 		.seg {
@@ -251,7 +268,59 @@
 			.mk-enter { animation: none; }
 		}
 
-		.wrap { max-width: 640px; margin: 0 auto; }
+		/* ── پس‌زمینه: نقشه‌ی جهان و نشانِ آکادمی ──────────────────────────
+		   هر دو ثابت‌اند نه اسکرولی: با صفحه بالا و پایین نمی‌روند، پس
+		   پشتِ محتوا می‌مانند و حرکتِ اضافه نمی‌سازند.
+
+		   رنگشان از --text می‌آید نه از یک رنگِ ثابت، پس با تمِ کاربر عوض
+		   می‌شوند و در هیچ‌کدام از دو تم لکه نمی‌سازند. شفافیت عمداً در
+		   مرزِ دیده‌شدن است - این بافت است، نه تصویر.
+
+		   در تمِ تیره همان شفافیت کم‌رنگ‌تر دیده می‌شود، پس کمی بالاتر
+		   می‌رود؛ دو بلوکِ پایین فقط همین یک عدد را عوض می‌کنند. */
+		.worldmap {
+			position: fixed;
+			z-index: 0;
+			pointer-events: none;
+			inset-inline: 0;
+			top: 0;
+			height: 46vh;
+			max-height: 380px;
+			overflow: hidden;
+			opacity: .055;
+			-webkit-mask-image: radial-gradient(120% 95% at 50% 34%, #000 26%, transparent 72%);
+			mask-image: radial-gradient(120% 95% at 50% 34%, #000 26%, transparent 72%);
+		}
+
+		.worldmap svg { width: 100%; height: 100%; display: block; }
+		.worldmap path { fill: var(--text); }
+
+		.brandmark {
+			position: fixed;
+			z-index: 0;
+			pointer-events: none;
+			inset-inline-start: 50%;
+			top: 64%;
+			width: min(62vw, 330px);
+			aspect-ratio: 1;
+			transform: translate(50%, -50%);
+			background: var(--text);
+			opacity: .028;
+			-webkit-mask: var(--img-mark) center/contain no-repeat;
+			mask: var(--img-mark) center/contain no-repeat;
+		}
+
+		@media (prefers-color-scheme: dark) {
+			:root:not([data-theme="light"]) .worldmap { opacity: .075; }
+			:root:not([data-theme="light"]) .brandmark { opacity: .045; }
+		}
+
+		:root[data-theme="dark"] .worldmap { opacity: .075; }
+		:root[data-theme="dark"] .brandmark { opacity: .045; }
+
+		/* محتوا بالای هر دو. بدونِ این، نشان روی متن می‌افتد. */
+		.wrap { max-width: 640px; margin: 0 auto; position: relative; z-index: 1; }
+
 
 		/* ---------- header ---------- */
 
@@ -307,7 +376,7 @@
 			bottom: 0;
 			left: 0;
 			aspect-ratio: 700 / 388;
-			background: url("assets/img/sobhan-banner-2.jpg") center / cover no-repeat;
+			background: var(--img-banner) center / cover no-repeat;
 			-webkit-mask-image: linear-gradient(to right, #000 0%, #000 62%, transparent 96%);
 			mask-image: linear-gradient(to right, #000 0%, #000 62%, transparent 96%);
 		}
@@ -388,6 +457,66 @@
 			letter-spacing: -.02em;
 			color: #ffffff;
 			text-shadow: 0 1px 6px rgba(0, 0, 0, .5);
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			gap: 5.2cqh;
+		}
+
+		/* نشانِ آکادمی کنارِ نام. ماسک است نه عکس، پس سفیدِ خودِ تیتر را
+		   می‌گیرد و روی پرده‌ی تیره‌ی بنر در هر دو تم یکسان می‌نشیند -
+		   همان دلیلی که کانالِ آلفا را جدا نگه داشتیم. */
+		.hb-mark {
+			flex: none;
+			width: 1.15em;
+			height: 1.15em;
+			background: #ffffff;
+			-webkit-mask: var(--img-mark) center/contain no-repeat;
+			mask: var(--img-mark) center/contain no-repeat;
+			filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .45));
+		}
+
+		/* ساعتِ زنده، گوشه‌ی بالای بنر.
+		   سمتِ متن است نه سمتِ عکس: نیمه‌ی چپِ بنر صورت است و هر چیزی
+		   آنجا روی آن می‌افتد. بالا هم عمدی است - بلوکِ متن وسط‌چین است،
+		   پس فضای خالیِ بالا همیشه هست، در هر ارتفاعی که بنر بگیرد. */
+		.hb-clock {
+			position: absolute;
+			top: 7px;
+			top: 5.5cqh;
+			inset-inline-end: 16px;
+			inset-inline-end: 4.4cqw;
+			z-index: 2;
+			display: flex;
+			align-items: baseline;
+			gap: 5px;
+			padding: 3px 9px;
+			padding: 2.4cqh 7px;
+			border-radius: 999px;
+			background: rgba(255, 255, 255, .12);
+			border: 1px solid rgba(255, 255, 255, .16);
+			-webkit-backdrop-filter: blur(6px);
+			backdrop-filter: blur(6px);
+		}
+
+		.hb-time {
+			/* وزیرمتن و نه مونو: رقم‌ها فارسی‌اند و فونت‌های مونوی لاتین
+			   گلیفِ فارسی ندارند، پس عملاً fallback می‌شد. هم‌عرضی از
+			   tabular-nums می‌آید نه از خانواده‌ی فونت. */
+			font-size: clamp(11px, 11.5cqh, 20px);
+			font-weight: 700;
+			line-height: 1;
+			color: #ffffff;
+			letter-spacing: -.02em;
+			/* رقم‌ها هم‌عرض، وگرنه ساعت هر دقیقه کمی جابه‌جا می‌شود. */
+			font-variant-numeric: tabular-nums;
+		}
+
+		.hb-zone {
+			font-size: clamp(7px, 6.6cqh, 12px);
+			font-weight: 700;
+			line-height: 1;
+			color: #c9c6d4;
 		}
 
 		.hb-sub {
@@ -741,6 +870,315 @@
 				--sb-nyse: #ff6f52;
 			}
 		}
+
+		/* ── اخبار امروز، بالای تبِ سشن‌ها ─────────────────────────────────
+		   جای کارتِ «بازار باز است» را گرفت. وضعیتِ بازار حالا در خودِ
+		   دیالِ زیرش گفته می‌شود - با عقربه و کمان‌های روشن - پس یک کارتِ
+		   جدا برای همان حرف تکرار بود. */
+		.td {
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			box-shadow: var(--shadow-sm);
+			padding: 14px;
+			margin-bottom: 12px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.td-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin-bottom: 12px;
+		}
+
+		.td-title { font-size: .95rem; font-weight: 800; color: var(--text); }
+
+		.td-more {
+			border: 1px solid var(--line);
+			background: transparent;
+			color: var(--muted);
+			font: inherit;
+			font-size: .74rem;
+			font-weight: 700;
+			padding: 4px 11px;
+			border-radius: 999px;
+			cursor: pointer;
+		}
+
+		.td-more:active { color: var(--text); border-color: var(--line-strong); }
+
+		.td-empty {
+			color: var(--muted);
+			font-size: .84rem;
+			line-height: 1.8;
+			text-align: center;
+			padding: 6px 2px 2px;
+		}
+
+		/* ---- سه عدد ---- */
+		.td-stats {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px;
+			margin-bottom: 14px;
+		}
+
+		.td-stat {
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			border-radius: 13px;
+			padding: 9px 6px 7px;
+			text-align: center;
+		}
+
+		.td-stat-n {
+			font-size: 1.32rem;
+			font-weight: 800;
+			line-height: 1.1;
+			color: var(--text);
+		}
+
+		.td-stat.is-high .td-stat-n { color: var(--high); }
+		.td-stat.is-live .td-stat-n { color: var(--signal); }
+
+		.td-stat-k {
+			margin-top: 2px;
+			font-size: .68rem;
+			font-weight: 700;
+			color: var(--muted);
+		}
+
+		/* ---- بعدی ---- */
+		.td-next {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			width: 100%;
+			text-align: right;
+			font: inherit;
+			cursor: pointer;
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			/* لبه‌ی ضخیم سمتِ شروعِ خط، همان زبانِ ردیف‌های خبر. */
+			border-inline-start-width: 3px;
+			border-inline-start-color: var(--line-strong);
+			border-radius: 14px;
+			padding: 11px 12px;
+			margin-bottom: 10px;
+		}
+
+		.td-next.imp-high { border-inline-start-color: var(--high); }
+		.td-next.imp-medium { border-inline-start-color: var(--medium); }
+
+		.td-next-l { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+		.td-next-nm { min-width: 0; }
+
+		.td-next-t {
+			font-size: .84rem;
+			font-weight: 700;
+			color: var(--text);
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.td-next-s {
+			margin-top: 2px;
+			font-size: .7rem;
+			font-weight: 600;
+			color: var(--muted);
+		}
+
+		.td-next-cd {
+			flex: none;
+			font-size: .92rem;
+			font-weight: 800;
+			color: var(--signal);
+		}
+
+		/* ---- بقیه‌ی امروز ---- */
+		.td-rest {
+			display: flex;
+			flex-direction: column;
+			gap: 1px;
+			margin-bottom: 12px;
+		}
+
+		.td-row {
+			display: grid;
+			grid-template-columns: auto 1fr auto;
+			align-items: center;
+			gap: 9px;
+			width: 100%;
+			text-align: right;
+			font: inherit;
+			cursor: pointer;
+			background: transparent;
+			border: 0;
+			border-top: 1px solid var(--line);
+			padding: 8px 2px;
+		}
+
+		.td-rest .td-row:first-child { border-top: 0; }
+
+		.td-row-h {
+			font-size: .72rem;
+			font-weight: 700;
+			color: var(--muted);
+		}
+
+		.td-row-t {
+			font-size: .78rem;
+			font-weight: 600;
+			color: var(--text);
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.td-row.imp-high .td-row-t { font-weight: 800; }
+
+		.td-row-v {
+			font-size: .75rem;
+			font-weight: 700;
+			color: var(--muted);
+		}
+
+		.td-row.is-done { opacity: .62; }
+		.td-row.is-done .td-row-v { color: var(--text); }
+
+		/* ---- دکمه‌ی تحلیل ---- */
+		.td-ai {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 7px;
+			width: 100%;
+			font: inherit;
+			font-size: .8rem;
+			font-weight: 700;
+			cursor: pointer;
+			color: var(--text);
+			background: transparent;
+			border: 1px dashed var(--line-strong);
+			border-radius: 12px;
+			padding: 10px;
+		}
+
+		.td-ai:active { background: var(--card-2); }
+		.td-ai-i { font-size: .9rem; }
+
+		/* ── دیالِ ۲۴ ساعته ────────────────────────────────────────────────
+		   شکلِ روز، نه ساعتِ دقیقِ آن: آن را نوارهای پایین می‌گویند. اینجا
+		   هم‌پوشانیِ سشن‌ها و جای «حالا» در یک نگاه دیده می‌شود.
+
+		   اندازه متغیر است نه ثابت: در پنجره‌ی باریکِ تلگرامِ دسکتاپ دیال
+		   جمع می‌شود و اگر ساعتِ وسط روی عددِ ثابت می‌ماند، روی کمان‌ها
+		   می‌افتاد - همان باگی که یک بار اندازه‌گیری و رفع شد. */
+		.dial-box {
+			--dial: min(272px, 74vw);
+			position: relative;
+			display: grid;
+			justify-items: center;
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			box-shadow: var(--shadow-sm);
+			padding: 16px 14px 14px;
+			margin-bottom: 12px;
+		}
+
+		.dial { width: var(--dial); height: auto; display: block; overflow: visible; }
+		.dial-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+		.dial-tick { stroke: var(--line-strong); stroke-width: 1; }
+
+		.dial-hour {
+			font-size: 8.5px;
+			font-weight: 700;
+			fill: var(--muted);
+			text-anchor: middle;
+			dominant-baseline: middle;
+		}
+
+		.dial-arc {
+			fill: none;
+			stroke-linecap: round;
+			opacity: .34;
+		}
+
+		.dial-arc.is-open { opacity: 1; }
+		.dial-hand { stroke: var(--signal); stroke-width: 1.5; stroke-linecap: round; }
+		.dial-dot { fill: var(--signal); }
+
+		/* هر خبر یک خط‌چه روی حلقه‌ی بیرونی، و هرچه مهم‌تر بلندتر. */
+		.dial-ev { stroke: var(--muted); stroke-linecap: round; }
+		.dial-ev.is-high { stroke: var(--text); }
+		.dial-ev.is-done { opacity: .3; }
+
+		/* خوانشِ مرکز. مطلق است تا دقیقاً وسطِ دیال بنشیند، و
+		   pointer-events ندارد تا جلوی هیچ لمسی را نگیرد. */
+		.dial-read {
+			position: absolute;
+			top: 16px;
+			height: var(--dial);
+			width: var(--dial);
+			display: grid;
+			place-content: center;
+			justify-items: center;
+			text-align: center;
+			pointer-events: none;
+		}
+
+		.dial-time {
+			font-size: calc(var(--dial) * .108);
+			font-weight: 700;
+			line-height: 1;
+			letter-spacing: -.04em;
+			color: var(--text);
+		}
+
+		.dial-state {
+			margin-top: 6px;
+			font-size: calc(var(--dial) * .042);
+			font-weight: 800;
+			letter-spacing: .04em;
+			color: var(--up);
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+
+		.dial-dot-i {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: currentColor;
+			animation: dial-breathe 2.6s var(--ease-out-3) infinite;
+		}
+
+		.dial-state.is-break { color: var(--medium); }
+		.dial-state.is-shut { color: var(--muted); }
+		.dial-state.is-shut .dial-dot-i { animation: none; }
+
+		@keyframes dial-breathe { 50% { opacity: .3; } }
+
+		@media (prefers-reduced-motion: reduce) {
+			.dial-dot-i { animation: none; }
+		}
+
+		.dial-line {
+			margin-top: 12px;
+			text-align: center;
+			font-size: .8rem;
+			line-height: 1.85;
+			color: var(--muted);
+		}
+
+		.dial-line b { color: var(--text); font-weight: 800; }
 
 		/* ---- status ----
 		   Set in the largest type on the tab: it answers the one question the
@@ -1159,99 +1597,10 @@
 		.sb-ck.is-live .sb-ck-time { color: var(--sb-live); }
 
 		/* ---------- day timeline ---------- */
-		.tl {
-			background: var(--card);
-			border-radius: 14px;
-			padding: 13px 15px 11px;
-			margin-bottom: 16px;
-		}
-
-		.tl-head {
-			display: flex;
-			align-items: baseline;
-			justify-content: space-between;
-			margin-bottom: 12px;
-		}
-
-		.tl-title { font-size: 0.86rem; font-weight: 700; }
-
-		.tl-count { font-size: 0.74rem; color: var(--muted); }
-
 		/* The track is the positioning context for every mark inside it, all of
 		   which are placed with `right` because the page is RTL. */
-		.tl-track {
-			position: relative;
-			height: 30px;
-			border-radius: 7px;
-			background: color-mix(in srgb, var(--muted) 16%, transparent);
-			overflow: hidden;
-		}
-
-		.tl-band {
-			position: absolute;
-			top: 0;
-			bottom: 0;
-			background: color-mix(in srgb, var(--high) 30%, transparent);
-		}
-
-		.tl-tick {
-			position: absolute;
-			top: 5px;
-			bottom: 5px;
-			width: 3px;
-			border-radius: 2px;
-			margin-right: -1.5px;
-		}
-
-		.tl-tick.imp-high { background: var(--high); }
-		.tl-tick.imp-medium { background: var(--medium); }
-		.tl-tick.imp-low { background: color-mix(in srgb, var(--low) 80%, transparent); }
-
 		/* سرخابی، همان رنگی که در تابلوی سشن‌ها «الان» را می‌گوید. یک رنگ،
 		   یک معنی، در هر دو تب. */
-		.tl-now {
-			position: absolute;
-			top: -2px;
-			bottom: -2px;
-			width: 2px;
-			margin-right: -1px;
-			background: var(--signal);
-			z-index: 2;
-		}
-
-		.tl-now::before {
-			content: "";
-			position: absolute;
-			top: 0;
-			right: -3px;
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: var(--signal);
-		}
-
-		.tl-axis {
-			position: relative;
-			height: 15px;
-			margin-top: 5px;
-		}
-
-		.tl-hour {
-			position: absolute;
-			transform: translateX(50%);
-			font-size: 0.64rem;
-			color: var(--muted);
-			font-variant-numeric: tabular-nums;
-		}
-
-		.tl-legend {
-			font-size: 0.7rem;
-			color: var(--muted);
-			line-height: 1.7;
-			margin-top: 4px;
-		}
-
-/* ---------- day groups ---------- */
 		.day-head {
 			display: flex;
 			align-items: baseline;
