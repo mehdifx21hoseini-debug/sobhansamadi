@@ -108,6 +108,15 @@
 			<button type="button" data-range="today" aria-pressed="true">امروز</button>
 			<button type="button" data-range="week" aria-pressed="false">این هفته</button>
 		</div>
+
+		<!-- انتخابِ ارز، در همان صفحه‌ای که نتیجه‌اش دیده می‌شود.
+		     پیش از این فقط در تبِ تنظیمات بود، پس وقتی فهرست به‌خاطرِ
+		     همین فیلتر خالی می‌شد، راهِ برگشت در صفحه‌ی دیگری بود و صفحه
+		     هیچ اشاره‌ای به آن نمی‌کرد. -->
+		<div class="news-cur" id="newsCur" hidden>
+			<div class="news-cur-k">ارزهای نمایش‌داده‌شده</div>
+			<div class="news-cur-row" id="newsCurRow"></div>
+		</div>
 		<div class="search-row">
 			<input type="search" id="searchInput" class="search-input" autocomplete="off"
 				placeholder="جستجوی شاخص… مثلاً CPI یا تورم">

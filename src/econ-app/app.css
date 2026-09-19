@@ -798,6 +798,50 @@
 		}
 
 		/* ---------- search ---------- */
+		/* ── ارزها، بالای فهرستِ اخبار ─────────────────────────────────────
+		   همان‌جا که خالی بودنِ فهرست دیده می‌شود، همان‌جا هم حل می‌شود.
+		   کارتِ کاملِ تنظیمات اینجا زیادی بود - کدِ ارز به‌تنهایی کافی
+		   است و نامِ فارسی در title می‌ماند. */
+		.news-cur {
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			padding: 9px 11px;
+			margin-bottom: 10px;
+		}
+
+		.news-cur-k {
+			font-size: .62rem;
+			font-weight: 700;
+			color: var(--muted);
+			margin-bottom: 7px;
+		}
+
+		.news-cur-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+		}
+
+		.news-cur-chip {
+			font: inherit;
+			font-size: .68rem;
+			font-weight: 800;
+			letter-spacing: .02em;
+			cursor: pointer;
+			color: var(--muted);
+			background: transparent;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 5px 12px;
+		}
+
+		.news-cur-chip.on {
+			background: var(--accent);
+			color: var(--accent-text);
+			border-color: var(--accent);
+		}
+
 		.search-row {
 			position: relative;
 			margin-bottom: 10px;
@@ -1848,6 +1892,26 @@
 
 		.read-good { background: color-mix(in srgb, var(--up) 13%, transparent); color: var(--up); }
 		.read-bad { background: color-mix(in srgb, var(--down) 13%, transparent); color: var(--down); }
+
+		/* «تأثیر معمول» و «قبلیِ بازنگری‌شده».
+		   ─────────────────────────────────────────────────────────────
+		   هیچ‌کدام رنگِ خوب/بد نمی‌گیرند و این عمدی است: .read قضاوتِ یک
+		   عددِ منتشرشده است، این دو فقط زمینه‌اند. اگر هم‌رنگِ آن می‌شدند،
+		   ردیفی که هنوز عددی ندارد شبیه ردیفی می‌شد که دارد. */
+		.usual,
+		.revised {
+			display: block;
+			margin-bottom: 7px;
+			padding: 6px 9px;
+			border-radius: 7px;
+			font-size: 0.72rem;
+			font-weight: 700;
+			background: var(--card-2);
+			color: var(--muted);
+			border: 1px solid var(--line);
+		}
+
+		.revised { font-variant-numeric: tabular-nums; }
 
 		/* Expanded detail, revealed on tap. Keeps the list scannable while the
 		   full numbers stay one tap away. */

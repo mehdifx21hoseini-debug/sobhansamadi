@@ -824,6 +824,50 @@
 		}
 
 		/* ---------- search ---------- */
+		/* ── ارزها، بالای فهرستِ اخبار ─────────────────────────────────────
+		   همان‌جا که خالی بودنِ فهرست دیده می‌شود، همان‌جا هم حل می‌شود.
+		   کارتِ کاملِ تنظیمات اینجا زیادی بود - کدِ ارز به‌تنهایی کافی
+		   است و نامِ فارسی در title می‌ماند. */
+		.news-cur {
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			padding: 9px 11px;
+			margin-bottom: 10px;
+		}
+
+		.news-cur-k {
+			font-size: .62rem;
+			font-weight: 700;
+			color: var(--muted);
+			margin-bottom: 7px;
+		}
+
+		.news-cur-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+		}
+
+		.news-cur-chip {
+			font: inherit;
+			font-size: .68rem;
+			font-weight: 800;
+			letter-spacing: .02em;
+			cursor: pointer;
+			color: var(--muted);
+			background: transparent;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 5px 12px;
+		}
+
+		.news-cur-chip.on {
+			background: var(--accent);
+			color: var(--accent-text);
+			border-color: var(--accent);
+		}
+
 		.search-row {
 			position: relative;
 			margin-bottom: 10px;
@@ -1875,6 +1919,26 @@
 		.read-good { background: color-mix(in srgb, var(--up) 13%, transparent); color: var(--up); }
 		.read-bad { background: color-mix(in srgb, var(--down) 13%, transparent); color: var(--down); }
 
+		/* «تأثیر معمول» و «قبلیِ بازنگری‌شده».
+		   ─────────────────────────────────────────────────────────────
+		   هیچ‌کدام رنگِ خوب/بد نمی‌گیرند و این عمدی است: .read قضاوتِ یک
+		   عددِ منتشرشده است، این دو فقط زمینه‌اند. اگر هم‌رنگِ آن می‌شدند،
+		   ردیفی که هنوز عددی ندارد شبیه ردیفی می‌شد که دارد. */
+		.usual,
+		.revised {
+			display: block;
+			margin-bottom: 7px;
+			padding: 6px 9px;
+			border-radius: 7px;
+			font-size: 0.72rem;
+			font-weight: 700;
+			background: var(--card-2);
+			color: var(--muted);
+			border: 1px solid var(--line);
+		}
+
+		.revised { font-variant-numeric: tabular-nums; }
+
 		/* Expanded detail, revealed on tap. Keeps the list scannable while the
 		   full numbers stay one tap away. */
 		.event-detail {
@@ -2337,6 +2401,15 @@
 			<button type="button" data-range="today" aria-pressed="true">امروز</button>
 			<button type="button" data-range="week" aria-pressed="false">این هفته</button>
 		</div>
+
+		<!-- انتخابِ ارز، در همان صفحه‌ای که نتیجه‌اش دیده می‌شود.
+		     پیش از این فقط در تبِ تنظیمات بود، پس وقتی فهرست به‌خاطرِ
+		     همین فیلتر خالی می‌شد، راهِ برگشت در صفحه‌ی دیگری بود و صفحه
+		     هیچ اشاره‌ای به آن نمی‌کرد. -->
+		<div class="news-cur" id="newsCur" hidden>
+			<div class="news-cur-k">ارزهای نمایش‌داده‌شده</div>
+			<div class="news-cur-row" id="newsCurRow"></div>
+		</div>
 		<div class="search-row">
 			<input type="search" id="searchInput" class="search-input" autocomplete="off"
 				placeholder="جستجوی شاخص… مثلاً CPI یا تورم">
@@ -2410,7 +2483,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 3f0f715af5</span>
+			<span class="build">نسخه 7176a058fd</span>
 		</p>
 	</div>
 
@@ -2827,7 +2900,16 @@ function hhmmInZone(instant, timeZone) {
 					// the screen looking like it failed to load.
 					var next = d.events.length > 0 ? d.events[0] : null;
 					sub = "امروز خبری برای دلار نیست";
-					if (next) sub += " — بعدی " + relDay(next.date) + "، " + (next.en || next.title);
+					// نامِ کوتاه، نه کامل.
+					//
+					// e.en همان enFull سرور است و نامِ خامِ منبع را می‌دهد -
+					// گاهی صد کاراکتر: «GDP (Third Estimate), Industries,
+					// Corporate Profits, State GDP, and State Personal
+					// Income, 2nd Quarter 2026; State PCE, 2025». این یک
+					// خطِ خلاصه است و آن نام سه خطش می‌کرد. e.short از
+					// سرور می‌آید و از پیش روی ۴۰ کاراکتر بریده شده؛ نامِ
+					// کامل سرِ جایش هست و با باز کردنِ خودِ خبر دیده می‌شود.
+					if (next) sub += " — بعدی " + relDay(next.date) + "، " + (next.short || next.title || "");
 				} else {
 					// بدون خطاب. نامِ نمایشیِ تلگرام هرچیزی می‌تواند باشد - نام
 					// یک کانال، یک اکانت کاری، یا رشته‌ای از ایموجی - و
@@ -3171,6 +3253,30 @@ function hhmmInZone(instant, timeZone) {
 					detail.appendChild(el("div", "read " + (e.read.good ? "read-good" : "read-bad"),
 						(e.read.higher ? "▲ بالاتر از پیش‌بینی — " : "▼ پایین‌تر از پیش‌بینی — ") +
 						(e.read.good ? "معمولاً مثبت برای دلار" : "معمولاً منفی برای دلار")));
+				} else if (e.direction) {
+					// «تأثیر معمول» - همان چیزی که فارکس‌فکتوری Usual Effect
+					// می‌نامد. تا امروز سرور این ستون را می‌فرستاد و اپ فقط
+					// وقتی نشانش می‌داد که عدد منتشر شده باشد (داخلِ e.read)،
+					// یعنی دقیقاً وقتی دیگر لازم نبود.
+					//
+					// پیش از انتشار همان چیزی است که کاربر می‌خواهد بداند:
+					// اگر عدد بالاتر درآمد، خوب است یا بد؟
+					var ccy = String(e.currency || "USD").toUpperCase();
+					var up = e.direction !== "inverse";
+					detail.appendChild(el("div", "usual",
+						"معمولاً عددِ " + (up ? "بالاتر" : "پایین‌تر") +
+						" از پیش‌بینی برای " + ccy + " مثبت است"));
+				}
+
+				// «قبلی» که منبع بازنگری‌اش کرده.
+				//
+				// این هم از قبل می‌آمد و هیچ‌جا نوشته نمی‌شد. بازنگریِ عددِ
+				// ماه پیش خودش خبر است: «۰٫۸٪ (بازنگری‌شده از ۱٫۱٪)» یعنی
+				// تصویرِ قبلی خوش‌بینانه بوده، و بدونِ آن، فقط یک عددِ تازه
+				// دیده می‌شود.
+				if (e.previous_before && e.previous_before !== e.previous) {
+					detail.appendChild(el("div", "revised",
+						"قبلی از " + fa(e.previous_before) + " به " + fa(e.previous || "—") + " بازنگری شد"));
 				}
 				var chart = historyChart(e);
 				if (chart) detail.appendChild(chart);
@@ -4045,6 +4151,10 @@ function hhmmInZone(instant, timeZone) {
 				var list = document.getElementById("list");
 				list.textContent = "";
 
+				// ردیفِ ارز با هر رندر هم‌راستا می‌شود، چون هم تب عوض
+				// می‌شود و هم جستجو پنهانش می‌کند.
+				renderNewsCurrencies();
+
 				// منطقه‌ی زمانی از همین‌جا عوض می‌شود، و ساعتِ بنر همان
 				// منطقه را نشان می‌دهد. بدونِ این، تا تیکِ بعدی - یک ثانیه
 				// - بنر ساعتِ منطقه‌ی قبلی را نگه می‌داشت.
@@ -4085,26 +4195,78 @@ function hhmmInZone(instant, timeZone) {
 				var events = visibleEvents();
 				if (events.length === 0) {
 					if (state.query) return; // the search note already said so
+					// حالتِ خالی باید بگوید *چرا* خالی است و یک راه بدهد.
+					//
+					// «با این فیلتر چیزی نیست» درست بود ولی بی‌فایده: فیلتر
+					// سه چیز است - ارز، سطحِ اهمیت، و بازه - و کاربر
+					// نمی‌دانست کدامشان. بدتر اینکه انتخابِ ارز تا همین
+					// امروز فقط در تبِ تنظیمات بود، پس راهِ برگشت در صفحه‌ی
+					// دیگری بود و این صفحه اشاره‌ای به آن نمی‌کرد.
+					//
+					// ترتیبِ بررسی از محتمل‌ترین علت شروع می‌شود، و هر شاخه
+					// دکمه‌ی خودش را می‌دهد نه یک دکمه‌ی عمومی.
+					var sub = state.data.subscription;
+					var chosen = (sub && sub.currencies && sub.currencies.length)
+						? sub.currencies : ["USD"];
+					var onlyOne = chosen.length === 1;
+					var filtered = state.importance !== "all";
+
 					var empty = el("div", "empty");
 					empty.appendChild(el("span", "big", "🗓"));
-					empty.appendChild(document.createTextNode(
-						state.scope === "today"
-							? "امروز رویدادی با این فیلتر ثبت نشده."
-							: "در این هفته رویدادی با این فیلتر ثبت نشده."
-					));
-					// An empty day is normal at weekends and on US bank holidays,
-					// so offer the way out rather than a dead end.
+
+					if (onlyOne) {
+						empty.appendChild(document.createTextNode(
+							"با " + chosen[0] + " تنها، " +
+							(state.scope === "today" ? "امروز" : "این هفته") + " خبری نیست."));
+						empty.appendChild(document.createElement("br"));
+						// یورو و پوند: پرخبرترین ارزها بعد از دلار، و همان
+						// دو تایی که تقریباً همیشه فهرست را پر می‌کنند.
+						var add = ["EUR", "GBP"].filter(function (c) { return chosen.indexOf(c) < 0; });
+						if (add.length) {
+							var turn = el("button", "chip", "روشن کردن " +
+								add.map(function (c) { return c === "EUR" ? "یورو" : "پوند"; }).join(" و "));
+							turn.type = "button";
+							turn.style.marginTop = "12px";
+							turn.addEventListener("click", function () { addCurrencies(add); });
+							empty.appendChild(turn);
+						}
+					} else if (filtered) {
+						empty.appendChild(document.createTextNode(
+							"با فیلترِ «" +
+							(state.importance === "high" ? "خیلی مهم" : "مهم به بالا") +
+							"»، " + (state.scope === "today" ? "امروز" : "این هفته") + " خبری نیست."));
+						empty.appendChild(document.createElement("br"));
+						var all = el("button", "chip", "نمایش همه‌ی خبرها");
+						all.type = "button";
+						all.style.marginTop = "12px";
+						all.addEventListener("click", function () {
+							state.importance = "all";
+							haptic("select");
+							document.querySelectorAll(".chip[data-imp]").forEach(function (b) {
+								b.setAttribute("aria-pressed", b.dataset.imp === "all" ? "true" : "false");
+							});
+							renderList();
+						});
+						empty.appendChild(all);
+					} else {
+						empty.appendChild(document.createTextNode(
+							state.scope === "today"
+								? "امروز خبری ثبت نشده — روز آرامی است."
+								: "در این هفته خبری ثبت نشده."));
+					}
+
+					// روزِ خالی در آخر هفته و تعطیلیِ بانکی طبیعی است، پس
+					// راهِ «کلِ هفته» همیشه کنارِ بقیه می‌ماند.
 					if (state.scope === "today" && state.data.events.length > 0) {
-						var jump = el("button", null, "نمایش کل هفته");
+						var jump = el("button", "chip", "نمایش کل هفته");
 						jump.type = "button";
-						jump.className = "chip";
 						jump.style.marginTop = "12px";
+						jump.style.marginInlineStart = "6px";
 						jump.addEventListener("click", function () {
 							setScope("week");
 							haptic("select");
 							renderList();
 						});
-						empty.appendChild(document.createElement("br"));
 						empty.appendChild(jump);
 					}
 					list.appendChild(empty);
@@ -4336,6 +4498,62 @@ function hhmmInZone(instant, timeZone) {
 				renderAlertScope();
 			}
 
+			// همان انتخابِ ارز، این‌بار در تبِ اخبار.
+			//
+			// روی همان state.data.subscription می‌نویسد که کارتِ تنظیمات -
+			// پس دو کنترل نیستند، یک کنترل با دو جا. هر کدام که عوض شود،
+			// آن یکی هم با رندرِ بعدی هم‌راستا می‌شود.
+			function renderNewsCurrencies() {
+				var box = document.getElementById("newsCur");
+				var row = document.getElementById("newsCurRow");
+				if (!box || !row) return;
+
+				var sub = state.data && state.data.subscription;
+				// فقط در تبِ اخبار، و نه وقتی کاربر در حالِ جستجوست:
+				// جستجو عمداً از فیلترِ ارز رد می‌شود.
+				if (!sub || !isNewsScope(state.scope) || state.query) {
+					box.hidden = true;
+					return;
+				}
+				box.hidden = false;
+
+				var chosen = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
+				row.textContent = "";
+				CURRENCIES.forEach(function (c) {
+					var on = chosen.indexOf(c.code) >= 0;
+					var b = el("button", "news-cur-chip" + (on ? " on" : ""));
+					b.type = "button";
+					b.setAttribute("aria-pressed", on ? "true" : "false");
+					b.textContent = c.code;
+					b.title = c.fa;
+					b.addEventListener("click", function () { toggleCurrency(c.code); });
+					row.appendChild(b);
+				});
+			}
+
+			// چند ارز را با یک ذخیره روشن می‌کند.
+			//
+			// چرا جدا از toggleCurrency: صدا زدنِ پشتِ سرِ هم آن تابع کار
+			// نمی‌کند. هر بار از روی sub.currencies حساب می‌کند و بینشان
+			// یک ذخیره و یک بازخوانی می‌نشیند، پس دومی یا روی مقدارِ کهنه
+			// می‌نشیند و اولی را پاک می‌کند، یا با state.saving بی‌صدا رد
+			// می‌شود. با تایمر فاصله انداختن هم فقط شانس را بالا می‌برد،
+			// حلش نمی‌کند.
+			function addCurrencies(codes) {
+				var sub = state.data && state.data.subscription;
+				if (!sub || state.saving) return;
+				var before = (sub.currencies && sub.currencies.length ? sub.currencies : ["USD"]).slice();
+				var list = before.slice();
+				codes.forEach(function (c) { if (list.indexOf(c) < 0) list.push(c); });
+				if (list.length === before.length) return;
+				sub.currencies = CURRENCIES.map(function (c) { return c.code; })
+					.filter(function (x) { return list.indexOf(x) >= 0; });
+				haptic("select");
+				renderCurrencies();
+				renderNewsCurrencies();
+				saveSubscription({ undo: before });
+			}
+
 			function toggleCurrency(code) {
 				var sub = state.data && state.data.subscription;
 				if (!sub || state.saving) return;
@@ -4358,6 +4576,7 @@ function hhmmInZone(instant, timeZone) {
 					.filter(function (x) { return list.indexOf(x) >= 0; });
 				haptic("select");
 				renderCurrencies();
+				renderNewsCurrencies();
 				saveSubscription({ undo: before });
 			}
 
@@ -4385,7 +4604,16 @@ function hhmmInZone(instant, timeZone) {
 						// بدهد.
 						if (body && body.subscription) {
 							state.data.subscription = body.subscription;
-							if (undo) renderCurrencies();
+							if (undo) {
+								renderCurrencies();
+								// فیلترِ ارز سمتِ سرور اعمال می‌شود - اپ
+								// رویدادهای ارزهای خاموش را اصلاً دریافت
+								// نمی‌کند. پس بدونِ این خواندنِ دوباره،
+								// روشن کردنِ یورو هیچ خبری به فهرست اضافه
+								// نمی‌کرد تا وقتی کاربر خودش بروزرسانی
+								// بزند؛ و از بیرون شبیه «کار نمی‌کند» بود.
+								load();
+							}
 						}
 					})
 					.catch(function () {
@@ -4396,6 +4624,7 @@ function hhmmInZone(instant, timeZone) {
 							// انتخابی را نشان بدهد که سرور هرگز ذخیره‌اش نکرد.
 							s.currencies = undo;
 							renderCurrencies();
+							renderNewsCurrencies();
 							if (tg && tg.showAlert) tg.showAlert("ذخیره‌ی ارزها ناموفق بود.");
 						} else {
 							s.subscribed = !s.subscribed;
