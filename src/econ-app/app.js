@@ -226,6 +226,51 @@
 				return state.data.events.filter(function (e) { return e.date === today; });
 			}
 
+			// خطِ زنده‌ی بنر.
+			//
+			// زیرنویسِ بنر هر روز یک جمله‌ی ثابت بود. این تابع جایش را با
+			// وضعیتِ همین لحظه می‌گیرد: چند خبر برای امروز مانده، و
+			// نزدیک‌ترینشان کِی است.
+			//
+			// اگر چیزی برای گفتن نباشد - داده نیامده، یا روز تمام شده -
+			// زیرنویسِ ثابت برمی‌گردد. یعنی بنر هیچ‌وقت خالی نمی‌ماند، و
+			// خطِ زنده فقط وقتی هست که واقعاً زنده باشد.
+			//
+			// از هر سه تب دیده می‌شود، پس مثلِ ساعتِ بنر بیرونِ گیتِ تب است.
+			function renderBrandLive() {
+				var sub = document.getElementById("brandSub");
+				var live = document.getElementById("brandLive");
+				if (!sub || !live) return;
+
+				var quiet = function () { live.hidden = true; sub.hidden = false; };
+				if (!state.data) return quiet();
+
+				var now = Date.now();
+				var todays = todaysEvents();
+				var ahead = todays.filter(function (e) {
+					return e.at && new Date(e.at).getTime() > now;
+				});
+				if (!todays.length) return quiet();
+
+				live.textContent = "";
+				live.appendChild(el("span", "hb-dot"));
+				live.appendChild(el("b", null, fa(todays.length) + " رویداد امروز"));
+
+				// «بعدی» فقط وقتی معنی دارد که واقعاً بعدی‌ای مانده باشد.
+				// آخرِ روز که همه منتشر شده‌اند، همان شمارش تنها می‌ماند.
+				if (ahead.length) {
+					var nx = ahead[0];
+					live.appendChild(el("span", "hb-sep", "·"));
+					var t = nx.time_tehran ? fa(nx.time_tehran.replace("+1", "")) : "";
+					// نامِ کوتاه، نه e.en - آن نامِ خامِ منبع است و گاهی صد
+					// کاراکتر، که این خط را سه خط می‌کرد.
+					live.appendChild(el("span", "hb-rest",
+						"بعدی " + (t ? t + " " : "") + (nx.short || nx.title || "")));
+				}
+				live.hidden = false;
+				sub.hidden = true;
+			}
+
 			function renderHero() {
 				var d = state.data;
 				var todays = todaysEvents();
@@ -1913,6 +1958,7 @@
 			}
 
 			function render() {
+				renderBrandLive();
 				renderHero();
 				renderNext();
 				renderList();
@@ -2490,8 +2536,15 @@
 				});
 			}
 
+			// خطِ زنده‌ی بنر دقیقه‌ای یک بار بازکشیده می‌شود، نه ثانیه‌ای:
+			// چیزی که نشان می‌دهد - شمارشِ امروز و خبرِ بعدی - فقط وقتی
+			// عوض می‌شود که خبری منتشر شود، و آن روی مرزِ دقیقه می‌افتد.
+			var liveMinute = -1;
+
 			setInterval(function () {
 				paintBrandClock();
+				var mn = new Date().getMinutes();
+				if (mn !== liveMinute) { liveMinute = mn; renderBrandLive(); }
 				if (state.scope !== "markets" || !tickers.length) return;
 				var now = new Date();
 				if (marketsSignature(now) !== marketsSig) { renderList(); return; }
