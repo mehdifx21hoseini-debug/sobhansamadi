@@ -2066,7 +2066,8 @@
 		/* دو کارتِ تنظیمات پشتِ هم می‌نشینند. فاصله‌ی ۲۶ پیکسلیِ .alerts
 		   برای جدا کردنِ کارت از فهرستِ رویدادها بود؛ بینِ دو کارتِ هم‌گروه
 		   زیادی است و آن‌ها را دو بخشِ بی‌ربط نشان می‌دهد. */
-		#currencyCard + #alertsCard { margin-top: 14px; }
+		#currencyCard + #alertsCard,
+		#alertsCard + #zoneCard { margin-top: 14px; }
 
 		.alerts h2 {
 			font-size: 0.95rem;
@@ -2078,6 +2079,93 @@
 			font-size: 0.78rem;
 			color: var(--muted);
 			margin: 0 0 13px;
+		}
+
+		/* عنوان و میان‌بُرها روی یک خط. flex-end روی baseline نیست چون
+		   دکمه‌ها کوتاه‌ترند و با baseline کمی بالا می‌پرند. */
+		.cur-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin: 0 0 3px;
+		}
+
+		.cur-head h2 { margin: 0; }
+
+		.cur-quick {
+			display: flex;
+			gap: 6px;
+			flex-shrink: 0;
+		}
+
+		/* عمداً کم‌رنگ‌تر از .chip: این‌ها میان‌بُرند، نه انتخاب. اگر
+		   هم‌وزنِ کارت‌های ارز دیده شوند، چشم فکر می‌کند حالتِ فعلی را
+		   نشان می‌دهند. */
+		.cur-quick button {
+			font: inherit;
+			font-size: 0.72rem;
+			color: var(--muted);
+			background: transparent;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 4px 10px;
+			cursor: pointer;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.cur-quick button:active { transform: scale(0.96); }
+
+		.cur-group-k {
+			font-size: 0.7rem;
+			font-weight: 700;
+			color: var(--muted);
+			margin: 12px 0 6px;
+		}
+
+		.cur-group-k:first-of-type { margin-top: 4px; }
+
+		/* ---------- پیش‌نمایشِ پیامِ هشدار ----------
+		   شکلِ حباب تلگرام را تقلید می‌کند - گوشه‌ی تیزِ پایین‌راست - تا
+		   بدونِ خواندنِ برچسب هم معلوم باشد این «پیام» است نه یک تنظیمِ
+		   دیگر. */
+		.alert-preview { margin: 4px 0 14px; }
+
+		.ap-k {
+			font-size: 0.7rem;
+			color: var(--muted);
+			margin: 0 0 6px;
+		}
+
+		.ap-body {
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+			/* گوشه‌ی تیز سمتِ خودِ کاربر است - در RTL یعنی پایین‌راست.
+			   با مقدارِ فیزیکی نوشته نمی‌شود چون همین فایل در حالتِ LTR
+			   هم رندر می‌شود. */
+			border-end-start-radius: 4px;
+			padding: 9px 11px;
+			max-width: 260px;
+		}
+
+		.ap-l1 {
+			font-size: 0.84rem;
+			line-height: 1.55;
+		}
+
+		.ap-l2 {
+			font-size: 0.75rem;
+			color: var(--muted);
+			margin-top: 2px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.ap-note {
+			font-size: 0.68rem;
+			color: var(--muted);
+			opacity: 0.8;
+			margin-top: 5px;
 		}
 
 		/* ---------- فیلتر ارزها ----------

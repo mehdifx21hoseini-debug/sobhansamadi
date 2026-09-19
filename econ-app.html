@@ -2092,7 +2092,8 @@
 		/* دو کارتِ تنظیمات پشتِ هم می‌نشینند. فاصله‌ی ۲۶ پیکسلیِ .alerts
 		   برای جدا کردنِ کارت از فهرستِ رویدادها بود؛ بینِ دو کارتِ هم‌گروه
 		   زیادی است و آن‌ها را دو بخشِ بی‌ربط نشان می‌دهد. */
-		#currencyCard + #alertsCard { margin-top: 14px; }
+		#currencyCard + #alertsCard,
+		#alertsCard + #zoneCard { margin-top: 14px; }
 
 		.alerts h2 {
 			font-size: 0.95rem;
@@ -2104,6 +2105,93 @@
 			font-size: 0.78rem;
 			color: var(--muted);
 			margin: 0 0 13px;
+		}
+
+		/* عنوان و میان‌بُرها روی یک خط. flex-end روی baseline نیست چون
+		   دکمه‌ها کوتاه‌ترند و با baseline کمی بالا می‌پرند. */
+		.cur-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin: 0 0 3px;
+		}
+
+		.cur-head h2 { margin: 0; }
+
+		.cur-quick {
+			display: flex;
+			gap: 6px;
+			flex-shrink: 0;
+		}
+
+		/* عمداً کم‌رنگ‌تر از .chip: این‌ها میان‌بُرند، نه انتخاب. اگر
+		   هم‌وزنِ کارت‌های ارز دیده شوند، چشم فکر می‌کند حالتِ فعلی را
+		   نشان می‌دهند. */
+		.cur-quick button {
+			font: inherit;
+			font-size: 0.72rem;
+			color: var(--muted);
+			background: transparent;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 4px 10px;
+			cursor: pointer;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.cur-quick button:active { transform: scale(0.96); }
+
+		.cur-group-k {
+			font-size: 0.7rem;
+			font-weight: 700;
+			color: var(--muted);
+			margin: 12px 0 6px;
+		}
+
+		.cur-group-k:first-of-type { margin-top: 4px; }
+
+		/* ---------- پیش‌نمایشِ پیامِ هشدار ----------
+		   شکلِ حباب تلگرام را تقلید می‌کند - گوشه‌ی تیزِ پایین‌راست - تا
+		   بدونِ خواندنِ برچسب هم معلوم باشد این «پیام» است نه یک تنظیمِ
+		   دیگر. */
+		.alert-preview { margin: 4px 0 14px; }
+
+		.ap-k {
+			font-size: 0.7rem;
+			color: var(--muted);
+			margin: 0 0 6px;
+		}
+
+		.ap-body {
+			background: var(--card-2);
+			border: 1px solid var(--line);
+			border-radius: 12px;
+			/* گوشه‌ی تیز سمتِ خودِ کاربر است - در RTL یعنی پایین‌راست.
+			   با مقدارِ فیزیکی نوشته نمی‌شود چون همین فایل در حالتِ LTR
+			   هم رندر می‌شود. */
+			border-end-start-radius: 4px;
+			padding: 9px 11px;
+			max-width: 260px;
+		}
+
+		.ap-l1 {
+			font-size: 0.84rem;
+			line-height: 1.55;
+		}
+
+		.ap-l2 {
+			font-size: 0.75rem;
+			color: var(--muted);
+			margin-top: 2px;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.ap-note {
+			font-size: 0.68rem;
+			color: var(--muted);
+			opacity: 0.8;
+			margin-top: 5px;
 		}
 
 		/* ---------- فیلتر ارزها ----------
@@ -2514,9 +2602,22 @@
 		</div>
 
 		<div id="currencyCard" class="alerts" hidden>
-			<h2>ارزهای شما</h2>
+			<div class="cur-head">
+				<h2>ارزهای شما</h2>
+				<!-- دو میان‌بُر: «همه» هشت ضربه را یکی می‌کند، و «فقط دلار»
+				     همان حالتی است که بیشترِ کاربرها با آن شروع می‌کنند. -->
+				<div class="cur-quick">
+					<button type="button" id="curAll">همه</button>
+					<button type="button" id="curUsd">فقط دلار</button>
+				</div>
+			</div>
 			<p class="sub">فقط اخبار ارزهایی که انتخاب می‌کنید نمایش داده می‌شود — و هشدارها هم بر همین اساس می‌آیند.</p>
-			<div class="cur-grid" id="curGrid"></div>
+			<!-- دو گروه، نه یک شبکه‌ی هشت‌تایی: هشت خانه‌ی هم‌شکل یک فهرستِ
+			     بی‌ترتیب است و چشم نمی‌داند کجا را نگاه کند. -->
+			<div class="cur-group-k">اصلی</div>
+			<div class="cur-grid" id="curGridMain"></div>
+			<div class="cur-group-k">کالایی و بقیه</div>
+			<div class="cur-grid" id="curGridRest"></div>
 		</div>
 		<div id="alertsCard" class="alerts" hidden>
 			<h2>هشدار قبل از خبر</h2>
@@ -2542,6 +2643,14 @@
 					</div>
 				</div>
 
+				<!-- پیش‌نمایشِ همان پیامی که قرار است برسد.
+				     کاربر «۵ دقیقه» را انتخاب می‌کند ولی نمی‌داند چه چیزی
+				     می‌آید؛ یک نمونه‌ی کوچکِ واقعی هم توضیح است هم اطمینان. -->
+				<div class="alert-preview" id="alertPreview">
+					<div class="ap-k">این پیام را می‌گیرید</div>
+					<div class="ap-body" id="apBody"></div>
+				</div>
+
 				<div class="row">
 					<div>
 						<div class="label">خبرهای کم‌اهمیت هم بیاد</div>
@@ -2553,6 +2662,18 @@
 			</div>
 		</div>
 
+		<div id="zoneCard" class="alerts" hidden>
+			<h2>منطقه‌ی زمانی</h2>
+			<p class="sub">همه‌ی ساعت‌های اپ به این وقت نوشته می‌شوند.</p>
+			<div class="row">
+				<div>
+					<div class="label" id="zoneCardName">تهران</div>
+					<div class="hint" id="zoneCardOff">—</div>
+				</div>
+				<button type="button" class="chip" id="zoneCardBtn">تغییر</button>
+			</div>
+		</div>
+
 		<p class="footnote">
 			ساعت‌های تقویم به وقت تهران · منبع داده‌ها ForexFactory و BEA<br>
 			خوانش تأثیر بر دلار یک برداشت کلی است، نه سیگنال معاملاتی.<br>
@@ -2561,7 +2682,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 992f0b91c5</span>
+			<span class="build">نسخه 3dbb9e171f</span>
 		</p>
 	</div>
 
@@ -3026,6 +3147,10 @@ function hhmmInZone(instant, timeZone) {
 				// Arriving at the markets tab is what earns the entrance
 				// animation. The per-second redraws must not replay it.
 				if (scope === "markets" && state.scope !== "markets") marketsEntering = true;
+				// عوض شدنِ تب فهرستِ منطقه را می‌بندد. شرطِ «واقعاً عوض
+				// شده» لازم است: setScope بعدِ هر رندر هم صدا زده می‌شود و
+				// بدونِ این شرط، فهرستِ بازِ زیرِ دستِ کاربر بسته می‌شد.
+				if (state.scope !== scope) closeZoneSheet();
 				state.scope = scope;
 
 				var news = isNewsScope(scope);
@@ -3053,6 +3178,10 @@ function hhmmInZone(instant, timeZone) {
 				var sub = state.data && state.data.subscription;
 				document.getElementById("alertsCard").hidden = !settings || !sub;
 				document.getElementById("currencyCard").hidden = !settings || !sub;
+				// منطقه‌ی زمانی به اشتراک ربط ندارد - حتی کسی که هشدار
+				// نگرفته هم ساعتِ بالای صفحه را می‌بیند و باید بتواند
+				// عوضش کند.
+				document.getElementById("zoneCard").hidden = !settings;
 
 				// فهرست رویدادها در تنظیمات چیزی برای گفتن ندارد.
 				document.getElementById("list").hidden = settings;
@@ -4626,6 +4755,25 @@ function hhmmInZone(instant, timeZone) {
 						Number(btns[i].getAttribute("data-m")) === Number(s.alert_minutes) ? "true" : "false");
 				}
 				document.getElementById("alertOptions").className = s.subscribed ? "" : "alerts-disabled";
+				renderAlertPreview();
+				renderZoneCard();
+			}
+
+			// میان‌بُرهای ارز. اینجا وصل می‌شوند نه داخلِ renderCurrencies،
+			// چون آن تابع هر بار کارت‌ها را از نو می‌سازد و این دو دکمه در
+			// HTML ثابت‌اند - وصل کردنشان در هر رندر یعنی چند شنونده روی یک
+			// دکمه و چند ذخیره با یک ضربه.
+			function wireCurrencyShortcuts() {
+				var all = document.getElementById("curAll");
+				var usd = document.getElementById("curUsd");
+				if (all) {
+					all.addEventListener("click", function () {
+						setCurrencies(CURRENCIES.map(function (c) { return c.code; }));
+					});
+				}
+				if (usd) {
+					usd.addEventListener("click", function () { setCurrencies(["USD"]); });
+				}
 			}
 
 			function render() {
@@ -4742,13 +4890,21 @@ function hhmmInZone(instant, timeZone) {
 				node.appendChild(codes);
 			}
 
+			// «اصلی» و «کالایی»: چهار ارزی که بیشترِ خبرها مالِ آن‌هاست، و
+			// بقیه. مرز از خودِ داده می‌آید نه از سلیقه - چهار ارزِ اول
+			// تقریباً همه‌ی رویدادهای پرتکرار را می‌سازند.
+			var MAJORS = ["USD", "EUR", "GBP", "JPY"];
+
 			function renderCurrencies() {
-				var grid = document.getElementById("curGrid");
+				var main = document.getElementById("curGridMain");
+				var rest = document.getElementById("curGridRest");
 				var sub = state.data && state.data.subscription;
-				if (!grid || !sub) return;
+				if (!main || !rest || !sub) return;
 				var chosen = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
-				grid.textContent = "";
+				main.textContent = "";
+				rest.textContent = "";
 				CURRENCIES.forEach(function (c) {
+					var grid = MAJORS.indexOf(c.code) >= 0 ? main : rest;
 					var on = chosen.indexOf(c.code) >= 0;
 					var b = el("button", "cur" + (on ? " on" : ""));
 					b.type = "button";
@@ -4761,6 +4917,82 @@ function hhmmInZone(instant, timeZone) {
 					grid.appendChild(b);
 				});
 				renderAlertScope();
+				renderAlertPreview();
+			}
+
+			// ── میان‌بُرها ────────────────────────────────────────────
+			//
+			// «همه» هشت ضربه را یکی می‌کند و «فقط دلار» همان حالتی است که
+			// بیشترِ کاربرها با آن شروع می‌کنند. هر دو از همان مسیرِ
+			// ذخیره‌ی بقیه می‌روند، پس بازخوانی و برگردانی‌شان هم همان است.
+			function setCurrencies(list) {
+				var sub = state.data && state.data.subscription;
+				if (!sub || state.saving) return;
+				var before = (sub.currencies && sub.currencies.length ? sub.currencies : ["USD"]).slice();
+				var next = CURRENCIES.map(function (c) { return c.code; })
+					.filter(function (x) { return list.indexOf(x) >= 0; });
+				if (!next.length) return;
+				if (next.join() === before.join()) return;
+				sub.currencies = next;
+				haptic("select");
+				renderCurrencies();
+				saveSubscription({ undo: before });
+			}
+
+			// ── پیش‌نمایشِ پیامِ هشدار ─────────────────────────────────
+			//
+			// کاربر «۵ دقیقه» را انتخاب می‌کند ولی نمی‌داند چه چیزی قرار
+			// است برسد. یک نمونه‌ی واقعی - نه متنِ ساختگی - هم توضیح است
+			// هم اطمینان.
+			//
+			// خبرِ نمونه از خودِ داده برداشته می‌شود: نزدیک‌ترین خبرِ مهمِ
+			// پیشِ رو. اگر چنین خبری نبود، نمونه‌ای خنثی می‌رود تا کارت
+			// خالی نماند.
+			function renderAlertPreview() {
+				var box = document.getElementById("alertPreview");
+				var body = document.getElementById("apBody");
+				var sub = state.data && state.data.subscription;
+				if (!box || !body || !sub) return;
+
+				// وقتی هشدار خاموش است، پیش‌نمایش هم معنی ندارد.
+				box.hidden = !sub.subscribed;
+				if (!sub.subscribed) return;
+
+				var mins = Number(sub.alert_minutes) || 15;
+				var now = Date.now();
+				var pick = (state.data.events || []).filter(function (e) {
+					if (!e.at || e.importance === "low") return false;
+					return new Date(e.at).getTime() > now;
+				})[0];
+
+				body.textContent = "";
+				var l1 = el("div", "ap-l1");
+				l1.appendChild(document.createTextNode("⏳ " + fa(mins) + " دقیقه تا "));
+				l1.appendChild(el("b", null, pick ? (pick.short || pick.title || "") : "نرخ بهره فدرال"));
+				body.appendChild(l1);
+
+				var l2 = el("div", "ap-l2");
+				var t = pick && pick.time_tehran ? fa(pick.time_tehran.replace("+1", "")) : "۱۶:۰۰";
+				var f = pick && pick.forecast ? pick.forecast : "5.25%";
+				l2.textContent = t + " · پیش‌بینی " + f;
+				body.appendChild(l2);
+
+				if (!pick) body.appendChild(el("div", "ap-note", "نمونه — خبرِ مهمی در پیش نیست"));
+			}
+
+			// ── ردیفِ منطقه‌ی زمانی در تنظیمات ────────────────────────
+			//
+			// همان انتخابی که ساعتِ بنر باز می‌کند. دو جا، یک مقدار: اینجا
+			// جایی است که کاربر دنبالش می‌گردد، و آنجا جایی است که عددش را
+			// می‌بیند.
+			function renderZoneCard() {
+				var card = document.getElementById("zoneCard");
+				var nm = document.getElementById("zoneCardName");
+				var off = document.getElementById("zoneCardOff");
+				if (!card || !nm || !off) return;
+				nm.textContent = viewZone.name;
+				off.textContent = offsetLabel(VIEW(), new Date()) +
+					" · ساعت " + fa(hhmmInZone(Date.now(), VIEW()));
 			}
 
 			// چند ارز را با یک ذخیره روشن می‌کند.
@@ -5065,6 +5297,7 @@ function hhmmInZone(instant, timeZone) {
 						closeZoneSheet();
 						// renderList خودش ساعتِ بنر را هم دوباره می‌کشد.
 						renderList();
+						renderZoneCard();
 					});
 					sheet.appendChild(b);
 				});
@@ -5077,21 +5310,40 @@ function hhmmInZone(instant, timeZone) {
 				if (btn) btn.setAttribute("aria-expanded", "false");
 			}
 
+			// فهرست زیرِ بنر می‌نشیند، پس وقتی از تنظیمات بازش می‌کنی باید
+			// بیاید جلوی چشم - وگرنه کاربر دکمه را می‌زند و ظاهراً هیچ
+			// اتفاقی نمی‌افتد.
+			function openZoneSheet(scroll) {
+				var sheet = document.getElementById("zoneSheet");
+				var btn = document.getElementById("brandClock");
+				if (!sheet) return;
+				haptic("light");
+				buildZoneSheet();
+				sheet.hidden = false;
+				if (btn) btn.setAttribute("aria-expanded", "true");
+				if (scroll && sheet.scrollIntoView) {
+					try { sheet.scrollIntoView({ block: "center", behavior: "smooth" }); }
+					catch (e) { sheet.scrollIntoView(); }
+				}
+			}
+
 			function wireBrandClock() {
 				var btn = document.getElementById("brandClock");
 				var sheet = document.getElementById("zoneSheet");
 				if (!btn || !sheet) return;
 				btn.addEventListener("click", function (e) {
 					e.stopPropagation();
-					if (sheet.hidden) {
-						haptic("light");
-						buildZoneSheet();
-						sheet.hidden = false;
-						btn.setAttribute("aria-expanded", "true");
-					} else {
-						closeZoneSheet();
-					}
+					if (sheet.hidden) openZoneSheet(false);
+					else closeZoneSheet();
 				});
+				var card = document.getElementById("zoneCardBtn");
+				if (card) {
+					card.addEventListener("click", function (e) {
+						e.stopPropagation();
+						if (sheet.hidden) openZoneSheet(true);
+						else closeZoneSheet();
+					});
+				}
 				// زدن جای دیگر می‌بنددش - وگرنه فهرست باز می‌ماند و کاربر
 				// باید دقیقاً همان دکمه را دوباره پیدا کند.
 				document.addEventListener("click", function (e) {
@@ -5112,6 +5364,8 @@ function hhmmInZone(instant, timeZone) {
 			}, 1000);
 			paintBrandClock();
 			wireBrandClock();
+			wireCurrencyShortcuts();
+			renderZoneCard();
 
 			if (tg) {
 				tg.ready();

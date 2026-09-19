@@ -283,6 +283,10 @@
 				// Arriving at the markets tab is what earns the entrance
 				// animation. The per-second redraws must not replay it.
 				if (scope === "markets" && state.scope !== "markets") marketsEntering = true;
+				// عوض شدنِ تب فهرستِ منطقه را می‌بندد. شرطِ «واقعاً عوض
+				// شده» لازم است: setScope بعدِ هر رندر هم صدا زده می‌شود و
+				// بدونِ این شرط، فهرستِ بازِ زیرِ دستِ کاربر بسته می‌شد.
+				if (state.scope !== scope) closeZoneSheet();
 				state.scope = scope;
 
 				var news = isNewsScope(scope);
@@ -310,6 +314,10 @@
 				var sub = state.data && state.data.subscription;
 				document.getElementById("alertsCard").hidden = !settings || !sub;
 				document.getElementById("currencyCard").hidden = !settings || !sub;
+				// منطقه‌ی زمانی به اشتراک ربط ندارد - حتی کسی که هشدار
+				// نگرفته هم ساعتِ بالای صفحه را می‌بیند و باید بتواند
+				// عوضش کند.
+				document.getElementById("zoneCard").hidden = !settings;
 
 				// فهرست رویدادها در تنظیمات چیزی برای گفتن ندارد.
 				document.getElementById("list").hidden = settings;
@@ -1883,6 +1891,25 @@
 						Number(btns[i].getAttribute("data-m")) === Number(s.alert_minutes) ? "true" : "false");
 				}
 				document.getElementById("alertOptions").className = s.subscribed ? "" : "alerts-disabled";
+				renderAlertPreview();
+				renderZoneCard();
+			}
+
+			// میان‌بُرهای ارز. اینجا وصل می‌شوند نه داخلِ renderCurrencies،
+			// چون آن تابع هر بار کارت‌ها را از نو می‌سازد و این دو دکمه در
+			// HTML ثابت‌اند - وصل کردنشان در هر رندر یعنی چند شنونده روی یک
+			// دکمه و چند ذخیره با یک ضربه.
+			function wireCurrencyShortcuts() {
+				var all = document.getElementById("curAll");
+				var usd = document.getElementById("curUsd");
+				if (all) {
+					all.addEventListener("click", function () {
+						setCurrencies(CURRENCIES.map(function (c) { return c.code; }));
+					});
+				}
+				if (usd) {
+					usd.addEventListener("click", function () { setCurrencies(["USD"]); });
+				}
 			}
 
 			function render() {
@@ -1999,13 +2026,21 @@
 				node.appendChild(codes);
 			}
 
+			// «اصلی» و «کالایی»: چهار ارزی که بیشترِ خبرها مالِ آن‌هاست، و
+			// بقیه. مرز از خودِ داده می‌آید نه از سلیقه - چهار ارزِ اول
+			// تقریباً همه‌ی رویدادهای پرتکرار را می‌سازند.
+			var MAJORS = ["USD", "EUR", "GBP", "JPY"];
+
 			function renderCurrencies() {
-				var grid = document.getElementById("curGrid");
+				var main = document.getElementById("curGridMain");
+				var rest = document.getElementById("curGridRest");
 				var sub = state.data && state.data.subscription;
-				if (!grid || !sub) return;
+				if (!main || !rest || !sub) return;
 				var chosen = sub.currencies && sub.currencies.length ? sub.currencies : ["USD"];
-				grid.textContent = "";
+				main.textContent = "";
+				rest.textContent = "";
 				CURRENCIES.forEach(function (c) {
+					var grid = MAJORS.indexOf(c.code) >= 0 ? main : rest;
 					var on = chosen.indexOf(c.code) >= 0;
 					var b = el("button", "cur" + (on ? " on" : ""));
 					b.type = "button";
@@ -2018,6 +2053,82 @@
 					grid.appendChild(b);
 				});
 				renderAlertScope();
+				renderAlertPreview();
+			}
+
+			// ── میان‌بُرها ────────────────────────────────────────────
+			//
+			// «همه» هشت ضربه را یکی می‌کند و «فقط دلار» همان حالتی است که
+			// بیشترِ کاربرها با آن شروع می‌کنند. هر دو از همان مسیرِ
+			// ذخیره‌ی بقیه می‌روند، پس بازخوانی و برگردانی‌شان هم همان است.
+			function setCurrencies(list) {
+				var sub = state.data && state.data.subscription;
+				if (!sub || state.saving) return;
+				var before = (sub.currencies && sub.currencies.length ? sub.currencies : ["USD"]).slice();
+				var next = CURRENCIES.map(function (c) { return c.code; })
+					.filter(function (x) { return list.indexOf(x) >= 0; });
+				if (!next.length) return;
+				if (next.join() === before.join()) return;
+				sub.currencies = next;
+				haptic("select");
+				renderCurrencies();
+				saveSubscription({ undo: before });
+			}
+
+			// ── پیش‌نمایشِ پیامِ هشدار ─────────────────────────────────
+			//
+			// کاربر «۵ دقیقه» را انتخاب می‌کند ولی نمی‌داند چه چیزی قرار
+			// است برسد. یک نمونه‌ی واقعی - نه متنِ ساختگی - هم توضیح است
+			// هم اطمینان.
+			//
+			// خبرِ نمونه از خودِ داده برداشته می‌شود: نزدیک‌ترین خبرِ مهمِ
+			// پیشِ رو. اگر چنین خبری نبود، نمونه‌ای خنثی می‌رود تا کارت
+			// خالی نماند.
+			function renderAlertPreview() {
+				var box = document.getElementById("alertPreview");
+				var body = document.getElementById("apBody");
+				var sub = state.data && state.data.subscription;
+				if (!box || !body || !sub) return;
+
+				// وقتی هشدار خاموش است، پیش‌نمایش هم معنی ندارد.
+				box.hidden = !sub.subscribed;
+				if (!sub.subscribed) return;
+
+				var mins = Number(sub.alert_minutes) || 15;
+				var now = Date.now();
+				var pick = (state.data.events || []).filter(function (e) {
+					if (!e.at || e.importance === "low") return false;
+					return new Date(e.at).getTime() > now;
+				})[0];
+
+				body.textContent = "";
+				var l1 = el("div", "ap-l1");
+				l1.appendChild(document.createTextNode("⏳ " + fa(mins) + " دقیقه تا "));
+				l1.appendChild(el("b", null, pick ? (pick.short || pick.title || "") : "نرخ بهره فدرال"));
+				body.appendChild(l1);
+
+				var l2 = el("div", "ap-l2");
+				var t = pick && pick.time_tehran ? fa(pick.time_tehran.replace("+1", "")) : "۱۶:۰۰";
+				var f = pick && pick.forecast ? pick.forecast : "5.25%";
+				l2.textContent = t + " · پیش‌بینی " + f;
+				body.appendChild(l2);
+
+				if (!pick) body.appendChild(el("div", "ap-note", "نمونه — خبرِ مهمی در پیش نیست"));
+			}
+
+			// ── ردیفِ منطقه‌ی زمانی در تنظیمات ────────────────────────
+			//
+			// همان انتخابی که ساعتِ بنر باز می‌کند. دو جا، یک مقدار: اینجا
+			// جایی است که کاربر دنبالش می‌گردد، و آنجا جایی است که عددش را
+			// می‌بیند.
+			function renderZoneCard() {
+				var card = document.getElementById("zoneCard");
+				var nm = document.getElementById("zoneCardName");
+				var off = document.getElementById("zoneCardOff");
+				if (!card || !nm || !off) return;
+				nm.textContent = viewZone.name;
+				off.textContent = offsetLabel(VIEW(), new Date()) +
+					" · ساعت " + fa(hhmmInZone(Date.now(), VIEW()));
 			}
 
 			// چند ارز را با یک ذخیره روشن می‌کند.
@@ -2322,6 +2433,7 @@
 						closeZoneSheet();
 						// renderList خودش ساعتِ بنر را هم دوباره می‌کشد.
 						renderList();
+						renderZoneCard();
 					});
 					sheet.appendChild(b);
 				});
@@ -2334,21 +2446,40 @@
 				if (btn) btn.setAttribute("aria-expanded", "false");
 			}
 
+			// فهرست زیرِ بنر می‌نشیند، پس وقتی از تنظیمات بازش می‌کنی باید
+			// بیاید جلوی چشم - وگرنه کاربر دکمه را می‌زند و ظاهراً هیچ
+			// اتفاقی نمی‌افتد.
+			function openZoneSheet(scroll) {
+				var sheet = document.getElementById("zoneSheet");
+				var btn = document.getElementById("brandClock");
+				if (!sheet) return;
+				haptic("light");
+				buildZoneSheet();
+				sheet.hidden = false;
+				if (btn) btn.setAttribute("aria-expanded", "true");
+				if (scroll && sheet.scrollIntoView) {
+					try { sheet.scrollIntoView({ block: "center", behavior: "smooth" }); }
+					catch (e) { sheet.scrollIntoView(); }
+				}
+			}
+
 			function wireBrandClock() {
 				var btn = document.getElementById("brandClock");
 				var sheet = document.getElementById("zoneSheet");
 				if (!btn || !sheet) return;
 				btn.addEventListener("click", function (e) {
 					e.stopPropagation();
-					if (sheet.hidden) {
-						haptic("light");
-						buildZoneSheet();
-						sheet.hidden = false;
-						btn.setAttribute("aria-expanded", "true");
-					} else {
-						closeZoneSheet();
-					}
+					if (sheet.hidden) openZoneSheet(false);
+					else closeZoneSheet();
 				});
+				var card = document.getElementById("zoneCardBtn");
+				if (card) {
+					card.addEventListener("click", function (e) {
+						e.stopPropagation();
+						if (sheet.hidden) openZoneSheet(true);
+						else closeZoneSheet();
+					});
+				}
 				// زدن جای دیگر می‌بنددش - وگرنه فهرست باز می‌ماند و کاربر
 				// باید دقیقاً همان دکمه را دوباره پیدا کند.
 				document.addEventListener("click", function (e) {
@@ -2369,6 +2500,8 @@
 			}, 1000);
 			paintBrandClock();
 			wireBrandClock();
+			wireCurrencyShortcuts();
+			renderZoneCard();
 
 			if (tg) {
 				tg.ready();

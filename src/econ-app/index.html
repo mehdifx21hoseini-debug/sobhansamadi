@@ -135,9 +135,22 @@
 		</div>
 
 		<div id="currencyCard" class="alerts" hidden>
-			<h2>ارزهای شما</h2>
+			<div class="cur-head">
+				<h2>ارزهای شما</h2>
+				<!-- دو میان‌بُر: «همه» هشت ضربه را یکی می‌کند، و «فقط دلار»
+				     همان حالتی است که بیشترِ کاربرها با آن شروع می‌کنند. -->
+				<div class="cur-quick">
+					<button type="button" id="curAll">همه</button>
+					<button type="button" id="curUsd">فقط دلار</button>
+				</div>
+			</div>
 			<p class="sub">فقط اخبار ارزهایی که انتخاب می‌کنید نمایش داده می‌شود — و هشدارها هم بر همین اساس می‌آیند.</p>
-			<div class="cur-grid" id="curGrid"></div>
+			<!-- دو گروه، نه یک شبکه‌ی هشت‌تایی: هشت خانه‌ی هم‌شکل یک فهرستِ
+			     بی‌ترتیب است و چشم نمی‌داند کجا را نگاه کند. -->
+			<div class="cur-group-k">اصلی</div>
+			<div class="cur-grid" id="curGridMain"></div>
+			<div class="cur-group-k">کالایی و بقیه</div>
+			<div class="cur-grid" id="curGridRest"></div>
 		</div>
 		<div id="alertsCard" class="alerts" hidden>
 			<h2>هشدار قبل از خبر</h2>
@@ -163,6 +176,14 @@
 					</div>
 				</div>
 
+				<!-- پیش‌نمایشِ همان پیامی که قرار است برسد.
+				     کاربر «۵ دقیقه» را انتخاب می‌کند ولی نمی‌داند چه چیزی
+				     می‌آید؛ یک نمونه‌ی کوچکِ واقعی هم توضیح است هم اطمینان. -->
+				<div class="alert-preview" id="alertPreview">
+					<div class="ap-k">این پیام را می‌گیرید</div>
+					<div class="ap-body" id="apBody"></div>
+				</div>
+
 				<div class="row">
 					<div>
 						<div class="label">خبرهای کم‌اهمیت هم بیاد</div>
@@ -171,6 +192,18 @@
 					<button class="switch" id="swLow" role="switch" aria-checked="false"
 						aria-label="خبرهای کم‌اهمیت"></button>
 				</div>
+			</div>
+		</div>
+
+		<div id="zoneCard" class="alerts" hidden>
+			<h2>منطقه‌ی زمانی</h2>
+			<p class="sub">همه‌ی ساعت‌های اپ به این وقت نوشته می‌شوند.</p>
+			<div class="row">
+				<div>
+					<div class="label" id="zoneCardName">تهران</div>
+					<div class="hint" id="zoneCardOff">—</div>
+				</div>
+				<button type="button" class="chip" id="zoneCardBtn">تغییر</button>
 			</div>
 		</div>
 
