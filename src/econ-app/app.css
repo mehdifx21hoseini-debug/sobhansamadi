@@ -1133,17 +1133,8 @@
 			pointer-events: none;
 		}
 
-		.dial-time {
-			font-size: calc(var(--dial) * .108);
-			font-weight: 700;
-			line-height: 1;
-			letter-spacing: -.04em;
-			color: var(--text);
-		}
-
 		.dial-state {
-			margin-top: 6px;
-			font-size: calc(var(--dial) * .042);
+			font-size: calc(var(--dial) * .058);
 			font-weight: 800;
 			letter-spacing: .04em;
 			color: var(--up);

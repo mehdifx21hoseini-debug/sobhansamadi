@@ -1159,17 +1159,8 @@
 			pointer-events: none;
 		}
 
-		.dial-time {
-			font-size: calc(var(--dial) * .108);
-			font-weight: 700;
-			line-height: 1;
-			letter-spacing: -.04em;
-			color: var(--text);
-		}
-
 		.dial-state {
-			margin-top: 6px;
-			font-size: calc(var(--dial) * .042);
+			font-size: calc(var(--dial) * .058);
 			font-weight: 800;
 			letter-spacing: .04em;
 			color: var(--up);
@@ -2442,7 +2433,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 7d8b94b4f5</span>
+			<span class="build">نسخه 4e2a6b26c9</span>
 		</p>
 	</div>
 
@@ -3644,11 +3635,13 @@ function hhmmInZone(instant, timeZone) {
 			// سرِ جایشان می‌مانند - آن‌ها ساعتِ دقیق را می‌گویند، این
 			// یکی شکلِ روز را.
 			//
-			// هندسه اندازه‌گیری شده است، نه سلیقه‌ای. با گامِ ۱۲ و شعاعِ
-			// شروعِ r0-24 درونی‌ترین حلقه روی ۴۶ می‌افتاد و لبه‌ی داخلی‌اش
-			// ۴۲٫۵، در حالی که نیم‌پهنای «۱۷:۱۱» حدودِ ۴۸ واحد است - یعنی
-			// ساعتِ وسط شش پیکسل روی حلقه می‌نشست. r0-22 با گامِ ۱۰ و فونتِ
-			// ‎.۱۲ در هر عرضی دستِ‌کم هفت پیکسل فاصله می‌گذارد.
+			// هندسه اندازه‌گیری شده است، نه سلیقه‌ای. بیرون: خط‌چه‌های خبر
+			// تا r0-14 پایین می‌آیند، پس بیرونی‌ترین کمان با ضخامتِ ۷ نباید
+			// از آن رد شود - r0-22 با نیم‌ضخامتِ ۳٫۵ روی ۹۹٫۵ می‌ایستد.
+			// داخل: با گامِ ۱۰، درونی‌ترین حلقه روی ۵۶ می‌نشیند و مرکز
+			// بیش از بیست پیکسل آزاد دارد. سنجه‌ی جداگانه‌ای همین را در
+			// پنج عرض می‌سنجد، تا اگر روزی چیزی به مرکز برگشت بی‌صدا
+			// روی حلقه‌ها نیفتد.
 			// ═══════════════════════════════════════════════════════════
 			var DIAL = { size: 260, cx: 130, cy: 130, r0: 118 };
 
@@ -3719,7 +3712,7 @@ function hhmmInZone(instant, timeZone) {
 				// یک کمان برای هر سشن، هرکدام روی شعاعِ خودش. از همان refs
 				// که نوارهای پایین با آن کشیده می‌شوند، پس دیال هرگز
 				// نمی‌تواند ساعتی را ادعا کند که نمودارِ زیرش نشان نمی‌دهد.
-				var r = DIAL.r0 - 21;
+				var r = DIAL.r0 - 22;
 				SESSIONS.forEach(function (s) {
 					var it = refs[s.key];
 					var live = it.st.open && market.open && !it.holiday;
@@ -3733,7 +3726,7 @@ function hhmmInZone(instant, timeZone) {
 							"stroke-width": live ? 7 : 5
 						}));
 					}
-					r -= 9.5;
+					r -= 10;
 				});
 
 				// عقربه‌ی «حالا». در شعاعِ ۴۸ می‌ایستد: از همه‌ی حلقه‌ها رد
@@ -3960,13 +3953,14 @@ function hhmmInZone(instant, timeZone) {
 				var dialBox = el("div", "dial-box");
 				dialBox.appendChild(buildDial(now, refs, market));
 
+				// وسطِ دیال عمداً خالی است.
+				//
+				// رقمِ ساعت اینجا بود و برداشته شد: ساعتِ بنر بالای همین
+				// صفحه همان عدد را - با همان منطقه - نشان می‌دهد، و دو
+				// ساعتِ یکسان در یک نما فقط جا می‌گرفت. چیزی که می‌ماند
+				// حرفی است که هیچ‌جای دیگر گفته نمی‌شود: بازار باز است یا
+				// نه. خودِ کمان‌ها و عقربه ساعت را می‌گویند.
 				var read = el("div", "dial-read");
-				var clockTime = el("div", "dial-time", fa(hhmmInZone(nowT, VIEW())));
-				read.appendChild(clockTime);
-				// نامِ منطقه اینجا نمی‌آید: ساعتِ بنر بالای همین صفحه همان
-				// منطقه را نوشته، و تکرارش وسطِ دیال یک سطرِ اضافه بود که
-				// بلوکِ مرکز را بلند می‌کرد و ساعت را روی حلقه‌ها می‌برد.
-				tickers.push(function (t) { clockTime.textContent = fa(hhmmInZone(t, VIEW())); });
 
 				var st = el("div", "dial-state" +
 					(market.open ? " is-open" : (market.onBreak ? " is-break" : " is-shut")));
