@@ -1098,49 +1098,6 @@
 		.td-ai:active { background: var(--card-2); }
 		.td-ai-i { font-size: .9rem; }
 
-		/* ── وضعیتِ بازار، یک خط ───────────────────────────────────────────
-		   کارتِ دایره‌ای اینجا بود و برداشته شد. خودِ جمله ماند چون
-		   نوارهای پایین وضعیتِ *کل* بازار و فاصله تا تغییرِ بعدی را
-		   نمی‌گویند - هر کدام فقط سشنِ خودش را می‌گوید.
-
-		   کارت نیست: یک خط روی زمینه‌ی صفحه، تا میانِ «اخبار امروز» و
-		   تابلوی سشن‌ها یک بلوکِ سومِ سنگین نسازد. */
-		.mk-state {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			flex-wrap: wrap;
-			gap: 3px;
-			margin: 0 2px 12px;
-			font-size: .82rem;
-			line-height: 1.7;
-			color: var(--muted);
-			font-variant-numeric: tabular-nums;
-		}
-
-		.mk-state b { color: var(--text); font-weight: 800; }
-
-		.mk-dot {
-			width: 7px;
-			height: 7px;
-			border-radius: 50%;
-			margin-inline-end: 4px;
-			background: var(--low);
-		}
-
-		.mk-state.is-open .mk-dot {
-			background: var(--up);
-			animation: mk-breathe 2.6s var(--ease-out-3) infinite;
-		}
-
-		.mk-state.is-break .mk-dot { background: var(--medium); }
-
-		@keyframes mk-breathe { 50% { opacity: .3; } }
-
-		@media (prefers-reduced-motion: reduce) {
-			.mk-state .mk-dot { animation: none; }
-		}
-
 		/* ---- status ----
 		   Set in the largest type on the tab: it answers the one question the
 		   tab exists for, before anything else is read. */
@@ -2377,7 +2334,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 7873f44265</span>
+			<span class="build">نسخه 5c74a85f8d</span>
 		</p>
 	</div>
 
@@ -3766,37 +3723,6 @@ function hhmmInZone(instant, timeZone) {
 				// همان حرف، تکرار بود. چیزی که تکرار نبود و هیچ‌جای این
 				// صفحه نمی‌آمد، خبرهای امروز بود.
 				board.appendChild(enter(buildTodayNews(nowT)));
-
-				// ---- وضعیتِ بازار، یک خط
-				//
-				// دیالِ دایره‌ای اینجا بود و به خواستِ آکادمی کامل برداشته
-				// شد؛ نوارهای افقیِ پایین همان کار را می‌کنند و ساعتِ دقیق
-				// را هم می‌گویند.
-				//
-				// ولی یک چیز فقط در آن کارت گفته می‌شد و در نوارها نیست:
-				// وضعیتِ کلِ بازار و اینکه تا تغییرِ بعدی چقدر مانده. پس
-				// خودِ جمله ماند و قابش رفت - یک خط، بدونِ کارت و بدونِ
-				// دایره.
-				var line = el("div", "mk-state" +
-					(market.open ? " is-open" : (market.onBreak ? " is-break" : " is-shut")));
-				line.appendChild(el("span", "mk-dot"));
-				line.appendChild(el("b", null,
-					market.onBreak ? "تسویه‌ی روزانه"
-						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
-
-				var target = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
-				if (target) {
-					line.appendChild(el("span", null,
-						market.onBreak ? " — از سر گرفته می‌شود " : (weekend ? " — باز می‌شوند " : " — باز می‌شود ")));
-					var cd = el("b", null, countdownText(target, nowT));
-					line.appendChild(cd);
-					line.appendChild(el("span", null, " دیگر"));
-					tickers.push(function (t) { cd.textContent = countdownText(target, t); });
-				} else if (market.open && market.until) {
-					line.appendChild(el("span", null, " — تا جمعه ساعت "));
-					line.appendChild(el("b", null, fa(hhmmInZone(market.until, VIEW()))));
-				}
-				board.appendChild(enter(line));
 
 				// ---- the board card
 				var card = el("div", "sb-board");

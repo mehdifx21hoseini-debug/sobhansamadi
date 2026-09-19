@@ -1208,37 +1208,6 @@
 				// صفحه نمی‌آمد، خبرهای امروز بود.
 				board.appendChild(enter(buildTodayNews(nowT)));
 
-				// ---- وضعیتِ بازار، یک خط
-				//
-				// دیالِ دایره‌ای اینجا بود و به خواستِ آکادمی کامل برداشته
-				// شد؛ نوارهای افقیِ پایین همان کار را می‌کنند و ساعتِ دقیق
-				// را هم می‌گویند.
-				//
-				// ولی یک چیز فقط در آن کارت گفته می‌شد و در نوارها نیست:
-				// وضعیتِ کلِ بازار و اینکه تا تغییرِ بعدی چقدر مانده. پس
-				// خودِ جمله ماند و قابش رفت - یک خط، بدونِ کارت و بدونِ
-				// دایره.
-				var line = el("div", "mk-state" +
-					(market.open ? " is-open" : (market.onBreak ? " is-break" : " is-shut")));
-				line.appendChild(el("span", "mk-dot"));
-				line.appendChild(el("b", null,
-					market.onBreak ? "تسویه‌ی روزانه"
-						: (market.open ? "بازار باز است" : (weekend ? "تعطیلات آخر هفته" : "بازار بسته است"))));
-
-				var target = market.onBreak ? market.resumesAt : (market.open ? null : market.nextOpen);
-				if (target) {
-					line.appendChild(el("span", null,
-						market.onBreak ? " — از سر گرفته می‌شود " : (weekend ? " — باز می‌شوند " : " — باز می‌شود ")));
-					var cd = el("b", null, countdownText(target, nowT));
-					line.appendChild(cd);
-					line.appendChild(el("span", null, " دیگر"));
-					tickers.push(function (t) { cd.textContent = countdownText(target, t); });
-				} else if (market.open && market.until) {
-					line.appendChild(el("span", null, " — تا جمعه ساعت "));
-					line.appendChild(el("b", null, fa(hhmmInZone(market.until, VIEW()))));
-				}
-				board.appendChild(enter(line));
-
 				// ---- the board card
 				var card = el("div", "sb-board");
 				var head = el("div", "sb-head");
