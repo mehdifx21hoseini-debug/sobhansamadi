@@ -476,47 +476,116 @@
 			filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .45));
 		}
 
-		/* ساعتِ زنده، گوشه‌ی بالای بنر.
-		   سمتِ متن است نه سمتِ عکس: نیمه‌ی چپِ بنر صورت است و هر چیزی
-		   آنجا روی آن می‌افتد. بالا هم عمدی است - بلوکِ متن وسط‌چین است،
-		   پس فضای خالیِ بالا همیشه هست، در هر ارتفاعی که بنر بگیرد. */
-		.hb-clock {
-			position: absolute;
-			top: 7px;
-			top: 5.5cqh;
-			inset-inline-end: 16px;
-			inset-inline-end: 4.4cqw;
-			z-index: 2;
+		/* ساعتِ زنده، بالای ستونِ متن.
+		   ──────────────────────────────────────────────────────────────
+		   روی عکس نیست و نباید باشد: نیمه‌ی چپِ بنر صورت است. یک بار با
+		   inset-inline-end گوشه‌ی مقابل نشست - که در RTL یعنی سمتِ چپ -
+		   و درست روی صورت افتاد. حالا داخلِ همان ستونی است که تیتر در آن
+		   می‌نشیند، پس هر عرضی که بنر بگیرد از عکس دور می‌ماند.
+
+		   دکمه است نه برچسب: خودِ ساعت جایی است که کاربر دنبالِ عوض کردنِ
+		   منطقه می‌گردد. */
+		/* ساعت کنارِ ابرو می‌نشیند، نه در لبه‌ی ستون.
+		   ──────────────────────────────────────────────────────────────
+		   با space-between، ساعت به انتهای ستونِ متن می‌چسبید - و آن لبه
+		   دقیقاً همان‌جاست که بخشِ پُررنگِ عکس تمام می‌شود. اندازه‌گیری شد:
+		   پهنای لایه‌ی عکس همیشه ۶۵٫۶٪ عرضِ بنر است و ماسک تا ۶۲٪ آن
+		   پُررنگ می‌ماند، یعنی مرزِ عکس روی ۴۰٫۷٪ و لبه‌ی ستون روی ۴۳٪ -
+		   دو و نیم درصد فاصله، که تورفتگی می‌خوردش. پس در هر عرضی لب‌مرز
+		   بود، نه فقط در گوشی‌های باریک. */
+		.hb-top {
 			display: flex;
+			align-items: center;
+			justify-content: flex-start;
+			gap: 10px;
+		}
+
+		.hb-clock {
+			display: inline-flex;
 			align-items: baseline;
-			gap: 5px;
-			padding: 3px 9px;
-			padding: 2.4cqh 7px;
+			gap: 4px;
+			flex: none;
+			font: inherit;
+			cursor: pointer;
+			padding: 3px 8px;
+			padding: 2.6cqh 7px;
 			border-radius: 999px;
-			background: rgba(255, 255, 255, .12);
-			border: 1px solid rgba(255, 255, 255, .16);
+			background: rgba(255, 255, 255, .13);
+			border: 1px solid rgba(255, 255, 255, .18);
 			-webkit-backdrop-filter: blur(6px);
 			backdrop-filter: blur(6px);
 		}
+
+		.hb-clock:active { background: rgba(255, 255, 255, .22); }
 
 		.hb-time {
 			/* وزیرمتن و نه مونو: رقم‌ها فارسی‌اند و فونت‌های مونوی لاتین
 			   گلیفِ فارسی ندارند، پس عملاً fallback می‌شد. هم‌عرضی از
 			   tabular-nums می‌آید نه از خانواده‌ی فونت. */
-			font-size: clamp(11px, 11.5cqh, 20px);
+			font-size: clamp(10px, 10.5cqh, 18px);
 			font-weight: 700;
 			line-height: 1;
 			color: #ffffff;
 			letter-spacing: -.02em;
-			/* رقم‌ها هم‌عرض، وگرنه ساعت هر دقیقه کمی جابه‌جا می‌شود. */
 			font-variant-numeric: tabular-nums;
 		}
 
 		.hb-zone {
-			font-size: clamp(7px, 6.6cqh, 12px);
+			font-size: clamp(7px, 6.4cqh, 12px);
 			font-weight: 700;
 			line-height: 1;
 			color: #c9c6d4;
+		}
+
+		.hb-caret {
+			font-size: clamp(6px, 5.6cqh, 10px);
+			line-height: 1;
+			color: #c9c6d4;
+		}
+
+		/* ── فهرستِ منطقه‌ی زمانی ──────────────────────────────────────────
+		   بیرونِ بنر می‌نشیند چون بنر overflow:hidden دارد. */
+		.zone-sheet {
+			display: grid;
+			gap: 2px;
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			box-shadow: var(--shadow);
+			padding: 6px;
+			margin: -6px 0 12px;
+		}
+
+		.zone-opt {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			width: 100%;
+			font: inherit;
+			text-align: right;
+			cursor: pointer;
+			background: transparent;
+			border: 0;
+			border-radius: 11px;
+			padding: 10px 11px;
+			color: var(--text);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.zone-opt:active { background: var(--card-2); }
+
+		.zone-opt[aria-selected="true"] {
+			background: var(--accent);
+			color: var(--accent-text);
+		}
+
+		.zone-nm { font-size: .84rem; font-weight: 700; }
+
+		.zone-tm {
+			font-size: .78rem;
+			font-weight: 700;
+			opacity: .72;
 		}
 
 		.hb-sub {

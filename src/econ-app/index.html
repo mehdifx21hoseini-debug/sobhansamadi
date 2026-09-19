@@ -52,19 +52,26 @@
 			<div class="hb-vignette"></div>
 			<div class="hb-scrim"></div>
 			<div class="hb-copy">
-				<div class="hb-eyebrow"><i aria-hidden="true"></i>ربات هوشمند</div>
+				<div class="hb-top">
+					<div class="hb-eyebrow"><i aria-hidden="true"></i>ربات هوشمند</div>
+					<!-- ساعت داخلِ ستونِ متن است، نه روی عکس. پیش از این با
+					     inset-inline-end گوشه‌ی مقابل می‌نشست - که در RTL
+					     یعنی سمتِ چپ، یعنی دقیقاً روی صورت. -->
+					<button class="hb-clock" id="brandClock" type="button"
+						aria-haspopup="listbox" aria-expanded="false" aria-label="تغییر منطقه‌ی زمانی">
+						<span class="hb-time" id="brandTime">—</span>
+						<span class="hb-zone" id="brandZone">تهران</span>
+						<span class="hb-caret" aria-hidden="true">▾</span>
+					</button>
+				</div>
 				<h1><span class="hb-mark" aria-hidden="true"></span>آکادمی سبحان صمدی</h1>
 				<div class="hb-sub">تقویم اقتصادی و سشن‌های بازار</div>
 			</div>
-			<!-- ساعت روی خودِ بنر، در هر سه تب. پیش از این ساعت فقط در
-			     تبِ سشن‌ها بود و کسی که در «اخبار» ایستاده بود هیچ مرجعِ
-			     زمانی روی صفحه نداشت - در حالی که هر ردیفِ آن صفحه یک
-			     ساعت دارد که باید با چیزی سنجیده شود. -->
-			<div class="hb-clock">
-				<div class="hb-time" id="brandTime">—</div>
-				<div class="hb-zone" id="brandZone">تهران</div>
-			</div>
 		</div>
+
+		<!-- فهرستِ منطقه‌ها. بیرونِ بنر است چون بنر overflow:hidden دارد و
+		     هر چیزی داخلش بریده می‌شود. -->
+		<div class="zone-sheet" id="zoneSheet" role="listbox" aria-label="منطقه‌ی زمانی" hidden></div>
 
 		<div class="hero">
 			<p id="heroSub">در حال بارگذاری…</p>

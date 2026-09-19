@@ -916,7 +916,10 @@
 				{ key: "broker3", zone: "Etc/GMT-3", name: "بروکر GMT+۳", short: "بروکر" },
 				{ key: "broker2", zone: "Europe/Berlin", name: "بروکر اروپا", short: "بروکر اروپا" },
 				{ key: "gmt", zone: "UTC", name: "GMT" },
-				{ key: "newyork", zone: "America/New_York", name: "نیویورک" }
+				{ key: "london", zone: "Europe/London", name: "لندن" },
+				{ key: "newyork", zone: "America/New_York", name: "نیویورک" },
+				{ key: "tokyo", zone: "Asia/Tokyo", name: "توکیو" },
+				{ key: "sydney", zone: "Australia/Sydney", name: "سیدنی" }
 			];
 
 			var VIEW_KEY = "econAppViewZone";
@@ -1971,7 +1974,82 @@
 				var el1 = document.getElementById("brandTime");
 				var el2 = document.getElementById("brandZone");
 				if (el1) el1.textContent = fa(hhmmInZone(t, VIEW()));
-				if (el2) el2.textContent = viewName();
+				if (el2) el2.textContent = viewZone.short || viewName();
+
+				// فهرستِ باز هم باید بزند، وگرنه ساعتِ کنارِ هر منطقه سرِ
+				// لحظه‌ی باز شدن یخ می‌زند.
+				var sheet = document.getElementById("zoneSheet");
+				if (sheet && !sheet.hidden) {
+					var opts = sheet.querySelectorAll(".zone-tm");
+					for (var i = 0; i < opts.length && i < VIEW_ZONES.length; i++) {
+						opts[i].textContent = fa(hhmmInZone(t, VIEW_ZONES[i].zone));
+					}
+				}
+			}
+
+			// ساعتِ بنر، وقتی می‌زنی: انتخابِ منطقه‌ی زمانی.
+			//
+			// همان VIEW_ZONES‌ای که تبِ سشن‌ها از آن می‌خواند و همان
+			// localStorage، پس دو کنترل نمی‌توانند دو منطقه‌ی متفاوت نشان
+			// بدهند. اینجا بودنش مهم است: ساعت همان چیزی است که کاربر
+			// می‌بیند و می‌خواهد عوضش کند - جای طبیعیِ این کار روی خودِ
+			// همان عدد است، نه در تنظیمات.
+			function buildZoneSheet() {
+				var sheet = document.getElementById("zoneSheet");
+				if (!sheet) return;
+				sheet.textContent = "";
+				var now = Date.now();
+				VIEW_ZONES.forEach(function (z) {
+					var b = el("button", "zone-opt");
+					b.type = "button";
+					b.setAttribute("role", "option");
+					b.setAttribute("aria-selected", z.key === viewZone.key ? "true" : "false");
+					var nm = el("span", "zone-nm", z.name);
+					b.appendChild(nm);
+					var tm = el("span", "zone-tm", fa(hhmmInZone(now, z.zone)));
+					b.appendChild(tm);
+					b.addEventListener("click", function () {
+						haptic("light");
+						viewZone = z;
+						try { localStorage.setItem(VIEW_KEY, z.key); } catch (e) { /* preference only */ }
+						closeZoneSheet();
+						// renderList خودش ساعتِ بنر را هم دوباره می‌کشد.
+						renderList();
+					});
+					sheet.appendChild(b);
+				});
+			}
+
+			function closeZoneSheet() {
+				var sheet = document.getElementById("zoneSheet");
+				var btn = document.getElementById("brandClock");
+				if (sheet) sheet.hidden = true;
+				if (btn) btn.setAttribute("aria-expanded", "false");
+			}
+
+			function wireBrandClock() {
+				var btn = document.getElementById("brandClock");
+				var sheet = document.getElementById("zoneSheet");
+				if (!btn || !sheet) return;
+				btn.addEventListener("click", function (e) {
+					e.stopPropagation();
+					if (sheet.hidden) {
+						haptic("light");
+						buildZoneSheet();
+						sheet.hidden = false;
+						btn.setAttribute("aria-expanded", "true");
+					} else {
+						closeZoneSheet();
+					}
+				});
+				// زدن جای دیگر می‌بنددش - وگرنه فهرست باز می‌ماند و کاربر
+				// باید دقیقاً همان دکمه را دوباره پیدا کند.
+				document.addEventListener("click", function (e) {
+					if (!sheet.hidden && !sheet.contains(e.target)) closeZoneSheet();
+				});
+				document.addEventListener("keydown", function (e) {
+					if (e.key === "Escape") closeZoneSheet();
+				});
 			}
 
 			setInterval(function () {
@@ -1983,6 +2061,7 @@
 				for (var i = 0; i < tickers.length; i++) tickers[i](t);
 			}, 1000);
 			paintBrandClock();
+			wireBrandClock();
 
 			if (tg) {
 				tg.ready();

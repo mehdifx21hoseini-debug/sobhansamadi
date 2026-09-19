@@ -502,47 +502,116 @@
 			filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .45));
 		}
 
-		/* ساعتِ زنده، گوشه‌ی بالای بنر.
-		   سمتِ متن است نه سمتِ عکس: نیمه‌ی چپِ بنر صورت است و هر چیزی
-		   آنجا روی آن می‌افتد. بالا هم عمدی است - بلوکِ متن وسط‌چین است،
-		   پس فضای خالیِ بالا همیشه هست، در هر ارتفاعی که بنر بگیرد. */
-		.hb-clock {
-			position: absolute;
-			top: 7px;
-			top: 5.5cqh;
-			inset-inline-end: 16px;
-			inset-inline-end: 4.4cqw;
-			z-index: 2;
+		/* ساعتِ زنده، بالای ستونِ متن.
+		   ──────────────────────────────────────────────────────────────
+		   روی عکس نیست و نباید باشد: نیمه‌ی چپِ بنر صورت است. یک بار با
+		   inset-inline-end گوشه‌ی مقابل نشست - که در RTL یعنی سمتِ چپ -
+		   و درست روی صورت افتاد. حالا داخلِ همان ستونی است که تیتر در آن
+		   می‌نشیند، پس هر عرضی که بنر بگیرد از عکس دور می‌ماند.
+
+		   دکمه است نه برچسب: خودِ ساعت جایی است که کاربر دنبالِ عوض کردنِ
+		   منطقه می‌گردد. */
+		/* ساعت کنارِ ابرو می‌نشیند، نه در لبه‌ی ستون.
+		   ──────────────────────────────────────────────────────────────
+		   با space-between، ساعت به انتهای ستونِ متن می‌چسبید - و آن لبه
+		   دقیقاً همان‌جاست که بخشِ پُررنگِ عکس تمام می‌شود. اندازه‌گیری شد:
+		   پهنای لایه‌ی عکس همیشه ۶۵٫۶٪ عرضِ بنر است و ماسک تا ۶۲٪ آن
+		   پُررنگ می‌ماند، یعنی مرزِ عکس روی ۴۰٫۷٪ و لبه‌ی ستون روی ۴۳٪ -
+		   دو و نیم درصد فاصله، که تورفتگی می‌خوردش. پس در هر عرضی لب‌مرز
+		   بود، نه فقط در گوشی‌های باریک. */
+		.hb-top {
 			display: flex;
+			align-items: center;
+			justify-content: flex-start;
+			gap: 10px;
+		}
+
+		.hb-clock {
+			display: inline-flex;
 			align-items: baseline;
-			gap: 5px;
-			padding: 3px 9px;
-			padding: 2.4cqh 7px;
+			gap: 4px;
+			flex: none;
+			font: inherit;
+			cursor: pointer;
+			padding: 3px 8px;
+			padding: 2.6cqh 7px;
 			border-radius: 999px;
-			background: rgba(255, 255, 255, .12);
-			border: 1px solid rgba(255, 255, 255, .16);
+			background: rgba(255, 255, 255, .13);
+			border: 1px solid rgba(255, 255, 255, .18);
 			-webkit-backdrop-filter: blur(6px);
 			backdrop-filter: blur(6px);
 		}
+
+		.hb-clock:active { background: rgba(255, 255, 255, .22); }
 
 		.hb-time {
 			/* وزیرمتن و نه مونو: رقم‌ها فارسی‌اند و فونت‌های مونوی لاتین
 			   گلیفِ فارسی ندارند، پس عملاً fallback می‌شد. هم‌عرضی از
 			   tabular-nums می‌آید نه از خانواده‌ی فونت. */
-			font-size: clamp(11px, 11.5cqh, 20px);
+			font-size: clamp(10px, 10.5cqh, 18px);
 			font-weight: 700;
 			line-height: 1;
 			color: #ffffff;
 			letter-spacing: -.02em;
-			/* رقم‌ها هم‌عرض، وگرنه ساعت هر دقیقه کمی جابه‌جا می‌شود. */
 			font-variant-numeric: tabular-nums;
 		}
 
 		.hb-zone {
-			font-size: clamp(7px, 6.6cqh, 12px);
+			font-size: clamp(7px, 6.4cqh, 12px);
 			font-weight: 700;
 			line-height: 1;
 			color: #c9c6d4;
+		}
+
+		.hb-caret {
+			font-size: clamp(6px, 5.6cqh, 10px);
+			line-height: 1;
+			color: #c9c6d4;
+		}
+
+		/* ── فهرستِ منطقه‌ی زمانی ──────────────────────────────────────────
+		   بیرونِ بنر می‌نشیند چون بنر overflow:hidden دارد. */
+		.zone-sheet {
+			display: grid;
+			gap: 2px;
+			background: var(--card);
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			box-shadow: var(--shadow);
+			padding: 6px;
+			margin: -6px 0 12px;
+		}
+
+		.zone-opt {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			width: 100%;
+			font: inherit;
+			text-align: right;
+			cursor: pointer;
+			background: transparent;
+			border: 0;
+			border-radius: 11px;
+			padding: 10px 11px;
+			color: var(--text);
+			font-variant-numeric: tabular-nums;
+		}
+
+		.zone-opt:active { background: var(--card-2); }
+
+		.zone-opt[aria-selected="true"] {
+			background: var(--accent);
+			color: var(--accent-text);
+		}
+
+		.zone-nm { font-size: .84rem; font-weight: 700; }
+
+		.zone-tm {
+			font-size: .78rem;
+			font-weight: 700;
+			opacity: .72;
 		}
 
 		.hb-sub {
@@ -2212,19 +2281,26 @@
 			<div class="hb-vignette"></div>
 			<div class="hb-scrim"></div>
 			<div class="hb-copy">
-				<div class="hb-eyebrow"><i aria-hidden="true"></i>ربات هوشمند</div>
+				<div class="hb-top">
+					<div class="hb-eyebrow"><i aria-hidden="true"></i>ربات هوشمند</div>
+					<!-- ساعت داخلِ ستونِ متن است، نه روی عکس. پیش از این با
+					     inset-inline-end گوشه‌ی مقابل می‌نشست - که در RTL
+					     یعنی سمتِ چپ، یعنی دقیقاً روی صورت. -->
+					<button class="hb-clock" id="brandClock" type="button"
+						aria-haspopup="listbox" aria-expanded="false" aria-label="تغییر منطقه‌ی زمانی">
+						<span class="hb-time" id="brandTime">—</span>
+						<span class="hb-zone" id="brandZone">تهران</span>
+						<span class="hb-caret" aria-hidden="true">▾</span>
+					</button>
+				</div>
 				<h1><span class="hb-mark" aria-hidden="true"></span>آکادمی سبحان صمدی</h1>
 				<div class="hb-sub">تقویم اقتصادی و سشن‌های بازار</div>
 			</div>
-			<!-- ساعت روی خودِ بنر، در هر سه تب. پیش از این ساعت فقط در
-			     تبِ سشن‌ها بود و کسی که در «اخبار» ایستاده بود هیچ مرجعِ
-			     زمانی روی صفحه نداشت - در حالی که هر ردیفِ آن صفحه یک
-			     ساعت دارد که باید با چیزی سنجیده شود. -->
-			<div class="hb-clock">
-				<div class="hb-time" id="brandTime">—</div>
-				<div class="hb-zone" id="brandZone">تهران</div>
-			</div>
 		</div>
+
+		<!-- فهرستِ منطقه‌ها. بیرونِ بنر است چون بنر overflow:hidden دارد و
+		     هر چیزی داخلش بریده می‌شود. -->
+		<div class="zone-sheet" id="zoneSheet" role="listbox" aria-label="منطقه‌ی زمانی" hidden></div>
 
 		<div class="hero">
 			<p id="heroSub">در حال بارگذاری…</p>
@@ -2334,7 +2410,7 @@
 			     same hash the bot puts in the URL's ?v=, so a mismatch between
 			     what the page prints and what the link says is exactly the
 			     symptom of a stale copy. Written by scripts/build-econ-app.mjs. -->
-			<span class="build">نسخه 5c74a85f8d</span>
+			<span class="build">نسخه 3f0f715af5</span>
 		</p>
 	</div>
 
@@ -3432,7 +3508,10 @@ function hhmmInZone(instant, timeZone) {
 				{ key: "broker3", zone: "Etc/GMT-3", name: "بروکر GMT+۳", short: "بروکر" },
 				{ key: "broker2", zone: "Europe/Berlin", name: "بروکر اروپا", short: "بروکر اروپا" },
 				{ key: "gmt", zone: "UTC", name: "GMT" },
-				{ key: "newyork", zone: "America/New_York", name: "نیویورک" }
+				{ key: "london", zone: "Europe/London", name: "لندن" },
+				{ key: "newyork", zone: "America/New_York", name: "نیویورک" },
+				{ key: "tokyo", zone: "Asia/Tokyo", name: "توکیو" },
+				{ key: "sydney", zone: "Australia/Sydney", name: "سیدنی" }
 			];
 
 			var VIEW_KEY = "econAppViewZone";
@@ -4487,7 +4566,82 @@ function hhmmInZone(instant, timeZone) {
 				var el1 = document.getElementById("brandTime");
 				var el2 = document.getElementById("brandZone");
 				if (el1) el1.textContent = fa(hhmmInZone(t, VIEW()));
-				if (el2) el2.textContent = viewName();
+				if (el2) el2.textContent = viewZone.short || viewName();
+
+				// فهرستِ باز هم باید بزند، وگرنه ساعتِ کنارِ هر منطقه سرِ
+				// لحظه‌ی باز شدن یخ می‌زند.
+				var sheet = document.getElementById("zoneSheet");
+				if (sheet && !sheet.hidden) {
+					var opts = sheet.querySelectorAll(".zone-tm");
+					for (var i = 0; i < opts.length && i < VIEW_ZONES.length; i++) {
+						opts[i].textContent = fa(hhmmInZone(t, VIEW_ZONES[i].zone));
+					}
+				}
+			}
+
+			// ساعتِ بنر، وقتی می‌زنی: انتخابِ منطقه‌ی زمانی.
+			//
+			// همان VIEW_ZONES‌ای که تبِ سشن‌ها از آن می‌خواند و همان
+			// localStorage، پس دو کنترل نمی‌توانند دو منطقه‌ی متفاوت نشان
+			// بدهند. اینجا بودنش مهم است: ساعت همان چیزی است که کاربر
+			// می‌بیند و می‌خواهد عوضش کند - جای طبیعیِ این کار روی خودِ
+			// همان عدد است، نه در تنظیمات.
+			function buildZoneSheet() {
+				var sheet = document.getElementById("zoneSheet");
+				if (!sheet) return;
+				sheet.textContent = "";
+				var now = Date.now();
+				VIEW_ZONES.forEach(function (z) {
+					var b = el("button", "zone-opt");
+					b.type = "button";
+					b.setAttribute("role", "option");
+					b.setAttribute("aria-selected", z.key === viewZone.key ? "true" : "false");
+					var nm = el("span", "zone-nm", z.name);
+					b.appendChild(nm);
+					var tm = el("span", "zone-tm", fa(hhmmInZone(now, z.zone)));
+					b.appendChild(tm);
+					b.addEventListener("click", function () {
+						haptic("light");
+						viewZone = z;
+						try { localStorage.setItem(VIEW_KEY, z.key); } catch (e) { /* preference only */ }
+						closeZoneSheet();
+						// renderList خودش ساعتِ بنر را هم دوباره می‌کشد.
+						renderList();
+					});
+					sheet.appendChild(b);
+				});
+			}
+
+			function closeZoneSheet() {
+				var sheet = document.getElementById("zoneSheet");
+				var btn = document.getElementById("brandClock");
+				if (sheet) sheet.hidden = true;
+				if (btn) btn.setAttribute("aria-expanded", "false");
+			}
+
+			function wireBrandClock() {
+				var btn = document.getElementById("brandClock");
+				var sheet = document.getElementById("zoneSheet");
+				if (!btn || !sheet) return;
+				btn.addEventListener("click", function (e) {
+					e.stopPropagation();
+					if (sheet.hidden) {
+						haptic("light");
+						buildZoneSheet();
+						sheet.hidden = false;
+						btn.setAttribute("aria-expanded", "true");
+					} else {
+						closeZoneSheet();
+					}
+				});
+				// زدن جای دیگر می‌بنددش - وگرنه فهرست باز می‌ماند و کاربر
+				// باید دقیقاً همان دکمه را دوباره پیدا کند.
+				document.addEventListener("click", function (e) {
+					if (!sheet.hidden && !sheet.contains(e.target)) closeZoneSheet();
+				});
+				document.addEventListener("keydown", function (e) {
+					if (e.key === "Escape") closeZoneSheet();
+				});
 			}
 
 			setInterval(function () {
@@ -4499,6 +4653,7 @@ function hhmmInZone(instant, timeZone) {
 				for (var i = 0; i < tickers.length; i++) tickers[i](t);
 			}, 1000);
 			paintBrandClock();
+			wireBrandClock();
 
 			if (tg) {
 				tg.ready();
