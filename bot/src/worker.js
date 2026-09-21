@@ -97,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-39";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-40";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -530,6 +530,51 @@ async function handleAdmin(request, url, env) {
    *
    * ?days=N پنجره را عوض می‌کند؛ پیش‌فرض ۳۰ روز.
    */
+  // فهرستِ فایل‌های بارگذاری‌شده.
+  //
+  // چرا لازم شد: آکادمی فایلی را در کانال پست می‌کند و می‌پرسد «رفت؟».
+  // تا پیش از این تنها راهِ جواب، زدنِ خودِ دکمه در ربات بود - که یعنی
+  // برای یک بررسیِ ساده باید یک تحویلِ واقعی انجام می‌شد و در
+  // content_requests هم ثبت می‌شد، یعنی آمارِ استفاده را کثیف می‌کرد.
+  //
+  // file_id برگردانده نمی‌شود. راز نیست، ولی چیزی هم به این سؤال اضافه
+  // نمی‌کند و این پاسخ از راهِ لاگِ یک ورک‌فلوی عمومی خوانده می‌شود.
+  // آنچه لازم است همین سه‌تاست: هست یا نه، از چه نوع، و کِی عوض شد.
+  if (url.pathname === "/admin/content") {
+    const prefix = (url.searchParams.get("prefix") || "").slice(0, 60);
+    try {
+      const rows = await env.DB.prepare(
+        `SELECT content_id, file_type, active, COALESCE(hidden, 0) AS hidden,
+                updated_at, LENGTH(COALESCE(file_id, '')) AS id_len
+           FROM content_library
+          WHERE content_id LIKE ? ESCAPE '\\'
+          ORDER BY content_id`
+      )
+        .bind(prefix.replace(/[\\%_]/g, "\\$&") + "%")
+        .all();
+      const items = (rows.results || []).map((r) => ({
+        id: r.content_id,
+        // id_len صفر یعنی ردیف هست ولی فایلی پشتش نیست - حالتی که با
+        // «اصلاً ردیفی نیست» فرق دارد و از بیرون یک شکل دیده می‌شد.
+        has_file: Number(r.id_len) > 0,
+        type: r.file_type || null,
+        active: Number(r.active) === 1,
+        hidden: Number(r.hidden) === 1,
+        updated_at: r.updated_at || null,
+      }));
+      return json({
+        ok: true,
+        build: BUILD,
+        prefix: prefix || "(همه)",
+        count: items.length,
+        ready: items.filter((x) => x.has_file && x.active && !x.hidden).length,
+        items,
+      });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 500);
+    }
+  }
+
   if (url.pathname === "/admin/usage") {
     const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 30, 1), 365);
     // ?top=N فهرستِ تک‌به‌تک را کوتاه می‌کند (۰ یعنی هیچ). لازم است چون
@@ -895,6 +940,7 @@ export default {
       url.pathname === "/admin/econ-notice" ||
       url.pathname === "/admin/econ-notice-drain" ||
       url.pathname === "/admin/usage" ||
+      url.pathname === "/admin/content" ||
       url.pathname === "/admin/crm-import" ||
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
