@@ -39,6 +39,16 @@ const FIXED_CONTENT_CODES = [
   "BOOK_03_PDF","BOOK_03_AUDIO_CH01","BOOK_03_AUDIO_CH02","BOOK_03_AUDIO_CH03","BOOK_03_AUDIO_CH04","BOOK_03_AUDIO_CH05","BOOK_03_AUDIO_CH06","BOOK_03_AUDIO_CH07","BOOK_03_AUDIO_CH08","BOOK_03_AUDIO_CH09","BOOK_03_AUDIO_CH10",
   "BOOK_04_PDF","BOOK_04_AUDIO_INTRO","BOOK_04_AUDIO_CH01","BOOK_04_AUDIO_CH02","BOOK_04_AUDIO_CH03","BOOK_04_AUDIO_CH04","BOOK_04_AUDIO_CH05","BOOK_04_AUDIO_CH06","BOOK_04_AUDIO_CH07",
   "EXPERT_MT4_FILE","EXPERT_MT4_VIDEO","EXPERT_MT5_FILE","EXPERT_MT5_VIDEO",
+  // کتابچه‌ی راهنما، جدا از آرشیو.
+  //
+  // داخلِ هر دو rar هست، ولی کسی که فایل را روی گوشی می‌گیرد معمولاً
+  // بازش نمی‌کند - و راهنما همان‌جا می‌ماند دیده‌نشده. پس جداگانه هم
+  // فرستاده می‌شود.
+  //
+  // یک کد و نه دو تا: کتابچه‌ی داخلِ آرشیوِ متاتریدر ۴ و ۵ عیناً یک
+  // فایل است (همان CRC، همان ۲۸٫۳ مگابایت). دو کد یعنی آکادمی باید یک
+  // فایل را دو بار پست کند و دو بار هم به‌روز نگه دارد.
+  "EXPERT_MANUAL_PDF",
   "TRUSTED_BROKER",
   "WELCOME_PHOTO",
   // ویسِ توضیحاتِ استاد برای هر دوره، که درست بعد از انتخابِ دوره
