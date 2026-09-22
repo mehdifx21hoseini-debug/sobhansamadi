@@ -20,6 +20,7 @@ import {
 } from "./views.js";
 import { relativeTimeFa, etTimeToTehran } from "./format.js";
 import { makeLabelHelpers } from "./labels.js";
+import { ALERT_LEVELS, DEFAULT_LEVELS, toggleLevel } from "./levels.js";
 import { sendSection } from "../content/sectionText.js";
 import { explainEnabled, explainToday, explainEvent, eventByToken } from "./explain.js";
 import {
@@ -473,7 +474,21 @@ export async function handleEconCallback(ctx, action) {
     const [, field, value] = action.split("|");
     const patch = { chat_id: ctx.from.id };
     if (field === "ON") patch.subscribed = value === "1";
-    else if (field === "LOW") patch.show_low_importance = value === "1";
+    // LVL|<سطح>: روشن/خاموش کردنِ یک سطحِ اهمیت.
+    //
+    // LOW هنوز پذیرفته می‌شود چون دکمه‌های نسخه‌ی قبلی ممکن است هنوز
+    // در چتِ کسی باز باشند؛ همان معنای قدیمی را می‌دهد - «مهم» را
+    // اضافه یا کم کن.
+    else if (field === "LVL") {
+      const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+      patch.alert_levels = toggleLevel(sub.alert_levels || DEFAULT_LEVELS, value);
+    } else if (field === "LOW") {
+      const sub = (await readSubscription(ctx.env, ctx.from.id)) || defaultSubscription();
+      const cur = new Set(sub.alert_levels || DEFAULT_LEVELS);
+      if (value === "1") cur.add("medium");
+      else cur.delete("medium");
+      patch.alert_levels = [...cur];
+    }
     else if (field === "MIN") patch.alert_minutes = Number(value);
     // «۱» یعنی خلاصه را بفرست، پس digest_off برعکسِ آن است.
     else if (field === "DIGEST" || field === "DIGESTP") patch.digest_off = value !== "1";
@@ -605,13 +620,24 @@ async function sendAlertSettings(ctx, edit = false) {
         style: "primary",
       }))
     );
-    rows.push([
-      {
-        text: check(sub.show_low_importance) + " اخبار با اهمیت متوسط",
-        callback_data: "ECON_SUB|LOW|" + (sub.show_low_importance ? "0" : "1"),
-        style: "primary",
-      },
-    ]);
+    // سه سطح، هرکدام یک کلید.
+    //
+    // پیش از این یک کلیدِ «اخبار با اهمیت متوسط» بود که در عمل مرزِ
+    // بین «فقط خیلی مهم» و «خیلی مهم + مهم» را جابه‌جا می‌کرد، و
+    // «کم‌اهمیت» با هیچ حالتی نمی‌رفت. حالا هر سه واقعاً انتخاب‌شدنی‌اند.
+    //
+    // رنگِ فارکس‌فکتوری کنارِ نام آمده چون کاربر خبر را آنجا رنگی
+    // می‌بیند و «مهم» در حرفِ روزمره با medium یکی نیست.
+    const on = new Set(sub.alert_levels || DEFAULT_LEVELS);
+    for (const lv of ALERT_LEVELS) {
+      rows.push([
+        {
+          text: check(on.has(lv.key)) + " " + lv.emoji + " " + lv.fa + " (" + lv.color + ")",
+          callback_data: "ECON_SUB|LVL|" + lv.key,
+          style: "primary",
+        },
+      ]);
+    }
   }
 
   // خلاصه‌ی صبح جدا از هشدار است: برای همه‌ی اعضا می‌رود و کلیدِ بالا

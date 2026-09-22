@@ -10,6 +10,7 @@
 // تنظیم وجود ندارد.
 
 import { DEFAULT_CURRENCIES, parseCurrencies, serializeCurrencies } from "./currencies.js";
+import { DEFAULT_LEVELS, parseLevels, serializeLevels, levelsFromLegacy } from "./levels.js";
 
 const DDL = [
   `CREATE TABLE IF NOT EXISTS econ_subscriber (
@@ -32,6 +33,13 @@ const ADD_COLUMNS = [
   // ارزهایی که کاربر می‌خواهد ببیند، با ویرگول. خالی یعنی پیش‌فرض
   // (فقط دلار) - همان چیزی که همه‌ی کاربرانِ فعلی امروز می‌بینند.
   `ALTER TABLE econ_subscriber ADD COLUMN currencies TEXT`,
+  // سطح‌های اهمیتی که کاربر هشدارشان را می‌خواهد، با ویرگول.
+  //
+  // جای‌گزینِ show_low_importance است. آن ستون پاک نمی‌شود - SQLite
+  // حذفِ ستون را ساده نمی‌گیرد و ارزشش را هم ندارد - ولی دیگر مرجع
+  // نیست؛ همگام نگه داشته می‌شود تا هر خواننده‌ی قدیمی‌ای که از قلم
+  // افتاده باشد، دست‌کم دروغ نگوید.
+  `ALTER TABLE econ_subscriber ADD COLUMN alert_levels TEXT`,
 ];
 
 // «این کاربر ربات را بلاک یا حذف کرده».
@@ -116,6 +124,8 @@ function toRow(row) {
     subscribed: !!row.subscribed,
     alert_minutes: Number(row.alert_minutes) || 15,
     show_low_importance: !!row.show_low_importance,
+    // ستونِ خالی یعنی این ردیف پیش از وجودِ این تنظیم ساخته شده.
+    alert_levels: row.alert_levels ? parseLevels(row.alert_levels) : levelsFromLegacy(),
     // خلاصه‌ی روزانه برعکسِ هشدار است: پیش‌فرض روشن، و این ستون فقط
     // وقتی پر می‌شود که کاربر خودش گفته باشد «نفرست».
     digest_off: !!row.digest_off,
@@ -149,6 +159,7 @@ export function defaultSubscription() {
     subscribed: false,
     alert_minutes: 15,
     show_low_importance: false,
+    alert_levels: [...DEFAULT_LEVELS],
     digest_off: false,
     currencies: [...DEFAULT_CURRENCIES],
   };
@@ -167,16 +178,21 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
   const now = new Date().toISOString();
   const current = (await readSubscription(env, id)) || defaultSubscription();
 
+  const alertLevels =
+    patch.alert_levels !== undefined
+      ? parseLevels(serializeLevels(patch.alert_levels))
+      : parseLevels(serializeLevels(current.alert_levels));
+
   const next = {
     subscribed: patch.subscribed !== undefined ? !!patch.subscribed : current.subscribed,
+    alert_levels: alertLevels,
     alert_minutes:
       patch.alert_minutes !== undefined
         ? normalizeMinutes(patch.alert_minutes)
         : current.alert_minutes,
-    show_low_importance:
-      patch.show_low_importance !== undefined
-        ? !!patch.show_low_importance
-        : current.show_low_importance,
+    // دیگر ورودی نیست، خروجی است: هر خواننده‌ی قدیمی‌ای که هنوز این را
+    // می‌خواند، همان چیزی را ببیند که واقعاً اتفاق می‌افتد.
+    show_low_importance: alertLevels.includes("low"),
     digest_off:
       patch.digest_off !== undefined ? !!patch.digest_off : !!current.digest_off,
     currencies:
@@ -188,8 +204,8 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
   await env.DB
     .prepare(
       `INSERT INTO econ_subscriber
-         (telegram_user_id, chat_id, subscribed, alert_minutes, show_low_importance, digest_off, currencies, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (telegram_user_id, chat_id, subscribed, alert_minutes, show_low_importance, digest_off, currencies, alert_levels, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(telegram_user_id) DO UPDATE SET
          chat_id = excluded.chat_id,
          subscribed = excluded.subscribed,
@@ -197,6 +213,7 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
          show_low_importance = excluded.show_low_importance,
          digest_off = excluded.digest_off,
          currencies = excluded.currencies,
+         alert_levels = excluded.alert_levels,
          updated_at = excluded.updated_at`
     )
     .bind(
@@ -207,6 +224,7 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
       next.show_low_importance ? 1 : 0,
       next.digest_off ? 1 : 0,
       serializeCurrencies(next.currencies),
+      serializeLevels(next.alert_levels),
       now,
       now
     )

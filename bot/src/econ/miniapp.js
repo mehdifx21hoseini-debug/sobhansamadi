@@ -340,7 +340,11 @@ export async function handleMiniapp(request, env) {
         chat_id: user.id,
         subscribed: body.subscribed,
         alert_minutes: body.alert_minutes,
-        show_low_importance: body.show_low_importance,
+        // سطح‌های اهمیت. مثل ارزها، اعتبارسنجی در saveSubscription
+        // می‌ماند: parseLevels هر کلیدِ ناشناخته را دور می‌ریزد و
+        // فهرستِ خالی را به پیش‌فرض برمی‌گرداند، پس چیزی که از مرورگر
+        // می‌آید نمی‌تواند ردیفی خراب بنویسد یا کاربر را بی‌هشدار کند.
+        alert_levels: body.alert_levels,
         // انتخابِ ارز حالا از مینی‌اپ هم می‌آید، نه فقط از منوی ربات.
         // اعتبارسنجی همان‌جایی می‌ماند که بود: saveSubscription با
         // parseCurrencies هر کدِ ناشناخته را دور می‌ریزد و فهرستِ خالی را

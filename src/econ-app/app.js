@@ -1928,7 +1928,7 @@
 				renderAlertScope();
 
 				document.getElementById("swSubscribed").setAttribute("aria-checked", s.subscribed ? "true" : "false");
-				document.getElementById("swLow").setAttribute("aria-checked", s.show_low_importance ? "true" : "false");
+				renderLevels();
 
 				var btns = document.querySelectorAll("#minutes button");
 				for (var i = 0; i < btns.length; i++) {
@@ -1938,6 +1938,77 @@
 				document.getElementById("alertOptions").className = s.subscribed ? "" : "alerts-disabled";
 				renderAlertPreview();
 				renderZoneCard();
+			}
+
+			// ── سطحِ اهمیت ───────────────────────────────────────────
+			//
+			// آینه‌ی bot/src/econ/levels.js است؛ اگر آن فهرست عوض شد، این
+			// هم باید عوض شود. سرور مقادیرِ ناشناخته را دور می‌ریزد، پس
+			// ناهماهنگی بدترین حالتش نادیده گرفته شدنِ یک سطح است.
+			//
+			// رنگِ فارسی عمداً نوشته شده: «مهم» در حرفِ روزمره یعنی همان
+			// نارنجیِ فارکس‌فکتوری، و بدونِ نامِ رنگ هیچ‌کس مطمئن نیست
+			// کدام کلید کدام خبر است.
+			var ALERT_LEVELS = [
+				{ key: "high", fa: "خیلی مهم", dot: "🔴", color: "قرمز" },
+				{ key: "medium", fa: "مهم", dot: "🟠", color: "نارنجی" },
+				{ key: "low", fa: "کم‌اهمیت", dot: "🟡", color: "زرد" }
+			];
+			var LEVEL_DEFAULT = ["high", "medium"];
+
+			// خالی یعنی پیش‌فرض، نه «هیچ»: ردیف‌های قدیمی ستون ندارند و
+			// نشان دادنِ سه کلیدِ خاموش به کسی که دارد هشدار می‌گیرد، دروغ
+			// است.
+			function subLevels(s) {
+				var list = (s && s.alert_levels) || [];
+				var out = [];
+				ALERT_LEVELS.forEach(function (l) {
+					if (list.indexOf(l.key) >= 0) out.push(l.key);
+				});
+				return out.length ? out : LEVEL_DEFAULT.slice();
+			}
+
+			function renderLevels() {
+				var box = document.getElementById("levels");
+				var s = state.data && state.data.subscription;
+				if (!box || !s) return;
+				var on = subLevels(s);
+				box.textContent = "";
+				ALERT_LEVELS.forEach(function (l) {
+					var active = on.indexOf(l.key) >= 0;
+					var b = el("button", "lvl lvl-" + l.key + (active ? " on" : ""));
+					b.type = "button";
+					b.setAttribute("aria-pressed", active ? "true" : "false");
+					b.appendChild(el("span", "lvl-dot", l.dot));
+					b.appendChild(el("span", "lvl-fa", l.fa));
+					b.appendChild(el("span", "lvl-color", l.color));
+					b.addEventListener("click", function () { toggleAlertLevel(l.key); });
+					box.appendChild(b);
+				});
+			}
+
+			function toggleAlertLevel(key) {
+				var s = state.data && state.data.subscription;
+				if (!s || state.saving) return;
+				var before = subLevels(s);
+				var next = before.filter(function (k) { return k !== key; });
+				if (next.length === before.length) {
+					next = ALERT_LEVELS.map(function (l) { return l.key; })
+						.filter(function (k) { return before.indexOf(k) >= 0 || k === key; });
+				}
+				// آخرین سطح خاموش نمی‌شود - همان قاعده‌ی سمتِ ربات. کسی که
+				// هیچ سطحی نداشته باشد مشترک می‌ماند و هیچ‌وقت چیزی نمی‌گیرد،
+				// و از بیرون با «ربات خراب است» یکی است. برای نخواستنِ
+				// هشدار، کلیدِ خودِ اشتراک هست.
+				if (!next.length) {
+					if (tg && tg.showAlert) tg.showAlert("دستِ‌کم یک سطح باید روشن بماند. برای قطعِ کاملِ هشدارها، کلیدِ بالا را خاموش کنید.");
+					return;
+				}
+				s.alert_levels = next;
+				haptic("select");
+				renderLevels();
+				renderAlertPreview();
+				saveSubscription({ undoLevels: before });
 			}
 
 			// میان‌بُرهای ارز. اینجا وصل می‌شوند نه داخلِ renderCurrencies،
@@ -2142,8 +2213,13 @@
 
 				var mins = Number(sub.alert_minutes) || 15;
 				var now = Date.now();
+				// نمونه از میانِ همان سطح‌هایی برداشته می‌شود که کاربر روشن
+				// کرده. پیش از این «کم‌اهمیت» ثابت کنار گذاشته می‌شد، یعنی
+				// کسی که فقط کم‌اهمیت را روشن داشت، پیش‌نمایشی می‌دید که
+				// هیچ‌وقت برایش نمی‌آمد.
+				var lv = subLevels(sub);
 				var pick = (state.data.events || []).filter(function (e) {
-					if (!e.at || e.importance === "low") return false;
+					if (!e.at || lv.indexOf(e.importance) < 0) return false;
 					return new Date(e.at).getTime() > now;
 				})[0];
 
@@ -2231,12 +2307,13 @@
 				// یک تغییرِ ارز، کلیدِ هشدار را برمی‌گرداند - کاری که کاربر
 				// اصلاً نکرده بود.
 				var undo = opts && opts.undo;
+				var undoLevels = opts && opts.undoLevels;
 				var s = state.data.subscription;
 				call({
 					action: "subscribe",
 					subscribed: s.subscribed,
 					alert_minutes: s.alert_minutes,
-					show_low_importance: s.show_low_importance,
+					alert_levels: subLevels(s),
 					// سرور مقادیرِ ناشناخته را خودش دور می‌ریزد، پس اگر روزی
 					// فهرستِ اینجا با فهرستِ ربات فرق کرد، بدترین حالتش نادیده
 					// گرفته شدنِ یک کد است، نه ذخیره‌ی چیزی نامعتبر.
@@ -2258,6 +2335,10 @@
 								// بزند؛ و از بیرون شبیه «کار نمی‌کند» بود.
 								load();
 							}
+							// مقدارِ ذخیره‌شده ممکن است با چیزی که فرستادیم
+							// یکی نباشد (سرور سطحِ ناشناخته را دور می‌ریزد)،
+							// پس کلیدها از روی همان دوباره کشیده می‌شوند.
+							if (undoLevels) { renderLevels(); renderAlertPreview(); }
 						}
 					})
 					.catch(function () {
@@ -2269,6 +2350,14 @@
 							s.currencies = undo;
 							renderCurrencies();
 							if (tg && tg.showAlert) tg.showAlert("ذخیره‌ی ارزها ناموفق بود.");
+						} else if (undoLevels) {
+							// سطحِ اهمیت هم مثلِ ارزها برمی‌گردد، نه کلیدِ
+							// اشتراک: برگرداندنِ کلیدی که کاربر دست نزده
+							// بدتر از خودِ خطاست.
+							s.alert_levels = undoLevels;
+							renderLevels();
+							renderAlertPreview();
+							if (tg && tg.showAlert) tg.showAlert("ذخیره‌ی سطحِ اهمیت ناموفق بود.");
 						} else {
 							s.subscribed = !s.subscribed;
 							renderAlerts();
@@ -2399,14 +2488,6 @@
 			document.getElementById("swSubscribed").addEventListener("click", function () {
 				if (!state.data || !state.data.subscription) return;
 				state.data.subscription.subscribed = !state.data.subscription.subscribed;
-				haptic();
-				renderAlerts();
-				saveSubscription();
-			});
-
-			document.getElementById("swLow").addEventListener("click", function () {
-				if (!state.data || !state.data.subscription) return;
-				state.data.subscription.show_low_importance = !state.data.subscription.show_low_importance;
 				haptic();
 				renderAlerts();
 				saveSubscription();

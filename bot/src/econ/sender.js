@@ -19,6 +19,7 @@
 import { readEvents, readLabels, readHolidays } from "./store.js";
 import { holidayLabel, holidayNameFa } from "./holidayNames.js";
 import { filterByCurrencies, DEFAULT_CURRENCIES, currencyFlag } from "./currencies.js";
+import { parseLevels, serializeLevels } from "./levels.js";
 import { buildTodayMarkdown, buildAlertMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
@@ -693,6 +694,7 @@ function alertKeyboard(list) {
 // شرط تاریخِ اضافه فقط جایی بود که ساعتِ دو محاسبه می‌توانست از هم جدا
 // بیفتد.
 export function dueEvents(events, sub) {
+  const levels = new Set(parseLevels(serializeLevels(sub && sub.alert_levels)));
   // فاز یک: هشدار و اعلامِ نتیجه فقط برای دلار.
   //
   // نه به این دلیل که سخت است - به این دلیل که کاربری که نُه ارز را
@@ -703,8 +705,14 @@ export function dueEvents(events, sub) {
     .filter((e) => {
       if (!e.date || !e.time) return false;
       if (e.status === "released") return false;
-      if (e.importance === "low") return false;
-      if (e.importance === "medium" && !sub.show_low_importance) return false;
+      // سطح‌هایی که خودِ کاربر انتخاب کرده.
+      //
+      // پیش از این دو خطِ ثابت بود: «کم‌اهمیت هرگز» و «مهم فقط اگر
+      // کلیدِ show_low_importance روشن باشد». یعنی پیش‌فرض عملاً «فقط
+      // خیلی مهم» بود، در حالی که متنِ تنظیمات «مهم و خیلی مهم» وعده
+      // می‌داد - و همان شکاف بود که سخنرانی‌های نارنجی را بی‌صدا
+      // می‌انداخت.
+      if (!levels.has(e.importance)) return false;
       const left = etMinutesUntilNow(e.date, e.time);
       return left > 0 && left <= sub.alert_minutes;
     })
@@ -832,6 +840,9 @@ export async function runResultSweep(env, now = new Date()) {
   // پنجره، عددهای دیروز و پریروز یک‌جا برایش می‌رفت.
   // فاز یک: اعلامِ نتیجه هم فقط دلار - به همان دلیلِ هشدارها.
   const released = filterByCurrencies(events, DEFAULT_CURRENCIES).filter((e) => {
+    // «کم‌اهمیت» اینجا هم کنار گذاشته می‌شود، ولی به‌عنوانِ صافیِ
+    // ارزان و سراسری: انتخابِ خودِ کاربر پایین‌تر و به‌ازای هر نفر
+    // اعمال می‌شود.
     if (e.status !== "released" || !e.actual || !e.time || e.importance === "low") return false;
     const since = -etMinutesUntilNow(e.date, e.time);
     return since >= 0 && since <= 180;
@@ -846,8 +857,14 @@ export async function runResultSweep(env, now = new Date()) {
   let stopped = false;
 
   outer: for (const s of subs) {
+    const levels = new Set(parseLevels(serializeLevels(s.alert_levels)));
     for (const e of released) {
-      if (e.importance === "medium" && !s.show_low_importance) continue;
+      // همان سطح‌هایی که برای هشدار انتخاب شده‌اند، برای اعلامِ نتیجه هم.
+      //
+      // دو فهرستِ جدا نشد: کسی که «مهم» را برای هشدار نمی‌خواهد، عددِ
+      // همان خبر را هم نمی‌خواهد - و دو کلید برای یک تصمیم، فقط یک
+      // تنظیمِ دیگر است که باید توضیح داده شود.
+      if (!levels.has(e.importance)) continue;
       if (budget <= 0) {
         stopped = true;
         break outer;

@@ -195,13 +195,15 @@
 					<div class="ap-body" id="apBody"></div>
 				</div>
 
-				<div class="row">
-					<div>
-						<div class="label">خبرهای کم‌اهمیت هم بیاد</div>
-						<div class="hint">پیش‌فرض: فقط مهم و خیلی مهم</div>
-					</div>
-					<button class="switch" id="swLow" role="switch" aria-checked="false"
-						aria-label="خبرهای کم‌اهمیت"></button>
+				<!-- سه سطح، هرکدام جدا.
+				     پیش از این یک سوییچ بود به نام «خبرهای کم‌اهمیت هم
+				     بیاد» که در عمل «مهم» را اضافه می‌کرد، و کم‌اهمیت با
+				     هیچ حالتی نمی‌رفت. زیرنویسش هم می‌نوشت پیش‌فرض «مهم و
+				     خیلی مهم» است، که نبود. -->
+				<div class="row" style="display:block">
+					<div class="label">کدام خبرها هشدار بگیرند؟</div>
+					<div class="hint">رنگ‌ها همان‌هایی‌اند که در فارکس‌فکتوری می‌بینید.</div>
+					<div class="levels" id="levels"></div>
 				</div>
 			</div>
 		</div>

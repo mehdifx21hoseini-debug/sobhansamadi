@@ -2469,6 +2469,58 @@
 			opacity: .85;
 		}
 
+		/* ---------- سطحِ اهمیت ----------
+		   سه خانه در یک ردیف، مثلِ کارتِ ارزها: تصمیم «کدام‌ها روشن
+		   باشند» است، پس هر سه باید با هم دیده شوند. fr به‌جای auto-fill،
+		   چون تعدادشان سه است و همیشه سه می‌ماند. */
+		.levels {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 8px;
+			margin-top: 9px;
+		}
+
+		.lvl {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 2px;
+			border: 1px solid color-mix(in srgb, var(--lvl) 26%, var(--line));
+			background: color-mix(in srgb, var(--lvl) 5%, transparent);
+			border-radius: 11px;
+			color: var(--muted);
+			font-family: inherit;
+			padding: 9px 4px;
+			cursor: pointer;
+		}
+
+		/* همان رنگی که در فارکس‌فکتوری دیده می‌شود، تا نام و رنگ یکدیگر را
+		   تایید کنند نه اینکه کاربر مجبور باشد حفظشان کند. */
+		.lvl-high { --lvl: #e5484d; }
+		.lvl-medium { --lvl: #f0932b; }
+		.lvl-low { --lvl: #e3c04a; }
+
+		.lvl-dot { font-size: 0.95rem; line-height: 1.2; }
+
+		.lvl-fa {
+			font-size: 0.78rem;
+			font-weight: 700;
+		}
+
+		.lvl-color {
+			font-size: 0.66rem;
+			opacity: .85;
+		}
+
+		.lvl.on {
+			background: var(--lvl);
+			border-color: var(--lvl);
+			color: #ffffff;
+		}
+		/* فشردن، حلقه‌ی تمرکز و گذارِ رنگ از همان بلوکِ مشترکِ پایینِ
+		   همین فایل می‌آیند - اینجا تکرار نمی‌شوند، چون آن بلوک عمداً
+		   آخر است و قانونِ زودتر را بی‌صدا می‌بلعد. */
+
 		.row {
 			display: flex;
 			align-items: center;
@@ -2662,6 +2714,7 @@
 		.seg button,
 		.subseg button,
 		.cur,
+		.lvl,
 		.icon-btn,
 		.event,
 		.ai-btn,
@@ -2676,6 +2729,7 @@
 		.seg button:active,
 		.subseg button:active,
 		.cur:active,
+		.lvl:active,
 		.ai-btn:active,
 		.minutes button:active,
 		.icon-btn:active,
@@ -2693,6 +2747,7 @@
 		.seg button:focus-visible,
 		.subseg button:focus-visible,
 		.cur:focus-visible,
+		.lvl:focus-visible,
 		.icon-btn:focus-visible,
 		.event:focus-visible,
 		.ai-btn:focus-visible,

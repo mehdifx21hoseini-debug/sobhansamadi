@@ -13,6 +13,7 @@ import {
 import { holidayLabel } from "./holidayNames.js";
 import { currencyLabel, currencyFlag } from "./currencies.js";
 import { makeLabelHelpers, mdCell, wrapName } from "./labels.js";
+import { ALERT_LEVELS, DEFAULT_LEVELS } from "./levels.js";
 
 // همان فیلتر و مرتب‌سازی که هر دو نمای متن و markdown از آن استفاده
 // می‌کنند، تا دو نسخه هرگز از هم جدا نیفتند.
@@ -230,8 +231,12 @@ export function buildNextEventText(events) {
 
 export function buildAlertSettingsText(sub) {
   const subscribed = sub.subscribed === true;
-  const showMedium = sub.show_low_importance === true;
   const minutes = sub.alert_minutes || 15;
+  const on = new Set(
+    Array.isArray(sub.alert_levels) && sub.alert_levels.length
+      ? sub.alert_levels
+      : DEFAULT_LEVELS
+  );
 
   // خلاصه‌ی صبح از فهرست بالا برداشته شد چون دیگر به این کلید وابسته
   // نیست: برای همه‌ی اعضا می‌رود و خط جداگانه‌ی خودش را دارد. ماندنش در
@@ -244,10 +249,14 @@ export function buildAlertSettingsText(sub) {
     // کاربر منتظرِ پیامی می‌ماند که دیگر نمی‌آید.
     "با فعال کردن هشدار، چند دقیقه قبل از هر خبر مهم بهت یادآوری می‌شه.\n\n" +
     "📊 عدد واقعی بعد از انتشار در همین اپ می‌آید — روی خبر بزن تا ببینی‌اش.\n\n" +
-    "می‌تونی فقط اخبار خیلی مهم رو بگیری یا اخبار متوسط رو هم اضافه کنی، و انتخاب کنی چند دقیقه قبل بهت خبر بدم.\n\n" +
+    "خودت انتخاب می‌کنی کدام سطح‌ها برات بیاد — و چند دقیقه قبل.\n\n" +
     "وضعیت فعلی:\n" +
-    (subscribed ? "✅" : "❌") + " هشدار اخبار خیلی مهم\n" +
-    (showMedium ? "✅" : "❌") + " هشدار اخبار با اهمیت متوسط\n" +
+    (subscribed ? "✅" : "❌") + " هشدار روشن است\n" +
+    // سه سطح، هرکدام یک خط. پیش از این دو خط بود و هیچ‌کدام «کم‌اهمیت»
+    // را نمی‌گفت، چون آن سطح با هیچ حالتی نمی‌رفت.
+    ALERT_LEVELS.map(
+      (lv) => (on.has(lv.key) ? "✅" : "❌") + " " + lv.emoji + " " + lv.fa + " (" + lv.color + ")"
+    ).join("\n") + "\n" +
     "⏱ زمان‌بندی: " + minutes + " دقیقه قبل از انتشار\n" +
     (sub.digest_off ? "❌" : "✅") + " 📰 خلاصه‌ی اخبار، هر روز صبح"
   );
