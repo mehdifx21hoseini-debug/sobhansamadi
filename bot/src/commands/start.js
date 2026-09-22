@@ -29,7 +29,7 @@ export async function handleStart(ctx) {
   //
   // فقط وقتی متن از سقف کپشن تلگرام رد شود چاره‌ای جز جدا کردن نیست -
   // کپشن بلندتر، کل ارسال را رد می‌کند و آن‌وقت نه عکس می‌رسد نه متن.
-  const opts = { caption: text, reply_markup: mainMenuKeyboard() };
+  const opts = { caption: text, reply_markup: await mainMenuKeyboard(ctx.env) };
 
   if (media && text.length <= CAPTION_LIMIT) {
     try {
@@ -52,7 +52,7 @@ export async function handleStart(ctx) {
 
   // کیبورد اصلی همیشه باید برسد، حتی اگر رسانه نرسیده باشد: کاربری که
   // هیچ منویی نمی‌بیند، رباتِ خراب می‌بیند.
-  await ctx.reply(text, { reply_markup: mainMenuKeyboard() });
+  await ctx.reply(text, { reply_markup: await mainMenuKeyboard(ctx.env) });
 }
 
 // سقف کپشن تلگرام.
@@ -75,5 +75,5 @@ async function resolveWelcomeMedia(ctx, section) {
 // شود، یک «<» در چیزی که مدیر می‌نویسد کل پیام را رد می‌کند - خطایی که
 // فقط کاربر می‌بیند و مدیر هرگز.
 export async function handleHelp(ctx) {
-  await sendSection(ctx, "HELP", mainMenuKeyboard());
+  await sendSection(ctx, "HELP", await mainMenuKeyboard(ctx.env));
 }

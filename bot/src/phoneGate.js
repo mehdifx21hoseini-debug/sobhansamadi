@@ -82,7 +82,7 @@ export async function handleGateContact(ctx, state) {
 
   if (!gate) {
     await clearUserState(ctx.env, ctx.from.id);
-    await ctx.reply("منوی اصلی:", { reply_markup: mainMenuKeyboard() });
+    await ctx.reply("منوی اصلی:", { reply_markup: await mainMenuKeyboard(ctx.env) });
     return;
   }
 
@@ -120,7 +120,7 @@ export async function handleGateContact(ctx, state) {
 export async function handleGateText(ctx, state) {
   if (ctx.message.text.trim() === BACK) {
     await clearUserState(ctx.env, ctx.from.id);
-    await ctx.reply("منوی اصلی:", { reply_markup: mainMenuKeyboard() });
+    await ctx.reply("منوی اصلی:", { reply_markup: await mainMenuKeyboard(ctx.env) });
     return;
   }
 

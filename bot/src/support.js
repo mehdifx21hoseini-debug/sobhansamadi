@@ -28,7 +28,7 @@ async function escalate(ctx, text, replyText) {
     message: text,
   });
   await clearUserState(ctx.env, ctx.from.id);
-  await ctx.reply(replyText, { reply_markup: mainMenuKeyboard() });
+  await ctx.reply(replyText, { reply_markup: await mainMenuKeyboard(ctx.env) });
 }
 
 export async function handleQuestion(ctx) {

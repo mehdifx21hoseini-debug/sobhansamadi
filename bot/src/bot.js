@@ -24,6 +24,15 @@ import {
   handleSectionPhoto,
 } from "./commands/editor.js";
 import {
+  handleLabelsCommand,
+  showLabelList,
+  openLabelPanel,
+  startLabelEdit,
+  resetLabelToDefault,
+  cancelLabelEdit,
+  handleLabelText,
+} from "./commands/labelEditor.js";
+import {
   handleKbSync,
   handleKbList,
   handleKbAdd,
@@ -152,6 +161,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("resetchannel", handleResetChannel);
   bot.command("delete", handleDeleteContent);
   bot.command("edit", handleEditCommand);
+  bot.command("labels", handleLabelsCommand);
   bot.command("kbsync", handleKbSync);
   bot.command("kblist", handleKbList);
   bot.command("kbadd", handleKbAdd);
@@ -212,9 +222,25 @@ export function createBot(token, env, botInfo, build = "?") {
     const text = ctx.message.text;
     const state = await getUserState(ctx.env, ctx.from.id);
 
+    // نامِ تازه‌ی دکمه، پیش از هر مسیریابیِ دیگری.
+    //
+    // این یکی باید بالای resolveMenuAction بنشیند، برخلافِ بقیه‌ی
+    // قدم‌های متنی: مدیری که دارد نامِ یک دکمه را می‌نویسد، محتمل است
+    // چیزی بنویسد که خودش نامِ یک دکمه‌ی دیگر است. آن‌وقت action پیدا
+    // می‌شد، منو باز می‌شد به‌جای ذخیره، و حالتِ ویرایش هم روی دوشِ
+    // مدیر می‌ماند تا پیامِ بعدی‌اش را ببلعد.
+    //
+    // وقتی صریحاً در حالتِ «نام را بنویس» هستیم، هر چه نوشته شود همان
+    // نام است - حتی اگر با نامِ دکمه‌ی دیگری یکی باشد، که خودِ
+    // handleLabelText با پیامِ روشن ردش می‌کند.
+    if (state?.current_flow === "label_edit" && state.current_step === "ask_label") {
+      await handleLabelText(ctx, state);
+      return;
+    }
+
     // اگر کاربر وسط یه فرآیند چندمرحله‌ای (ثبت‌نام/مشاوره/پشتیبانی) است
     // و این پیام یه دکمه‌ی منوی اصلی نیست، آن را به همون فرآیند بده.
-    const action = resolveMenuAction(text);
+    const action = await resolveMenuAction(ctx.env, text);
     if (state?.current_flow && !action) {
       // دروازه‌ی شماره پیش از مسیر ثبت‌نام: هر دو قدمی به نام ask_phone
       // دارند و بدون این ترتیب، متنِ کاربر به فرم اشتباه می‌رفت.
@@ -243,6 +269,7 @@ export function createBot(token, env, botInfo, build = "?") {
         return;
       }
 
+
       // انتخابِ دوره روی کیبوردِ پایین است، پس ضربه‌اش به شکلِ یک پیامِ
       // متنی می‌رسد - نه callback. هر سه دکمه اینجا شناخته می‌شوند و
       // بقیه‌ی متن‌ها مثلِ قبل به دستیار می‌رود.
@@ -254,7 +281,7 @@ export function createBot(token, env, botInfo, build = "?") {
         }
         if (isBackToMenu(text)) {
           await clearUserState(ctx.env, ctx.from.id);
-          await ctx.reply("منوی اصلی:", { reply_markup: mainMenuKeyboard() });
+          await ctx.reply("منوی اصلی:", { reply_markup: await mainMenuKeyboard(ctx.env) });
           return;
         }
       }
@@ -347,7 +374,7 @@ export function createBot(token, env, botInfo, build = "?") {
     if (data === "MENU_MAIN") {
       await clearUserState(ctx.env, ctx.from.id);
       await ctx.answerCallbackQuery();
-      await ctx.reply("منوی اصلی:", { reply_markup: mainMenuKeyboard() });
+      await ctx.reply("منوی اصلی:", { reply_markup: await mainMenuKeyboard(ctx.env) });
       return;
     }
 
@@ -536,6 +563,28 @@ export function createBot(token, env, botInfo, build = "?") {
       };
       if (EDITOR[tag]) {
         await EDITOR[tag](ctx, key, page);
+        return;
+      }
+    }
+
+    // ─── ویرایشگر نامِ دکمه‌ها ───
+    if (data.startsWith("BTNLIST|")) {
+      await showLabelList(ctx, data.split("|")[1]);
+      return;
+    }
+    if (data === "BTNCANCEL") {
+      await cancelLabelEdit(ctx);
+      return;
+    }
+    if (data.startsWith("BTN") && data.includes("|")) {
+      const [tag, key, page] = data.split("|");
+      const LABEL_EDITOR = {
+        BTNED: openLabelPanel,
+        BTNTXT: startLabelEdit,
+        BTNRESET: resetLabelToDefault,
+      };
+      if (LABEL_EDITOR[tag]) {
+        await LABEL_EDITOR[tag](ctx, key, page);
         return;
       }
     }

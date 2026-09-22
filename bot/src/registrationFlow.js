@@ -1005,6 +1005,8 @@ async function sendDoneCelebration(ctx, temp) {
 
 export async function handleCancel(ctx) {
   await clearUserState(ctx.env, ctx.from.id);
-  await ctx.reply("فرآیند لغو شد. به منوی اصلی برگشتید.", { reply_markup: mainMenuKeyboard() });
+  await ctx.reply("فرآیند لغو شد. به منوی اصلی برگشتید.", {
+    reply_markup: await mainMenuKeyboard(ctx.env),
+  });
 }
 

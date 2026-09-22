@@ -12,6 +12,7 @@ import { loadKb } from "./kb.js";
 import { rank } from "./retrieval.js";
 import { embedQuestion, generateAnswer } from "./gemini.js";
 import { buildSystemPrompt } from "./prompt.js";
+import { getLabels } from "../content/buttonLabels.js";
 
 // همان عددی که WF-07 داشت: دو نوبت آخر گفتگو به‌عنوان زمینه می‌رود، نه
 // بیشتر - وگرنه پرامپت باد می‌کند و مدل روی سوال قدیمی قفل می‌شود.
@@ -93,6 +94,9 @@ export async function askFaq(env, { question, user, history, currentFlow, curren
       current_step: currentStep,
     },
     rows: selected,
+    // نامِ زنده‌ی دکمه‌ها، نه پیش‌فرضِ کد: اگر مدیر دکمه‌ای را
+    // عوض کرده باشد، دستیار باید همان را به کاربر بگوید.
+    labels: await getLabels(env).catch(() => null),
   });
 
   const parsed = await generateAnswer(env, systemPrompt, question);

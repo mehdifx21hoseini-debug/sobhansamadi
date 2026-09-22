@@ -47,7 +47,7 @@ export async function handleFreeText(ctx, state) {
   }
 
   if (!result) {
-    await ctx.reply(NUDGE_TEXT, { reply_markup: mainMenuKeyboard() });
+    await ctx.reply(NUDGE_TEXT, { reply_markup: await mainMenuKeyboard(ctx.env) });
     return;
   }
 
@@ -73,7 +73,7 @@ export async function handleFreeText(ctx, state) {
       last_name: ctx.from.last_name,
       message: text,
     });
-    await ctx.reply(result.answer, { reply_markup: mainMenuKeyboard() });
+    await ctx.reply(result.answer, { reply_markup: await mainMenuKeyboard(ctx.env) });
     return;
   }
 

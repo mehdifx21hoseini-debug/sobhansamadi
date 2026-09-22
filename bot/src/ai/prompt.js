@@ -9,7 +9,7 @@
 
 import { botMapText } from "./botMap.js";
 
-export function buildSystemPrompt({ upd, rows }) {
+export function buildSystemPrompt({ upd, rows, labels }) {
   const PLACEHOLDER = '[نیازمند تکمیل توسط مدیر]';
 
   const usable = rows.filter(r => r.answer && r.answer !== PLACEHOLDER);
@@ -208,7 +208,7 @@ export function buildSystemPrompt({ upd, rows }) {
     '',
     EXAMPLE_CONVERSATIONS,
     '',
-    botMapText(),
+    botMapText(labels),
     '',
     historyText,
     contextText,

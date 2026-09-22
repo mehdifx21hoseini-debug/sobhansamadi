@@ -9,6 +9,8 @@
 // وجود ندارند، برای همین reply_markup را دستی می‌سازیم و خام می‌فرستیم؛
 // نسخه‌ی n8n هم دقیقاً به همین دلیل به‌جای نود تلگرام از httpRequest
 // استفاده می‌کرد.
+import { getLabels, labelRoutes } from "./content/buttonLabels.js";
+
 export const MENU_LABELS = {
   LIBRARY: "🧠 کتاب‌های روانشناسی",
   FREE_COURSES: "🎓 دوره‌های رایگان",
@@ -53,23 +55,28 @@ function btn(text, style, iconId) {
 //
 // در کیبورد راست‌به‌چپ، دکمه‌ی اولِ هر ردیف سمت راست می‌نشیند و اول
 // خوانده می‌شود؛ پس در هر جفت، مهم‌تری اول آمده.
-export function mainMenuKeyboard() {
+// env می‌گیرد چون نامِ دکمه‌ها از داخلِ تلگرام قابلِ ویرایش است و از
+// دیتابیس می‌آید (با کش، چون این مسیر داغ است). اگر env نداده شود -
+// یا خواندن بشکند - همان نام‌های پیش‌فرضِ بالا می‌روند، پس منو هیچ‌وقت
+// خالی بالا نمی‌آید.
+export async function mainMenuKeyboard(env) {
+  const L = env ? await getLabels(env) : MENU_LABELS;
   return {
     keyboard: [
       [
-        btn(MENU_LABELS.ECON_CALENDAR, "primary", ICON.ECON_CALENDAR),
-        btn(MENU_LABELS.FREE_COURSES, "primary"),
+        btn(L.ECON_CALENDAR, "primary", ICON.ECON_CALENDAR),
+        btn(L.FREE_COURSES, "primary"),
       ],
-      [btn(MENU_LABELS.LIBRARY, "primary"), btn(MENU_LABELS.PSY_VOICES, "primary")],
+      [btn(L.LIBRARY, "primary"), btn(L.PSY_VOICES, "primary")],
       [
-        btn(MENU_LABELS.EXPERT, "primary"),
-        btn(MENU_LABELS.LIVE_TRADE, "primary", ICON.LIVE_TRADE),
+        btn(L.EXPERT, "primary"),
+        btn(L.LIVE_TRADE, "primary", ICON.LIVE_TRADE),
       ],
-      [btn(MENU_LABELS.CONSULT, "success", ICON.CONSULT)],
-      [btn(MENU_LABELS.TRUSTED_BROKER, "primary"), btn(MENU_LABELS.SUPPORT, "primary")],
+      [btn(L.CONSULT, "success", ICON.CONSULT)],
+      [btn(L.TRUSTED_BROKER, "primary"), btn(L.SUPPORT, "primary")],
       // تمام‌عرض و آخر: کم‌مراجعه‌ترین بخش است، ولی وقتی کسی دنبالش
       // می‌گردد باید بدون جست‌وجو پیدایش کند.
-      [btn(MENU_LABELS.ABOUT_US, "primary")],
+      [btn(L.ABOUT_US, "primary")],
     ],
     resize_keyboard: true,
     one_time_keyboard: false,
@@ -104,9 +111,25 @@ const LEGACY_LABELS = {
 
 // تنها جایی که متن ورودی به کنش منو نگاشته می‌شود. هم متن فعلی و هم
 // متن‌های قدیمی را می‌پذیرد و اگر هیچ‌کدام نبود null برمی‌گرداند.
-export function resolveMenuAction(text) {
-  for (const [key, label] of Object.entries(MENU_LABELS)) {
-    if (label === text) return key;
+//
+// سه منبع، و هر سه لازم‌اند:
+//
+//   ۱. نام‌هایی که مدیر از داخلِ تلگرام گذاشته - و هر نامی که پیش از
+//      این گذاشته بود. کیبوردِ reply سمتِ کاربر کش می‌شود، پس تا وقتی
+//      دوباره /start نزده همان نامِ قدیمی را می‌فرستد؛ اگر شناخته
+//      نشود، دکمه‌اش بی‌صدا از کار می‌افتد.
+//   ۲. نام‌های پیش‌فرضِ کد (داخلِ labelRoutes).
+//   ۳. LEGACY_LABELS، برای نسل‌هایی که پیش از وجودِ این ویرایشگر عوض
+//      شده‌اند و جایی ثبت نشده‌اند.
+export async function resolveMenuAction(env, text) {
+  if (env) {
+    const routes = await labelRoutes(env);
+    const hit = routes.get(text);
+    if (hit) return hit;
+  } else {
+    for (const [key, label] of Object.entries(MENU_LABELS)) {
+      if (label === text) return key;
+    }
   }
   return LEGACY_LABELS[text] || null;
 }
