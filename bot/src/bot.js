@@ -35,6 +35,16 @@ import {
   showLabelGroup,
 } from "./commands/labelEditor.js";
 import { inlineRewrites } from "./content/buttonLabels.js";
+import { linkRewrites } from "./content/botLinks.js";
+import {
+  handleLinksCommand,
+  showLinkList,
+  openLinkPanel,
+  startLinkEdit,
+  resetLinkToDefault,
+  cancelLinkEdit,
+  handleLinkText,
+} from "./commands/linkEditor.js";
 import {
   handleKbSync,
   handleKbList,
@@ -88,13 +98,16 @@ import { requirePhone, handleGateContact, handleGateText, GATE_FLOW } from "./ph
 // یک‌جا ساخته می‌شود تا هم روی Cloudflare Workers و هم (در صورت نیاز) در
 // یک محیط دیگر قابل استفاده باشد. `env` (شامل env.DB) روی ctx.env قرار
 // می‌گیرد تا همه‌ی ماژول‌ها بدون پاس دادن دستی بهش دسترسی داشته باشند.
+const EMPTY_MAP = new Map();
+
 export function createBot(token, env, botInfo, build = "?") {
   const bot = new Bot(token, botInfo ? { botInfo } : undefined);
 
-  // نامِ دکمه‌های زیرمجموعه، در یک نقطه.
+  // نامِ دکمه‌ها و لینک‌ها، در یک نقطه.
   //
-  // این یک transformer است: هر فراخوانیِ API از اینجا رد می‌شود و
-  // متنِ دکمه‌های inline پیش از رفتن به تلگرام بازنویسی می‌شود.
+  // این یک transformer است: هر فراخوانیِ API از اینجا رد می‌شود و سه
+  // چیز پیش از رفتن به تلگرام بازنویسی می‌شود - متنِ دکمه‌های inline،
+  // آدرسِ دکمه‌های لینک‌دار، و خودِ آدرس‌ها داخلِ متن و کپشن.
   //
   // چرا اینجا و نه در تک‌تکِ سازنده‌های کیبورد: آن دکمه‌ها در ده فایل
   // و ده‌ها تابعِ همگام ساخته می‌شوند. برای خواندنِ نامِ تازه باید هر
@@ -108,21 +121,46 @@ export function createBot(token, env, botInfo, build = "?") {
   // هر خطایی بلعیده می‌شود: یک برچسب نباید جلوی رفتنِ پیام را بگیرد.
   bot.api.config.use(async (prev, method, payload, signal) => {
     try {
-      const rm = payload && payload.reply_markup;
-      const rows = rm && rm.inline_keyboard;
-      if (rows && rows.length) {
-        const map = await inlineRewrites(env);
-        if (map.size) {
+      const rows = payload && payload.reply_markup && payload.reply_markup.inline_keyboard;
+      const hasButtons = Array.isArray(rows) && rows.length > 0;
+      const hasText = payload && (typeof payload.text === "string" || typeof payload.caption === "string");
+      if (hasButtons || hasText) {
+        const [labels, links] = await Promise.all([
+          hasButtons ? inlineRewrites(env) : EMPTY_MAP,
+          linkRewrites(env),
+        ]);
+
+        if (hasButtons && (labels.size || links.size)) {
           for (const row of rows) {
             for (const b of row) {
-              const next = b && typeof b.text === "string" && map.get(b.text);
-              if (next) b.text = next;
+              if (!b) continue;
+              const t = labels.get(b.text);
+              if (t) b.text = t;
+              const u = links.get(b.url);
+              if (u) b.url = u;
             }
+          }
+        }
+
+        // و داخلِ خودِ متن. لینکِ بروکر فقط روی دکمه نیست - در کپشنِ
+        // یکی از ویدیوهای آموزش هم نوشته شده، و کاربری که آن را کپی
+        // می‌کند باید به همان جایی برسد که دکمه می‌برد.
+        //
+        // جای‌گزینیِ رشته‌ی کامل است نه الگو، پس چیزی جز خودِ همان
+        // آدرس دست نمی‌خورد.
+        if (hasText && links.size) {
+          for (const field of ["text", "caption"]) {
+            if (typeof payload[field] !== "string") continue;
+            let v = payload[field];
+            for (const [from, to] of links) {
+              if (v.includes(from)) v = v.split(from).join(to);
+            }
+            payload[field] = v;
           }
         }
       }
     } catch (err) {
-      console.error("بازنویسی نام دکمه‌ها:", err && err.message);
+      console.error("بازنویسی نام دکمه‌ها و لینک‌ها:", err && err.message);
     }
     return prev(method, payload, signal);
   });
@@ -201,6 +239,7 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("delete", handleDeleteContent);
   bot.command("edit", handleEditCommand);
   bot.command("labels", handleLabelsCommand);
+  bot.command("links", handleLinksCommand);
   bot.command("kbsync", handleKbSync);
   bot.command("kblist", handleKbList);
   bot.command("kbadd", handleKbAdd);
@@ -274,6 +313,10 @@ export function createBot(token, env, botInfo, build = "?") {
     // handleLabelText با پیامِ روشن ردش می‌کند.
     if (state?.current_flow === "label_edit" && state.current_step === "ask_label") {
       await handleLabelText(ctx, state);
+      return;
+    }
+    if (state?.current_flow === "link_edit" && state.current_step === "ask_link") {
+      await handleLinkText(ctx, state);
       return;
     }
 
@@ -607,6 +650,28 @@ export function createBot(token, env, botInfo, build = "?") {
     }
 
     // ─── ویرایشگر نامِ دکمه‌ها ───
+    // ─── ویرایشگر لینک‌ها ───
+    if (data === "LNKLIST") {
+      await showLinkList(ctx);
+      return;
+    }
+    if (data === "LNKCANCEL") {
+      await cancelLinkEdit(ctx);
+      return;
+    }
+    if (data.startsWith("LNK") && data.includes("|")) {
+      const [tag, key] = data.split("|");
+      const LINK_EDITOR = {
+        LNKED: openLinkPanel,
+        LNKTXT: startLinkEdit,
+        LNKRESET: resetLinkToDefault,
+      };
+      if (LINK_EDITOR[tag]) {
+        await LINK_EDITOR[tag](ctx, key);
+        return;
+      }
+    }
+
     if (data === "BTNROOT") {
       await showLabelRoot(ctx);
       return;

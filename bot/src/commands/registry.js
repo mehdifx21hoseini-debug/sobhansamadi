@@ -16,6 +16,7 @@ export const ADMIN_COMMANDS = [
   ...PUBLIC_COMMANDS,
   { command: "edit", description: "✏️ ویرایش متن و عکس بخش‌ها" },
   { command: "labels", description: "🔤 تغییر نام دکمه‌های منو" },
+  { command: "links", description: "🔗 تغییر لینک‌های ربات" },
   { command: "diag", description: "🔧 وضعیت ربات" },
   { command: "members", description: "👥 تعداد کاربران ربات" },
   { command: "kbsync", description: "🧠 ساختن پایگاه دانش دستیار" },

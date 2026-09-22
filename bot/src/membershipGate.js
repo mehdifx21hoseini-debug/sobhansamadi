@@ -2,14 +2,23 @@ import { InlineKeyboard } from "grammy";
 import { handleStart } from "./commands/start.js";
 import { isOwner } from "./owner.js";
 import { sendSection } from "./content/sectionText.js";
+import { gateChannel } from "./content/botLinks.js";
 
-// تک منبعِ نامِ کانالِ دروازه. /members هم از همین می‌خواند تا اگر روزی
-// کانال عوض شد، گزارشِ مدیر همان کانالی را بشمارد که دروازه چک می‌کند.
+// نامِ کانالِ دروازه، از همان لینکی که مدیر در /links می‌گذارد.
+//
+// چرا مشتق و نه یک ثابتِ جدا: دروازه با getChatMember روی نامِ کانال
+// کار می‌کند و دکمه‌اش کاربر را به لینک می‌فرستد. اگر این دو جدا
+// بودند، عوض کردنِ لینک یعنی کاربر به کانالِ تازه می‌رود و همچنان پشتِ
+// در می‌ماند - و هیچ خطایی هم جایی ثبت نمی‌شود.
+//
+// GATE_CHANNEL به‌عنوان پیش‌فرض می‌ماند: /members و /diag هم از همین
+// می‌خوانند، و اگر دیتابیس در دسترس نباشد همین مقدار به کار می‌آید.
 export const GATE_CHANNEL = "@sobhanforex";
-const CHANNEL_USERNAME = GATE_CHANNEL;
 const CHANNEL_JOIN_URL = "https://t.me/sobhanforex";
 
 function joinPromptKeyboard() {
+  // آدرس همین پیش‌فرض می‌ماند و transformer آن را - اگر عوض شده باشد -
+  // سرِ راه بازنویسی می‌کند، مثلِ هر دکمه‌ی لینک‌دارِ دیگری.
   return new InlineKeyboard()
     .url("📢 عضویت در کانال", CHANNEL_JOIN_URL)
     .row()
@@ -29,9 +38,10 @@ function isInsideChannel(result) {
   return false;
 }
 
-async function isChannelMember(api, userId) {
+async function isChannelMember(api, env, userId) {
   try {
-    return isInsideChannel(await api.getChatMember(CHANNEL_USERNAME, userId));
+    const channel = await gateChannel(env);
+    return isInsideChannel(await api.getChatMember(channel, userId));
   } catch (err) {
     console.error("خطای چک عضویت کانال:", err);
     // اگر خود API خطا داد، کاربر را مسدود نمی‌کنیم: یک اختلال موقت در
@@ -65,7 +75,7 @@ export function membershipGate() {
     }
 
     const isRetryCallback = ctx.callbackQuery?.data === "CHECK_MEMBERSHIP";
-    const member = await isChannelMember(ctx.api, userId);
+    const member = await isChannelMember(ctx.api, ctx.env, userId);
 
     if (member) {
       if (isRetryCallback) {
