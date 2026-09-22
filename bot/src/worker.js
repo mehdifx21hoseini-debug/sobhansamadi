@@ -97,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-46";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-47";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -575,6 +575,79 @@ async function handleAdmin(request, url, env) {
     }
   }
 
+  // یک روز از تقویم، همان‌طور که در جدول نشسته - کنارِ همان روز در
+  // خودِ فید.
+  //
+  // سوالی که این جواب می‌دهد: «خبری که در فارکس‌فکتوری دیدم چرا در ربات
+  // نیست؟» سه جواب ممکن دارد و از بیرون هر سه یک شکل‌اند - اصلاً دریافت
+  // نشده، دریافت شده ولی سطحش فرق دارد، یا هست و نمای کاربر آن را
+  // فیلتر کرده. فقط می‌خواند.
+  if (url.pathname === "/admin/econ-day") {
+    const date = (url.searchParams.get("date") || new Date().toISOString().slice(0, 10)).slice(0, 10);
+    const q = (url.searchParams.get("q") || "").trim().toLowerCase();
+    try {
+      const rows = await env.DB.prepare(
+        `SELECT date, time, event, currency, importance, status, actual
+           FROM econ_events WHERE date = ? ORDER BY time`
+      ).bind(date).all();
+      const stored = (rows.results || []).map((r) => ({
+        time: r.time || "",
+        cur: r.currency || "",
+        imp: r.importance || "",
+        title: r.event || "",
+        status: r.status || "",
+      }));
+
+      // همان روز در فید. اگر ردیفی اینجا باشد و در جدول نه، مشکل در
+      // دریافت است نه در نمایش.
+      let feed = null;
+      try {
+        const res = await fetch("https://nfs.faireconomy.media/ff_calendar_thisweek.json", {
+          signal: AbortSignal.timeout(15000),
+          headers: { "User-Agent": "sobhansamadi-bot/1.0 (+https://sobhansamadi.com)" },
+        });
+        if (res.ok) {
+          const all = await res.json();
+          feed = (Array.isArray(all) ? all : [])
+            .filter((e) => e && String(e.date || "").slice(0, 10) === date)
+            .map((e) => ({
+              time: String(e.date || "").slice(11, 16),
+              cur: e.country || "",
+              imp: String(e.impact || "").toLowerCase(),
+              title: e.title || "",
+            }));
+        } else feed = { error: "فید " + res.status };
+      } catch (err) {
+        feed = { error: String(err && err.message) };
+      }
+
+      const byImp = (list) => {
+        const c = {};
+        for (const x of list || []) c[x.imp || "?"] = (c[x.imp || "?"] || 0) + 1;
+        return c;
+      };
+      const hit = (list) =>
+        q ? (Array.isArray(list) ? list : []).filter((x) => String(x.title).toLowerCase().includes(q)) : undefined;
+
+      return json({
+        ok: true,
+        build: BUILD,
+        date,
+        stored_count: stored.length,
+        stored_by_importance: byImp(stored),
+        feed_count: Array.isArray(feed) ? feed.length : null,
+        feed_by_importance: Array.isArray(feed) ? byImp(feed) : null,
+        // ?q=trump تا لاگِ ورک‌فلو زیرِ صد ردیف دفن نشود.
+        q: q || null,
+        stored_match: hit(stored),
+        feed_match: Array.isArray(feed) ? hit(feed) : feed,
+        stored: q ? undefined : stored,
+      });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 500);
+    }
+  }
+
   if (url.pathname === "/admin/usage") {
     const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 30, 1), 365);
     // ?top=N فهرستِ تک‌به‌تک را کوتاه می‌کند (۰ یعنی هیچ). لازم است چون
@@ -941,6 +1014,7 @@ export default {
       url.pathname === "/admin/econ-notice-drain" ||
       url.pathname === "/admin/usage" ||
       url.pathname === "/admin/content" ||
+      url.pathname === "/admin/econ-day" ||
       url.pathname === "/admin/crm-import" ||
       url.pathname === "/admin/crm-selftest" ||
       url.pathname === "/admin/crm-leads" ||
