@@ -8,8 +8,14 @@
 // درست کار می‌کند.
 
 import { MENU_LABELS, mainMenuKeyboard, resolveMenuAction } from "../src/menu.js";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   EDITABLE_BUTTONS,
+  INLINE_GROUPS,
+  INLINE_DEFAULTS,
+  inlineRewrites,
+  inlineState,
   LABEL_MAX,
   getLabels,
   labelRoutes,
@@ -209,6 +215,132 @@ const fresh = () => { clearAll(); return fakeDb(); };
   const missing = Object.values({ ...MENU_LABELS, LIVE_TRADE: "📹 ویدیوها" })
     .filter((v) => !names.includes(v));
   ok(missing.length === 0, "هر ده دکمه‌ی منو در نقشه هستند", missing);
+}
+
+// ── دکمه‌های زیرمجموعه ───────────────────────────────────────────
+{
+  const env = fresh();
+  const keys = Object.keys(INLINE_DEFAULTS);
+  ok(keys.length >= 30, "بیش از سی دکمه‌ی زیرمجموعه ویرایش‌پذیرند", keys.length);
+  ok(new Set(keys).size === keys.length, "کلیدها تکراری نیستند");
+
+  const defs = Object.values(INLINE_DEFAULTS);
+  ok(new Set(defs).size === defs.length,
+     "و هیچ دو کلیدی یک متنِ پیش‌فرض ندارند - وگرنه یکی‌شان هرگز تطبیق نمی‌خورد",
+     defs.filter((d, i) => defs.indexOf(d) !== i));
+
+  ok((await inlineRewrites(env)).size === 0, "بدونِ ویرایش، هیچ بازنویسی‌ای نیست");
+
+  await setLabel(env, "INL_ECON_REFRESH", "🔄 تازه‌سازی");
+  const map = await inlineRewrites(env);
+  ok(map.size === 1, "یک بازنویسی", map.size);
+  ok(map.get("🔄 بروزرسانی") === "🔄 تازه‌سازی",
+     "از متنِ پیش‌فرض به متنِ تازه", [...map]);
+
+  const st = await inlineState(env, "INL_ECON_REFRESH");
+  ok(st.custom === true && st.label === "🔄 تازه‌سازی", "وضعیتش درست است", st);
+
+  await resetLabel(env, "INL_ECON_REFRESH");
+  ok((await inlineRewrites(env)).size === 0, "و بازگشت به پیش‌فرض پاکش می‌کند");
+}
+
+// ── تغییرِ نامِ زیرمجموعه نباید مسیریابیِ منو را آلوده کند ─────────
+{
+  const env = fresh();
+  await setLabel(env, "INL_NAV_HOME", "🏠 خانه");
+  ok(await resolveMenuAction(env, "🏠 خانه") === null,
+     "نامِ یک دکمه‌ی inline به کنشِ منو مسیریابی نمی‌شود");
+  const L = await getLabels(env);
+  ok(Object.values(L).indexOf("🏠 خانه") === -1, "و در نام‌های منوی اصلی هم نمی‌نشیند");
+}
+
+// ── هر متنِ پیش‌فرض باید واقعاً در کد باشد ───────────────────────
+//
+// مهم‌ترین ادعای این فایل بعد از تضمینِ مسیریابی.
+//
+// تطبیقِ دکمه‌های زیرمجموعه از روی «متنِ پیش‌فرض» است. اگر کسی روزی
+// همان متن را در کد عوض کند و اینجا به‌روز نشود، هیچ‌چیز نمی‌شکند و
+// هیچ خطایی هم نمی‌دهد - فقط آن ورودیِ ویرایشگر بی‌صدا از کار
+// می‌افتد: مدیر نام را عوض می‌کند، ذخیره می‌شود، و روی دکمه اثر
+// نمی‌گذارد. این ادعا دقیقاً همان را می‌گیرد.
+{
+  // نسبت به خودِ این فایل، نه به پوشه‌ی جاری: تست هم از ریشه‌ی مخزن
+  // اجرا می‌شود هم از داخلِ bot/، و مسیرِ نسبی به cwd در یکی‌شان
+  // می‌شکست.
+  const SRC = fileURLToPath(new URL("../src", import.meta.url));
+  const files = [];
+  (function walk(dir) {
+    for (const name of readdirSync(dir)) {
+      const full = dir + "/" + name;
+      if (statSync(full).isDirectory()) walk(full);
+      else if (full.endsWith(".js")) files.push(full);
+    }
+  })(SRC);
+  const all = files.map((f) => readFileSync(f, "utf8")).join("\n");
+
+  const orphans = [];
+  for (const [key, def] of Object.entries(INLINE_DEFAULTS)) {
+    if (!all.includes(def)) orphans.push(key + " → " + def);
+  }
+  ok(orphans.length === 0,
+     "هر متنِ پیش‌فرضِ زیرمجموعه در کد پیدا می‌شود", orphans);
+
+  for (const g of INLINE_GROUPS) {
+    ok(g.items.length > 0, "دسته‌ی «" + g.title + "» خالی نیست");
+  }
+}
+
+// ── سرتاسری: قلابِ createBot واقعاً کیبورد را بازنویسی می‌کند ─────
+//
+// این ادعا با خواندنِ کد جایگزین نمی‌شود. خودِ قلاب درست بود ولی دو
+// چیز در آزمونِ اولش غلط از آب درآمد و هر دو فقط با اجرا معلوم شدند:
+// امضای sendMessage در گرامی سه‌آرگومانی است نه یک شیء، و
+// transformerها به ترتیبِ **معکوسِ** نصب اجرا می‌شوند.
+//
+// همان ترتیبِ معکوس اینجا به کار می‌آید: قلابی که بعد از createBot نصب
+// شود زودتر اجرا می‌شود، پس payload را می‌گیریم، به پایین پاس می‌دهیم
+// تا قلابِ اصلی رویش کار کند، و بعد همان شیء را می‌سنجیم - چون
+// بازنویسی درجا انجام می‌شود.
+{
+  const { createBot } = await import("../src/bot.js");
+  const env = fresh();
+  await setLabel(env, "INL_EXP_MT4", "📥 نسخه متاتریدر ۴");
+  await setLabel(env, "INL_NAV_HOME", "🏠 خانه");
+
+  const bot = createBot("111:FAKE", env, {
+    id: 1, is_bot: true, username: "t", first_name: "t",
+    can_join_groups: true, can_read_all_group_messages: false,
+    supports_inline_queries: false,
+  });
+
+  let seen = null;
+  bot.api.config.use(async (prev, method, payload, signal) => {
+    seen = payload;
+    try { return await prev(method, payload, signal); } catch { return { ok: true, result: {} }; }
+  });
+
+  await bot.api
+    .sendMessage(1, "x", {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🎬 رونمایی و آموزش نصب", callback_data: "EXPERT_VIDEOS" }],
+          [
+            { text: "📥 فایل متاتریدر ۴", callback_data: "EXPERT_MT4" },
+            { text: "📥 فایل متاتریدر ۵", callback_data: "EXPERT_MT5" },
+          ],
+          [{ text: "🏠 منوی اصلی", callback_data: "MENU_MAIN" }],
+        ],
+      },
+    })
+    .catch(() => {});
+
+  const got = seen.reply_markup.inline_keyboard.flat().map((b) => b.text);
+  ok(got[1] === "📥 نسخه متاتریدر ۴", "دکمه‌ی ویرایش‌شده بازنویسی شد", got);
+  ok(got[3] === "🏠 خانه", "و دومی هم", got);
+  ok(got[0] === "🎬 رونمایی و آموزش نصب", "دکمه‌ی دست‌نخورده دست‌نخورده ماند", got);
+  ok(got[2] === "📥 فایل متاتریدر ۵", "و آن یکی هم", got);
+  ok(seen.reply_markup.inline_keyboard.flat().every((b) => b.callback_data),
+     "و هیچ callback_data‌ای گم نشد - مسیریابی همان است که بود");
 }
 
 console.log("\n" + n + " ادعا");

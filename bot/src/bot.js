@@ -31,7 +31,10 @@ import {
   resetLabelToDefault,
   cancelLabelEdit,
   handleLabelText,
+  showLabelRoot,
+  showLabelGroup,
 } from "./commands/labelEditor.js";
+import { inlineRewrites } from "./content/buttonLabels.js";
 import {
   handleKbSync,
   handleKbList,
@@ -87,6 +90,42 @@ import { requirePhone, handleGateContact, handleGateText, GATE_FLOW } from "./ph
 // می‌گیرد تا همه‌ی ماژول‌ها بدون پاس دادن دستی بهش دسترسی داشته باشند.
 export function createBot(token, env, botInfo, build = "?") {
   const bot = new Bot(token, botInfo ? { botInfo } : undefined);
+
+  // نامِ دکمه‌های زیرمجموعه، در یک نقطه.
+  //
+  // این یک transformer است: هر فراخوانیِ API از اینجا رد می‌شود و
+  // متنِ دکمه‌های inline پیش از رفتن به تلگرام بازنویسی می‌شود.
+  //
+  // چرا اینجا و نه در تک‌تکِ سازنده‌های کیبورد: آن دکمه‌ها در ده فایل
+  // و ده‌ها تابعِ همگام ساخته می‌شوند. برای خواندنِ نامِ تازه باید هر
+  // کدام async می‌شد و هر صداکننده‌اش await می‌گرفت - یک دیفِ بزرگ در
+  // مسیرهایی که همه‌شان کار می‌کنند، فقط برای یک برچسب. اینجا یک قلاب
+  // همه را می‌گیرد و هیچ سازنده‌ای دست نمی‌خورد.
+  //
+  // تطبیق از روی خودِ متنِ پیش‌فرض است، نه callback_data - دلیلش در
+  // buttonLabels.js نوشته شده.
+  //
+  // هر خطایی بلعیده می‌شود: یک برچسب نباید جلوی رفتنِ پیام را بگیرد.
+  bot.api.config.use(async (prev, method, payload, signal) => {
+    try {
+      const rm = payload && payload.reply_markup;
+      const rows = rm && rm.inline_keyboard;
+      if (rows && rows.length) {
+        const map = await inlineRewrites(env);
+        if (map.size) {
+          for (const row of rows) {
+            for (const b of row) {
+              const next = b && typeof b.text === "string" && map.get(b.text);
+              if (next) b.text = next;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("بازنویسی نام دکمه‌ها:", err && err.message);
+    }
+    return prev(method, payload, signal);
+  });
 
   bot.use(async (ctx, next) => {
     ctx.env = env;
@@ -568,8 +607,17 @@ export function createBot(token, env, botInfo, build = "?") {
     }
 
     // ─── ویرایشگر نامِ دکمه‌ها ───
+    if (data === "BTNROOT") {
+      await showLabelRoot(ctx);
+      return;
+    }
     if (data.startsWith("BTNLIST|")) {
       await showLabelList(ctx, data.split("|")[1]);
+      return;
+    }
+    if (data.startsWith("BTNGRP|")) {
+      const [, id, page] = data.split("|");
+      await showLabelGroup(ctx, id, page);
       return;
     }
     if (data === "BTNCANCEL") {

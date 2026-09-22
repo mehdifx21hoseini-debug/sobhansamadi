@@ -34,12 +34,11 @@ async function ensureSchema(env) {
   schemaReady = true;
 }
 
-// کلیدهایی که قابلِ ویرایش‌اند: همان دکمه‌های منوی اصلی.
+// دکمه‌های منوی اصلی - آن‌هایی که مسیریابی‌شان از روی متن است و
+// عوض کردنِ نامشان احتیاط می‌خواهد.
 //
-// دکمه‌های inline عمداً اینجا نیستند. آن‌ها هر بار از نو ساخته می‌شوند و
-// با callback_data مسیریابی می‌شوند نه با متن، پس عوض کردنشان هیچ‌وقت
-// چیزی را نمی‌شکند - و فهرستِ بلندتر، پیدا کردنِ همین ده‌تا را سخت‌تر
-// می‌کرد.
+// دکمه‌های زیرمجموعه (inline) پایینِ همین فایل‌اند، در INLINE_GROUPS،
+// و ساز و کارِ ساده‌تری دارند.
 export const EDITABLE_BUTTONS = [
   { key: "ECON_CALENDAR", hint: "تقویم اقتصادی و سشن‌های بازار" },
   { key: "FREE_COURSES", hint: "دوره‌های رایگان" },
@@ -80,7 +79,7 @@ async function loadRows(env) {
       ).all();
       const out = {};
       for (const r of res.results || []) {
-        if (!EDITABLE_KEYS.includes(r.key)) continue;
+        if (!EDITABLE_KEYS.includes(r.key) && !INLINE_DEFAULTS[r.key]) continue;
         let past = [];
         try {
           const parsed = JSON.parse(r.past || "[]");
@@ -129,14 +128,22 @@ export async function labelRoutes(env) {
   //    کار کند: کیبوردهای کش‌شده هنوز همان را می‌فرستند.
   for (const [key, label] of Object.entries(MENU_LABELS)) map.set(label, key);
 
+  // فقط کلیدهای منوی اصلی. ردیف‌های دکمه‌های زیرمجموعه هم در همین
+  // جدول‌اند و بدونِ این فیلتر وارد نقشه‌ی مسیریابی می‌شدند - یعنی
+  // اگر مدیر نامِ یک دکمه‌ی inline را عوض می‌کرد و کاربری همان متن را
+  // می‌نوشت، resolveMenuAction یک «کنشِ» بی‌معنی برمی‌گرداند. و چون
+  // مقدارش truthy است، کاربری که وسطِ یک فرم بود از فرمش می‌افتاد.
+  const menuRow = (key) => EDITABLE_KEYS.includes(key);
+
   // ۲. نام‌های قبلیِ ثبت‌شده - به همان دلیل.
   for (const [key, row] of Object.entries(rows)) {
+    if (!menuRow(key)) continue;
     for (const old of row.past) if (old) map.set(old, key);
   }
 
   // ۳. و نامِ فعلی، که بر هر دوی بالا می‌چربد.
   for (const [key, row] of Object.entries(rows)) {
-    if (row.label) map.set(row.label, key);
+    if (menuRow(key) && row.label) map.set(row.label, key);
   }
 
   return map;
@@ -156,11 +163,13 @@ export async function conflictingKey(env, key, label) {
  * به‌روز نشده دکمه‌ای می‌زند که دیگر شناخته نمی‌شود.
  */
 export async function setLabel(env, key, label) {
-  if (!EDITABLE_KEYS.includes(key)) throw new Error("کلید ناشناخته: " + key);
+  if (!EDITABLE_KEYS.includes(key) && !INLINE_DEFAULTS[key]) {
+    throw new Error("کلید ناشناخته: " + key);
+  }
   await ensureSchema(env);
 
   const rows = await loadRows(env);
-  const current = (rows[key] && rows[key].label) || MENU_LABELS[key];
+  const current = (rows[key] && rows[key].label) || MENU_LABELS[key] || INLINE_DEFAULTS[key];
   const past = new Set((rows[key] && rows[key].past) || []);
   // پیش‌فرض هم یک «نامِ قبلی» است - همان اولین باری که عوض می‌شود.
   if (current && current !== label) past.add(current);
@@ -185,14 +194,14 @@ export async function setLabel(env, key, label) {
  * می‌خورد.
  */
 export async function resetLabel(env, key) {
-  if (!EDITABLE_KEYS.includes(key)) return;
+  if (!EDITABLE_KEYS.includes(key) && !INLINE_DEFAULTS[key]) return;
   await ensureSchema(env);
 
   const rows = await loadRows(env);
   const current = (rows[key] && rows[key].label) || "";
   const past = new Set((rows[key] && rows[key].past) || []);
   if (current) past.add(current);
-  past.delete(MENU_LABELS[key]);
+  past.delete(MENU_LABELS[key] || INLINE_DEFAULTS[key]);
 
   await env.DB.prepare(
     `INSERT INTO button_labels (key, label, past, updated_at) VALUES (?, '', ?, ?)
@@ -212,4 +221,122 @@ export async function labelState(env, key) {
   const row = rows[key];
   const label = row && row.label ? row.label : def;
   return { label, def, custom: label !== def, past: (row && row.past) || [] };
+}
+
+// ─── دکمه‌های زیرمجموعه (inline) ──────────────────────────────────
+//
+// این‌ها با callback_data مسیریابی می‌شوند نه با متن، پس عوض کردنِ
+// نامشان هیچ‌چیز را نمی‌شکند - برخلافِ دکمه‌های منوی اصلی. به همین
+// دلیل نه فهرستِ نام‌های قبلی لازم دارند نه احتیاطِ تعارض.
+//
+// شناسه‌ی تطبیق، خودِ «متنِ پیش‌فرض» است نه callback_data. دو دلیل:
+//
+//   ۱. یک callback چند برچسبِ متفاوت دارد. ECON_TODAY در سه صفحه سه
+//      نام دارد: «📅 امروز»، «📅 اخبار امروز»، و «🔄 بروزرسانی».
+//      کلید گرفتنِ callback یعنی هر سه با هم عوض می‌شوند.
+//   ۲. و برعکس: «🔄 بروزرسانی» زیرِ چهار callbackِ مختلف است. مدیری
+//      که می‌خواهد این کلمه را عوض کند، انتظار دارد همه‌جا عوض شود،
+//      نه چهار بار.
+//
+// نتیجه: مدیر «یک نوشته» را عوض می‌کند و همه‌جا عوض می‌شود - همان
+// مدلی که در ذهنش هست.
+export const INLINE_GROUPS = [
+  {
+    id: "EXPERT",
+    title: "🤖 اکسپرت",
+    items: [
+      ["INL_EXP_VIDEOS", "🎬 رونمایی و آموزش نصب"],
+      ["INL_EXP_MT4", "📥 فایل متاتریدر ۴"],
+      ["INL_EXP_MT5", "📥 فایل متاتریدر ۵"],
+      ["INL_EXP_FAQ", "❓ سوالات پرتکرار"],
+    ],
+  },
+  {
+    id: "ECON",
+    title: "📅 تقویم اقتصادی",
+    items: [
+      ["INL_ECON_TODAY_LONG", "📅 اخبار امروز"],
+      ["INL_ECON_TODAY", "📅 امروز"],
+      ["INL_ECON_WEEK", "📆 این هفته"],
+      ["INL_ECON_NEXT", "⏭ رویداد بعدی"],
+      ["INL_ECON_HOL", "🏦 تعطیلات"],
+      ["INL_ECON_HOL_LONG", "🏦 تعطیلات پیشِ رو"],
+      ["INL_ECON_AI", "🤖 تحلیل هوش مصنوعی"],
+      ["INL_ECON_AI_SHORT", "🤖 توضیح AI"],
+      ["INL_ECON_AI_ONE", "🤖 توضیح این خبر"],
+      ["INL_ECON_ALERTS", "🔔 تنظیمات هشدار"],
+      ["INL_ECON_CCY", "🌍 فیلتر ارزها"],
+      ["INL_ECON_REFRESH", "🔄 بروزرسانی"],
+    ],
+  },
+  {
+    id: "COURSES",
+    title: "🎓 دوره‌ها",
+    items: [
+      ["INL_FREE_INTRO", "📚 دوره مقدماتی"],
+      ["INL_FREE_EQ", "🧠 دوره هوش هیجانی"],
+      ["INL_ADVANCED", "🎓 مجموعه آموزشی پیشرفته"],
+      ["INL_OWN_BOOK", "📕 کتاب من: ذهن ثروتمند یک معامله‌گر"],
+    ],
+  },
+  {
+    id: "BROKER",
+    title: "🏦 بروکر",
+    items: [
+      ["INL_BRK_SIGNUP", "🏦 لینک ثبت نام در بروکر معتمد"],
+      ["INL_BRK_HOWTO", "🎬 آموزش ثبت‌نام"],
+      ["INL_BRK_DEPOSIT", "🎬 آموزش واریز و برداشت"],
+    ],
+  },
+  {
+    id: "ABOUT",
+    title: "ℹ️ درباره ما و ارتباط",
+    items: [
+      ["INL_ABOUT", "🏛 درباره آکادمی"],
+      ["INL_CONTACT", "📞 تماس با ما"],
+      ["INL_CHANNEL", "📢 کانال تلگرام"],
+      ["INL_INSTA", "📸 اینستاگرام"],
+    ],
+  },
+  {
+    id: "NAV",
+    title: "↩️ ناوبری",
+    items: [
+      ["INL_NAV_HOME", "🏠 منوی اصلی"],
+      ["INL_NAV_BACK", "🔙 بازگشت"],
+      ["INL_NAV_BACK2", "⬅️ بازگشت"],
+      ["INL_NAV_ECON", "⬅️ منوی تقویم"],
+      ["INL_NAV_LIB", "🔙 بازگشت به کتابخانه"],
+    ],
+  },
+];
+
+// کلید → متنِ پیش‌فرض، و برعکس.
+export const INLINE_DEFAULTS = {};
+for (const g of INLINE_GROUPS) {
+  for (const [key, def] of g.items) INLINE_DEFAULTS[key] = def;
+}
+
+const INLINE_KEYS = Object.keys(INLINE_DEFAULTS);
+
+/** { متنِ پیش‌فرض → متنِ تازه } - فقط برای آن‌هایی که واقعاً عوض شده‌اند. */
+export async function inlineRewrites(env) {
+  const rows = await loadRows(env);
+  const out = new Map();
+  for (const key of INLINE_KEYS) {
+    const row = rows[key];
+    if (row && row.label && row.label !== INLINE_DEFAULTS[key]) {
+      out.set(INLINE_DEFAULTS[key], row.label);
+    }
+  }
+  return out;
+}
+
+/** وضعیتِ یک دکمه‌ی زیرمجموعه، برای صفحه‌ی ویرایش. */
+export async function inlineState(env, key) {
+  const rows = await loadRows(env);
+  const def = INLINE_DEFAULTS[key] || "";
+  const row = rows[key];
+  const label = row && row.label ? row.label : def;
+  return { label, def, custom: label !== def };
 }

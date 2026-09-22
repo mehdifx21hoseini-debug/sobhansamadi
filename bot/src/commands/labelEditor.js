@@ -14,8 +14,11 @@ import { isOwner } from "../owner.js";
 import { setUserState, clearUserState } from "../db.js";
 import {
   EDITABLE_BUTTONS,
+  INLINE_GROUPS,
+  INLINE_DEFAULTS,
   LABEL_MAX,
   labelState,
+  inlineState,
   setLabel,
   resetLabel,
   conflictingKey,
@@ -26,8 +29,14 @@ const PAGE_SIZE = 5;
 const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const fa = (n) => String(n).replace(/\d/g, (d) => FA_DIGITS[Number(d)]);
 
+const ROOT_TEXT = [
+  "🔤 <b>نام دکمه‌ها</b>",
+  "",
+  "کدام دسته را می‌خواهید؟",
+].join("\n");
+
 const LIST_TEXT = [
-  "🔤 <b>نام دکمه‌های منو</b>",
+  "🔤 <b>دکمه‌های منوی اصلی</b>",
   "",
   "نامِ هر دکمه‌ی منوی اصلی را می‌توانید عوض کنید.",
   "",
@@ -35,6 +44,30 @@ const LIST_TEXT = [
   "",
   "<i>نامِ قبلی هر دکمه همچنان کار می‌کند، پس کسی که کیبوردش هنوز به‌روز نشده به بن‌بست نمی‌خورد.</i>",
 ].join("\n");
+
+// ریشه‌ی ویرایشگر: منوی اصلی، و شش دسته‌ی دکمه‌های زیرمجموعه.
+//
+// دو سطحی شد چون چهل‌ودو دکمه در یک فهرستِ صفحه‌بندی‌شده یعنی نُه صفحه
+// ورق زدن برای رسیدن به یکی - و مدیر معمولاً می‌داند دنبالِ کدام بخش
+// است، نه اینکه دنبالِ نامش بگردد.
+function rootKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "📱 منوی اصلی", callback_data: "BTNLIST|0" }],
+      ...INLINE_GROUPS.map((g) => [
+        { text: g.title, callback_data: `BTNGRP|${g.id}|0` },
+      ]),
+    ],
+  };
+}
+
+export async function showLabelRoot(ctx) {
+  if (!(await requireOwner(ctx))) return;
+  await ctx.answerCallbackQuery();
+  await ctx
+    .editMessageText(ROOT_TEXT, { parse_mode: "HTML", reply_markup: rootKeyboard() })
+    .catch((err) => console.error("ریشه‌ی نام دکمه‌ها:", err && err.message));
+}
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -70,10 +103,7 @@ async function listKeyboard(env, page) {
 
 export async function handleLabelsCommand(ctx) {
   if (!isOwner(ctx)) return;
-  await ctx.reply(LIST_TEXT, {
-    parse_mode: "HTML",
-    reply_markup: await listKeyboard(ctx.env, 0),
-  });
+  await ctx.reply(ROOT_TEXT, { parse_mode: "HTML", reply_markup: rootKeyboard() });
 }
 
 async function requireOwner(ctx) {
@@ -93,13 +123,83 @@ export async function showLabelList(ctx, page) {
     .catch((err) => console.error("فهرست نام دکمه‌ها:", err && err.message));
 }
 
+// هر دو نوع دکمه از همین یک تابع پیدا می‌شوند، پس بقیه‌ی ویرایشگر
+// لازم نیست بداند با کدام‌شان طرف است.
 function findButton(key) {
-  return EDITABLE_BUTTONS.find((b) => b.key === key) || null;
+  const menu = EDITABLE_BUTTONS.find((b) => b.key === key);
+  if (menu) return { ...menu, inline: false };
+  for (const g of INLINE_GROUPS) {
+    const hit = g.items.find(([k]) => k === key);
+    if (hit) {
+      return { key, hint: "دکمه‌ی داخلِ بخشِ " + g.title, group: g.id, inline: true };
+    }
+  }
+  return null;
+}
+
+function findGroup(id) {
+  return INLINE_GROUPS.find((g) => g.id === id) || null;
+}
+
+function groupText(g) {
+  return [
+    "🔤 <b>" + g.title + "</b>",
+    "",
+    "نامِ هر کدام را می‌توانید عوض کنید.",
+    "",
+    "✏️ یعنی نامش قبلاً عوض شده.",
+    "",
+    "<i>این دکمه‌ها با شناسه‌ی داخلی کار می‌کنند نه با متنشان، پس عوض کردنِ نامشان هیچ‌چیز را نمی‌شکند.</i>",
+  ].join("\n");
+}
+
+async function groupKeyboard(env, g, page) {
+  const pages = Math.max(1, Math.ceil(g.items.length / PAGE_SIZE));
+  const current = Math.min(Math.max(Number(page) || 0, 0), pages - 1);
+  const slice = g.items.slice(current * PAGE_SIZE, current * PAGE_SIZE + PAGE_SIZE);
+
+  const rows = [];
+  for (const [key] of slice) {
+    const { label, custom } = await inlineState(env, key);
+    rows.push([
+      { text: (custom ? "✏️ " : "") + label, callback_data: `BTNED|${key}|${current}` },
+    ]);
+  }
+  if (pages > 1) {
+    rows.push([
+      current > 0
+        ? { text: "◀️ قبلی", callback_data: `BTNGRP|${g.id}|${current - 1}` }
+        : { text: "·", callback_data: "NOOP" },
+      { text: `${fa(current + 1)} از ${fa(pages)}`, callback_data: "NOOP" },
+      current < pages - 1
+        ? { text: "بعدی ▶️", callback_data: `BTNGRP|${g.id}|${current + 1}` }
+        : { text: "·", callback_data: "NOOP" },
+    ]);
+  }
+  rows.push([{ text: "◀️ بازگشت", callback_data: "BTNROOT" }]);
+  return { inline_keyboard: rows };
+}
+
+export async function showLabelGroup(ctx, id, page) {
+  if (!(await requireOwner(ctx))) return;
+  const g = findGroup(id);
+  if (!g) return;
+  await ctx.answerCallbackQuery();
+  await ctx
+    .editMessageText(groupText(g), {
+      parse_mode: "HTML",
+      reply_markup: await groupKeyboard(ctx.env, g, page),
+    })
+    .catch((err) => console.error("دسته‌ی نام دکمه‌ها:", err && err.message));
 }
 
 async function panelFor(env, key, page) {
   const b = findButton(key);
-  const { label, def, custom, past } = await labelState(env, key);
+  // دکمه‌های زیرمجموعه فهرستِ «نام‌های قبلی» ندارند و لازم هم ندارند:
+  // با شناسه‌ی داخلی مسیریابی می‌شوند، نه با متن.
+  const { label, def, custom, past } = b.inline
+    ? { ...(await inlineState(env, key)), past: [] }
+    : await labelState(env, key);
 
   const lines = [
     "🔤 <b>" + escapeHtml(label) + "</b>",
@@ -122,7 +222,12 @@ async function panelFor(env, key, page) {
   if (custom) {
     rows.push([{ text: "♻️ بازگشت به نام پیش‌فرض", callback_data: `BTNRESET|${key}|${page}` }]);
   }
-  rows.push([{ text: "◀️ بازگشت به فهرست", callback_data: `BTNLIST|${page}` }]);
+  rows.push([
+    {
+      text: "◀️ بازگشت به فهرست",
+      callback_data: b.group ? `BTNGRP|${b.group}|${page}` : `BTNLIST|${page}`,
+    },
+  ]);
 
   return { text: lines.join("\n"), reply_markup: { inline_keyboard: rows } };
 }
@@ -213,9 +318,10 @@ export async function handleLabelText(ctx, state) {
     );
     return;
   }
-  // اگر دو دکمه هم‌نام شوند، مسیریابی از روی متن نمی‌تواند تشخیص بدهد
-  // کدام زده شده و یکی‌شان برای همیشه دست‌نیافتنی می‌ماند.
-  const clash = await conflictingKey(ctx.env, key, label);
+  // تعارضِ نام فقط برای دکمه‌های منوی اصلی معنی دارد: آن‌ها از روی متن
+  // مسیریابی می‌شوند. دکمه‌های زیرمجموعه شناسه‌ی خودشان را دارند و
+  // هم‌نام بودنشان هیچ ابهامی نمی‌سازد.
+  const clash = findButton(key).inline ? null : await conflictingKey(ctx.env, key, label);
   if (clash) {
     const other = findButton(clash);
     await ctx.reply(
