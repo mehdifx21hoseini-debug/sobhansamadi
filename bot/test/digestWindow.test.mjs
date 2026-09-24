@@ -102,11 +102,38 @@ ok(at0130 && at0130.skipped === "هنوز ۷:۳۰ نشده", "اعلانِ تع�
 //
 // نصفِ این باگ آسان بود؛ نصفِ خطرناکش این است که دروازه را ببندیم و
 // خلاصه اصلاً نرود. پس ادعا فقط «نمی‌رود» نیست، «می‌رود» هم هست.
-for (const [h, m] of [[7, 30], [7, 35], [9, 0], [14, 0], [23, 55]]) {
+for (const [h, m] of [[7, 30], [7, 35], [9, 0], [10, 59]]) {
   const label = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
   const r = await drainDailyDigest(envAt(), tehran("2026-09-22", h, m));
-  ok(r && r.skipped !== "هنوز ۷:۳۰ نشده", "در " + label + " دروازه باز است", r);
+  ok(r && !r.skipped, "در " + label + " پنجره باز است", r);
 }
+
+// ── و سرِ ۱۱ بسته می‌شود ────────────────────────────────────────
+//
+// این برای تازه‌واردهاست: جاروی ساعتی هر عضوِ تازه را برمی‌دارد، و
+// بدونِ سقف کسی که عصر عضو می‌شد «خلاصه‌ی صبح» را عصر می‌گرفت.
+for (const [h, m] of [[11, 0], [14, 0], [19, 30], [23, 55]]) {
+  const label = String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+  const r = await drainDailyDigest(envAt(), tehran("2026-09-22", h, m));
+  ok(r && r.skipped === "پنجره‌ی امروز بسته شده", "در " + label + " پنجره بسته است", r);
+}
+
+const holClosed = await drainHolidayNotice(envAt(), tehran("2026-09-22", 16, 0));
+ok(
+  holClosed && holClosed.skipped === "پنجره‌ی امروز بسته شده",
+  "اعلانِ تعطیلی هم عصر نمی‌رود",
+  holClosed
+);
+
+// مرزها دقیقاً همان‌جایی‌اند که نوشته شده - نه یک دقیقه این‌ور و آن‌ور.
+ok(
+  (await drainDailyDigest(envAt(), tehran("2026-09-22", 10, 59))).skipped === undefined,
+  "۱۰:۵۹ هنوز داخلِ پنجره است"
+);
+ok(
+  (await drainDailyDigest(envAt(), tehran("2026-09-22", 11, 0))).skipped === "پنجره‌ی امروز بسته شده",
+  "و ۱۱:۰۰ دیگر نه"
+);
 
 // پرچمِ «تمام شد» همان کارِ قبلی‌اش را می‌کند - دروازه جایش را نگرفته.
 const doneR = await drainDailyDigest(

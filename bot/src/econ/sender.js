@@ -402,6 +402,26 @@ export function tehranHhmm(now = new Date()) {
 // درِینی را بگیرد که قرار است همان لحظه ادامه‌اش بدهد.
 const DIGEST_OPENS_AT = "07:30";
 
+// و ساعتی که دیگر بسته می‌شود.
+//
+// این برای تازه‌واردهاست. جاروی ساعتیِ nextChunk هر عضوِ تازه‌ای را که
+// شناسه‌اش پشتِ نشانگر افتاده برمی‌دارد، و بدونِ سقف این کار تا آخرِ شب
+// ادامه داشت: کسی که ساعت چهارِ بعدازظهر عضو می‌شد، «خلاصه‌ی صبح» را
+// همان موقع می‌گرفت. خبرهایش هنوز مالِ امروز بود، ولی پیامی که خودش
+// را خلاصه‌ی صبح معرفی می‌کند و عصر می‌رسد، از نرفتنش بدتر است.
+//
+// کسی که بعد از این ساعت عضو شود، خلاصه‌ی فردا صبح را می‌گیرد.
+//
+// ۱۱ و نه ۹، دقیقاً به همان دلیلِ سلامِ دوشنبه: ورک‌فلوی گیت‌هاب ۷:۳۰
+// می‌آید و حدود بیست دقیقه طول می‌کشد، ولی زمان‌بندِ گیت‌هاب گاهی عقب
+// می‌افتد. این سه ساعت همان حاشیه است.
+//
+// و فقط روی درِین است، نه روی مسیرِ force=1. آن مسیر شبکه‌ی ایمنی
+// است: اگر روزی کرانِ کلادفلر بیفتد و تنها اجرای باقی‌مانده همان
+// اجرای عقب‌افتاده‌ی گیت‌هاب باشد، بستنِ پنجره یعنی آن روز خلاصه برای
+// **هیچ‌کس** نرود - که از دیر رسیدن بدتر است.
+const DIGEST_CLOSES_AT = "11:00";
+
 /**
  * خلاصه‌ی روزانه - تکه‌تکه و قابلِ ادامه.
  *
@@ -582,9 +602,12 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
 /** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
 export async function drainHolidayNotice(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
-  // همان دروازه‌ی خلاصه. اعلانِ تعطیلی هم با همان کرانِ ۷:۳۰ شروع
-  // می‌شود و همان ref را دارد، پس بدونِ این، نیمه‌شب راه می‌افتاد.
-  if (tehranHhmm(now) < DIGEST_OPENS_AT) return { skipped: "هنوز ۷:۳۰ نشده" };
+  // همان پنجره‌ی خلاصه. اعلانِ تعطیلی با همان کران شروع می‌شود و همان
+  // ref را دارد، پس بدونِ این، نیمه‌شب راه می‌افتاد - و یک اعلانِ
+  // تعطیلی که عصر برسد، وقتی بازار تمامِ روز بسته بوده، بی‌معنی است.
+  const hhmm = tehranHhmm(now);
+  if (hhmm < DIGEST_OPENS_AT) return { skipped: "هنوز ۷:۳۰ نشده" };
+  if (hhmm >= DIGEST_CLOSES_AT) return { skipped: "پنجره‌ی امروز بسته شده" };
   const ref = digestRef(now);
   const done = await readConfig(env, HOLIDAY_DONE).catch(() => "");
   if (String(done) === ref) return { skipped: "تمام شده" };
@@ -601,9 +624,10 @@ export async function drainHolidayNotice(env, now = new Date(), shard = null) {
  */
 export async function drainDailyDigest(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
-  // پیش از ۷:۳۰ تهران هیچ‌کس خلاصه نمی‌گیرد. توضیحش کنارِ
-  // DIGEST_OPENS_AT است.
-  if (tehranHhmm(now) < DIGEST_OPENS_AT) return { skipped: "هنوز ۷:۳۰ نشده" };
+  // پنجره‌ی امروز. توضیحش کنارِ DIGEST_OPENS_AT و DIGEST_CLOSES_AT است.
+  const hhmm = tehranHhmm(now);
+  if (hhmm < DIGEST_OPENS_AT) return { skipped: "هنوز ۷:۳۰ نشده" };
+  if (hhmm >= DIGEST_CLOSES_AT) return { skipped: "پنجره‌ی امروز بسته شده" };
   const ref = digestRef(now);
   const done = await readConfig(env, DIGEST_DONE).catch(() => "");
   if (String(done) === ref) return { skipped: "تمام شده" };
