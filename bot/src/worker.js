@@ -97,7 +97,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-49";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-50";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -587,7 +587,7 @@ async function handleAdmin(request, url, env) {
     const q = (url.searchParams.get("q") || "").trim().toLowerCase();
     try {
       const rows = await env.DB.prepare(
-        `SELECT date, time, event, currency, importance, status, actual
+        `SELECT date, time, event, currency, importance, status, actual, last_updated
            FROM econ_events WHERE date = ? ORDER BY time`
       ).bind(date).all();
       const stored = (rows.results || []).map((r) => ({
@@ -596,6 +596,7 @@ async function handleAdmin(request, url, env) {
         imp: r.importance || "",
         title: r.event || "",
         status: r.status || "",
+        seen: r.last_updated || "",
       }));
 
       // همان روز در فید. اگر ردیفی اینجا باشد و در جدول نه، مشکل در
@@ -626,6 +627,20 @@ async function handleAdmin(request, url, env) {
         for (const x of list || []) c[x.imp || "?"] = (c[x.imp || "?"] || 0) + 1;
         return c;
       };
+
+      // شمارشِ خلاصه‌ی صبح، جدا.
+      //
+      // بدونِ این، «امروز سه خبرِ مهم داریم» و «خلاصه نوشت هیچ خبری
+      // نیست» هر دو می‌توانند درست باشند و از بیرون متناقض به نظر
+      // برسند - چون خلاصه عمداً فقط دلار است و کم‌اهمیت را هم کنار
+      // می‌گذارد. همان فیلترِ buildDigest، عیناً.
+      const digestRows = stored.filter(
+        (x) => (x.cur === "USD" || x.cur === "All") && x.imp !== "low"
+      );
+
+      // تازه‌ترین ردیف. اگر این عدد ساعت‌ها عقب باشد، یعنی جمع‌آوری
+      // نرسیده - و خلاصه‌ی صبح روی داده‌ی کهنه ساخته شده.
+      const freshest = stored.reduce((a, x) => (x.seen > a ? x.seen : a), "");
       const hit = (list) =>
         q ? (Array.isArray(list) ? list : []).filter((x) => String(x.title).toLowerCase().includes(q)) : undefined;
 
@@ -635,6 +650,10 @@ async function handleAdmin(request, url, env) {
         date,
         stored_count: stored.length,
         stored_by_importance: byImp(stored),
+        // آنچه خلاصه‌ی صبح واقعاً می‌بیند: دلار و جهانی، بدونِ کم‌اهمیت.
+        digest_count: digestRows.length,
+        digest_rows: digestRows.map((x) => x.time + " " + x.cur + " " + x.imp + " — " + x.title),
+        freshest_row: freshest || null,
         feed_count: Array.isArray(feed) ? feed.length : null,
         feed_by_importance: Array.isArray(feed) ? byImp(feed) : null,
         // ?q=trump تا لاگِ ورک‌فلو زیرِ صد ردیف دفن نشود.
@@ -1231,8 +1250,34 @@ export default {
     // که کاربر می‌تواند انتخاب کند پنج دقیقه است، و دفترِ ارسال جلوی
     // تکرار را می‌گیرد، پس فاصله‌ی کوتاه‌تر فقط بارِ بی‌مورد است.
     if (cron === INGEST_CRON) {
-      // فقط تعطیلات. رویدادها از POST /econ/ingest می‌آیند، چون فید
-      // تقویم درخواست‌های Cloudflare Workers را رد می‌کند.
+      // تقویم را خودمان شروع می‌کنیم، نه زمان‌بندِ گیت‌هاب.
+      //
+      // ff-calendar.yml کرانِ ساعتیِ خودش را دارد، ولی زمان‌بندِ گیت‌هاب
+      // «بهترین تلاش» است و اندازه‌گیری شد: در ۳۹ ساعت فقط ۱۰ اجرا،
+      // یعنی هر سه تا پنج ساعت یک بار به‌جای هر ساعت.
+      //
+      // این برای خبرهای برنامه‌ریزی‌شده فرقی نمی‌کند - فید کلِ هفته را
+      // دارد - ولی برای چیزهایی که دیر به تقویم اضافه می‌شوند فرق
+      // می‌کند، و سخنرانی‌ها دقیقاً همان‌ها هستند. نمونه‌ی واقعی:
+      // سخنرانیِ ترامپِ ۲۲ سپتامبر ساعت ۰۴:۰۰ UTC در جدول نبود و
+      // خلاصه‌ی صبح نوشت «رویداد مهمی ثبت نشده»؛ همان روز ساعت ۲۲ در
+      // جدول بود.
+      //
+      // کرانِ کلادفلر سرِ وقت است، پس صدا زدن از اینجا همان ساعتی بودنی
+      // را که از اول طراحی شده بود واقعاً اجرا می‌کند. دقیقه‌ی ۱۷ یعنی
+      // آخرین جمع‌آوری پیش از خلاصه ۰۳:۱۷ است - چهل و سه دقیقه فاصله،
+      // که هم تازه است هم وقت دارد تمام شود.
+      //
+      // زمان‌بندِ خودِ گیت‌هاب سرِ جایش می‌ماند: دو اجرای هم‌زمان ضرری
+      // ندارد چون نوشتن upsert است، و concurrency در خودِ ورک‌فلو
+      // هم‌پوشانی را می‌گیرد.
+      ctx.waitUntil(
+        dispatchWorkflow(env, "ff-calendar.yml")
+          .then((r) => console.log("شروعِ جمع‌آوریِ تقویم:", JSON.stringify(r)))
+          .catch((err) => console.error("شروعِ جمع‌آوریِ تقویم شکست خورد:", err && err.message))
+      );
+      // تعطیلات از خودِ ورکر می‌آید - آن سرویس درخواستِ Workers را رد
+      // نمی‌کند. فقط رویدادها باید از راهِ گیت‌هاب بیایند.
       ctx.waitUntil(
         ingestHolidays(env)
           .then((n) => {
