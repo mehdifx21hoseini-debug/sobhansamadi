@@ -370,6 +370,38 @@ export function digestRef(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tehran" }).format(now);
 }
 
+/** ساعتِ تهران به شکلِ "HH:MM" - برای مقایسه‌ی رشته‌ای. */
+export function tehranHhmm(now = new Date()) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(now);
+}
+
+// ساعتی که خلاصه زودتر از آن نباید حرکت کند.
+//
+// ─── باگی که این را لازم کرد ──────────────────────────────────────
+//
+// شناسه‌ی یکتاییِ خلاصه (digestRef) تاریخِ تهران است، و تاریخِ تهران سرِ
+// نیمه‌شب عوض می‌شود - یعنی ۲۰:۳۰ UTC. درِینِ هر پنج دقیقه فقط یک شرط
+// داشت: «آیا خلاصه‌ی این ref تمام شده؟». سرِ ساعت ۰۰:۰۰ تهران ref تازه
+// می‌شد، هیچ‌کس برای آن ref پیامی نگرفته بود، و درِین بی‌درنگ شروع
+// می‌کرد به فرستادن - نیمه‌شب.
+//
+// نتیجه‌اش این بود: از ۰۰:۰۰ تا ۷:۳۰ تهران، هر پنج دقیقه حدود ۴۵ نفر،
+// یعنی چند هزار نفر خلاصه را وسطِ شب می‌گرفتند. بقیه صبح، سرِ وقت. و
+// چون متنِ خلاصه با تاریخِ UTC ساخته می‌شود، آن‌هایی که بینِ ۰۰:۰۰ و
+// ۳:۳۰ می‌گرفتند سرتیترِ **دیروز** را می‌دیدند - پیامی که هم بی‌موقع
+// بود هم کهنه به نظر می‌رسید.
+//
+// همین دروازه از اول برای سلامِ دوشنبه و اطلاعیه نوشته شده بود (هر دو
+// `hhmm < "08:00"` دارند)؛ فقط برای خودِ خلاصه و اعلانِ تعطیلی جا
+// افتاده بود.
+//
+// ۰۷:۳۰ و نه ۰۸:۰۰: کرانِ کلادفلر دقیقاً ۰۴:۰۰ UTC است، یعنی ۰۷:۳۰
+// تهران، و همان کران خودش تکه‌ی اول را می‌فرستد. دروازه نباید جلوی
+// درِینی را بگیرد که قرار است همان لحظه ادامه‌اش بدهد.
+const DIGEST_OPENS_AT = "07:30";
+
 /**
  * خلاصه‌ی روزانه - تکه‌تکه و قابلِ ادامه.
  *
@@ -550,6 +582,9 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
 /** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
 export async function drainHolidayNotice(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  // همان دروازه‌ی خلاصه. اعلانِ تعطیلی هم با همان کرانِ ۷:۳۰ شروع
+  // می‌شود و همان ref را دارد، پس بدونِ این، نیمه‌شب راه می‌افتاد.
+  if (tehranHhmm(now) < DIGEST_OPENS_AT) return { skipped: "هنوز ۷:۳۰ نشده" };
   const ref = digestRef(now);
   const done = await readConfig(env, HOLIDAY_DONE).catch(() => "");
   if (String(done) === ref) return { skipped: "تمام شده" };
@@ -566,6 +601,9 @@ export async function drainHolidayNotice(env, now = new Date(), shard = null) {
  */
 export async function drainDailyDigest(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
+  // پیش از ۷:۳۰ تهران هیچ‌کس خلاصه نمی‌گیرد. توضیحش کنارِ
+  // DIGEST_OPENS_AT است.
+  if (tehranHhmm(now) < DIGEST_OPENS_AT) return { skipped: "هنوز ۷:۳۰ نشده" };
   const ref = digestRef(now);
   const done = await readConfig(env, DIGEST_DONE).catch(() => "");
   if (String(done) === ref) return { skipped: "تمام شده" };
