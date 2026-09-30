@@ -1,5 +1,6 @@
 import {
-  readEvents,
+  readEventsRange,
+  dayOffset,
   readLabels,
   readHolidays,
   readAiAnswer,
@@ -217,8 +218,9 @@ export async function handleEconCallback(ctx, action) {
     if (action === "ECON_HOLIDAYS") {
       markdown = buildHolidaysMarkdown(await readHolidays(ctx.env));
     } else {
+      // «امروز» و «این هفته»؛ بلندترین‌شان هفت روز است.
       const [events, labels, holidays] = await Promise.all([
-        readEvents(ctx.env),
+        readEventsRange(ctx.env, dayOffset(-1), dayOffset(8)),
         readLabels(ctx.env),
         // شکستش نباید نما را خالی کند: تعطیلات یک نشانِ اضافه است، نه
         // خودِ محتوا.
@@ -251,7 +253,9 @@ export async function handleEconCallback(ctx, action) {
       await ctx.reply(notice, { reply_markup: backToEconMenu() });
       return true;
     }
-    const events = await readEvents(ctx.env);
+    // «رویداد بعدی» فقط جلو را نگاه می‌کند. فید هفتگی است، ولی بازه‌ی
+    // بازتر یعنی اگر روزی فید بلندتر شد این نما ساکت نمی‌ماند.
+    const events = await readEventsRange(ctx.env, dayOffset(-1), dayOffset(30));
     await replaceCallbackMessage(ctx);
     await ctx.reply(buildNextEventText(events), { reply_markup: NEXT_EVENT_KEYBOARD });
     return true;
@@ -262,7 +266,8 @@ export async function handleEconCallback(ctx, action) {
     // Gemini آنجاست. تحلیل مثل قبل «درجا» ساخته می‌شود، نه از یک آینه‌ی
     // خوانده‌شده - وگرنه روزهایی که کسی دکمه را نزده باشد پاسخی وجود
     // ندارد و دکمه عملاً مرده است.
-    const events = await readEvents(ctx.env);
+    // نقشه‌ی تحلیل فقط رویدادهای امروز را برمی‌دارد.
+    const events = await readEventsRange(ctx.env, dayOffset(-1), dayOffset(1));
     // برچسب‌ها هم می‌روند: بدونِ آن‌ها نامِ فارسیِ خبر به مدل نمی‌رسد و
     // آنچه می‌بیند همان عنوانِ انگلیسیِ فید است.
     const [holidayRows, labelRows] = await Promise.all([
@@ -367,8 +372,11 @@ export async function handleEconCallback(ctx, action) {
       return true;
     }
 
+    // توکنِ دکمه به رویدادی اشاره می‌کند که کاربر همین حالا روی صفحه
+    // دیده. حاشیه‌ی عقب بازتر است چون دکمه ممکن است در پیامی چند روز
+    // قدیمی باشد و هنوز زده شود.
     const [events, labelRows] = await Promise.all([
-      readEvents(ctx.env),
+      readEventsRange(ctx.env, dayOffset(-7), dayOffset(30)),
       readLabels(ctx.env).catch(() => []),
     ]);
     const row = eventByToken(events, action.slice("ECON_X_".length));

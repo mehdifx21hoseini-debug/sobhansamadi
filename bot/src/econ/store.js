@@ -34,6 +34,10 @@ const DDL = [
      currency TEXT, importance TEXT, forecast TEXT, previous TEXT, actual TEXT,
      status TEXT, source TEXT, last_updated TEXT)`,
   `CREATE INDEX IF NOT EXISTS idx_econ_events_date ON econ_events (date)`,
+  // برای تاریخچه‌ی مینی‌اپ: جست‌وجو با نامِ رویداد، مرتب بر تاریخ.
+  // بدونِ این، پرس‌وجوی تاریخچه همان اسکنِ کاملی می‌شد که از آن فرار
+  // می‌کنیم.
+  `CREATE INDEX IF NOT EXISTS idx_econ_events_name ON econ_events (event, date)`,
   `CREATE TABLE IF NOT EXISTS econ_labels (
      match_text TEXT PRIMARY KEY, label_fa TEXT, label_short_en TEXT,
      direction TEXT, priority INTEGER, active INTEGER)`,
@@ -87,6 +91,99 @@ function emptyIfNoTable(err) {
 
 export async function readEvents(env) {
   return cached(CACHE_PREFIX + "events", TABLE_TTL, () => readEventsUncached(env));
+}
+
+// ─── خواندنِ بازه‌ای ──────────────────────────────────────────────
+//
+// چرا این لازم شد - با عدد:
+//
+// اندازه‌گیریِ ۲۸ سپتامبر نشان داد ربات روزی حدود ۲۴ میلیون ردیف از D1
+// می‌خواند، در حالی که سقفِ پلنِ رایگان ۵ میلیون است. تقریباً همه‌اش از
+// یک جا می‌آمد: readEvents کلِ جدول را بی‌هیچ WHERE می‌خواند، و جدول با
+// نگه‌داریِ ۶۰ روزه چند هزار ردیف دارد.
+//
+// ولی هیچ‌کدام از صداکننده‌ها به کلِ آن نیاز ندارند. هشدار فقط به یک
+// ساعتِ پیشِ رو نگاه می‌کند، اعلامِ نتیجه به سه ساعتِ گذشته، و خلاصه به
+// همان روز. یعنی هر بار چند هزار ردیف خوانده می‌شد تا چند ده‌تا از آن
+// استفاده شود.
+//
+// ایندکسِ idx_econ_events_date از قبل روی جدول هست، پس بازه‌ی تاریخی
+// فقط همان ردیف‌ها را می‌خواند نه کلِ جدول را.
+//
+// کلیدِ کش زیرِ همان پیشوندِ «econ:events» می‌نشیند، و چون invalidate
+// پیشوندی کار می‌کند، هر بازه‌ای با همان یک صدا باطل می‌شود.
+
+/** رویدادهای یک بازه‌ی تاریخی (هر دو سر شامل). */
+export async function readEventsRange(env, fromDate, toDate) {
+  const from = String(fromDate || "").slice(0, 10);
+  const to = String(toDate || "").slice(0, 10);
+  if (!from || !to) return readEvents(env);
+  return cached(CACHE_PREFIX + "events:" + from + ":" + to, TABLE_TTL, () =>
+    readEventsRangeUncached(env, from, to)
+  );
+}
+
+async function readEventsRangeUncached(env, from, to) {
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT event_id, date, time, event, event_fa, currency, importance, forecast,
+              previous, previous_before, actual, status, source, last_updated
+         FROM econ_events WHERE date >= ? AND date <= ?`
+    )
+      .bind(from, to)
+      .all();
+    return results || [];
+  } catch (err) {
+    emptyIfNoTable(err);
+    return [];
+  }
+}
+
+/**
+ * انتشارهای گذشته برای چند نامِ مشخص.
+ *
+ * مینی‌اپ زیرِ هر رویداد چند عددِ قبلی نشان می‌دهد. پیش از این، آن
+ * تاریخچه از روی **کلِ جدول** ساخته می‌شد - که تنها دلیلِ باقی‌مانده
+ * برای خواندنِ همه‌ی ردیف‌ها بود.
+ *
+ * حالا فقط همان نام‌هایی خوانده می‌شوند که روی صفحه‌اند. ایندکسِ
+ * (event, date) یعنی هر نام یک جست‌وجوی نقطه‌ای است، نه اسکن.
+ *
+ * نام‌ها در دسته‌های صدتایی می‌روند چون SQLite سقفِ تعدادِ پارامتر دارد.
+ */
+export async function readReleasedByNames(env, names) {
+  const list = [...new Set((names || []).map((n) => String(n || "")).filter(Boolean))];
+  if (list.length === 0) return [];
+  const out = [];
+  for (let i = 0; i < list.length; i += 100) {
+    const chunk = list.slice(i, i + 100);
+    const holes = chunk.map(() => "?").join(",");
+    try {
+      const { results } = await env.DB.prepare(
+        `SELECT event, date, actual, forecast FROM econ_events
+          WHERE status = 'released' AND actual IS NOT NULL AND actual != ''
+            AND event IN (${holes})`
+      )
+        .bind(...chunk)
+        .all();
+      for (const r of results || []) out.push(r);
+    } catch (err) {
+      // تاریخچه یک افزوده است، نه خودِ محتوا: اگر نشد، صفحه بدونِ آن
+      // ساخته می‌شود.
+      emptyIfNoTable(err);
+    }
+  }
+  return out;
+}
+
+/**
+ * تاریخِ امروز به‌علاوه/منهای چند روز - به شکلِ YYYY-MM-DD.
+ *
+ * تاریخِ رویدادها به وقتِ نیویورک است و این به وقتِ UTC؛ برای همین
+ * صداکننده‌ها یک روز حاشیه‌ی دو طرف می‌گیرند، نه بازه‌ی دقیق.
+ */
+export function dayOffset(days, now = Date.now()) {
+  return new Date(now + days * 86400000).toISOString().slice(0, 10);
 }
 
 async function readEventsUncached(env) {

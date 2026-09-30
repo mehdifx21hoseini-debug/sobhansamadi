@@ -16,7 +16,7 @@
 // به یک متن ثابت می‌دهد. سکوت کامل نه - دو روز خاموشیِ پشت‌سرهم عادتِ
 // باز کردن ربات را می‌شکند.
 
-import { readEvents, readLabels, readHolidays } from "./store.js";
+import { readEvents, readEventsRange, readLabels, readHolidays, dayOffset } from "./store.js";
 import { holidayLabel, holidayNameFa } from "./holidayNames.js";
 import { filterByCurrencies, DEFAULT_CURRENCIES, currencyFlag } from "./currencies.js";
 import { parseLevels, serializeLevels } from "./levels.js";
@@ -179,6 +179,26 @@ async function unclaim(env, kind, ref, userId) {
 const SEND_BUDGET = 45;
 
 /**
+ * بلندترین فاصله‌ای که کاربر می‌تواند برای هشدار انتخاب کند.
+ *
+ * با این، کرانِ هر پنج دقیقه پیش از خواندنِ جدولِ مشترکین می‌تواند
+ * بپرسد «اصلاً خبری در راه هست؟» و در بیشترِ دفعات دست خالی و ارزان
+ * برگردد.
+ */
+const MAX_ALERT_MINUTES = 60;
+
+/** آیا رویدادی در بازه‌ی پیشِ رو هست؟ */
+function anyEventWithin(events, minutes) {
+  for (const e of events || []) {
+    if (!e.date || !e.time) continue;
+    if (e.status === "released") continue;
+    const left = etMinutesUntilNow(e.date, e.time);
+    if (left > 0 && left <= minutes) return true;
+  }
+  return false;
+}
+
+/**
  * ثبت، بعد ارسال - با بودجه.
  *
  * ترتیبِ «اول ثبت، بعد ارسال» عمدی است: اگر ورکر وسطِ کار کشته شود، از
@@ -264,8 +284,10 @@ export async function buildDigest(env, now = new Date()) {
   if (day === "Sat" || day === "Sun") {
     return { text: WEEKEND_TEXT[day], weekend: true };
   }
+  // فقط سه روز، نه کلِ جدول. خلاصه به رویدادهای «امروز» نگاه می‌کند و
+  // یک روز حاشیه‌ی دو طرف، اختلافِ تاریخِ نیویورک و UTC را می‌پوشاند.
   const [events, labels, holidays] = await Promise.all([
-    readEvents(env),
+    readEventsRange(env, dayOffset(-1), dayOffset(1)),
     readLabels(env),
     readHolidays(env).catch(() => []),
   ]);
@@ -798,8 +820,22 @@ export async function runAlertSweep(env, now = new Date()) {
   if (isWeekend(now)) return { skipped: "آخر هفته" };
 
   await ensureSentSchema(env);
-  const [events, labelRows] = await Promise.all([readEvents(env), readLabels(env)]);
+  // هشدار حداکثر یک ساعت جلوتر را می‌بیند (بلندترین گزینه ۶۰ دقیقه است)،
+  // پس سه روز بیش از کافی است.
+  const [events, labelRows] = await Promise.all([
+    readEventsRange(env, dayOffset(-1), dayOffset(1)),
+    readLabels(env),
+  ]);
   if (events.length === 0) return { sent: 0, failed: 0, blocked: 0 };
+
+  // فهرستِ مشترکین فقط وقتی خوانده می‌شود که واقعاً خبری در راه باشد.
+  //
+  // این کران هر پنج دقیقه اجرا می‌شود - ۲۸۸ بار در روز - ولی در بیشترِ
+  // آن دفعات هیچ خبری در بازه‌ی هشدار نیست. پیش از این، هر بار کلِ
+  // جدولِ مشترکین خوانده می‌شد تا معلوم شود کاری نیست.
+  if (!anyEventWithin(events, MAX_ALERT_MINUTES)) {
+    return { sent: 0, failed: 0, blocked: 0 };
+  }
 
   const subs = await listActiveSubscribers(env);
   const stats = { sent: 0, failed: 0, blocked: 0 };
@@ -895,7 +931,11 @@ export async function runResultSweep(env, now = new Date()) {
   if (isWeekend(now)) return { skipped: "آخر هفته" };
 
   await ensureSentSchema(env);
-  const [events, labelRows] = await Promise.all([readEvents(env), readLabels(env)]);
+  // پنجره‌ی این نما سه ساعتِ گذشته است، پس همان سه روز کافی است.
+  const [events, labelRows] = await Promise.all([
+    readEventsRange(env, dayOffset(-1), dayOffset(1)),
+    readLabels(env),
+  ]);
 
   // پنجره‌ی سه ساعت پس از انتشار. دفترِ ارسال به‌تنهایی کافی نبود: کسی
   // که همین امروز مشترک می‌شود در دفتر هیچ ردیفی ندارد و بدون این

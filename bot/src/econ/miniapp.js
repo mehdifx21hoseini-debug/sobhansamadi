@@ -12,7 +12,10 @@
 // می‌شد و کاربر فکر می‌کرد این قابلیت وجود ندارد. آن جدول به D1 آمد و
 // خواندن و نوشتنش هر دو همین‌جا انجام می‌شود.
 
-import { readEvents, readLabels, readHolidays, readAiAnswer, todayCacheKey } from "./store.js";
+import {
+  readEventsRange, readReleasedByNames, readLabels, readHolidays,
+  readAiAnswer, todayCacheKey, dayOffset,
+} from "./store.js";
 import { holidayNameFa } from "./holidayNames.js";
 import { filterByCurrencies, DEFAULT_CURRENCIES } from "./currencies.js";
 import { makeLabelHelpers, numOf } from "./labels.js";
@@ -138,8 +141,13 @@ const HISTORY_LIMIT = 5;
 // ناقص می‌ماند - نه خطا می‌دهد، نه خالی می‌شود - پس هیچ فیلدی «مرتب‌سازی»
 // نشده است.
 export async function buildMiniappPayload(env, user) {
+  // فقط از دیروز تا افق، نه کلِ جدول.
+  //
+  // صفحه هم همین بازه را نشان می‌دهد (گذشته را نمی‌آورد)، پس خواندنِ
+  // شصت روزِ گذشته فقط هزینه بود. یک روز حاشیه‌ی عقب می‌ماند چون تاریخِ
+  // رویدادها به وقتِ نیویورک است و این به وقتِ UTC.
   const [rows, labels, holidays] = await Promise.all([
-    readEvents(env),
+    readEventsRange(env, dayOffset(-1), dayOffset(HORIZON_DAYS)),
     readLabels(env),
     readHolidays(env),
   ]);
@@ -158,12 +166,20 @@ export async function buildMiniappPayload(env, user) {
   const horizonEnd = new Date(Date.now() + HORIZON_DAYS * 86400000).toISOString().slice(0, 10);
 
   // انتشارهای گذشته، گروه‌بندی‌شده بر اساس نام رویداد. event_id تاریخ را
-  // در خود دارد پس هر ماه عوض می‌شود؛ چیزی که ثابت می‌ماند نام است. یک‌بار
-  // اینجا ساخته می‌شود و نه به‌ازای هر رویداد، از ردیف‌هایی که همین حالا در
-  // حافظه‌اند - پس هیچ کوئری اضافه‌ای ندارد.
+  // در خود دارد پس هر ماه عوض می‌شود؛ چیزی که ثابت می‌ماند نام است.
+  //
+  // پیش از این از روی همان ردیف‌های در حافظه ساخته می‌شد - و همین تنها
+  // دلیلی بود که کلِ جدول خوانده می‌شد. یک کوئریِ اضافه اینجا ارزان‌تر
+  // از خواندنِ شصت روز داده است: فقط نام‌هایی پرسیده می‌شوند که واقعاً
+  // روی صفحه‌اند، و هر کدام یک جست‌وجوی نقطه‌ای روی ایندکس است.
+  const shown = rowsForUser.filter(
+    (e) => e && e.date && e.date >= today && e.date <= horizonEnd && e.event
+  );
+  const past = await readReleasedByNames(env, shown.map((e) => e.event)).catch(() => []);
+
   const releasedByName = new Map();
-  for (const e of rows) {
-    if (!e || e.status !== "released" || !e.actual || !e.event) continue;
+  for (const e of past) {
+    if (!e || !e.event) continue;
     const key = String(e.event);
     if (!releasedByName.has(key)) releasedByName.set(key, []);
     releasedByName.get(key).push(e);
