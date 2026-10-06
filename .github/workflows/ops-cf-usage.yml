@@ -87,6 +87,27 @@ jobs:
             end'
           echo
 
+          # ── کدام کوئری‌ها بیشترین ردیف را می‌خوانند ─────────────────
+          #
+          # چرا لازم شد: مجموعِ روزانه می‌گوید «زیاد است» ولی نمی‌گوید
+          # «از کجا». یک بار بهینه‌سازی بر اساسِ حدس انجام شد و هیچ
+          # اثری نداشت - چون جایی را بست که مقصر نبود. این بخش همان
+          # حدس را با داده جای‌گزین می‌کند.
+          Q_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$FROM" --arg u "$TODAY" '{
+            query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1QueriesAdaptiveGroups(limit:20,orderBy:[sumRowsRead_DESC],filter:{date_geq:$s,date_leq:$u}){sum{rowsRead rowsWritten}count dimensions{query}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo "─── سنگین‌ترین کوئری‌ها (بر اساس ردیف‌خوانی) ───"
+          ask "$Q_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].d1QueriesAdaptiveGroups // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else map("\(.sum.rowsRead) ردیف  ·  \(.count) بار  ·  \(.dimensions.query | gsub("\\s+"; " ") | .[0:160])")
+                  | join("\n")
+                end
+            end'
+          echo
+
           # ── Workers: درخواست و subrequest ───────────────────────────
           # سقفِ رایگان: ۱۰۰ هزار درخواست در روز.
           W_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$SINCE" --arg u "$UNTIL" '{
