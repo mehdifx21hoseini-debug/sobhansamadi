@@ -46,9 +46,17 @@ jobs:
           test -n "$ACCOUNT" || { echo "::error::CLOUDFLARE_ACCOUNT_ID تنظیم نشده"; exit 1; }
 
           TODAY=$(date -u +%Y-%m-%d)
-          SINCE="${TODAY}T00:00:00Z"
+          # هفت روز، نه فقط امروز.
+          #
+          # «امروز» وقتی جاب صبح اجرا شود چند ساعت است و با روزِ کامل
+          # قابلِ مقایسه نیست - و تصمیمِ «پلن پولی لازم است یا نه» دقیقاً
+          # روی همین مقایسه می‌چرخد. با هفت روز، هم روزهای کاملِ قبل
+          # دیده می‌شوند هم اثرِ هر تغییری که وسطِ هفته رفته.
+          FROM=$(date -u -d '6 days ago' +%Y-%m-%d)
+          SINCE="${FROM}T00:00:00Z"
           UNTIL=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           echo "بازه: $SINCE تا $UNTIL (UTC)"
+          echo "سقفِ رایگان: ۵٬۰۰۰٬۰۰۰ خواندن و ۱۰۰٬۰۰۰ نوشتن در هر روز"
           echo
 
           # شناسه‌ی حساب هرگز چاپ نمی‌شود: مخزن عمومی است.
@@ -63,7 +71,7 @@ jobs:
 
           # ── D1: ردیف‌های خوانده و نوشته‌شده ──────────────────────────
           # سقفِ رایگان: ۵ میلیون خواندن و ۱۰۰ هزار نوشتن در روز.
-          D1_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$TODAY" --arg u "$TODAY" '{
+          D1_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$FROM" --arg u "$TODAY" '{
             query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1AnalyticsAdaptiveGroups(limit:100,filter:{date_geq:$s,date_leq:$u}){sum{readQueries writeQueries rowsRead rowsWritten}dimensions{date databaseId}}}}}",
             variables: {a:$a, s:$s, u:$u}
           }')
@@ -72,7 +80,9 @@ jobs:
             if .errors then "خطا: " + (.errors | map(.message) | join("; "))
             else (.data.viewer.accounts[0].d1AnalyticsAdaptiveGroups // [])
               | if length == 0 then "داده‌ای برنگشت"
-                else map("خواندن ردیف: \(.sum.rowsRead)  ·  نوشتن ردیف: \(.sum.rowsWritten)  ·  کوئری خواندن: \(.sum.readQueries)  ·  کوئری نوشتن: \(.sum.writeQueries)") | join("\n")
+                else sort_by(.dimensions.date)
+          | map("\(.dimensions.date)  خواندن \(.sum.rowsRead)\(if .sum.rowsRead > 5000000 then "  ❌ از سقف رد شد" else "  ✅" end)  ·  نوشتن \(.sum.rowsWritten)\(if .sum.rowsWritten > 100000 then " ❌" else "" end)  ·  کوئری \(.sum.readQueries)/\(.sum.writeQueries)")
+          | join("\n")
                 end
             end'
           echo
