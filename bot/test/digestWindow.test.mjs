@@ -157,3 +157,47 @@ const offR = await drainDailyDigest(
 ok(offR && offR.skipped === "خاموش", "کلیدِ خاموش بر دروازه مقدم است", offR);
 
 console.log("\n" + n + " ادعا");
+
+// ── شاردِ تمام‌شده باید done بگوید ──────────────────────────────
+//
+// ورک‌فلوی موازی تا وقتی done:true یا skipped یا throttled نبیند، تا
+// MAX دور ادامه می‌دهد - و هر دورِ اضافه یک اسکنِ کاملِ جدولِ کاربران
+// است. اندازه‌گیریِ ۶ اکتبر: شش شکلِ همان کوئری ۸۷ میلیون ردیف در شش
+// روز، یعنی تقریباً تمامِ مصرفِ D1.
+//
+// حالتی که می‌سنجیم همان حالتِ گران است: نشانگر هست (پس دورِ اول
+// نیست) و جاروی این ساعت هم زده شده (پس throttle فعال است). بدونِ این
+// دو، nextChunk جاروی کامل می‌زند و swept خودش true می‌شود - و تست
+// چیزی را نمی‌سنجد.
+const REF = "2026-09-22";
+const AT9 = tehran(REF, 9, 0);
+const RECENT = String(AT9.getTime() - 60_000);
+
+{
+  const r = await drainDailyDigest(
+    envAt({
+      ["econ_cur_digest_" + REF + "_0of6"]: "999",
+      ["econ_swept_digest_" + REF + "_0of6"]: RECENT,
+    }),
+    AT9,
+    { of: 6, index: 0 }
+  );
+  ok(r && r.throttled === true, "حالتِ آزمایش واقعاً throttle شده است", r);
+  ok(r && r.done === true, "شاردی که تکه‌اش خالی است done برمی‌گرداند", r);
+}
+
+// ولی اجرای بی‌شارد همان معنیِ سخت‌گیر را نگه می‌دارد: «خالی بود» فقط
+// وقتی «تمام شد» است که واقعاً جارو زده باشیم. وگرنه تازه‌واردهای امروز
+// تا فردا جا می‌مانند.
+{
+  const r = await drainDailyDigest(
+    envAt({
+      ["econ_cur_digest_" + REF + "_all"]: "999",
+      ["econ_swept_digest_" + REF + "_all"]: RECENT,
+    }),
+    AT9
+  );
+  ok(r && r.done !== true, "ولی اجرای بی‌شارد با جاروی نزده done نمی‌گوید", r);
+}
+
+console.log("\n" + n + " ادعا");

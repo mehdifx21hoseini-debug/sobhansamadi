@@ -120,7 +120,13 @@ jobs:
               echo "[$ENDPOINT] کارگر $w دور $i: $sent پیام (جمع این کارگر: $total)"
 
               case "$flat" in
-                *'"done":true'*|*'"skipped":'*)
+                # throttled:true هم یعنی «الان کاری نیست».
+                #
+                # بدونِ آن، کارگری که فهرستش تمام شده تا MAX دور ادامه
+                # می‌داد و هر دور یک اسکنِ کاملِ جدولِ کاربران بود -
+                # اندازه‌گیریِ ۶ اکتبر: حدود ۱۴٫۵ میلیون ردیف‌خوانی در
+                # روز، تقریباً تمامِ مصرفِ D1.
+                *'"done":true'*|*'"skipped":'*|*'"throttled":true'*)
                   echo "$total" > "count-$ENDPOINT-$w.txt"
                   echo "[$ENDPOINT] کارگر $w تمام کرد - $total پیام در $i دور."
                   return 0

@@ -473,7 +473,25 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
     // اولین درِینِ محدودشده روز را تمام‌شده اعلام می‌کرد و تازه‌واردها
     // تا فردا خلاصه نمی‌گرفتند.
     if (!shard && swept) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
-    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
+    // برای یک کارگرِ شاردشده، «تکه‌ی من خالی است» یعنی کارِ من تمام
+    // شده - حتی اگر جاروی کامل این ساعت اجازه نداشته باشد.
+    //
+    // ─── باگی که این خط را لازم کرد ─────────────────────────────
+    //
+    // ورک‌فلوی موازی تا وقتی done:true یا skipped نبیند، تا MAX دور
+    // ادامه می‌دهد. با done:swept، شاردی که فهرستش تمام شده بود
+    // done:false می‌گرفت و ده‌ها دورِ اضافه می‌زد - و هر دور یک
+    // اسکنِ کاملِ جدولِ کاربران بود.
+    //
+    // اندازه‌گیریِ ۶ اکتبر: شش شکلِ همین کوئری روی هم ۸۷ میلیون
+    // ردیف در شش روز خوانده بودند - حدود ۱۴٫۵ میلیون در روز، یعنی
+    // تقریباً تمامِ مصرفِ D1 - با میانگینِ ۱۶٬۴۷۷ ردیف در هر صدا،
+    // که همان اندازه‌ی کلِ جدول است.
+    //
+    // پرچمِ DIGEST_DONE همان معنیِ سخت‌گیرِ قبلی را نگه می‌دارد: آن
+    // دروازه‌ی کرانِ هر پنج دقیقه است و نباید با تمام شدنِ یک شارد
+    // زده شود، وگرنه تازه‌واردهای امروز تا فردا جا می‌مانند.
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
   }
 
   const digest = await buildDigest(env, now);
@@ -589,7 +607,9 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
   if (pending.length === 0) {
     // همان دو شرطِ خلاصه‌ی روزانه - دلیلش آنجا نوشته شده.
     if (!shard && swept) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
-    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
+    // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
+    // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
   }
 
   const text = buildHolidayText(holiday, now);
@@ -1140,7 +1160,9 @@ export async function runWeeklyGreeting(env, now = new Date(), shard = null) {
   const { rows: pending, swept, throttled } = await nextChunk(env, "greet", ref, shard, now.getTime());
   if (pending.length === 0) {
     if (!shard && swept) await writeConfig(env, GREET_DONE, ref).catch(() => {});
-    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
+    // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
+    // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
   }
 
   const text = greetTextFor(ref);
@@ -1225,7 +1247,9 @@ export async function runNotice(env, now = new Date(), shard = null) {
   const { rows: pending, swept, throttled } = await nextChunk(env, "notice", ref, shard, now.getTime());
   if (pending.length === 0) {
     if (!shard && swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
-    return { sent: 0, failed: 0, blocked: 0, done: swept, throttled };
+    // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
+    // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
   }
 
   // متن از روی تاریخ برداشته می‌شود، نه یک متنِ ثابت: هر روزِ اطلاعیه
