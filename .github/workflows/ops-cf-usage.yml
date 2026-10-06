@@ -94,7 +94,7 @@ jobs:
           # اثری نداشت - چون جایی را بست که مقصر نبود. این بخش همان
           # حدس را با داده جای‌گزین می‌کند.
           Q_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$FROM" --arg u "$TODAY" '{
-            query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1QueriesAdaptiveGroups(limit:20,orderBy:[sumRowsRead_DESC],filter:{date_geq:$s,date_leq:$u}){sum{rowsRead rowsWritten}count dimensions{query}}}}}",
+            query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1QueriesAdaptiveGroups(limit:100,filter:{date_geq:$s,date_leq:$u}){sum{rowsRead rowsWritten}count dimensions{query}}}}}",
             variables: {a:$a, s:$s, u:$u}
           }')
           echo "─── سنگین‌ترین کوئری‌ها (بر اساس ردیف‌خوانی) ───"
@@ -102,7 +102,8 @@ jobs:
             if .errors then "خطا: " + (.errors | map(.message) | join("; "))
             else (.data.viewer.accounts[0].d1QueriesAdaptiveGroups // [])
               | if length == 0 then "داده‌ای برنگشت"
-                else map("\(.sum.rowsRead) ردیف  ·  \(.count) بار  ·  \(.dimensions.query | gsub("\\s+"; " ") | .[0:160])")
+                else sort_by(-.sum.rowsRead) | .[0:12]
+                  | map("\(.sum.rowsRead) ردیف  ·  \(.count) بار  ·  \(.dimensions.query | gsub("\\s+"; " ") | .[0:150])")
                   | join("\n")
                 end
             end'
