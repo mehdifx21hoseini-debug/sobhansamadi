@@ -82,3 +82,11 @@ CREATE TABLE IF NOT EXISTS econ_subscriber (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_econ_sub_active ON econ_subscriber(subscribed);
+-- صفحه‌بندیِ مشترکین: بی‌ستونِ دوم، هر دور کلِ جدول خوانده و در حافظه
+-- مرتب می‌شد و LIMIT هیچ صرفه‌ای نداشت. چرایش در subscribers.js است.
+CREATE INDEX IF NOT EXISTS idx_econ_sub_page ON econ_subscriber(subscribed, telegram_user_id);
+
+-- ایندکسی که ۸۷٪ مصرفِ D1 را توضیح می‌داد. بی‌آن، کوئریِ مخاطب برای
+-- پیدا کردنِ ۴۵ نفر کلِ جدولِ هفده‌هزارتایی را می‌خواند. توضیحِ کامل،
+-- با خروجیِ EXPLAIN QUERY PLAN، در bot/src/econ/subscribers.js است.
+CREATE INDEX IF NOT EXISTS idx_user_state_audience ON user_state(blocked_at, telegram_user_id);
