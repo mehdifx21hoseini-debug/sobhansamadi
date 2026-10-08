@@ -1,6 +1,8 @@
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
-import { syncFromN8n, readSyncState } from "./econ/store.js";
+import { syncFromN8n, readSyncState, readEventsRange, dayOffset } from "./econ/store.js";
+import { etMinutesUntilNow } from "./econ/format.js";
+import { filterByCurrencies, DEFAULT_CURRENCIES } from "./econ/currencies.js";
 import { drainLeadOutbox } from "./crmSync.js";
 import { handleMiniapp } from "./econ/miniapp.js";
 // صفحه‌ی مینی‌اپ داخل باندل است، نه روی GitHub Pages. فایل ساخته می‌شود -
@@ -98,7 +100,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-55";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-56";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -915,6 +917,71 @@ async function handleAdmin(request, url, env) {
    * اجرای واقعیِ ورک‌فلو را شروع می‌کند، که بی‌ضرر است: کارِ امروز تمام
    * شده و ورک‌فلو با یک دورِ ارزان می‌فهمد چیزی نمانده.
    */
+  /**
+   * چرا هشدار نرفت - بدون حدس.
+   *
+   * یک کاربر گزارش داد که خلاصه‌ی صبح می‌رسد ولی هشدارِ «پنج دقیقه قبل
+   * از خبر» هیچ‌وقت نیامده. برای تشخیص، سه چیز لازم بود که هیچ‌کدام از
+   * بیرون دیده نمی‌شد: آیا اصلاً هشداری رفته، آیا همین حالا خبری در
+   * بازه هست، و دفترِ ارسال چه می‌گوید.
+   *
+   * فقط می‌خواند و هیچ پیامی نمی‌فرستد.
+   */
+  if (url.pathname === "/admin/econ-alerts") {
+    const days = Math.min(Math.max(Number(url.searchParams.get("days")) || 7, 1), 30);
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    try {
+      // دفترِ ارسال، به تفکیکِ نوع. بدونِ این، «۱۷ هزار پیام رفت» هم با
+      // «هشدارها کار می‌کنند» سازگار است هم با «فقط خلاصه رفته».
+      const log = await env.DB.prepare(
+        `SELECT kind, COUNT(*) AS n, MAX(sent_at) AS last
+           FROM econ_sent_log WHERE sent_at >= ? GROUP BY kind ORDER BY n DESC`
+      ).bind(since).all();
+
+      // مشترکینِ فعال، به تفکیکِ فاصله‌ی انتخابی.
+      const byMin = await env.DB.prepare(
+        `SELECT alert_minutes AS m, COUNT(*) AS n FROM econ_subscriber
+          WHERE subscribed = 1 GROUP BY alert_minutes ORDER BY m`
+      ).all();
+
+      // همان بازه‌ای که خودِ جارو می‌خواند، با همان فیلترِ ارز.
+      const rows = await readEventsRange(env, dayOffset(-1), dayOffset(1));
+      const usd = filterByCurrencies(rows, DEFAULT_CURRENCIES);
+      const window = usd
+        .filter((e) => e.date && e.time)
+        .map((e) => ({
+          at: e.date + " " + e.time,
+          cur: e.currency,
+          imp: e.importance,
+          status: e.status || "",
+          left_min: etMinutesUntilNow(e.date, e.time),
+          title: e.event,
+        }))
+        .filter((e) => e.left_min > -240 && e.left_min < 1440)
+        .sort((a, b) => a.left_min - b.left_min);
+
+      return json({
+        ok: true,
+        build: BUILD,
+        now_utc: new Date().toISOString(),
+        window_days: days,
+        // اگر alert اینجا نباشد یا عددش صفر باشد، مسیرِ هشدار اصلاً کار
+        // نمی‌کند - و بقیه‌ی حدس‌ها بی‌معنی‌اند.
+        sent_by_kind: (log.results || []).map((r) => ({
+          kind: r.kind, n: r.n, last: r.last,
+        })),
+        subscribers_by_minutes: (byMin.results || []).map((r) => ({
+          minutes: r.m, n: r.n,
+        })),
+        // خبرهای دلاریِ دور و برِ حالا، با فاصله‌شان تا این لحظه.
+        // عددِ منفی یعنی گذشته.
+        usd_window: window,
+      });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 500);
+    }
+  }
+
   if (url.pathname === "/admin/econ-dispatch") {
     const r = await dispatchWorkflow(env, "econ-digest.yml");
     return json({ ok: true, build: BUILD, dispatch: r });
@@ -1077,6 +1144,7 @@ export default {
       url.pathname === "/admin/econ-digest" ||
       url.pathname === "/admin/econ-holiday" ||
       url.pathname === "/admin/econ-dispatch" ||
+      url.pathname === "/admin/econ-alerts" ||
       url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
