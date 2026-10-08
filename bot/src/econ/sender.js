@@ -23,6 +23,7 @@ import { parseLevels, serializeLevels } from "./levels.js";
 import { buildTodayMarkdown, buildAlertMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
+  listActiveSubscribersPage,
   listPendingSubscribers,
   listPendingAudience,
   digestAudienceStats,
@@ -186,6 +187,43 @@ const SEND_BUDGET = 45;
  * برگردد.
  */
 const MAX_ALERT_MINUTES = 60;
+
+/**
+ * فاصله‌هایی که کاربر می‌تواند برای هشدار انتخاب کند.
+ *
+ * درِینِ موازی باید سرِ باز شدنِ هر کدام یک بار راه بیفتد: پیشِ آن
+ * لحظه کسی از آن گروه «موعدش» نرسیده و دور بی‌فایده است.
+ */
+export const ALERT_TIERS = [60, 30, 15, 5];
+
+/**
+ * کدام پنجره‌ها همین تیک تازه باز شده‌اند؟
+ *
+ * تیک هر پنج دقیقه است و هر بازه هم پنج دقیقه عرض دارد، پس هر خبر
+ * حداکثر چهار بار - یک بار برای هر فاصله - درِین را راه می‌اندازد. اگر
+ * به‌جای این، هر تیکی که خبری در یک‌ساعتِ پیشِ رو داشت درِین می‌زد،
+ * روزی حدودِ هشتاد اجرا می‌شد بی‌آنکه چیزی اضافه بفرستد.
+ *
+ * فقط «خیلی مهم» و «مهم» شمرده می‌شوند. کم‌اهمیت را حدودِ بیست نفر
+ * روشن کرده‌اند و کرانِ خودِ ورکر با ۴۵ پیام در هر تیک کاملاً پوششش
+ * می‌دهد - درِینِ موازی برایش فقط اجراهای بی‌مصرف می‌سازد.
+ */
+export function alertTiersOpening(events) {
+  const out = [];
+  for (const m of ALERT_TIERS) {
+    for (const e of events || []) {
+      if (!e.date || !e.time) continue;
+      if (e.status === "released") continue;
+      if (e.importance !== "high" && e.importance !== "medium") continue;
+      const left = etMinutesUntilNow(e.date, e.time);
+      if (left > m - 5 && left <= m) {
+        out.push(m);
+        break;
+      }
+    }
+  }
+  return out;
+}
 
 /** آیا رویدادی در بازه‌ی پیشِ رو هست؟ */
 function anyEventWithin(events, minutes) {
@@ -824,6 +862,21 @@ export function dueEvents(events, sub) {
 }
 
 /**
+ * چند مشترک در هر دور نگاه می‌شوند.
+ *
+ * از بودجه‌ی ارسال بیشتر است و باید باشد: در هر لحظه فقط بخشی از
+ * مشترکین موعدشان رسیده - آن‌هایی که فاصله‌ی انتخابی‌شان با این خبر
+ * جور است. وقتی تنها پنجره‌ی باز، پنجره‌ی ۶۰ دقیقه باشد، یعنی حدودِ
+ * یک‌ششمِ فهرست. با صفحه‌ی هم‌اندازه‌ی بودجه، هر دور چند نفر می‌فرستاد
+ * و دورها تمام نمی‌شدند.
+ *
+ * ۱۲۰ یعنی هر دور کلِ فهرستِ یک شارد در حدودِ پنج دور پیموده می‌شود، و
+ * هیچ دوری هم آن‌قدر بزرگ نیست که از بودجه‌ی ارسال رد شود و نیمه‌کاره
+ * بماند.
+ */
+const ALERT_PAGE = 120;
+
+/**
  * هشدارها - یک پیام برای هر کاربر، نه یکی برای هر خبر.
  *
  * دفترِ ارسال هنوز خبر-به-خبر است و باید باشد: تضمینِ «هیچ خبری دو بار
@@ -833,8 +886,21 @@ export function dueEvents(events, sub) {
  *
  * اگر ارسال به سقفِ زیرساخت بخورد، claimِ همه‌شان پس گرفته می‌شود؛ وگرنه
  * آن خبرها برای همیشه «فرستاده شده» علامت می‌خوردند بی‌آنکه رفته باشند.
+ *
+ * ─── تکه‌بندی و نشانگر ───────────────────────────────────────────
+ *
+ * `shard` و `after` برای درِینِ موازی‌اند. بی‌آن‌ها رفتار همان قبلی است:
+ * از اولِ فهرست، تا سقفِ بودجه - که برای کرانِ خودِ ورکر درست است، چون
+ * فقط تورِ ایمنی است.
+ *
+ * نشانگر برخلافِ خلاصه در دیتابیس ذخیره نمی‌شود، بلکه در پاسخ
+ * برمی‌گردد و ورک‌فلو خودش آن را به دورِ بعد می‌دهد. دلیلش این است که
+ * هشدار `ref`ِ یکتای روزانه ندارد - هر مشترک بسته به فاصله‌ی انتخابی‌اش
+ * خبرِ دیگری در موعد دارد - پس کلیدِ «نشانگرِ امروز» معنایی ندارد و
+ * پاک کردنش هم جایی ندارد. با نشانگرِ داخلِ پاسخ، هر دورِ درِین یک
+ * پیمایشِ کاملِ تازه است و هیچ حالتی برای پاک کردن نمی‌ماند.
  */
-export async function runAlertSweep(env, now = new Date()) {
+export async function runAlertSweep(env, now = new Date(), shard = null, after = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
   if (isWeekend(now)) return { skipped: "آخر هفته" };
@@ -857,18 +923,39 @@ export async function runAlertSweep(env, now = new Date()) {
     return { sent: 0, failed: 0, blocked: 0 };
   }
 
-  const subs = await listActiveSubscribers(env);
+  // بی‌شارد و بی‌نشانگر همان رفتارِ قبلی: از اولِ فهرست. با شارد یا
+  // نشانگر، یک صفحه از همان‌جایی که دورِ قبل ایستاد.
+  //
+  // مقایسه با null و نه با truthy: نشانگرِ دورِ اولِ درِین رشته‌ی خالی
+  // است، و `!!""` دروغ است - یعنی اولین دورِ هر درِین بی‌صفحه‌بندی
+  // می‌افتاد و بی‌نشانگر برمی‌گشت، و حلقه‌ی ورک‌فلو جا نمی‌افتاد.
+  const paged = !!shard || (after !== null && after !== undefined);
+  const subs = paged
+    ? await listActiveSubscribersPage(env, ALERT_PAGE, shard, after || null)
+    : await listActiveSubscribers(env);
+
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let budget = SEND_BUDGET;
   let stopped = false;
   let grouped = 0;
+  // آخرین مشترکی که **نگاه** شد، نه آخرین کسی که پیام گرفت. چرایش بالای
+  // listActiveSubscribersPage نوشته است: اگر نشانگر فقط روی فرستاده‌ها
+  // جلو برود، ردیف‌های بی‌موعد هر دور دوباره خوانده می‌شوند و پیمایش
+  // هیچ‌وقت به آخر نمی‌رسد.
+  let cursor = after ? String(after) : "";
+  let looked = 0;
 
   for (const s of subs) {
     const due = dueEvents(events, s);
-    if (due.length === 0) continue;
+    if (due.length === 0) {
+      cursor = s.telegram_user_id;
+      looked++;
+      continue;
+    }
 
     // بودجه که تمام شد، بقیه دست‌نخورده می‌مانند: هنوز چیزی claim نشده،
-    // پس اجرای پنج دقیقه‌ی بعد دقیقاً از همین‌جا ادامه می‌دهد.
+    // پس اجرای پنج دقیقه‌ی بعد - یا دورِ بعدِ درِین - دقیقاً از همین‌جا
+    // ادامه می‌دهد. نشانگر عمداً جلو نمی‌رود.
     if (budget <= 0) {
       stopped = true;
       break;
@@ -880,7 +967,11 @@ export async function runAlertSweep(env, now = new Date()) {
     for (const e of due) {
       if (await claim(env, "alert", e.event_id, s.telegram_user_id)) fresh.push(e);
     }
-    if (fresh.length === 0) continue;
+    if (fresh.length === 0) {
+      cursor = s.telegram_user_id;
+      looked++;
+      continue;
+    }
 
     budget--;
     const markdown = buildAlertMarkdown(fresh, labelRows);
@@ -906,9 +997,14 @@ export async function runAlertSweep(env, now = new Date()) {
       for (const e of fresh) {
         await unclaim(env, "alert", e.event_id, s.telegram_user_id).catch(() => {});
       }
+      // نشانگر عمداً جلو نمی‌رود: این نفر هنوز پیامی نگرفته و دورِ بعد
+      // باید دوباره سراغش برود.
       stopped = true;
       break;
     }
+
+    cursor = s.telegram_user_id;
+    looked++;
 
     if (r.ok) {
       stats.sent++;
@@ -919,7 +1015,22 @@ export async function runAlertSweep(env, now = new Date()) {
     } else stats.failed++;
   }
 
-  return { ...stats, events: grouped, throttled: stopped };
+  // «تمام شد» یعنی صفحه تا آخر خوانده شد و از آن کوتاه‌تر هم بود - یعنی
+  // دیگر ردیفی پشتش نیست. اگر بودجه تمام شده باشد، تمام نشده‌ایم.
+  const done = paged ? !stopped && subs.length < ALERT_PAGE : undefined;
+
+  return {
+    ...stats,
+    events: grouped,
+    throttled: stopped,
+    // کدام پنجره‌ها همین حالا باز شده‌اند. کرانِ ورکر از همین تصمیم
+    // می‌گیرد که درِینِ موازی را صدا بزند یا نه.
+    //
+    // اینجا برمی‌گردد و نه در خودِ کران، تا جدولِ رویدادها دو بار
+    // خوانده نشود: کران و این تابع هم‌زمان اجرا می‌شوند و ممکن است هر
+    // دو کش را از دست بدهند.
+    ...(paged ? { cursor, looked, page: subs.length, done } : { opening: alertTiersOpening(events) }),
+  };
 }
 
 // ─── ۳) اعلام نتیجه ─────────────────────────────────────────────────

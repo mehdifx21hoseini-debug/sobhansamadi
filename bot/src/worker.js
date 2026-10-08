@@ -41,6 +41,8 @@ import {
   NOTICE_FLAG,
   greetTextFor,
   digestRef,
+  tehranHhmm,
+  tehranWeekday,
   GREET_FLAG,
   GREET_FORCE,
   pruneSentLog,
@@ -100,7 +102,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-57";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-58";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -515,6 +517,38 @@ async function handleAdmin(request, url, env) {
     const r = force
       ? await runDailyDigest(env, new Date(), shard)
       : await drainDailyDigest(env, new Date(), shard);
+    return json({ ok: true, build: BUILD, ...r });
+  }
+
+  /**
+   * درِینِ هشدار - همان چیزی که خلاصه از اول داشت و هشدار نداشت.
+   *
+   * ─── چرا لازم شد ──────────────────────────────────────────────
+   *
+   * اندازه‌گیریِ ۸ اکتبر: ۳٬۳۸۴ مشترکِ فعال، و هر خبرِ مهم به ۵۴۰ نفر
+   * رسیده بود - دقیقاً ۱۲ تیکِ پنج‌دقیقه‌ای × ۴۵ پیام، یعنی سقفِ بودجه
+   * و نه چیزِ دیگر. ۸۴٪ مشترکین هیچ‌وقت هشدار نگرفتند، و ۴۱۵ نفری که
+   * «۵ دقیقه قبل» را انتخاب کرده بودند عملاً هرگز - چون پنجره‌شان یک
+   * تیک است و تا نوبتشان برسد بودجه را پنجره‌های بلندتر برده‌اند.
+   *
+   * ─── نشانگر در پاسخ، نه در دیتابیس ───────────────────────────
+   *
+   * برخلافِ خلاصه، نشانگر اینجا ذخیره نمی‌شود: هشدار `ref`ِ یکتای
+   * روزانه ندارد، پس کلیدِ «نشانگرِ امروز» معنایی ندارد و پاک کردنش
+   * هم جایی ندارد. ورک‌فلو `cursor` را از پاسخ می‌گیرد و به دورِ بعد
+   * می‌دهد - هر درِین یک پیمایشِ کاملِ تازه و بی‌حالت.
+   */
+  if (url.pathname === "/admin/econ-alert-drain") {
+    const of = Number(url.searchParams.get("shards")) || 0;
+    const index = Number(url.searchParams.get("shard")) || 0;
+    const shard = of > 1 ? { of, index } : null;
+    // رشته‌ی خالی یعنی «از اول». خودِ پاسخ همین را برمی‌گرداند، پس
+    // ورک‌فلو لازم نیست دورِ اول را جور دیگری صدا بزند.
+    const after = url.searchParams.get("after") || null;
+    // بی‌شارد و بی‌نشانگر، runAlertSweep رفتارِ قدیمیِ «از اولِ فهرست»
+    // را دارد. برای درِین همیشه صفحه‌بندی می‌خواهیم، پس اگر شاردی هم
+    // داده نشده، نشانگرِ خالی را صریح می‌فرستیم.
+    const r = await runAlertSweep(env, new Date(), shard, after || (shard ? null : ""));
     return json({ ok: true, build: BUILD, ...r });
   }
 
@@ -1172,6 +1206,7 @@ export default {
       url.pathname === "/admin/econ-holiday" ||
       url.pathname === "/admin/econ-dispatch" ||
       url.pathname === "/admin/econ-alerts" ||
+      url.pathname === "/admin/econ-alert-drain" ||
       url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
@@ -1487,15 +1522,37 @@ export default {
           })
           .catch((err) => console.error("اعلان تعطیلی شکست خورد:", err && err.message))
       );
+      // هشدار قبل از خبر - و سرِ باز شدنِ هر پنجره، درِینِ موازی‌اش.
+      //
+      // ─── چرا درِین اضافه شد ──────────────────────────────────────
+      //
+      // هشدار تنها پیامی بود که درِینِ موازی نداشت. اندازه‌گیریِ ۸
+      // اکتبر: ۳٬۳۸۴ مشترکِ فعال، و هر خبرِ مهم به ۵۴۰ نفر رسیده بود -
+      // سخنرانی ترامپ، صورت‌جلسه‌ی فدرال‌رزرو، سخنرانی والر، هر سه
+      // دقیقاً ۵۴۰. آن عدد ۱۲ تیکِ پنج‌دقیقه‌ای × ۴۵ پیام است، یعنی
+      // سقفِ بودجه و نه چیزِ دیگر.
+      //
+      // بدترش ترتیب بود: پنجره‌ی ۶۰ دقیقه زودتر باز می‌شود و بودجه را
+      // می‌برد، پس ۴۱۵ نفری که «۵ دقیقه قبل» را انتخاب کرده بودند
+      // عملاً هرگز چیزی نگرفتند - و همین گزارش شد.
+      //
+      // تصمیمِ دیسپچ از خودِ جارو می‌آید (`opening`) تا جدولِ رویدادها
+      // دو بار خوانده نشود. و فقط سرِ باز شدنِ یک پنجره انجام می‌شود،
+      // نه هر تیکی که خبری در یک‌ساعتِ پیشِ رو دارد: چهار اجرا به‌جای
+      // هشتاد، با همان نتیجه.
       ctx.waitUntil(
         runAlertSweep(env)
-          .then((n) => {
+          .then(async (n) => {
             if (n && !n.skipped && (n.sent || n.failed)) {
               console.log("هشدار قبل از خبر:", JSON.stringify(n));
             }
+            if (!n || !n.opening || n.opening.length === 0) return;
+            const r = await dispatchWorkflow(env, "econ-alert.yml");
+            console.log("شروعِ درِینِ هشدار:", JSON.stringify({ opening: n.opening, ...r }));
           })
           .catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
       );
+
       // اطلاعیه‌ی موردی، اگر امروز یکی از روزهایش باشد.
       ctx.waitUntil(
         drainNotice(env)
@@ -1513,6 +1570,35 @@ export default {
             if (n && !n.skipped && n.sent) console.log("سلام دوشنبه:", JSON.stringify(n));
           })
           .catch((err) => console.error("سلام دوشنبه شکست خورد:", err && err.message))
+      );
+
+      // و ورک‌فلوی موازیِ سلام را هم خودمان صدا می‌زنیم.
+      //
+      // ─── چرا این اضافه شد ────────────────────────────────────────
+      //
+      // econ-greet.yml کرانِ خودش را دارد - دوشنبه ۰۵:۰۰ UTC - ولی
+      // زمان‌بندِ گیت‌هاب «بهترین تلاش» است و هر هفته ساعت‌ها دیر کرد:
+      // ۵ اکتبر ۱۲:۰۷، ۲۸ سپتامبر ۱۱:۳۲، ۲۱ سپتامبر ۱۰:۲۹. پنجره‌ی
+      // سلام ۱۱:۰۰ تهران (۰۷:۳۰ UTC) بسته می‌شود، پس ورک‌فلو هر هفته
+      // چهار-پنج ساعت بعد از بسته شدنِ پنجره می‌رسید و هیچ کاری
+      // نمی‌کرد.
+      //
+      // نتیجه‌اش در دفترِ ارسال دیده می‌شود: ۲٬۷۰۰ سلام در دو دوشنبه،
+      // یعنی حدودِ ۱٬۳۵۰ نفر از پانزده هزار - دقیقاً همان چیزی که
+      // کرانِ خودِ ورکر به‌تنهایی می‌تواند بفرستد (سی تیک × ۴۵).
+      //
+      // ۹:۰۰ تهران و نه ۸:۳۰: پیش از ۹، سلام منتظرِ تمام شدنِ خلاصه
+      // می‌ماند و دورهای ورک‌فلو بی‌فایده می‌سوزند.
+      ctx.waitUntil(
+        (async () => {
+          const hhmm = tehranHhmm(new Date(event.scheduledTime || Date.now()));
+          if (tehranWeekday(new Date()) !== "Mon") return;
+          if (hhmm < "09:00" || hhmm >= "09:05") return;
+          const r = await dispatchWorkflow(env, "econ-greet.yml");
+          console.log("شروعِ درِینِ سلام:", JSON.stringify(r));
+        })().catch((err) =>
+          console.error("شروعِ درِینِ سلام شکست خورد:", err && err.message)
+        )
       );
       ctx.waitUntil(
         runResultSweep(env)
