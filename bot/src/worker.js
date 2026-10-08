@@ -102,7 +102,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-58";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-59";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1043,6 +1043,97 @@ async function handleAdmin(request, url, env) {
     }
   }
 
+  /**
+   * نقشه‌ی اجرای کوئری‌های سنگین - از زبانِ خودِ SQLite.
+   *
+   * ─── چرا این و نه استدلال ─────────────────────────────────────
+   *
+   * اندازه‌گیریِ ۸ اکتبر: شش شکلِ کوئریِ مخاطب ۸۷ میلیون ردیف در هفت
+   * روز خواندند - ۸۷٪ کلِ مصرفِ D1 - و هر فراخوانی حدودِ ۱۶٬۹۸۰ ردیف،
+   * یعنی تقریباً کلِ جدولِ کاربران، برای پیدا کردنِ ۴۵ نفر.
+   *
+   * کامنتِ خودِ کد می‌گوید «> ? مستقیم از ایندکس استفاده می‌کند». داده
+   * می‌گوید نمی‌کند. یکی از این دو غلط است و استدلال نمی‌تواند تعیین
+   * کند کدام - این کار را فقط EXPLAIN QUERY PLAN می‌کند.
+   *
+   * دفعه‌ی قبل بهینه‌سازی بر اساسِ همان استدلال انجام شد و هفت روز داده
+   * نشان داد هیچ اثری نداشت. این مسیر جای آن حدس را می‌گیرد.
+   *
+   * فقط EXPLAIN و COUNT - هیچ ردیفی عوض نمی‌شود و هیچ داده‌ی شخصی
+   * برنمی‌گردد.
+   */
+  if (url.pathname === "/admin/d1-plan") {
+    const AUDIENCE = (cursor, shardN) =>
+      `SELECT u.telegram_user_id AS telegram_user_id,
+              u.telegram_user_id AS chat_id
+         FROM user_state u
+        WHERE ` +
+      (cursor ? `u.telegram_user_id > ? AND ` : ``) +
+      (shardN ? `CAST(u.telegram_user_id AS INTEGER) % 6 = 0 AND ` : ``) +
+      `u.blocked_at IS NULL
+          AND NOT EXISTS (
+                SELECT 1 FROM econ_subscriber s
+                 WHERE s.telegram_user_id = u.telegram_user_id
+                   AND s.digest_off = 1)
+          AND NOT EXISTS (
+                SELECT 1 FROM econ_sent_log l
+                 WHERE l.kind = ? AND l.ref = ?
+                   AND l.telegram_user_id = u.telegram_user_id)
+        ORDER BY u.telegram_user_id
+        LIMIT ?`;
+
+    const plan = async (label, sql, binds) => {
+      try {
+        const r = await env.DB.prepare("EXPLAIN QUERY PLAN " + sql).bind(...binds).all();
+        return { label, steps: (r.results || []).map((x) => x.detail) };
+      } catch (err) {
+        return { label, error: String(err && err.message) };
+      }
+    };
+
+    try {
+      const counts = {};
+      for (const t of ["user_state", "econ_subscriber", "econ_sent_log", "econ_events"]) {
+        const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ` + t).first().catch(() => null);
+        counts[t] = row ? row.n : null;
+      }
+
+      // ایندکس‌هایی که واقعاً روی این جدول‌ها نشسته‌اند. «باید باشد» و
+      // «هست» دو چیزند؛ مهاجرت‌ها یکی‌یکی اضافه شده‌اند.
+      const idx = await env.DB.prepare(
+        `SELECT name, tbl_name, sql FROM sqlite_master
+          WHERE type = 'index'
+            AND tbl_name IN ('user_state','econ_subscriber','econ_sent_log','econ_events')
+          ORDER BY tbl_name, name`
+      ).all();
+
+      return json({
+        ok: true,
+        build: BUILD,
+        counts,
+        indexes: (idx.results || []).map((r) => ({
+          table: r.tbl_name, name: r.name, sql: r.sql || "(خودکار)",
+        })),
+        plans: [
+          await plan("مخاطب: با نشانگر و تکه", AUDIENCE(true, true), ["0", "digest", "2026-10-08", 45]),
+          await plan("مخاطب: با نشانگر، بی‌تکه", AUDIENCE(true, false), ["0", "digest", "2026-10-08", 45]),
+          await plan("مخاطب: بی‌نشانگر، با تکه", AUDIENCE(false, true), ["digest", "2026-10-08", 45]),
+          await plan(
+            "مشترکینِ هشدار: صفحه‌بندی‌شده",
+            `SELECT s.* FROM econ_subscriber s
+              WHERE s.subscribed = 1
+                AND CAST(s.telegram_user_id AS INTEGER) % 6 = 0
+                AND s.telegram_user_id > ?
+              ORDER BY s.telegram_user_id LIMIT ?`,
+            ["0", 120]
+          ),
+        ],
+      });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 500);
+    }
+  }
+
   if (url.pathname === "/admin/econ-dispatch") {
     const r = await dispatchWorkflow(env, "econ-digest.yml");
     return json({ ok: true, build: BUILD, dispatch: r });
@@ -1207,6 +1298,7 @@ export default {
       url.pathname === "/admin/econ-dispatch" ||
       url.pathname === "/admin/econ-alerts" ||
       url.pathname === "/admin/econ-alert-drain" ||
+      url.pathname === "/admin/d1-plan" ||
       url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
