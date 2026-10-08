@@ -24,6 +24,9 @@ import { buildTodayMarkdown, buildAlertMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
   listActiveSubscribersPage,
+  dayColumn,
+  claimDay,
+  unclaimDay,
   listPendingSubscribers,
   listPendingAudience,
   digestAudienceStats,
@@ -249,13 +252,26 @@ function anyEventWithin(events, minutes) {
  * @returns {Promise<"ok"|"skip"|"stop">}
  */
 async function claimAndSend(env, kind, ref, sub, build, stats) {
-  if (!(await claim(env, kind, ref, sub.telegram_user_id))) return "skip";
+  // پیام‌های روزانه ثبتشان روی ردیفِ خودِ کاربر است، نه یک ردیفِ تازه
+  // در دفترِ ارسال: یک نوشتن به‌جای دو، و هیچ حذفی در آینده. چرایش
+  // بالای DAY_CLAIM_FROM در subscribers.js است.
+  const col = dayColumn(kind, ref);
+  const take = () =>
+    col
+      ? claimDay(env, col, ref, sub.telegram_user_id)
+      : claim(env, kind, ref, sub.telegram_user_id);
+  const giveBack = () =>
+    col
+      ? unclaimDay(env, col, ref, sub.telegram_user_id)
+      : unclaim(env, kind, ref, sub.telegram_user_id);
+
+  if (!(await take())) return "skip";
   let r;
   try {
     const { method, payload } = build();
     r = await tg(env, method, { chat_id: sub.chat_id, ...payload });
   } catch {
-    await unclaim(env, kind, ref, sub.telegram_user_id).catch(() => {});
+    await giveBack().catch(() => {});
     return "stop";
   }
   if (r.ok) stats.sent++;
@@ -1132,7 +1148,11 @@ export async function runResultSweep(env, now = new Date()) {
 export async function senderStatus(env) {
   const enabled = await senderEnabled(env).catch(() => false);
   const resultNotice = await resultNoticeEnabled(env).catch(() => false);
-  let today = 0;
+  // از روزِ جابه‌جایی به بعد، دفترِ ارسال فقط هشدار و اعلامِ نتیجه را
+  // نگه می‌دارد؛ پیام‌های روزانه ثبتشان روی ردیفِ خودِ کاربر است. پس
+  // این عدد دیگر «همه‌ی پیام‌ها» نیست و نامش هم همین را می‌گوید -
+  // تعدادِ خلاصه‌ی امروز در خودِ digest پایین‌تر هست.
+  let alerts24h = 0;
   try {
     await ensureSentSchema(env);
     const cutoff = new Date(Date.now() - 86400000).toISOString();
@@ -1140,9 +1160,9 @@ export async function senderStatus(env) {
       .prepare(`SELECT COUNT(*) AS n FROM econ_sent_log WHERE sent_at >= ?`)
       .bind(cutoff)
       .first();
-    today = (row && row.n) || 0;
+    alerts24h = (row && row.n) || 0;
   } catch {
-    today = 0;
+    alerts24h = 0;
   }
   // مخاطبِ خلاصه و اینکه امروز به چند نفرشان رسیده. بدونِ این عدد، تنها
   // راهِ فهمیدنِ «برای چند نفر نرفته» شمردنِ دستی در D1 بود.
@@ -1158,7 +1178,13 @@ export async function senderStatus(env) {
   } catch {
     digest = null;
   }
-  return { enabled, result_notice: resultNotice, sent_24h: today, weekend: isWeekend(), digest };
+  return {
+    enabled,
+    result_notice: resultNotice,
+    alerts_24h: alerts24h,
+    weekend: isWeekend(),
+    digest,
+  };
 }
 
 // ─── ۴) سلامِ صبحِ دوشنبه ────────────────────────────────────────────

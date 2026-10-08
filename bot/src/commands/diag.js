@@ -250,7 +250,7 @@ export async function handleEconSender(ctx) {
         "🔔 ارسال تقویم از ورکر",
         "",
         "وضعیت: " + (status.enabled ? "✅ روشن" : "⛔️ خاموش"),
-        "پیام‌های ۲۴ ساعت گذشته: " + status.sent_24h,
+        "هشدار و نتیجه‌ی ۲۴ ساعت گذشته: " + status.alerts_24h,
         "",
         "روشن کردن: <code>/econsender on</code>",
         "خاموش کردن: <code>/econsender off</code>",

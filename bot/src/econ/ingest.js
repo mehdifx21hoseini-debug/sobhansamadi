@@ -169,6 +169,53 @@ async function fetchJson(url, label) {
  * دورتر - که نمای «این هفته» و تاریخچه به آن‌ها نیاز دارند - هر ساعت از
  * بین می‌رفتند.
  */
+// فیلدهایی که اگر عوض نشده باشند، نوشتن بی‌معنی است.
+//
+// `last_updated` عمداً نیست: آن همیشه «همین حالا» است، پس اگر در مقایسه
+// می‌آمد هیچ ردیفی هرگز «بی‌تغییر» نمی‌شد. `event_fa` و `source` هم نیستند
+// چون upsert اصلاً به‌روزشان نمی‌کند.
+const COMPARED = [
+  "date", "time", "event", "currency", "importance",
+  "forecast", "previous", "actual", "status",
+];
+
+/** آیا این ردیف واقعاً چیزی تازه دارد؟ */
+export function changedRows(fresh, existingRows) {
+  const old = new Map();
+  for (const r of existingRows || []) {
+    if (r && r.event_id) old.set(String(r.event_id), r);
+  }
+  return (fresh || []).filter((e) => {
+    const prev = old.get(String(e.event_id));
+    if (!prev) return true;
+    for (const k of COMPARED) {
+      // فید رشته‌ی خالی می‌دهد و دیتابیس NULL نگه می‌دارد؛ بی‌این
+      // یکسان‌سازی، هر ردیفِ بی‌مقدار هر ساعت «عوض شده» حساب می‌شد و
+      // کلِ صرفه از بین می‌رفت.
+      const a = e[k] === null || e[k] === undefined ? "" : String(e[k]);
+      const b = prev[k] === null || prev[k] === undefined ? "" : String(prev[k]);
+      if (a !== b) return true;
+    }
+    return false;
+  });
+}
+
+/**
+ * ─── چرا فقط تغییرها نوشته می‌شوند ────────────────────────────────
+ *
+ * این کار ساعتی اجرا می‌شود و هر بار همه‌ی ~۵۱۱ رویداد را بازنویسی
+ * می‌کرد: روزی حدود ۱۲٬۳۰۰ نوشتن، در حالی که ساعت به ساعت تقریباً هیچ
+ * چیز عوض نمی‌شود. سقفِ نوشتنِ پلنِ رایگان ۱۰۰ هزار در روز است و
+ * اندازه‌گیریِ ۸ اکتبر ۱۳۶ هزار بود - یعنی این یکی به‌تنهایی حدودِ
+ * یک‌دهمِ سقف را بی‌هیچ فایده‌ای می‌سوزاند.
+ *
+ * هزینه‌ی مقایسه یک خواندنِ ۵۱۱ ردیفی در هر ساعت است، که در برابرِ
+ * سقفِ ۵ میلیونِ خواندن به حساب نمی‌آید.
+ *
+ * یک سودِ جانبی هم دارد: `last_updated` دیگر هر ساعت جلو نمی‌رود، پس
+ * خطِ «آخرین بروزرسانی» در نماها واقعاً می‌گوید داده کِی عوض شد - چیزی
+ * که پایین‌تر، در خواندنِ عددهای واقعی، یک بار دستی درستش کرده بودیم.
+ */
 async function upsertEvents(env, rows) {
   if (rows.length === 0) return 0;
   const statements = rows.map((e) =>
@@ -240,11 +287,23 @@ export async function ingestEvents(env, feed) {
     return { events: 0, pruned: 0, error: "فید خالی بود؛ داده‌ی قبلی دست‌نخورده ماند" };
   }
 
-  const { results } = await env.DB.prepare(`SELECT event_id, actual FROM econ_events`).all();
-  const events = await upsertEvents(env, preserveActuals(fresh, results || []));
+  // همین یک خواندن هم «عددِ واقعیِ ذخیره‌شده را گم نکن» را تأمین می‌کند
+  // هم مقایسه‌ی «چه چیزی عوض شده» را. پس ستون‌های بیشتری می‌خواهد، ولی
+  // کوئریِ بیشتری نه.
+  const { results } = await env.DB
+    .prepare(
+      `SELECT event_id, date, time, event, currency, importance,
+              forecast, previous, actual, status
+         FROM econ_events`
+    )
+    .all();
+  const existing = results || [];
+  const kept = preserveActuals(fresh, existing);
+  const changed = changedRows(kept, existing);
+  const events = await upsertEvents(env, changed);
   const pruned = await pruneOldEvents(env);
   await markSynced(env, nowIso);
-  return { events, pruned };
+  return { events, pruned, seen: kept.length, unchanged: kept.length - changed.length };
 }
 
 /**

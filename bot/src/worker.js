@@ -102,7 +102,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-60";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-61";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1063,7 +1063,12 @@ async function handleAdmin(request, url, env) {
    * برنمی‌گردد.
    */
   if (url.pathname === "/admin/d1-plan") {
-    const AUDIENCE = (cursor, shardN) =>
+    // `col` یعنی شکلِ تازه - شرطِ «قبلاً گرفته» از ستونِ خودِ ردیف. با
+    // آن، ایندکس دیگر COVERING نیست (ستون در ایندکس نیست، پس ردیف هم
+    // خوانده می‌شود) و این عمدی است: ایندکس زدن روی آن ستون یعنی یک
+    // نوشتنِ اضافه برای هر پیام، که کلِ صرفه را از بین می‌برد. چیزی که
+    // باید بماند، پرشِ محدوده و نبودنِ temp B-tree است.
+    const AUDIENCE = (cursor, shardN, col) =>
       `SELECT u.telegram_user_id AS telegram_user_id,
               u.telegram_user_id AS chat_id
          FROM user_state u
@@ -1075,10 +1080,14 @@ async function handleAdmin(request, url, env) {
                 SELECT 1 FROM econ_subscriber s
                  WHERE s.telegram_user_id = u.telegram_user_id
                    AND s.digest_off = 1)
-          AND NOT EXISTS (
+          ` +
+      (col
+        ? `AND (u.sent_digest IS NULL OR u.sent_digest <> ?)`
+        : `AND NOT EXISTS (
                 SELECT 1 FROM econ_sent_log l
                  WHERE l.kind = ? AND l.ref = ?
-                   AND l.telegram_user_id = u.telegram_user_id)
+                   AND l.telegram_user_id = u.telegram_user_id)`) +
+      `
         ORDER BY u.telegram_user_id
         LIMIT ?`;
 
@@ -1115,9 +1124,11 @@ async function handleAdmin(request, url, env) {
           table: r.tbl_name, name: r.name, sql: r.sql || "(خودکار)",
         })),
         plans: [
-          await plan("مخاطب: با نشانگر و تکه", AUDIENCE(true, true), ["0", "digest", "2026-10-08", 45]),
-          await plan("مخاطب: با نشانگر، بی‌تکه", AUDIENCE(true, false), ["0", "digest", "2026-10-08", 45]),
-          await plan("مخاطب: بی‌نشانگر، با تکه", AUDIENCE(false, true), ["digest", "2026-10-08", 45]),
+          // شکلِ تازه - همان چیزی که از فردا واقعاً اجرا می‌شود.
+          await plan("مخاطبِ تازه: ستون، نشانگر، تکه", AUDIENCE(true, true, true), ["0", "2026-10-09", 45]),
+          await plan("مخاطبِ تازه: ستون، بی‌تکه", AUDIENCE(true, false, true), ["0", "2026-10-09", 45]),
+          // و شکلِ قدیمی، که فقط برای تاریخ‌های پیش از جابه‌جایی می‌ماند.
+          await plan("مخاطبِ قدیمی: دفترِ ارسال", AUDIENCE(true, true, false), ["0", "digest", "2026-10-07", 45]),
           await plan(
             "مشترکینِ هشدار: صفحه‌بندی‌شده",
             `SELECT s.* FROM econ_subscriber s

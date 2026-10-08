@@ -66,6 +66,31 @@ const ADD_COLUMNS = [
 const USER_STATE_COLUMNS = [
   `ALTER TABLE user_state ADD COLUMN blocked_at TEXT`,
   `CREATE INDEX IF NOT EXISTS idx_user_state_blocked ON user_state(blocked_at)`,
+  // ─── «این پیامِ روزانه برای این نفر رفته» - روی ردیفِ خودش ────────
+  //
+  // چهار پیامِ ربات یک خاصیتِ مشترک دارند: هر نفر در هر روز دقیقاً یکی،
+  // و کلیدشان تاریخ است. تا امروز هر کدام یک ردیفِ جدا در econ_sent_log
+  // می‌نوشت - یعنی یک نوشتن سرِ ارسال، و یک نوشتنِ دیگر سی روز بعد
+  // وقتی پاک‌سازی سراغش می‌رفت.
+  //
+  // سقفِ نوشتنِ پلنِ رایگان ۱۰۰ هزار در روز است. اندازه‌گیریِ ۸ اکتبر
+  // ۱۳۶٬۳۱۹ بود - روزی که پیامِ همگانیِ موسیقی رفت. خلاصه‌ی روزانه
+  // به‌تنهایی ۱۵٬۲۰۰ ردیف درج و همان‌قدر حذف می‌کند.
+  //
+  // با ستون، همان تضمین با یک نوشتن به‌دست می‌آید و هیچ حذفی لازم
+  // نیست: ماهِ بعد روی همان ستون بازنویسی می‌شود.
+  //
+  // ALTER TABLE ADD COLUMN در SQLite فقط فراداده را عوض می‌کند و
+  // ردیف‌ها را بازنویسی نمی‌کند، پس خودِ این مهاجرت هزینه‌ی نوشتن
+  // ندارد.
+  //
+  // عمداً ایندکس نمی‌خورند: هر UPDATE روی ستونِ ایندکس‌دار، یک نوشتنِ
+  // دیگر برای خودِ ایندکس هم دارد - یعنی دقیقاً همان صرفه‌ای که برایش
+  // آمده‌ایم از بین می‌رفت.
+  `ALTER TABLE user_state ADD COLUMN sent_digest TEXT`,
+  `ALTER TABLE user_state ADD COLUMN sent_holiday TEXT`,
+  `ALTER TABLE user_state ADD COLUMN sent_greet TEXT`,
+  `ALTER TABLE user_state ADD COLUMN sent_notice TEXT`,
   // ─── ایندکسی که ۸۷٪ مصرفِ D1 را توضیح می‌داد ───────────────────
   //
   // اندازه‌گیریِ ۸ اکتبر: شش شکلِ کوئریِ مخاطب ۸۷ میلیون ردیف در هفت
@@ -270,6 +295,83 @@ export async function saveSubscription(env, telegramUserId, patch = {}) {
   return { ...next, telegram_user_id: id };
 }
 
+// ─── پیام‌های روزانه: ستون به‌جای ردیفِ دفتر ──────────────────────
+//
+// نامِ ستون هرگز از بیرون نمی‌آید؛ فقط از این جدول. پس رشته‌سازیِ SQL
+// با آن بی‌خطر است و هیچ مسیری نمی‌تواند نامِ دیگری تزریق کند.
+const DAY_COLUMN = {
+  digest: "sent_digest",
+  holiday: "sent_holiday",
+  greet: "sent_greet",
+  notice: "sent_notice",
+};
+
+/**
+ * روزِ جابه‌جایی.
+ *
+ * ─── چرا یک تاریخِ ثابت و نه یک پرچم ─────────────────────────────
+ *
+ * خطرِ این تغییر یک چیز است: اگر کدِ تازه فقط ستون را ببیند، هر کسی که
+ * پیامِ امروز را از راهِ قدیمی گرفته «نگرفته» حساب می‌شود و همان روز
+ * دوباره پیام می‌گیرد - برای پانزده هزار نفر، هم‌زمان.
+ *
+ * راهش این است: `ref` خودش تاریخ است. برای تاریخ‌های تا این روز،
+ * مرجع همان دفترِ قدیمی می‌ماند؛ از فردا به بعد، ستون. هیچ نقطه‌ی
+ * هم‌پوشانی‌ای نمی‌ماند و هیچ داده‌ای هم لازم نیست منتقل شود.
+ *
+ * ۸ اکتبر انتخاب شده چون به وقتِ تهران شب‌اش دیگر ۹ اکتبر است و
+ * خلاصه‌ی ۹ اکتبر هنوز شروع نشده بود - یعنی اولین رفِ مسیرِ تازه از
+ * صفر شروع می‌شود.
+ *
+ * وقتی این تاریخ به‌قدری عقب افتاد که دیگر هیچ پنجره‌ای بازش نمی‌کند
+ * (یک هفته کافی است)، شرطِ قدیمی را می‌شود کامل برداشت.
+ */
+export const DAY_CLAIM_FROM = "2026-10-08";
+
+/** ستونِ این پیام، یا null اگر این پیام/تاریخ مالِ دفترِ قدیمی است. */
+export function dayColumn(kind, ref) {
+  const col = DAY_COLUMN[String(kind)];
+  if (!col) return null;
+  return String(ref) > DAY_CLAIM_FROM ? col : null;
+}
+
+/**
+ * «این پیام را من برمی‌دارم» - اتمیک، با یک نوشتن.
+ *
+ * شرطِ `<> ?` داخلِ خودِ UPDATE همان کاری را می‌کند که
+ * `INSERT OR IGNORE` می‌کرد: اگر ردیف از قبل همین ref را داشته باشد
+ * هیچ سطری عوض نمی‌شود و `changes` صفر برمی‌گردد. دو فراخوانیِ هم‌زمان
+ * نمی‌توانند هر دو برنده شوند.
+ */
+export async function claimDay(env, col, ref, telegramUserId) {
+  const res = await env.DB
+    .prepare(
+      `UPDATE user_state SET ` + col + ` = ?
+        WHERE telegram_user_id = ?
+          AND (` + col + ` IS NULL OR ` + col + ` <> ?)`
+    )
+    .bind(String(ref), String(telegramUserId), String(ref))
+    .run();
+  return (res && res.meta ? res.meta.changes || 0 : 0) > 0;
+}
+
+/**
+ * پس گرفتنش - فقط وقتی ارسال اصلاً به تلگرام نرسیده.
+ *
+ * شرطِ `= ?` لازم است: اگر بی‌آن NULL می‌گذاشتیم، ممکن بود ثبتِ یک رفِ
+ * دیگر را پاک کنیم. با آن، فقط چیزی پاک می‌شود که خودمان همین حالا
+ * نوشته‌ایم.
+ */
+export async function unclaimDay(env, col, ref, telegramUserId) {
+  await env.DB
+    .prepare(
+      `UPDATE user_state SET ` + col + ` = NULL
+        WHERE telegram_user_id = ? AND ` + col + ` = ?`
+    )
+    .bind(String(telegramUserId), String(ref))
+    .run();
+}
+
 /** کسانی که باید پیام بگیرند. */
 export async function listActiveSubscribers(env) {
   await ensureSubscriberSchema(env);
@@ -437,9 +539,28 @@ export async function listPendingAudience(env, kind, ref, limit, shard, after) {
   // شود.
   const cursorClause = after ? `u.telegram_user_id > ? AND ` : ``;
 
+  // «قبلاً گرفته یا نه» - از ستونِ خودِ ردیف، نه از دفترِ ارسال.
+  //
+  // این شرط پیش از این یک زیرکوئریِ همبسته روی econ_sent_log بود، که
+  // برای هر ردیفِ کاندید یک جست‌وجوی جدا می‌خواست. حالا یک مقایسه‌ی
+  // ساده روی ستونی است که همان ردیف از قبل در دست دارد.
+  //
+  // dayColumn برای تاریخ‌های پیش از روزِ جابه‌جایی null می‌دهد و مسیرِ
+  // قدیمی سرِ جایش می‌ماند - چرایش بالای DAY_CLAIM_FROM نوشته است.
+  const col = dayColumn(kind, ref);
+
   const binds = [];
   if (after) binds.push(String(after));
-  binds.push(String(kind), String(ref), Number(limit) || 1);
+  if (col) binds.push(String(ref));
+  else binds.push(String(kind), String(ref));
+  binds.push(Number(limit) || 1);
+
+  const sentClause = col
+    ? `AND (u.` + col + ` IS NULL OR u.` + col + ` <> ?)`
+    : `AND NOT EXISTS (
+                SELECT 1 FROM econ_sent_log l
+                 WHERE l.kind = ? AND l.ref = ?
+                   AND l.telegram_user_id = u.telegram_user_id)`;
 
   const { results } = await env.DB
     .prepare(
@@ -454,10 +575,9 @@ export async function listPendingAudience(env, kind, ref, limit, shard, after) {
                 SELECT 1 FROM econ_subscriber s
                  WHERE s.telegram_user_id = u.telegram_user_id
                    AND s.digest_off = 1)
-          AND NOT EXISTS (
-                SELECT 1 FROM econ_sent_log l
-                 WHERE l.kind = ? AND l.ref = ?
-                   AND l.telegram_user_id = u.telegram_user_id)
+          ` +
+        sentClause +
+        `
         ORDER BY u.telegram_user_id
         LIMIT ?`
     )
@@ -482,10 +602,22 @@ export async function digestAudienceStats(env, kind, ref) {
   const optedOut = await one(
     `SELECT COUNT(*) AS n FROM econ_subscriber WHERE digest_off = 1`
   );
-  const sent = await one(
-    `SELECT COUNT(*) AS n FROM econ_sent_log WHERE kind = ? AND ref = ?`,
-    [String(kind), String(ref)]
-  );
+  // شمارشِ «امروز چند نفر گرفتند».
+  //
+  // از روزِ جابه‌جایی به بعد این عدد از ستون می‌آید، و آن یک اسکنِ
+  // هفده‌هزارتایی است چون ستون عمداً ایندکس ندارد (ایندکس یعنی یک
+  // نوشتنِ اضافه برای هر پیام - همان چیزی که از آن فرار کرده‌ایم).
+  //
+  // پذیرفتنی است چون این فقط در /admin/econ-sender خوانده می‌شود، روزی
+  // چند بار و دستی. هیچ کرانی و هیچ حلقه‌ای صدایش نمی‌زند - درِین
+  // پیشرفتش را از خودِ پاسخِ هر دور می‌گیرد، نه از اینجا.
+  const col = dayColumn(kind, ref);
+  const sent = col
+    ? await one(`SELECT COUNT(*) AS n FROM user_state WHERE ` + col + ` = ?`, [String(ref)])
+    : await one(
+        `SELECT COUNT(*) AS n FROM econ_sent_log WHERE kind = ? AND ref = ?`,
+        [String(kind), String(ref)]
+      );
   return { total, blocked, opted_out: optedOut, sent_today: sent };
 }
 
