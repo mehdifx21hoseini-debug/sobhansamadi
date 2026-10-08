@@ -100,7 +100,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-56";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-57";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -944,6 +944,22 @@ async function handleAdmin(request, url, env) {
           WHERE subscribed = 1 GROUP BY alert_minutes ORDER BY m`
       ).all();
 
+      // و حالا سؤالِ اصلی: هر خبر به چند نفر رسید؟
+      //
+      // «۱۲ هزار هشدار در دو هفته» هم با «همه می‌گیرند» سازگار است هم
+      // با «همیشه همان چند صد نفرِ اول». تفکیک به خبر این دو را از هم
+      // جدا می‌کند: اگر هر خبر حدودِ بودجه‌ی یک تیک باشد و نه نزدیکِ
+      // تعدادِ مشترکین، یعنی فهرست هیچ‌وقت تا آخر پیموده نشده.
+      //
+      // span_min هم همین را از سمتِ زمان می‌گوید: چند دقیقه طول کشید،
+      // یعنی چند تیکِ پنج‌دقیقه‌ای فرصت داشت.
+      const byRef = await env.DB.prepare(
+        `SELECT ref, COUNT(*) AS n, MIN(sent_at) AS first, MAX(sent_at) AS last
+           FROM econ_sent_log
+          WHERE sent_at >= ? AND kind = 'alert'
+          GROUP BY ref ORDER BY last DESC LIMIT 20`
+      ).bind(since).all();
+
       // همان بازه‌ای که خودِ جارو می‌خواند، با همان فیلترِ ارز.
       const rows = await readEventsRange(env, dayOffset(-1), dayOffset(1));
       const usd = filterByCurrencies(rows, DEFAULT_CURRENCIES);
@@ -972,6 +988,17 @@ async function handleAdmin(request, url, env) {
         })),
         subscribers_by_minutes: (byMin.results || []).map((r) => ({
           minutes: r.m, n: r.n,
+        })),
+        subscribers_total: (byMin.results || []).reduce((a, r) => a + (r.n || 0), 0),
+        // هر خبر به چند نفر رسید، و در چند دقیقه.
+        alerts_by_event: (byRef.results || []).map((r) => ({
+          ref: r.ref,
+          recipients: r.n,
+          first: r.first,
+          last: r.last,
+          span_min: r.first && r.last
+            ? Math.round((Date.parse(r.last) - Date.parse(r.first)) / 60000)
+            : 0,
         })),
         // خبرهای دلاریِ دور و برِ حالا، با فاصله‌شان تا این لحظه.
         // عددِ منفی یعنی گذشته.
