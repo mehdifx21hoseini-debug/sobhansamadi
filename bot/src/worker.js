@@ -46,7 +46,8 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { readConfig, writeConfig } from "./content/channel.js";
-import { NOTICES, NOTICE_DATES, noticeTextFor } from "./content/notices.js";
+import { NOTICES, NOTICE_DATES, noticeTextFor, noticeButtonFor } from "./content/notices.js";
+import { OWNER_ID } from "./owner.js";
 import { digestAudienceStats as greetAudienceStats } from "./econ/subscribers.js";
 import {
   ingestHolidays,
@@ -97,7 +98,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-54";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-55";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -800,6 +801,58 @@ async function handleAdmin(request, url, env) {
   }
 
   /** یک تکه از اطلاعیه - همان شکلِ /admin/econ-digest. */
+  /**
+   * پیش‌نمایشِ اطلاعیه - فقط برای مدیر.
+   *
+   * چرا لازم شد: اطلاعیه به هفده هزار نفر می‌رود و برگشت‌پذیر نیست.
+   * پیش از این تنها راهِ دیدنِ شکلِ واقعیِ پیام، فرستادنش به همه بود.
+   *
+   * همان build که به همه می‌رسد اینجا هم ساخته می‌شود - متن و دکمه،
+   * عیناً - پس چیزی که مدیر می‌بیند همان چیزی است که بقیه می‌بینند.
+   *
+   * دفترِ ارسال دست نمی‌خورد: این یک claim نیست، پس ارسالِ اصلی بعداً
+   * از این پیام اثر نمی‌گیرد و هیچ‌کس به‌خاطرِ پیش‌نمایش از قلم
+   * نمی‌افتد.
+   */
+  if (url.pathname === "/admin/notice-preview") {
+    if (!env.BOT_TOKEN) return json({ ok: false, error: "BOT_TOKEN تنظیم نشده" }, 503);
+    const ref = (url.searchParams.get("date") || digestRef()).slice(0, 10);
+    const text = noticeTextFor(ref);
+    if (!text) {
+      return json({ ok: false, build: BUILD, date: ref, error: "برای این روز اطلاعیه‌ای نیست" }, 404);
+    }
+    const btn = noticeButtonFor(ref);
+    const payload = {
+      chat_id: OWNER_ID,
+      text,
+      ...(btn
+        ? { reply_markup: { inline_keyboard: [[{ text: btn.label, url: btn.url, style: "success" }]] } }
+        : {}),
+    };
+    try {
+      const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      return json({
+        ok: !!(body && body.ok),
+        build: BUILD,
+        date: ref,
+        to: OWNER_ID,
+        has_button: !!btn,
+        button: btn,
+        chars: text.length,
+        // توضیحِ خطای تلگرام، اگر بود - بدونِ آن «ok:false» چیزی
+        // نمی‌گوید و باید کورکورانه حدس زد.
+        error: body && body.ok ? null : (body && body.description) || "پاسخ نامعلوم",
+      });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+    }
+  }
+
   if (url.pathname === "/admin/econ-notice-drain") {
     const force = url.searchParams.get("force") === "1";
     const of = Number(url.searchParams.get("shards")) || 0;
@@ -1031,6 +1084,7 @@ export default {
       url.pathname === "/admin/econ-greet-drain" ||
       url.pathname === "/admin/econ-notice" ||
       url.pathname === "/admin/econ-notice-drain" ||
+      url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
       url.pathname === "/admin/content" ||
       url.pathname === "/admin/econ-day" ||
