@@ -359,4 +359,41 @@ clearAll();
   ok(r.cursor === undefined, "و نشانگری برنمی‌گردد", r);
 }
 
+
+// ─── ۹) اجرای خشک: می‌شمارد، نمی‌فرستد ─────────────────────────
+//
+// برای این هست که بشود صفحه‌بندی را روی جدولِ واقعیِ پروداکشن امتحان
+// کرد بی‌آنکه منتظرِ یک خبرِ واقعی ماند. پس دو ادعا دارد، و دومی
+// مهم‌ترِش است: نباید هیچ‌چیز بفرستد.
+clearAll();
+{
+  const subs = [];
+  for (let i = 1; i <= 10; i++) subs.push(subscriber(7000 + i, 60));
+  const log = [];
+  installFetch(log);
+  // خبر شش ساعت دیگر است، پس دروازه‌ی «چیزی در راه نیست» بسته است -
+  // و اجرای خشک باید از همان دروازه رد شود، وگرنه چیزی را نمی‌سنجد.
+  const db = fakeDb({ events: [ev(360)], subs, config: SENDER_ON });
+  const r = await runAlertSweep({ DB: db, BOT_TOKEN: "x" }, WEEKDAY, null, "", true);
+  ok(r.dry === true, "اجرای خشک خودش را اعلام می‌کند", r);
+  ok(r.looked === 10, "و کلِ صفحه را پیمود - پس از دروازه رد شد", r);
+  ok(r.cursor === "7010", "نشانگر تا آخرِ صفحه جلو رفت", r);
+  ok(r.sent === 0 && log.length === 0, "و هیچ پیامی نرفت", { sent: r.sent, fetches: log.length });
+  ok(db.claimed.size === 0, "و هیچ claimی ثبت نشد - هیچ نوشتنی", db.claimed.size);
+  ok(r.would_send === 0, "و چون خبری در بازه نبود، کسی هم موعدش نبود", r);
+}
+clearAll();
+{
+  // همان، ولی با خبری که واقعاً در بازه است: باید بگوید چند نفر
+  // می‌گرفتند، و باز هم نفرستد.
+  const subs = [];
+  for (let i = 1; i <= 10; i++) subs.push(subscriber(8000 + i, 60));
+  const log = [];
+  installFetch(log);
+  const db = fakeDb({ events: [ev(58)], subs, config: SENDER_ON });
+  const r = await runAlertSweep({ DB: db, BOT_TOKEN: "x" }, WEEKDAY, null, "", true);
+  ok(r.would_send === 10, "می‌گوید ده نفر موعدشان بود", r);
+  ok(log.length === 0 && db.claimed.size === 0, "ولی باز هم نه پیامی و نه claimی", log.length);
+}
+
 console.log("\n" + n + " ادعا");

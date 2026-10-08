@@ -52,7 +52,14 @@ import {
 import { readConfig, writeConfig } from "./content/channel.js";
 import { NOTICES, NOTICE_DATES, noticeTextFor, noticeButtonFor } from "./content/notices.js";
 import { OWNER_ID } from "./owner.js";
-import { digestAudienceStats as greetAudienceStats } from "./econ/subscribers.js";
+import {
+  digestAudienceStats as greetAudienceStats,
+  ensureSubscriberSchema,
+  listPendingAudience,
+  dayColumn,
+  claimDay,
+  unclaimDay,
+} from "./econ/subscribers.js";
 import {
   ingestHolidays,
   handleIngestPost,
@@ -102,7 +109,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-61";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-63";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -548,7 +555,11 @@ async function handleAdmin(request, url, env) {
     // بی‌شارد و بی‌نشانگر، runAlertSweep رفتارِ قدیمیِ «از اولِ فهرست»
     // را دارد. برای درِین همیشه صفحه‌بندی می‌خواهیم، پس اگر شاردی هم
     // داده نشده، نشانگرِ خالی را صریح می‌فرستیم.
-    const r = await runAlertSweep(env, new Date(), shard, after || (shard ? null : ""));
+    // dry=1 فقط می‌شمارد و نشانگر را جلو می‌برد - هیچ claimی، هیچ
+    // ارسالی، هیچ نوشتنی. برای این است که بشود صفحه‌بندی را روی جدولِ
+    // واقعی امتحان کرد بی‌آنکه منتظرِ یک خبرِ واقعی ماند.
+    const dry = url.searchParams.get("dry") === "1";
+    const r = await runAlertSweep(env, new Date(), shard, after || (shard ? null : ""), dry);
     return json({ ok: true, build: BUILD, ...r });
   }
 
@@ -1145,6 +1156,119 @@ async function handleAdmin(request, url, env) {
     }
   }
 
+  /**
+   * خودآزمایِ ثبتِ پیام‌های روزانه - روی خودِ D1، نه دیتابیسِ ساختگی.
+   *
+   * ─── چرا لازم شد ──────────────────────────────────────────────
+   *
+   * ثبتِ پیام‌های روزانه از ردیفِ econ_sent_log رفت روی ستونِ خودِ
+   * کاربر. تست دارد، ولی تستش با دیتابیسِ ساختگی است - و این مسیر
+   * اولین بارِ واقعی‌اش فردا ۷:۳۰ صبح برای ۱۵٬۸۹۳ نفر است. اگر جایی
+   * اشتباه باشد که تستِ ساختگی نگیرد، نتیجه یکی از این دو است: هیچ‌کس
+   * خلاصه نمی‌گیرد، یا همه دو بار می‌گیرند. هیچ‌کدام را نباید صبح
+   * فهمید.
+   *
+   * ─── چرا بی‌خطر است ──────────────────────────────────────────
+   *
+   * فقط ردیفِ خودِ مدیر را لمس می‌کند، و با یک `ref` که هیچ ارسالِ
+   * واقعی‌ای هرگز نخواهد داشت (سالِ ۹۹۹۹). پس نه پیامی می‌رود، نه
+   * ثبتِ کسی عوض می‌شود، و در پایان همان ردیف به حالتِ اولش
+   * برمی‌گردد. جمعاً چند نوشتن.
+   */
+  if (url.pathname === "/admin/day-claim-selftest") {
+    // تاریخی که هیچ‌وقت رفِ یک ارسالِ واقعی نیست - پس برخوردی ممکن
+    // نیست - ولی از روزِ جابه‌جایی بزرگ‌تر است، پس مسیرِ ستون را
+    // می‌گیرد؛ یعنی همان چیزی که فردا اجرا می‌شود.
+    const REF_A = "9999-01-01";
+    const REF_B = "9999-01-02";
+    const me = String(OWNER_ID);
+    const col = dayColumn("digest", REF_A);
+    const steps = [];
+    const say = (name, got, want) =>
+      steps.push({ step: name, got, want, ok: JSON.stringify(got) === JSON.stringify(want) });
+
+    try {
+      if (!col) {
+        return json({ ok: false, build: BUILD, error: "dayColumn ستونی نداد - مرزِ تاریخ را ببین" }, 500);
+      }
+      await ensureSubscriberSchema(env);
+
+      // همان شرطی که کوئریِ مخاطب برای «قبلاً گرفته یا نه» می‌گذارد،
+      // ولی فقط روی یک ردیف.
+      const visible = async (ref) => {
+        const r = await env.DB
+          .prepare(
+            `SELECT telegram_user_id FROM user_state
+              WHERE telegram_user_id = ?
+                AND blocked_at IS NULL
+                AND (` + col + ` IS NULL OR ` + col + ` <> ?)`
+          )
+          .bind(me, String(ref))
+          .first();
+        return !!r;
+      };
+      const stored = async () => {
+        const r = await env.DB
+          .prepare(`SELECT ` + col + ` AS v FROM user_state WHERE telegram_user_id = ?`)
+          .bind(me)
+          .first();
+        return r ? r.v : null;
+      };
+
+      const was = await stored();
+
+      say("پیش از ثبت، در صفِ ارسال دیده می‌شود", await visible(REF_A), true);
+      say("ثبتِ اول برنده", await claimDay(env, col, REF_A, me), true);
+      say("ستون همان ref را گرفت", await stored(), REF_A);
+      say("بعد از ثبت، از صف بیرون است", await visible(REF_A), false);
+      say("ثبتِ دومِ همان ref بازنده - پیام دو بار نمی‌رود", await claimDay(env, col, REF_A, me), false);
+
+      // حالتِ هر روزه: ستون رفِ دیروز را دارد و امروز باید دوباره
+      // قابلِ ثبت باشد. اگر این نشود، فردا هیچ‌کس خلاصه نمی‌گیرد.
+      say("رفِ روزِ بعد روی همان ستون ثبت می‌شود", await claimDay(env, col, REF_B, me), true);
+      say("و ستون تاریخِ تازه را دارد", await stored(), REF_B);
+
+      // پس گرفتن - همان مسیری که وقتی ارسال به تلگرام نرسد طی می‌شود.
+      await unclaimDay(env, col, REF_B, me);
+      say("پس گرفتن ستون را خالی کرد", await stored(), null);
+      say("و دوباره در صف است", await visible(REF_B), true);
+
+      // و کلِ کوئریِ مخاطب، با همان رفِ آزمایشی: باید بی‌خطا اجرا شود
+      // و چون هیچ‌کس این ref را نگرفته، ردیف برگرداند.
+      const aud = await listPendingAudience(env, "digest", REF_A, 3, null, null);
+      say("کوئریِ کاملِ مخاطب با مسیرِ ستون اجرا می‌شود", aud.length > 0, true);
+
+      // ردیف را به همان حالتی که بود برگردان.
+      if (was === null || was === undefined) {
+        await unclaimDay(env, col, REF_A, me).catch(() => {});
+        await env.DB
+          .prepare(`UPDATE user_state SET ` + col + ` = NULL WHERE telegram_user_id = ?`)
+          .bind(me)
+          .run();
+      } else {
+        await env.DB
+          .prepare(`UPDATE user_state SET ` + col + ` = ? WHERE telegram_user_id = ?`)
+          .bind(String(was), me)
+          .run();
+      }
+      say("ردیفِ مدیر به حالتِ اولش برگشت", await stored(), was === undefined ? null : was);
+
+      const failed = steps.filter((s) => !s.ok);
+      return json({
+        ok: failed.length === 0,
+        build: BUILD,
+        column: col,
+        // هیچ آیدی‌ای برنمی‌گردد - این پاسخ از لاگِ یک ورک‌فلوی عمومی
+        // خوانده می‌شود.
+        passed: steps.length - failed.length,
+        failed: failed.length,
+        steps,
+      });
+    } catch (err) {
+      return json({ ok: false, build: BUILD, error: String(err && err.message), steps }, 500);
+    }
+  }
+
   if (url.pathname === "/admin/econ-dispatch") {
     const r = await dispatchWorkflow(env, "econ-digest.yml");
     return json({ ok: true, build: BUILD, dispatch: r });
@@ -1310,6 +1434,7 @@ export default {
       url.pathname === "/admin/econ-alerts" ||
       url.pathname === "/admin/econ-alert-drain" ||
       url.pathname === "/admin/d1-plan" ||
+      url.pathname === "/admin/day-claim-selftest" ||
       url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||

@@ -916,7 +916,7 @@ const ALERT_PAGE = 120;
  * پاک کردنش هم جایی ندارد. با نشانگرِ داخلِ پاسخ، هر دورِ درِین یک
  * پیمایشِ کاملِ تازه است و هیچ حالتی برای پاک کردن نمی‌ماند.
  */
-export async function runAlertSweep(env, now = new Date(), shard = null, after = null) {
+export async function runAlertSweep(env, now = new Date(), shard = null, after = null, dry = false) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
   if (isWeekend(now)) return { skipped: "آخر هفته" };
@@ -935,7 +935,11 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
   // این کران هر پنج دقیقه اجرا می‌شود - ۲۸۸ بار در روز - ولی در بیشترِ
   // آن دفعات هیچ خبری در بازه‌ی هشدار نیست. پیش از این، هر بار کلِ
   // جدولِ مشترکین خوانده می‌شد تا معلوم شود کاری نیست.
-  if (!anyEventWithin(events, MAX_ALERT_MINUTES)) {
+  // اجرای خشک این دروازه را رد می‌کند، و فقط این یکی را: هدفش همین است
+  // که مسیرِ صفحه‌بندی را روی جدولِ واقعی راه بیندازد در روزی که هیچ
+  // خبری در بازه نیست. هیچ claimی و هیچ ارسالی در آن حالت انجام
+  // نمی‌شود، پس بی‌خطر است.
+  if (!dry && !anyEventWithin(events, MAX_ALERT_MINUTES)) {
     return { sent: 0, failed: 0, blocked: 0 };
   }
 
@@ -961,8 +965,18 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
   let cursor = after ? String(after) : "";
   let looked = 0;
 
+  let wouldSend = 0;
+
   for (const s of subs) {
     const due = dueEvents(events, s);
+    // اجرای خشک: فقط می‌شمارد و نشانگر را جلو می‌برد. نه claim، نه
+    // ارسال، نه هیچ نوشتنی.
+    if (dry) {
+      if (due.length > 0) wouldSend++;
+      cursor = s.telegram_user_id;
+      looked++;
+      continue;
+    }
     if (due.length === 0) {
       cursor = s.telegram_user_id;
       looked++;
@@ -1039,6 +1053,7 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
     ...stats,
     events: grouped,
     throttled: stopped,
+    ...(dry ? { dry: true, would_send: wouldSend } : {}),
     // کدام پنجره‌ها همین حالا باز شده‌اند. کرانِ ورکر از همین تصمیم
     // می‌گیرد که درِینِ موازی را صدا بزند یا نه.
     //
