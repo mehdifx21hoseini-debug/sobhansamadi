@@ -30,7 +30,7 @@ import {
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
-import { noticeTextFor, NOTICE_DATES } from "../content/notices.js";
+import { noticeTextFor, noticeButtonFor, NOTICE_DATES } from "../content/notices.js";
 import { eventToken } from "./explain.js";
 import { readConfig, writeConfig } from "../content/channel.js";
 import {
@@ -1258,7 +1258,17 @@ export async function runNotice(env, now = new Date(), shard = null) {
   const text = noticeTextFor(ref);
   if (!text) return { skipped: "متنی برای امروز نیست" };
 
-  const build = () => ({ method: "sendMessage", payload: { text } });
+  // دکمه اختیاری است. سبز (success) چون اطلاعیه‌ی دکمه‌دار یک دعوت
+  // است نه یک هشدار - و در این ربات سبز همان معنی را دارد.
+  const btn = noticeButtonFor(ref);
+  const markup = btn
+    ? { inline_keyboard: [[{ text: btn.label, url: btn.url, style: "success" }]] }
+    : null;
+
+  const build = () => ({
+    method: "sendMessage",
+    payload: markup ? { text, reply_markup: markup } : { text },
+  });
 
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let stopped = false;

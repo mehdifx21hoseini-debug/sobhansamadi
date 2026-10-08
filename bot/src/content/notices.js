@@ -90,7 +90,27 @@ export const NOTICES = {
 
 export const NOTICE_DATES = Object.keys(NOTICES);
 
+// مقدارِ هر روز یا یک رشته است (اطلاعیه‌ی بی‌دکمه) یا یک شیء با text و
+// button. هر دو شکل پذیرفته می‌شود تا اطلاعیه‌های قبلی دست نخورند.
+function entryFor(dateIso) {
+  const v = NOTICES[dateIso];
+  if (!v) return null;
+  return typeof v === "string" ? { text: v, button: null } : v;
+}
+
 /** متنِ آن روز، یا null اگر آن روز اطلاعیه‌ای نباشد. */
 export function noticeTextFor(dateIso) {
-  return NOTICES[dateIso] ?? null;
+  const e = entryFor(dateIso);
+  return e ? e.text : null;
+}
+
+/**
+ * دکمه‌ی آن روز، یا null.
+ *
+ * یک دکمه و فقط یکی: اطلاعیه یک پیامِ کوتاه است و فهرستِ دکمه از آن
+ * یک صفحه‌ی منو می‌سازد.
+ */
+export function noticeButtonFor(dateIso) {
+  const e = entryFor(dateIso);
+  return e && e.button ? e.button : null;
 }
