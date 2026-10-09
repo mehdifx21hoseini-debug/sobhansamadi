@@ -1,0 +1,7 @@
+{
+  "name": "cert-render",
+  "private": true,
+  "type": "module",
+  "description": "رندرِ گواهی در GitHub Actions. فونت و قالب در ریپو نیستند؛ از ربات گرفته می‌شوند.",
+  "dependencies": { "playwright-core": "1.49.1" }
+}

@@ -57,6 +57,12 @@ import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { touchUser } from "./db.js";
 import { isOwner } from "./owner.js";
+import {
+  handleCert,
+  handleCertAssets,
+  handleCertCallback,
+  handleCertAsset,
+} from "./commands/cert.js";
 import { isDbOutage, notifyOwner, USER_TEXT } from "./dbOutage.js";
 import { ensureAdminCommands } from "./commands/registry.js";
 import { getUserState, clearUserState } from "./db.js";
@@ -247,6 +253,9 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("aistats", handleAiStats);
   bot.command("econsender", handleEconSender);
   bot.command("members", handleMembers);
+  // گواهیِ دانشجو. فقط مدیر؛ برای بقیه انگار وجود ندارد.
+  bot.command("cert", handleCert);
+  bot.command("certassets", handleCertAssets);
   // ثبتِ استیکر/گیفِ پایانِ ثبت‌نام. استیکر از کانال نمی‌آید چون کپشن
   // نمی‌گیرد، پس این یکی از چتِ خصوصیِ مدیر ثبت می‌شود.
   bot.command("setanim", handleSetAnim);
@@ -281,6 +290,9 @@ export function createBot(token, env, botInfo, build = "?") {
       "message:animation",
     ],
     async (ctx) => {
+      // فایل‌های گواهی (قالب و فونت‌ها): فقط از مدیر، و فقط اگر نامِ فایل
+      // یکی از سه جایگاه باشد. بقیه‌ی فایل‌ها از همین‌جا رد نمی‌شوند.
+      if (ctx.message.document && (await handleCertAsset(ctx))) return;
       const state = await getUserState(ctx.env, ctx.from.id);
       if (state?.current_flow === ANIM_FLOW && state.current_step === "ask_file") {
         await handleSetAnimFile(ctx);
@@ -423,6 +435,10 @@ export function createBot(token, env, botInfo, build = "?") {
         return handleFreeText(ctx, state);
     }
   });
+
+  // دکمه‌های گواهی پیش از مسیرِ عمومیِ دکمه‌ها: handler نوبت را به بعدی
+  // نمی‌دهد، پس زنجیره‌ی طولانیِ پایین هیچ‌وقت آن‌ها را نمی‌بیند.
+  bot.callbackQuery(/^CERT\|/, handleCertCallback);
 
   bot.on("callback_query:data", async (ctx) => {
     const data = ctx.callbackQuery.data;

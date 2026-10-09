@@ -61,6 +61,23 @@ import {
   unclaimDay,
 } from "./econ/subscribers.js";
 import {
+  claimNext as certClaimNext,
+  createDraft as certCreateDraft,
+  takeDraft as certTakeDraft,
+  cancelDraft as certCancelDraft,
+  finishJob as certFinishJob,
+  countActive as certCountActive,
+  ensureCertSchema,
+} from "./certificate/store.js";
+import {
+  streamAsset as certStreamAsset,
+  completeJob as certCompleteJob,
+  failJob as certFailJob,
+  sweepAndNotify as certSweep,
+  sweepIfPending as certSweepIfPending,
+  failLeftovers as certFailLeftovers,
+} from "./certificate/service.js";
+import {
   ingestHolidays,
   handleIngestPost,
   handleActualsPost,
@@ -109,7 +126,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-64";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-65";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1269,6 +1286,111 @@ async function handleAdmin(request, url, env) {
     }
   }
 
+
+  // ─── گواهیِ دانشجو: مسیرهای ورک‌فلوی رندر ────────────────────────────
+  //
+  // همه پشتِ کلیدِ مدیرند. نام و عکس فقط از اینجا رد می‌شوند و هیچ‌کدام
+  // در لاگ چاپ نمی‌شوند (ریپو و لاگِ ورک‌فلو عمومی است).
+  //
+  // POST عمداً: این مسیرها وضعیت را عوض می‌کنند، و ops-probe فقط GET
+  // می‌زند - پس نمی‌شود با یک کلیک اشتباهی درخواستی را برداشت.
+  if (url.pathname === "/admin/cert-next") {
+    if (request.method !== "POST") return json({ ok: false, error: "POST" }, 405);
+    const job = await certClaimNext(env);
+    return json({
+      ok: true,
+      build: BUILD,
+      job: job ? { id: job.id, name: job.name, gender: job.gender } : null,
+    });
+  }
+
+  if (url.pathname === "/admin/cert-asset") {
+    const r = await certStreamAsset(env, url.searchParams.get("slot") || "");
+    if (r.status !== 200) return json({ ok: false, error: r.error }, r.status);
+    return new Response(r.body, { status: 200, headers: r.headers });
+  }
+
+  if (url.pathname === "/admin/cert-done") {
+    if (request.method !== "POST") return json({ ok: false, error: "POST" }, 405);
+    const id = url.searchParams.get("id") || "";
+    const fitRaw = url.searchParams.get("fit") || "ok";
+    const fit = ["ok", "shrunk", "overflow"].includes(fitRaw) ? fitRaw : "ok";
+    const bytes = await request.arrayBuffer();
+    const r = await certCompleteJob(env, id, bytes, fit);
+    return json({ ok: r.status === 200, error: r.error || undefined }, r.status);
+  }
+
+  if (url.pathname === "/admin/cert-fail") {
+    if (request.method !== "POST") return json({ ok: false, error: "POST" }, 405);
+    const ok = await certFailJob(env, url.searchParams.get("id") || "", url.searchParams.get("code") || "other");
+    return json({ ok });
+  }
+
+  if (url.pathname === "/admin/cert-sweep") {
+    if (request.method !== "POST") return json({ ok: false, error: "POST" }, 405);
+    const left = url.searchParams.get("fail_rendering") === "1" ? await certFailLeftovers(env) : 0;
+    const r = await certSweep(env);
+    return json({ ok: true, build: BUILD, failed_leftovers: left, ...r });
+  }
+
+  /**
+   * خودآزمایِ صفِ گواهی روی D1 واقعی. هیچ پیامی به تلگرام نمی‌رود و هیچ
+   * درخواستِ واقعی‌ای لمس نمی‌شود: با آیدیِ مالکِ ساختگی کار می‌کند و
+   * ردیف‌های خودش را در پایان پاک می‌کند.
+   */
+  if (url.pathname === "/admin/cert-selftest") {
+    const steps = [];
+    const say = (step, got, want) =>
+      steps.push({ step, got, want, ok: JSON.stringify(got) === JSON.stringify(want) });
+    const ids = [];
+    try {
+      await ensureCertSchema(env);
+      const owner = "selftest-owner";
+      const other = "selftest-other";
+      const a = await certCreateDraft(env, owner, "آزمون");
+      ids.push(a);
+      const wrong = await certTakeDraft(env, { id: a, ownerId: other, gender: "f", chatId: "0", messageId: 1 });
+      say("مالکِ دیگر نمی‌تواند پیش‌نویس را بردارد", wrong.ok === false && wrong.why, "owner");
+      const t1 = await certTakeDraft(env, { id: a, ownerId: owner, gender: "f", chatId: "0", messageId: 1 });
+      say("مالک پیش‌نویس را به صف می‌برد", t1.ok, true);
+      const t2 = await certTakeDraft(env, { id: a, ownerId: owner, gender: "m", chatId: "0", messageId: 1 });
+      say("زدنِ دوباره‌ی دکمه درخواستِ دوم نمی‌سازد", t2.ok, false);
+      say("جنسیتِ ثبت‌شده با زدنِ دوم عوض نشد", (await env.DB.prepare(`SELECT gender FROM cert_jobs WHERE id = ?`).bind(a).first()).gender, "f");
+      say("done از حالتِ queued ممکن نیست", await certFinishJob(env, a, "done"), false);
+      say("شکست از queued ممکن است", await certFinishJob(env, a, "failed", "other"), true);
+      say("شکستِ دوباره اثری ندارد", await certFinishJob(env, a, "failed", "other"), false);
+
+      const b = await certCreateDraft(env, owner, "آزمون دو");
+      ids.push(b);
+      say("لغو پیش‌نویس", await certCancelDraft(env, b, owner), true);
+      say("پیش‌نویسِ لغوشده دیگر به صف نمی‌رود",
+        (await certTakeDraft(env, { id: b, ownerId: owner, gender: "m", chatId: "0", messageId: 1 })).ok, false);
+
+      // claimNext فقط وقتی امن است که صف واقعاً خالی باشد - وگرنه ممکن
+      // بود درخواستِ واقعیِ مدیر را بردارد.
+      if ((await certCountActive(env)) === 0) {
+        const c = await certCreateDraft(env, owner, "آزمون سه");
+        ids.push(c);
+        await certTakeDraft(env, { id: c, ownerId: owner, gender: "m", chatId: "0", messageId: 1 });
+        const claimed = await certClaimNext(env);
+        say("claimNext همان درخواست را برمی‌دارد", claimed && claimed.id, c);
+        say("claimNext بار دوم چیزی نمی‌یابد", await certClaimNext(env), null);
+        say("done از rendering ممکن است", await certFinishJob(env, c, "done"), true);
+        say("done دوباره اثری ندارد", await certFinishJob(env, c, "done"), false);
+      } else {
+        steps.push({ step: "claimNext", skipped: "صف خالی نبود", ok: true });
+      }
+    } catch (err) {
+      steps.push({ step: "استثنا", got: String(err && err.message), ok: false });
+    } finally {
+      for (const id of ids) {
+        await env.DB.prepare(`DELETE FROM cert_jobs WHERE id = ?`).bind(id).run().catch(() => {});
+      }
+    }
+    const failed = steps.filter((s) => !s.ok);
+    return json({ ok: failed.length === 0, build: BUILD, passed: steps.length - failed.length, failed: failed.length, steps });
+  }
+
   if (url.pathname === "/admin/econ-dispatch") {
     const r = await dispatchWorkflow(env, "econ-digest.yml");
     return json({ ok: true, build: BUILD, dispatch: r });
@@ -1435,6 +1557,12 @@ export default {
       url.pathname === "/admin/econ-alert-drain" ||
       url.pathname === "/admin/d1-plan" ||
       url.pathname === "/admin/day-claim-selftest" ||
+      url.pathname === "/admin/cert-next" ||
+      url.pathname === "/admin/cert-asset" ||
+      url.pathname === "/admin/cert-done" ||
+      url.pathname === "/admin/cert-fail" ||
+      url.pathname === "/admin/cert-sweep" ||
+      url.pathname === "/admin/cert-selftest" ||
       url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
@@ -1781,6 +1909,15 @@ export default {
           .catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
       );
 
+      // گواهی‌های گیرکرده. فقط وقتی درخواستی در جریان است چیزی می‌خواند: در
+      // روزِ عادی یک خواندنِ یک‌ردیفی از bot_config است و بس.
+      ctx.waitUntil(
+        certSweepIfPending(env)
+          .then((r) => {
+            if (r && r.failed) console.log("گواهیِ گیرکرده:", JSON.stringify(r));
+          })
+          .catch((err) => console.error("جاروی گواهی شکست خورد:", err && err.message))
+      );
       // اطلاعیه‌ی موردی، اگر امروز یکی از روزهایش باشد.
       ctx.waitUntil(
         drainNotice(env)

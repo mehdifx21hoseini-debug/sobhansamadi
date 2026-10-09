@@ -1,0 +1,76 @@
+# گواهیِ دانشجو را می‌سازد و به مدیر می‌رساند.
+#
+# چرا اینجا و نه در ورکر: رسمِ متنِ فارسی با فونتِ سفارشی یک موتورِ
+# رندرِ چندمگابایتی می‌خواهد و چند ده میلی‌ثانیه CPU. پلنِ رایگانِ ورکر
+# ۳ مگابایت حجمِ کد و ۱۰ میلی‌ثانیه CPU دارد. همان تقسیمِ کارِ درِین
+# پیام‌ها: ورکر صف را نگه می‌دارد، گیت‌هاب عضله است.
+#
+# ─── چه چیزی در ریپو نیست ────────────────────────────────────────
+#
+# قالبِ بی‌نامِ گواهی و فونت‌ها. ریپو عمومی است: قالبِ باکیفیت + امضا +
+# فونت یعنی هرکس می‌تواند «گواهیِ آکادمی» بسازد، و فونتِ Yekan Bakh مجوزِ
+# بازتوزیع ندارد. هر سه را مدیر برای ربات می‌فرستد؛ ورکر از تلگرام
+# می‌گیرد و فقط با کلیدِ مدیر به این ورک‌فلو می‌دهد.
+#
+# ─── چرا ورودی ندارد ──────────────────────────────────────────────
+#
+# ورودی‌های workflow_dispatch در تاریخچه‌ی عمومی می‌مانند، و نامِ
+# دانشجو داده‌ی شخصی است. ورک‌فلو بی‌ورودی راه می‌افتد و درخواست‌ها را
+# از ورکر می‌گیرد؛ نام هرگز در لاگ چاپ نمی‌شود.
+#
+# زمان‌بندی ندارد: فقط وقتی مدیر دکمه را بزند، ورکر صدایش می‌کند.
+name: Certificate Render
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+# دو اجرای هم‌زمان ضرری ندارد - ثبتِ درخواست اتمیک است - ولی لازم هم
+# نیست. گیت‌هاب فقط یک اجرای منتظر نگه می‌دارد و حلقه تا خالی شدنِ صف
+# ادامه می‌دهد، پس اجرای جا‌افتاده کسی را جا نمی‌گذارد.
+concurrency:
+  group: cert-render
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install renderer
+        working-directory: scripts/cert
+        run: npm ci --no-audit --no-fund
+
+      # Chrome روی تصویرِ ubuntu-latest از قبل هست؛ اگر روزی نبود دانلود می‌شود.
+      - name: Make sure a Chrome exists
+        working-directory: scripts/cert
+        run: |
+          if ! command -v google-chrome >/dev/null 2>&1; then
+            npx playwright-core install --with-deps chromium
+          fi
+
+      - name: Render queued certificates
+        working-directory: scripts/cert
+        env:
+          ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+          BASE: https://sobhansamadi.mehdifx21hoseini.workers.dev
+        run: node job-loop.mjs
+
+      # حتی اگر رندر وسط کار افتاد: درخواستی که برداشته شده و تمام نشده
+      # شکست‌خورده اعلام می‌شود و مدیر خبردار می‌شود، به‌جای اینکه شش دقیقه
+      # بعد با تأخیر بفهمد.
+      - name: Fail anything left half-done
+        if: always()
+        env:
+          ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+          BASE: https://sobhansamadi.mehdifx21hoseini.workers.dev
+        run: |
+          curl -sS --max-time 60 -X POST -H "x-admin-key: $ADMIN_KEY" \
+            "$BASE/admin/cert-sweep?fail_rendering=1" -o /dev/null -w 'sweep: %{http_code}\n' || true

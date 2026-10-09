@@ -19,6 +19,8 @@ export const ADMIN_COMMANDS = [
   { command: "links", description: "🔗 تغییر لینک‌های ربات" },
   { command: "diag", description: "🔧 وضعیت ربات" },
   { command: "members", description: "👥 تعداد کاربران ربات" },
+  { command: "cert", description: "🎓 ساخت گواهی دانشجو" },
+  { command: "certassets", description: "🎓 وضعیت فایل‌های گواهی" },
   { command: "kbsync", description: "🧠 ساختن پایگاه دانش دستیار" },
   { command: "kblist", description: "🧠 مدخل‌های پایگاه دانش" },
   { command: "kbadd", description: "🧠 افزودن پرسش و پاسخ" },
