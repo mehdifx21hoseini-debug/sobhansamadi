@@ -33,6 +33,7 @@ import {
   runHolidayNotice,
   drainHolidayNotice,
   runAlertSweep,
+  alertOpeningNow,
   runResultSweep,
   drainWeeklyGreeting,
   runWeeklyGreeting,
@@ -126,7 +127,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-68";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-69";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1890,21 +1891,42 @@ export default {
       // می‌برد، پس ۴۱۵ نفری که «۵ دقیقه قبل» را انتخاب کرده بودند
       // عملاً هرگز چیزی نگرفتند - و همین گزارش شد.
       //
-      // تصمیمِ دیسپچ از خودِ جارو می‌آید (`opening`) تا جدولِ رویدادها
-      // دو بار خوانده نشود. و فقط سرِ باز شدنِ یک پنجره انجام می‌شود،
+      // دیسپچ فقط سرِ باز شدنِ یک پنجره انجام می‌شود،
       // نه هر تیکی که خبری در یک‌ساعتِ پیشِ رو دارد: چهار اجرا به‌جای
       // هشتاد، با همان نتیجه.
+      //
+      // ─── ترتیب: اول تصمیم و دیسپچ، بعد (فقط اگر لازم شد) جاروی ورکر ───
+      //
+      // ۹ اکتبر برای دو خبرِ ۱۴:۰۰ فقط پنجره‌ی ۶۰ دقیقه رفت؛ ۳۰ و ۱۵ و ۵
+      // اجرا نشد و ~۲٬۸۶۰ نفر هشدار نگرفتند. دلیل: دیسپچ بعد از
+      // runAlertSweep بود و آن جارو کلِ مشترکین را قدم می‌زند؛ کسانی که
+      // هشدارشان رفته هم یک claimِ ناموفق می‌خورند، و صدها claim سقفِ
+      // subrequest را پر می‌کرد، جارو می‌شکست، و دیسپچ هرگز نمی‌رسید.
+      //
+      // حالا تصمیم فقط از خواندنِ رویدادهاست و پیش از هر کارِ سنگین
+      // می‌آید. اگر دیسپچ گرفت، درِین کارِ ارسال را می‌کند و جاروی ورکر
+      // اصلاً اجرا نمی‌شود (هم subrequest و هم نوشتنِ بی‌خود نمی‌سوزد).
+      // جارو فقط تورِ ایمنی است: وقتی دیسپچ شکست خورد یا پنجره‌ای باز
+      // نبود، مثل قبل.
       ctx.waitUntil(
-        runAlertSweep(env)
-          .then(async (n) => {
-            if (n && !n.skipped && (n.sent || n.failed)) {
-              console.log("هشدار قبل از خبر:", JSON.stringify(n));
+        (async () => {
+          let dispatched = false;
+          try {
+            const opening = await alertOpeningNow(env);
+            if (opening.length > 0) {
+              const r = await dispatchWorkflow(env, "econ-alert.yml");
+              dispatched = !!(r && r.ok);
+              console.log("شروعِ درِینِ هشدار:", JSON.stringify({ opening, ...r }));
             }
-            if (!n || !n.opening || n.opening.length === 0) return;
-            const r = await dispatchWorkflow(env, "econ-alert.yml");
-            console.log("شروعِ درِینِ هشدار:", JSON.stringify({ opening: n.opening, ...r }));
-          })
-          .catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
+          } catch (err) {
+            console.error("تصمیمِ درِینِ هشدار شکست خورد:", err && err.message);
+          }
+          if (dispatched) return;
+          const n = await runAlertSweep(env);
+          if (n && !n.skipped && (n.sent || n.failed)) {
+            console.log("هشدار قبل از خبر:", JSON.stringify(n));
+          }
+        })().catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
       );
 
       // گواهی‌های گیرکرده. فقط وقتی درخواستی در جریان است چیزی می‌خواند: در

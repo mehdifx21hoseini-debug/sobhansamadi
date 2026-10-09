@@ -228,6 +228,23 @@ export function alertTiersOpening(events) {
   return out;
 }
 
+/**
+ * کدام پنجره‌های هشدار همین حالا باز شده‌اند - فقط با خواندنِ رویدادها.
+ *
+ * این جدا از جاروی ارسال است، چون تصمیمِ «درِین را راه بینداز» نباید به
+ * پایان‌یافتنِ یک جارویِ سنگین بسته باشد: جاروی داخلِ ورکر کلِ مشترکین را
+ * قدم می‌زند و کسانی که قبلاً هشدارشان رفته هم یک claimِ ناموفق می‌خورند.
+ * ۱۳:۳۰ یک اکتبر همین‌طور شد - صدها claimِ بی‌نتیجه سقفِ subrequest را پر
+ * کرد، جارو شکست، و چون دیسپچ بعد از جارو بود هرگز اجرا نشد.
+ */
+export async function alertOpeningNow(env, now = new Date()) {
+  if (!(await senderEnabled(env))) return [];
+  if (!env.BOT_TOKEN) return [];
+  if (isWeekend(now)) return [];
+  const events = await readEventsRange(env, dayOffset(-1), dayOffset(1));
+  return alertTiersOpening(events);
+}
+
 /** آیا رویدادی در بازه‌ی پیشِ رو هست؟ */
 function anyEventWithin(events, minutes) {
   for (const e of events || []) {
