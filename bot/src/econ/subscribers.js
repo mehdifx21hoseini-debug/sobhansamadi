@@ -618,7 +618,36 @@ export async function digestAudienceStats(env, kind, ref) {
         `SELECT COUNT(*) AS n FROM econ_sent_log WHERE kind = ? AND ref = ?`,
         [String(kind), String(ref)]
       );
-  return { total, blocked, opted_out: optedOut, sent_today: sent };
+  // «چند نفر هنوز نگرفته‌اند» - دقیق، با همان شرطی که خودِ ارسال دارد.
+  //
+  // فرمولِ تقریبی (کل − بلاک − خاموش − فرستاده) دروغ می‌گفت. کسی که
+  // پیامِ امروز به او رفت و بعد بلاک کرد هم در «بلاک» می‌شمارد هم در
+  // «فرستاده»، پس عددِ تقریبی کمتر از واقعیت درمی‌آید - و چون با
+  // Math.max صفر بریده می‌شد، ۹ اکتبر خروجیِ «۰» واقعاً ۰ تا ۲۷ نفر بود
+  // و از بیرون قابلِ تشخیص نبود.
+  //
+  // این یکی همان کوئریِ مخاطب را می‌شمارد، پس تعریفِ «منتظر» در دو جا
+  // از هم جدا نمی‌شود. یک اسکنِ کاملِ user_state است؛ پذیرفتنی چون فقط
+  // دستی و روزی چند بار خوانده می‌شود، نه از کران.
+  const optOut = `AND NOT EXISTS (
+            SELECT 1 FROM econ_subscriber s
+             WHERE s.telegram_user_id = u.telegram_user_id AND s.digest_off = 1)`;
+  const unsent = col
+    ? await one(
+        `SELECT COUNT(*) AS n FROM user_state u
+          WHERE u.blocked_at IS NULL ` + optOut +
+        ` AND (u.` + col + ` IS NULL OR u.` + col + ` <> ?)`,
+        [String(ref)]
+      )
+    : await one(
+        `SELECT COUNT(*) AS n FROM user_state u
+          WHERE u.blocked_at IS NULL ` + optOut +
+        ` AND NOT EXISTS (
+            SELECT 1 FROM econ_sent_log l
+             WHERE l.kind = ? AND l.ref = ? AND l.telegram_user_id = u.telegram_user_id)`,
+        [String(kind), String(ref)]
+      );
+  return { total, blocked, opted_out: optedOut, sent_today: sent, unsent };
 }
 
 export async function subscriberStats(env) {

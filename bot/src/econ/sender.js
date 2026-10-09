@@ -1184,9 +1184,12 @@ export async function senderStatus(env) {
   let digest = null;
   try {
     digest = await digestAudienceStats(env, "digest", digestRef());
-    // بلاک‌کرده‌ها هم کم می‌شوند - وگرنه «در صف» تقریباً همان تعدادِ
-    // بلاک‌کرده را نشان می‌دهد و ارسالِ تمام‌شده ناتمام به‌نظر می‌رسد.
-    digest.pending = Math.max(
+    // «در صف» از شمارشِ دقیقِ همان کوئریِ مخاطب می‌آید (unsent). فرمولِ
+    // تقریبیِ قبلی کسی را که بعد از دریافت بلاک کرد دو بار کم می‌کرد و
+    // با Math.max به صفر می‌بُرید - پس «۰» می‌توانست ۰ تا چند ده نفر
+    // باشد. تقریبی نگه داشته می‌شود تا مقایسه ممکن باشد.
+    digest.pending = digest.unsent;
+    digest.pending_estimate = Math.max(
       0,
       digest.total - digest.blocked - digest.opted_out - digest.sent_today
     );
