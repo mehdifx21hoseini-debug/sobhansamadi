@@ -62,6 +62,9 @@ import {
   handleCertAssets,
   handleCertCallback,
   handleCertAsset,
+  routeCertName,
+  CERT_FLOW,
+  CERT_STEP,
 } from "./commands/cert.js";
 import { isDbOutage, notifyOwner, USER_TEXT } from "./dbOutage.js";
 import { ensureAdminCommands } from "./commands/registry.js";
@@ -330,6 +333,13 @@ export function createBot(token, env, botInfo, build = "?") {
     if (state?.current_flow === "link_edit" && state.current_step === "ask_link") {
       await handleLinkText(ctx, state);
       return;
+    }
+
+    // نامِ دانشجو برای گواهی، پس از انتخابِ جنسیت. اگر متن ضربه‌ی یک دکمه‌ی
+    // منو بود، routeCertName حالت را پاک می‌کند و false می‌دهد تا همان دکمه
+    // کارِ خودش را بکند؛ چرایش بالای تابع نوشته شده.
+    if (state?.current_flow === CERT_FLOW && state.current_step === CERT_STEP) {
+      if (await routeCertName(ctx, state, resolveMenuAction)) return;
     }
 
     // اگر کاربر وسط یه فرآیند چندمرحله‌ای (ثبت‌نام/مشاوره/پشتیبانی) است

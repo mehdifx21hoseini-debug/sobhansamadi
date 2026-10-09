@@ -2,8 +2,10 @@
 //
 // چرخه‌ی عمر یک درخواست:
 //
-//   draft      مدیر دستور را زده، دکمه‌ی جنسیت را هنوز نزده
-//   queued     دکمه زده شد؛ منتظرِ ورک‌فلوی رندر
+//   draft          مدیر دستور را زده، دکمه‌ی جنسیت را هنوز نزده
+//   awaiting_name  جنسیت انتخاب شد؛ ربات منتظرِ نامی است که مدیر تایپ می‌کند
+//                  (فقط وقتی دستور بی‌نام زده شده؛ با «/cert نام» این مرحله نیست)
+//   queued         نام و جنسیت هر دو آمد؛ منتظرِ ورک‌فلوی رندر
 //   rendering  ورک‌فلو برش داشته
 //   done       فرستاده شد
 //   failed     به هر دلیل نشد - مدیر خبردار می‌شود
@@ -91,7 +93,8 @@ export async function getJob(env, id) {
 }
 
 /**
- * دکمه‌ی جنسیت زده شد: پیش‌نویس → در صف. اتمیک.
+ * دکمه‌ی جنسیت زده شد: پیش‌نویس → در صف (اگر نام از قبل هست) یا → منتظرِ
+ * نام (اگر نیست). اتمیک؛ وضعیتِ نهایی را `job.status` می‌گوید.
  *
  * @returns {Promise<{ok: true, job: object} | {ok: false, why: "gone"|"expired"|"owner"}>}
  */
@@ -100,7 +103,8 @@ export async function takeDraft(env, { id, ownerId, gender, chatId, messageId, n
   const res = await env.DB
     .prepare(
       `UPDATE cert_jobs
-          SET status = 'queued', gender = ?, chat_id = ?, message_id = ?, updated_at = ?
+          SET status = CASE WHEN name = '' THEN 'awaiting_name' ELSE 'queued' END,
+              gender = ?, chat_id = ?, message_id = ?, updated_at = ?
         WHERE id = ? AND owner_id = ? AND status = 'draft' AND created_at >= ?`
     )
     .bind(
@@ -122,12 +126,36 @@ export async function takeDraft(env, { id, ownerId, gender, chatId, messageId, n
   return { ok: false, why: "gone" };
 }
 
+/**
+ * نام رسید: منتظرِ نام → در صف. اتمیک، و فقط از awaiting_name - پس دو
+ * پیامِ پشتِ سرِ هم یا یک پیامِ دیررس هرگز نامِ درخواست را عوض نمی‌کند.
+ * مهلت از لحظه‌ی انتخابِ جنسیت حساب می‌شود (updated_at).
+ *
+ * @returns {Promise<{ok: true, job: object} | {ok: false, why: "gone"|"expired"}>}
+ */
+export async function submitName(env, { id, ownerId, name, now = Date.now() }) {
+  await ensureCertSchema(env);
+  const res = await env.DB
+    .prepare(
+      `UPDATE cert_jobs SET status = 'queued', name = ?, updated_at = ?
+        WHERE id = ? AND owner_id = ? AND status = 'awaiting_name' AND updated_at >= ?`
+    )
+    .bind(name, iso(now), String(id), String(ownerId), iso(now - DRAFT_TTL_MS))
+    .run();
+  const job = await getJob(env, id);
+  if (changed(res)) return { ok: true, job };
+  if (job && job.owner_id === String(ownerId) && job.status === "awaiting_name") {
+    return { ok: false, why: "expired" };
+  }
+  return { ok: false, why: "gone" };
+}
+
 export async function cancelDraft(env, id, ownerId, now = Date.now()) {
   await ensureCertSchema(env);
   const res = await env.DB
     .prepare(
       `UPDATE cert_jobs SET status = 'cancelled', updated_at = ?
-        WHERE id = ? AND owner_id = ? AND status = 'draft'`
+        WHERE id = ? AND owner_id = ? AND status IN ('draft','awaiting_name')`
     )
     .bind(iso(now), String(id), String(ownerId))
     .run();
@@ -199,7 +227,7 @@ export async function sweep(env, now = Date.now()) {
     .prepare(
       `DELETE FROM cert_jobs
         WHERE (status IN ('done','failed','cancelled') AND updated_at < ?)
-           OR (status = 'draft' AND updated_at < ?)`
+           OR (status IN ('draft','awaiting_name') AND updated_at < ?)`
     )
     // پیش‌نویسی که از ربع ساعت گذشته دیگر به کار نمی‌آید؛ نامش را بیش از
     // یک روز نگه نمی‌داریم.

@@ -18,7 +18,7 @@
 import { createRequire } from "node:module";
 import { normalizeName } from "../src/certificate/name.js";
 import {
-  createDraft, takeDraft, cancelDraft, claimNext, finishJob, sweep, countActive,
+  createDraft, takeDraft, submitName, cancelDraft, claimNext, finishJob, sweep, countActive,
   failAllRendering, getJob, resetCertSchemaMemo, DRAFT_TTL_MS, STALE_MS, KEEP_MS, MAX_ACTIVE,
 } from "../src/certificate/store.js";
 import {
@@ -26,7 +26,8 @@ import {
   streamAsset, startRender, sweepIfPending, failLeftovers, looksLikePng, PENDING_FLAG,
 } from "../src/certificate/service.js";
 import { readConfig } from "../src/content/channel.js";
-import { handleCert, handleCertCallback, handleCertAsset } from "../src/commands/cert.js";
+import { handleCert, handleCertCallback, handleCertAsset, handleCertNameText, routeCertName, CERT_FLOW, CERT_STEP } from "../src/commands/cert.js";
+import { getUserState, setUserState } from "../src/db.js";
 import { planLine, REF } from "../../scripts/cert/layout.mjs";
 import fs from "node:fs";
 
@@ -53,7 +54,14 @@ function d1() {
     },
   };
 }
-const freshEnv = (extra = {}) => { resetCertSchemaMemo(); return { DB: d1(), BOT_TOKEN: "TEST", ...extra }; };
+const freshEnv = (extra = {}) => {
+  resetCertSchemaMemo();
+  const DB = d1();
+  DB.raw.exec(`CREATE TABLE user_state (
+    telegram_user_id TEXT PRIMARY KEY, current_flow TEXT, current_step TEXT, temp_data TEXT, phone TEXT,
+    intro_progress INTEGER DEFAULT 0, source_first_seen TEXT, last_interaction_at TEXT, blocked_at TEXT)`);
+  return { DB, BOT_TOKEN: "TEST", ...extra };
+};
 
 const OWNER = "6923823275"; // یکی از OWNER_IDS
 const STRANGER = "111222333";
@@ -217,6 +225,35 @@ const labelRef = { abl: 0, abr: (585 / 133.9) * REF };
   ok(left.length === 1 && (await getJob(env, id)).status === "failed", "failAllRendering هرچه نیمه‌کاره مانده را شکست‌خورده می‌کند");
 }
 
+{
+  // submitName روی SQLiteِ واقعی
+  const env = freshEnv();
+  const id = await createDraft(env, OWNER, "", T0);
+  await takeDraft(env, { id, ownerId: OWNER, gender: "f", chatId: "1", messageId: 5, now: T0 });
+  ok((await getJob(env, id)).status === "awaiting_name", "پیش‌نویسِ بدونِ نام بعد از جنسیت awaiting_name می‌شود، نه queued");
+  ok((await submitName(env, { id, ownerId: STRANGER, name: "علی", now: T0 + 1000 })).why === "gone", "کسِ دیگر نمی‌تواند نام بدهد");
+  ok((await getJob(env, id)).name === "", "و نام دست‌نخورده می‌ماند");
+  const r1 = await submitName(env, { id, ownerId: OWNER, name: "علی رضایی", now: T0 + 1000 });
+  ok(r1.ok && r1.job.status === "queued" && r1.job.name === "علی رضایی" && r1.job.gender === "f", "مالک نام می‌دهد و درخواست با همان جنسیت به صف می‌رود", r1);
+  const r2 = await submitName(env, { id, ownerId: OWNER, name: "نامِ دیگر", now: T0 + 2000 });
+  ok(r2.ok === false && (await getJob(env, id)).name === "علی رضایی", "نامِ دوم رد می‌شود و نامِ اول عوض نمی‌شود");
+
+  const late = await createDraft(env, OWNER, "", T0);
+  await takeDraft(env, { id: late, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 });
+  const e = await submitName(env, { id: late, ownerId: OWNER, name: "علی", now: T0 + DRAFT_TTL_MS + 1000 });
+  ok(e.ok === false && e.why === "expired", "بعد از ۱۵ دقیقه از انتخابِ جنسیت، نام منقضی است", e);
+
+  const c = await createDraft(env, OWNER, "", T0);
+  await takeDraft(env, { id: c, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 });
+  ok(await cancelDraft(env, c, OWNER, T0 + 1) === true, "لغو در مرحله‌ی «منتظرِ نام» هم کار می‌کند");
+  ok((await submitName(env, { id: c, ownerId: OWNER, name: "علی", now: T0 + 2 })).ok === false, "و بعد از لغو نام پذیرفته نمی‌شود");
+
+  const stale = await createDraft(env, OWNER, "", T0 - 3 * 86400000);
+  await takeDraft(env, { id: stale, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 - 3 * 86400000 });
+  const sw = await sweep(env, T0);
+  ok((await getJob(env, stale)) === null && sw.purged >= 1, "درخواستِ منتظرِ نامِ بیش از یک روز پاک می‌شود - نام و جنسیتش نمی‌ماند");
+}
+
 // ─── ۴) فایل‌های خصوصی ───────────────────────────────────────────
 ok(slotForFilename("template.png") === "template", "template.png → قالب");
 ok(slotForFilename("Template.PNG") === "template", "بزرگیِ حروف مهم نیست");
@@ -237,18 +274,25 @@ function installFetch(handler) {
 }
 const jsonRes = (b, status = 200) => new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
 
-function makeCtx(env, { from = OWNER, match = "", data, doc } = {}) {
-  const calls = { reply: [], answer: [], edit: [], editMarkup: [] };
+function makeCtx(env, { from = OWNER, match = "", data, doc, text, editFails = false } = {}) {
+  const calls = { reply: [], answer: [], edit: [], editMarkup: [], apiEdit: [] };
   const ctx = {
     env,
     from: { id: Number(from) },
+    chat: { id: Number(from) },
     match,
-    message: doc ? { document: doc } : undefined,
+    message: doc ? { document: doc } : text !== undefined ? { text } : undefined,
     callbackQuery: data ? { data, message: { chat: { id: Number(from) }, message_id: 77 } } : undefined,
     reply: async (t, o) => { calls.reply.push({ t, o }); },
     answerCallbackQuery: async (o) => { calls.answer.push(o); },
     editMessageText: async (t, o) => { calls.edit.push({ t, o }); },
     editMessageReplyMarkup: async (o) => { calls.editMarkup.push(o); },
+    api: {
+      editMessageText: async (chatId, messageId, t, o) => {
+        if (editFails) throw new Error("message to edit not found");
+        calls.apiEdit.push({ chatId, messageId, t, o });
+      },
+    },
   };
   return { ctx, calls };
 }
@@ -301,7 +345,9 @@ async function loadAssets(env) {
   ok(/لاتین/.test(calls.reply[0].t) && !(calls.reply[0].o || {}).reply_markup, "نامِ نامعتبر رد می‌شود، با دلیل و بی‌دکمه");
   const none = makeCtx(env, { match: "" });
   await handleCert(none.ctx);
-  ok(/\/cert /.test(none.calls.reply[0].t), "بدونِ نام، راهنمای استفاده می‌دهد");
+  const noneBtns = none.calls.reply[0].o.reply_markup.inline_keyboard.flat();
+  ok(noneBtns.some((b) => /^CERT\|m\|/.test(b.callback_data)) && noneBtns.some((b) => /^CERT\|f\|/.test(b.callback_data)),
+     "بدونِ نام، مستقیم دکمه‌های جنسیت می‌آید - نه راهنمای استفاده");
 }
 {
   const env = freshEnv();
@@ -380,6 +426,171 @@ async function draftFor(env, name = "علی رضایی") { return createDraft(en
   const { ctx, calls } = makeCtx(env, { data: "CERT|f|not-a-valid-id" });
   await handleCertCallback(ctx);
   ok(calls.edit.length === 0 && calls.answer.length === 1, "شناسه‌ی خراب بی‌سروصدا نادیده گرفته می‌شود");
+}
+
+// ─── ۷ب) جریانِ اصلی: /cert ← جنسیت ← نام ─────────────────────
+//
+// همان چیزی که آکادمی خواست: دستور را می‌زنم، دکمه می‌آید، بعد اسم را وارد
+// می‌کنم و می‌سازد.
+const ghEnv = { GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" };
+const dispatches = () => sent.filter((s) => s.url.includes("api.github.com"));
+const rawJob = (env, id) => env.DB.raw.prepare("SELECT * FROM cert_jobs WHERE id = ?").get(id);
+
+async function bareThenGender(env, gender = "m") {
+  const a = makeCtx(env, { match: "" });
+  await handleCert(a.ctx);
+  const id = env.DB.raw.prepare("SELECT id FROM cert_jobs ORDER BY created_at DESC, rowid DESC LIMIT 1").get().id;
+  const t = makeCtx(env, { data: "CERT|" + gender + "|" + id });
+  await handleCertCallback(t.ctx);
+  return { id, bare: a, tap: t };
+}
+
+{
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const a = makeCtx(env, { match: "" });
+  await handleCert(a.ctx);
+  const draft = env.DB.raw.prepare("SELECT * FROM cert_jobs").get();
+  ok(draft.status === "draft" && draft.name === "", "دستورِ بی‌نام پیش‌نویسی بدونِ نام می‌سازد", draft);
+  ok(/جنسیت/.test(a.calls.reply[0].t), "و جنسیت را می‌پرسد");
+  ok(dispatches().length === 0, "هنوز ورک‌فلویی راه نمی‌افتد");
+
+  const t = makeCtx(env, { data: "CERT|m|" + draft.id });
+  await handleCertCallback(t.ctx);
+  const job = rawJob(env, draft.id);
+  ok(job.status === "awaiting_name" && job.gender === "m", "با زدنِ دکمه، درخواست منتظرِ نام می‌شود (نه در صف)", job);
+  ok(dispatches().length === 0, "و هنوز چیزی ساخته نمی‌شود - نام نیامده");
+  ok(/حالا نامِ دانشجو را بنویسید/.test(t.calls.edit[0].t) && /جناب آقای/.test(t.calls.edit[0].t), "ربات می‌گوید حالا نام را بنویسید و جنسیتِ انتخاب‌شده را تأیید می‌کند");
+  const cancelBtn = t.calls.edit[0].o.reply_markup.inline_keyboard.flat();
+  ok(cancelBtn.length === 1 && /^CERT\|x\|/.test(cancelBtn[0].callback_data), "و فقط دکمه‌ی لغو می‌ماند");
+  const st = await getUserState(env, OWNER);
+  ok(st.current_flow === CERT_FLOW && st.current_step === CERT_STEP && st.temp_data.job === draft.id, "حالتِ «منتظرِ نام» برای همین مدیر ثبت می‌شود", st);
+}
+{
+  // نامِ نامعتبر حالت را نمی‌بندد
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const { id } = await bareThenGender(env, "f");
+  const bad = makeCtx(env, { text: "Ali" });
+  await handleCertNameText(bad.ctx, await getUserState(env, OWNER));
+  ok(/لاتین/.test(bad.calls.reply[0].t) && /لغو/.test(bad.calls.reply[0].t), "نامِ نامعتبر رد می‌شود و راهِ ادامه یا لغو را می‌گوید");
+  ok(rawJob(env, id).status === "awaiting_name" && (await getUserState(env, OWNER)).current_flow === CERT_FLOW, "درخواست و حالت هر دو سرِ جایشان می‌مانند - مدیر دوباره می‌نویسد");
+  ok(dispatches().length === 0, "و چیزی ساخته نمی‌شود");
+
+  // و نامِ درست - با کیبوردِ عربی
+  const good = makeCtx(env, { text: "علي كريمي" });
+  await handleCertNameText(good.ctx, await getUserState(env, OWNER));
+  const job = rawJob(env, id);
+  ok(job.status === "queued" && job.name === "علی کریمی" && job.gender === "f", "نامِ درست پاک‌سازی می‌شود و درخواست با جنسیتی که پیش‌تر انتخاب شد به صف می‌رود", job);
+  ok((await getUserState(env, OWNER)).current_flow === null, "حالتِ «منتظرِ نام» پاک می‌شود - پیام‌های بعدیِ مدیر بلعیده نمی‌شوند");
+  const ed = good.calls.apiEdit[0];
+  ok(ed && ed.messageId === 77 && /علی کریمی/.test(ed.t) && /سرکار خانم/.test(ed.t) && /تبدیل شد/.test(ed.t) && /در حال ساخت/.test(ed.t),
+     "همان پیامِ دکمه‌ی لغو به «در حال ساخت» با نام و جنسیت و تبدیلِ حروفِ عربی تبدیل می‌شود", ed);
+  ok(ed.o.reply_markup.inline_keyboard.length === 0, "و دکمه‌ها برداشته می‌شوند");
+  ok(dispatches().length === 1 && /cert-render\.yml\/dispatches$/.test(dispatches()[0].url), "ورک‌فلوی رندر دقیقاً یک بار راه می‌افتد");
+  ok(!JSON.stringify(dispatches()[0].body).includes("کریمی"), "و نامِ دانشجو در درخواستِ گیت‌هاب نیست - ریپو عمومی است");
+
+  // پیامِ دوم با حالتِ کهنه
+  const again = makeCtx(env, { text: "یک نامِ دیگر" });
+  await handleCertNameText(again.ctx, { temp_data: { job: id } });
+  ok(/معتبر نیست/.test(again.calls.reply[0].t) && dispatches().length === 1, "پیامِ دوم درخواستِ دومی نمی‌سازد و ورک‌فلوی دوم راه نمی‌افتد");
+  ok(rawJob(env, id).name === "علی کریمی", "و نامِ ثبت‌شده عوض نمی‌شود");
+}
+{
+  // مهلت: مدیر جنسیت را زد و رفت
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const { id } = await bareThenGender(env, "m");
+  env.DB.raw.prepare("UPDATE cert_jobs SET updated_at = ? WHERE id = ?").run(new Date(Date.now() - DRAFT_TTL_MS - 60000).toISOString(), id);
+  const late = makeCtx(env, { text: "علی رضایی" });
+  await handleCertNameText(late.ctx, await getUserState(env, OWNER));
+  ok(/منقضی/.test(late.calls.reply[0].t), "اگر مدیر بعد از ۱۵ دقیقه نام را بنویسد، می‌گوید منقضی شده");
+  ok(rawJob(env, id).status === "awaiting_name" && dispatches().length === 0, "و چیزی ساخته نمی‌شود");
+  ok((await getUserState(env, OWNER)).current_flow === null, "و حالت پاک می‌شود تا مدیر برای همیشه «وسطِ گواهی» نماند");
+}
+{
+  // لغو در مرحله‌ی نام
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const { id } = await bareThenGender(env, "m");
+  const c = makeCtx(env, { data: "CERT|x|" + id });
+  await handleCertCallback(c.ctx);
+  ok(rawJob(env, id).status === "cancelled", "دکمه‌ی لغو در مرحله‌ی «نام را بنویسید» درخواست را لغو می‌کند");
+  ok((await getUserState(env, OWNER)).current_flow === null, "و حالت را پاک می‌کند");
+  const late = makeCtx(env, { text: "علی" });
+  await handleCertNameText(late.ctx, { temp_data: { job: id } });
+  ok(/معتبر نیست/.test(late.calls.reply[0].t) && dispatches().length === 0, "و نامی که بعدش بیاید چیزی نمی‌سازد");
+}
+{
+  // /cert دوباره: از «منتظرِ نام» بیرون می‌آید، ولی فرآیندِ دیگری را خراب نمی‌کند
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  await bareThenGender(env, "m");
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  ok((await getUserState(env, OWNER)).current_flow === null, "/cert دوباره حالتِ قبلیِ «منتظرِ نام» را پاک می‌کند");
+
+  await setUserState(env, OWNER, { current_flow: "label_edit", current_step: "ask_label", temp_data: { x: 1 } });
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  ok((await getUserState(env, OWNER)).current_flow === "label_edit", "ولی فرآیندِ ویرایشِ برچسب را که وسطش بود خراب نمی‌کند");
+}
+{
+  // ضربه‌ی دکمه‌ی منو نامِ دانشجو نیست
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const { id } = await bareThenGender(env, "m");
+  const menu = makeCtx(env, { text: "تماس با ما" });
+  const consumed = await routeCertName(menu.ctx, await getUserState(env, OWNER), async (_e, t) => (t === "تماس با ما" ? "CONTACT" : null));
+  ok(consumed === false, "اگر متن ضربه‌ی یک دکمه‌ی منو باشد، مصرف نمی‌شود و مسیریابیِ عادی ادامه می‌دهد");
+  ok((await getUserState(env, OWNER)).current_flow === null && rawJob(env, id).status === "awaiting_name", "حالتِ گواهی پاک می‌شود و هیچ گواهی‌ای به نامِ «تماس با ما» ساخته نمی‌شود");
+  ok(dispatches().length === 0 && menu.calls.reply.length === 0, "و ربات در آن لحظه چیزی نمی‌گوید و چیزی راه نمی‌اندازد");
+
+  await setUserState(env, OWNER, { current_flow: CERT_FLOW, current_step: CERT_STEP, temp_data: { job: id } });
+  const name = makeCtx(env, { text: "علی رضایی" });
+  const consumed2 = await routeCertName(name.ctx, await getUserState(env, OWNER), async () => null);
+  ok(consumed2 === true && rawJob(env, id).status === "queued", "متنی که دکمه‌ی منو نیست به‌عنوانِ نام مصرف می‌شود");
+}
+{
+  // پیامِ وضعیت پاک شده باشد
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  await bareThenGender(env, "f");
+  const n = makeCtx(env, { text: "راحیل غلامی", editFails: true });
+  await handleCertNameText(n.ctx, await getUserState(env, OWNER));
+  ok(n.calls.reply.length === 1 && /در حال ساخت/.test(n.calls.reply[0].t), "اگر ویرایشِ پیامِ قبلی نشد، پیامِ تازه می‌فرستد");
+  ok(dispatches().length === 1, "و کار باز هم راه می‌افتد");
+}
+{
+  // صف پر است
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const { id } = await bareThenGender(env, "m");
+  for (let i = 0; i < MAX_ACTIVE; i++) {
+    const j = await createDraft(env, OWNER, "نام " + "ا".repeat(i + 2));
+    await takeDraft(env, { id: j, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1 });
+  }
+  const n = makeCtx(env, { text: "علی رضایی" });
+  await handleCertNameText(n.ctx, await getUserState(env, OWNER));
+  ok(/در حال ساختن/.test(n.calls.reply[0].t) && rawJob(env, id).status === "awaiting_name", "وقتی صف پر است، نام مصرف نمی‌شود و مدیر دوباره می‌فرستد");
+}
+{
+  // غیرمدیر با حالتِ کهنه (نباید پیش بیاید، ولی اگر آمد بی‌اثر است)
+  const env = freshEnv(ghEnv);
+  await loadAssets(env);
+  sent.length = 0; installFetch(ghOk);
+  const { id } = await bareThenGender(env, "m");
+  const evil = makeCtx(env, { from: STRANGER, text: "علی رضایی" });
+  await setUserState(env, STRANGER, { current_flow: CERT_FLOW, current_step: CERT_STEP, temp_data: { job: id } });
+  await handleCertNameText(evil.ctx, await getUserState(env, STRANGER));
+  ok(rawJob(env, id).status === "awaiting_name" && dispatches().length === 0 && evil.calls.reply.length === 0, "غیرمدیر نمی‌تواند درخواستِ مدیر را با تایپِ نام پیش ببرد، و جوابی هم نمی‌گیرد");
+  ok((await getUserState(env, STRANGER)).current_flow === null, "و حالتِ ساختگی‌اش پاک می‌شود");
 }
 
 // ─── ۸) آپلودِ فایل‌ها از مدیر ─────────────────────────────────
