@@ -95,7 +95,7 @@ jobs:
             body="body-$ENDPOINT-$w.json"
             total=0
             for i in $(seq 1 $MAX); do
-              code=$(curl -sS -o "$body" -w '%{http_code}' \
+              code=$(curl -sS --max-time 120 -o "$body" -w '%{http_code}' \
                 -H "x-admin-key: $ADMIN_KEY" \
                 "$BASE/admin/$ENDPOINT?$FORCE&shards=$WORKERS&shard=$((w - 1))") || code=000
 
