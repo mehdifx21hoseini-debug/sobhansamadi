@@ -602,11 +602,10 @@ ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]
   const docs = tg("sendDocument");
   ok(docs.length === 3, "با سه sendDocument (فایل) - نه sendPhoto، که تلگرام فشرده‌اش می‌کند");
   const caps = docs.map((d) => d.body.get("caption"));
-  ok(/گواهی ۱ از ۳.*سرکار خانم راحیل غلامی/.test(caps[0].replace(/۱/g, "1").replace(/۳/g, "3") ) || /گواهی ۱ از ۳ — سرکار خانم راحیل غلامی/.test(caps[0]), "اولی: «گواهی ۱ از ۳ — سرکار خانم راحیل غلامی»", caps[0]);
-  ok(/۲ از ۳ — جناب آقای سید محمد سرآبادانی/.test(caps[1]) && /۳ از ۳ — سرکار خانم فاطمه محمدی/.test(caps[2]), "دومی و سومی به ترتیبِ لیست، با جنسیتِ درست", caps);
+  ok(caps[0] === "🎓 سرکار خانم راحیل غلامی" && caps[1] === "🎓 جناب آقای سید محمد سرآبادانی" && caps[2] === "🎓 سرکار خانم فاطمه محمدی", "زیرنویس فقط جنسیت و نام است، بدون «N از M»، به ترتیبِ لیست", caps);
   ok(docs.every((d) => d.body instanceof FormData && d.body.get("chat_id") === "555"), "همه به گفتگوی همان مدیر");
   const f = docs[0].body.get("document");
-  ok(f instanceof Blob && f.type === "image/png" && f.size === PNG.byteLength && f.name === "certificate.png", "فایلِ PNG با نامِ certificate.png و بایت‌های دست‌نخورده");
+  ok(f instanceof Blob && f.type === "image/png" && f.size === PNG.byteLength && f.name === "راحیل غلامی.png", "فایلِ PNG با نامِ دانشجو (نه certificate.png) و بایت‌های دست‌نخورده");
   const e = edits();
   ok(e.length === 3 && e.every((x) => x.message_id === 9 && x.chat_id === "555"), "فقط یک پیام به‌روز می‌شود، با هر گواهی یک بار (نه پیامِ جدا برای هر نام)");
   ok(/۱ از ۳ ارسال شد/.test(e[0].text) && /۲ از ۳ ارسال شد/.test(e[1].text) && e[2].text === "✅ هر ۳ گواهی ارسال شد.", "پیشرفتِ «۱ از ۳» ← «۲ از ۳» ← «هر ۳ گواهی ارسال شد»", e.map((x) => x.text));

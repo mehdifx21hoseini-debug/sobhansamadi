@@ -265,15 +265,14 @@ export async function completeJob(env, id, bytes, fit = "ok") {
   if (!looksLikePng(bytes)) return { status: 400, error: "not_png" };
 
   const label = GENDER_LABEL[job.gender] || "";
-  const where = job.batch_total > 1 ? " " + fa(job.batch_pos) + " از " + fa(job.batch_total) : "";
-  const caption = "🎓 گواهی" + where + " — " + label + " " + job.name + (FIT_NOTE[fit] || "");
+  const caption = "🎓 " + label + " " + job.name + (FIT_NOTE[fit] || "");
 
   // فایل (document)، نه عکس: تلگرام عکس را فشرده می‌کند و کیفیتِ ۳۵۸۴ پیکسلی
   // از بین می‌رفت.
   const form = new FormData();
   form.append("chat_id", job.chat_id);
   form.append("caption", caption);
-  form.append("document", new Blob([bytes], { type: "image/png" }), "certificate.png");
+  form.append("document", new Blob([bytes], { type: "image/png" }), job.name + ".png");
 
   let sent = false;
   try {
