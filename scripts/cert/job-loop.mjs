@@ -14,7 +14,9 @@ import { openRenderer, CertError } from "./render.mjs";
 
 const BASE = process.env.BASE;
 const KEY = process.env.ADMIN_KEY;
-const MAX_JOBS = 20;
+// یک دسته تا ۳۰ نام است و دو دسته می‌توانند پشتِ سرِ هم بیایند؛ هر گواهی حدودِ
+// چهار ثانیه (رندر + آپلود) است، پس ۶۰ تا حدودِ چهار دقیقه است.
+const MAX_JOBS = 60;
 
 if (!BASE || !KEY) {
   console.error("::error::BASE یا ADMIN_KEY تنظیم نشده");

@@ -1,34 +1,39 @@
-// گواهیِ دانشجو: نام، چیدمان، صف، و رفتارِ فرمان و دکمه‌ها.
+// گواهیِ دانشجو: نام، لیست، چیدمان، صفِ دسته‌ها، فرمان و ارسالِ پشتِ سرِ هم.
 //
 // ─── چرا SQLite واقعی ─────────────────────────────────────────────
 //
 // تست‌های قبلیِ این پروژه دیتابیسِ ساختگی داشتند که خودم نوشته بودم - و
 // ساختگی فقط همان چیزی را تأیید می‌کند که من از SQL فرض کرده‌ام. اینجا
 // دستورها روی یک SQLiteِ واقعی (همان موتورِ D1) اجرا می‌شوند، پس شرط‌های
-// `WHERE status = ...` و `changes` واقعاً آزموده می‌شوند.
+// `WHERE status = ...`، `changes` و `ORDER BY rowid` واقعاً آزموده می‌شوند.
 //
 // ─── آنچه می‌خواهیم ثابت شود ──────────────────────────────────────
 //
-//   • دو بار زدنِ یک دکمه، دو گواهی نمی‌سازد.
+//   • یک لیست، چه یک نام چه سی نام، یک‌جا و به ترتیبِ لیست ساخته می‌شود.
+//   • جنسیت را مدیر مشخص می‌کند: سرِ خط، یا با سرخطِ «خانم» / «آقایان».
+//   • همه یا هیچ: یک خطِ بد یعنی هیچ گواهی‌ای ساخته نمی‌شود.
 //   • غیرمدیر نه پاسخ می‌گیرد، نه چیزی در دیتابیس عوض می‌کند.
-//   • ورک‌فلوی دیررسیده نمی‌تواند درخواستِ شکست‌خورده را «انجام‌شده» کند.
+//   • ورک‌فلوی دیررسیده نمی‌تواند ردیفِ شکست‌خورده را «انجام‌شده» کند.
 //   • تکرارِ آپلود هرگز عکسِ دوم نمی‌فرستد.
-//   • نام از «ي ك» عربی به فارسی برمی‌گردد و ورودیِ بد رد می‌شود.
+//   • برای کلِ دسته یک پیامِ پیشرفت هست، نه پیامی برای هر نام.
 
-import { createRequire } from "node:module";
 import { normalizeName } from "../src/certificate/name.js";
+import { parseList, MAX_BATCH } from "../src/certificate/list.js";
 import {
-  createDraft, takeDraft, submitName, cancelDraft, claimNext, finishJob, sweep, countActive,
-  failAllRendering, getJob, resetCertSchemaMemo, DRAFT_TTL_MS, STALE_MS, KEEP_MS, MAX_ACTIVE,
+  enqueueBatch, claimNext, finishJob, cancelBatch, batchStats, sweep, countActive,
+  failAllRendering, failBatch, getJob, resetCertSchemaMemo, STALE_MS, KEEP_MS, MAX_ACTIVE,
 } from "../src/certificate/store.js";
 import {
-  slotForFilename, saveAsset, readAsset, missingAssets, completeJob, failJob,
+  slotForFilename, saveAsset, readAsset, missingAssets, completeJob, failJob, batchText,
   streamAsset, startRender, sweepIfPending, failLeftovers, looksLikePng, PENDING_FLAG,
 } from "../src/certificate/service.js";
 import { readConfig } from "../src/content/channel.js";
-import { handleCert, handleCertCallback, handleCertAsset, handleCertNameText, routeCertName, CERT_FLOW, CERT_STEP } from "../src/commands/cert.js";
-import { getUserState, setUserState } from "../src/db.js";
+import {
+  handleCert, handleCertCallback, handleCertAsset, handleCertListText, routeCertList,
+  CERT_FLOW, CERT_STEP,
+} from "../src/commands/cert.js";
 import { planLine, REF } from "../../scripts/cert/layout.mjs";
+import { getUserState, setUserState } from "../src/db.js";
 import fs from "node:fs";
 
 let n = 0;
@@ -39,7 +44,7 @@ const ok = (c, m, x) => {
 
 const { DatabaseSync } = await import("node:sqlite");
 
-// آداپتورِ D1 روی SQLiteِ واقعی.
+// آداپتورِ D1 روی SQLiteِ واقعی. batch مثلِ D1 اتمیک است: یا همه یا هیچ.
 function d1() {
   const db = new DatabaseSync(":memory:");
   return {
@@ -51,6 +56,11 @@ function d1() {
       st.first = async () => db.prepare(sql).get(...st._a) || null;
       st.all = async () => ({ results: db.prepare(sql).all(...st._a) });
       return st;
+    },
+    async batch(stmts) {
+      db.exec("BEGIN");
+      try { for (const s of stmts) await s.run(); db.exec("COMMIT"); }
+      catch (e) { db.exec("ROLLBACK"); throw e; }
     },
   };
 }
@@ -66,6 +76,7 @@ const freshEnv = (extra = {}) => {
 const OWNER = "6923823275"; // یکی از OWNER_IDS
 const STRANGER = "111222333";
 const T0 = Date.UTC(2026, 9, 9, 12, 0, 0);
+const ghEnv = { GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" };
 
 // ─── ۱) نام ─────────────────────────────────────────────────────
 {
@@ -73,14 +84,10 @@ const T0 = Date.UTC(2026, 9, 9, 12, 0, 0);
   ok(r.ok && r.name === "سید محمد سرآبادانی" && !r.converted, "فاصله‌های اضافه جمع می‌شود", r);
 }
 {
-  // کیبوردِ عربی: «علي» و «كريم»
   const r = normalizeName("علي كريمي");
   ok(r.ok && r.name === "علی کریمی" && r.converted === true, "ي و ك عربی به ی و ک فارسی برمی‌گردد و مدیر باخبر می‌شود", r);
 }
-{
-  const r = normalizeName("فاطمة زهراء");
-  ok(r.ok && r.name === "فاطمه زهراء", "ة → ه", r);
-}
+ok(normalizeName("فاطمة زهراء").name === "فاطمه زهراء", "ة → ه");
 ok(normalizeName("محـــمد").name === "محمد", "کشیده (ـ) برداشته می‌شود");
 ok(normalizeName("مُحَمَّد").name === "محمد", "اعراب برداشته می‌شود");
 ok(normalizeName("ﻣﺤﻤﺪ").name === "محمد", "شکل‌های نمایشیِ عربی به حرفِ اصلی برمی‌گردند");
@@ -96,30 +103,99 @@ ok(!normalizeName("ع").ok, "تک‌حرف رد می‌شود");
 ok(!normalizeName("ا".repeat(61)).ok && normalizeName("ا".repeat(60)).ok, "سقفِ ۶۰ نویسه دقیق است");
 ok(!normalizeName("<b>علی</b>").ok, "نشانه‌گذاریِ HTML رد می‌شود");
 
-// ─── ۲) چیدمان ──────────────────────────────────────────────────
+// ─── ۲) لیست ────────────────────────────────────────────────────
+const names = (r) => r.items.map((i) => i.gender + ":" + i.name);
+{
+  const r = parseList("خانم راحیل غلامی\nآقا سید محمد سرآبادانی");
+  ok(r.ok && names(r).join("|") === "f:راحیل غلامی|m:سید محمد سرآبادانی", "هر خط با جنسیتِ خودش", r);
+}
+{
+  const r = parseList("خانم راحیل غلامی");
+  ok(r.ok && r.items.length === 1, "یک نام هم یک لیست است");
+}
+{
+  const r = parseList("خانم\nراحیل غلامی\nفاطمه محمدی\nآقا\nسید محمد سرآبادانی");
+  ok(r.ok && names(r).join("|") === "f:راحیل غلامی|f:فاطمه محمدی|m:سید محمد سرآبادانی", "سرخطِ «خانم» جنسیتِ خط‌های بعدی را تا سرخطِ دیگر تعیین می‌کند", r);
+}
+{
+  const r = parseList("خانم\nراحیل غلامی\nآقا سید محمد سرآبادانی\nفاطمه محمدی");
+  ok(r.ok && names(r).join("|") === "f:راحیل غلامی|m:سید محمد سرآبادانی|f:فاطمه محمدی", "جنسیتِ سرِ خط بر سرخط می‌چربد و سرخط را عوض نمی‌کند", r);
+}
+{
+  const r = parseList("آقایان:\nعلی رضایی\nخانم‌ها\nمریم احمدی");
+  ok(r.ok && names(r).join("|") === "m:علی رضایی|f:مریم احمدی", "جمع («آقایان:»، «خانم‌ها») هم سرخط است", r);
+}
+{
+  const r = parseList("جناب آقای حسین نوری\nسرکار خانم زهرا کریمی\nجناب علی\nسرکار مریم\nبانو سارا\nآقای رضا");
+  ok(r.ok && names(r).join("|") === "m:حسین نوری|f:زهرا کریمی|m:علی|f:مریم|f:سارا|m:رضا", "همه‌ی شکل‌های جنسیت: جناب آقای، سرکار خانم، جناب، سرکار، بانو، آقای", r);
+}
+{
+  const r = parseList("۱- خانم راحیل غلامی\n2) آقا علی رضایی\n• سرکار خانم زهرا کریمی\n- جناب آقای حسین نوری");
+  ok(r.ok && r.items.length === 4 && r.items[0].name === "راحیل غلامی", "شماره‌گذاری و گلوله‌ی اولِ خط برداشته می‌شود (لیستِ کپی‌شده)", r);
+}
+{
+  const r = parseList("آقاي علي كريمي\nخانم فاطمة زهراء");
+  ok(r.ok && names(r).join("|") === "m:علی کریمی|f:فاطمه زهراء" && r.items.every((i) => i.converted), "کیبوردِ عربی در لیست هم تبدیل می‌شود", r);
+}
+{
+  const r = parseList("خانم\nآقازاده مریم");
+  ok(r.ok && names(r)[0] === "f:آقازاده مریم", "«آقازاده» نامِ یک خانم است، نه جنسیتِ «آقا» (مرزِ کلمه)", r);
+}
+{
+  const r = parseList("خانم راحیل غلامی؛آقا علی رضایی");
+  ok(r.ok && r.items.length === 2, "«؛» هم جداکننده است");
+}
+{
+  const r = parseList("\n\n  خانم راحیل غلامی  \n\n   \nآقا علی رضایی\n");
+  ok(r.ok && r.items.length === 2, "خط‌های خالی و فاصله‌ی اضافه نادیده گرفته می‌شود");
+}
+{
+  const r = parseList("راحیل غلامی\nخانم علی\nعلی رضایی");
+  ok(!r.ok && r.errors.length === 2 && r.errors[0].line === 1 && r.errors[1].line === 3 && /جنسیت/.test(r.errors[0].reason),
+     "خطِ بدونِ جنسیت (و بدونِ سرخط) ایراد است و شماره‌ی خطش گفته می‌شود", r);
+}
+{
+  const r = parseList("خانم Ali\nآقا 12\nآقا ع\nخانم علی");
+  ok(!r.ok && r.errors.length === 3 && r.errors.map((e) => e.line).join() === "1,2,3", "همه‌ی ایراد‌ها یک‌جا گفته می‌شود، نه فقط اولی", r);
+  ok(r.errors.every((e) => e.text && e.reason), "هر ایراد خط و دلیل دارد");
+}
+{
+  const r = parseList("خانم علی رضایی\nخانم Ali");
+  ok(!r.ok, "همه یا هیچ: یک خطِ بد کلِ لیست را رد می‌کند");
+}
+ok(!parseList("").ok && !parseList("  \n \n").ok && !parseList(null).ok, "لیستِ خالی رد می‌شود");
+ok(!parseList("خانم").ok, "فقط یک سرخط، بی‌نام، رد می‌شود");
+{
+  const mk = (k) => Array.from({ length: k }, (_, i) => "خانم نام " + "ا".repeat((i % 20) + 2)).join("\n");
+  ok(parseList(mk(MAX_BATCH)).ok, "دقیقاً ۳۰ نام پذیرفته می‌شود");
+  const r = parseList(mk(MAX_BATCH + 1));
+  ok(!r.ok && /۳۰|30/.test(r.errors[0].reason), "۳۱ نام رد می‌شود", r);
+}
+ok(parseList("خانم علی\n\nآقا رضا").items.length === 2, "ترتیبِ لیست حفظ می‌شود");
+{
+  const r = parseList("آقا <b>علی</b>");
+  ok(!r.ok, "نشانه‌گذاریِ HTML در لیست رد می‌شود");
+}
+
+// ─── ۳) چیدمان ──────────────────────────────────────────────────
 const layout = JSON.parse(fs.readFileSync(new URL("../../scripts/cert/layout.json", import.meta.url), "utf8"));
-// اندازه‌ی جوهر در ۱۰۰ پیکسل، از اندازه‌گیریِ واقعیِ Chromium با فونت‌های آکادمی:
-// نام «راحیل غلامی» ۷۸۰ در ۱۷۲٫۲ و برچسب «سرکار خانم» ۵۸۵ در ۱۳۳٫۹.
 const nameRef = { abl: 0, abr: (780 / 172.2) * REF };
 const labelRef = { abl: 0, abr: (585 / 133.9) * REF };
 {
   const p = planLine(labelRef, nameRef, layout);
   ok(p.fit === "ok" && p.nameScale === 1, "نامِ معمولی بدونِ کوچک شدن جا می‌شود", p);
-  const center = p.name.inkLeft + p.totalWidth / 2;
-  ok(Math.abs(center - layout.centerX) < 0.01, "وسطِ خط روی centerX می‌نشیند");
+  ok(Math.abs(p.name.inkLeft + p.totalWidth / 2 - layout.centerX) < 0.01, "وسطِ خط روی centerX می‌نشیند");
   ok(p.label.inkLeft > p.name.inkLeft, "برچسب سمتِ راستِ نام است (خطِ راست‌به‌چپ)");
   ok(Math.abs(p.label.inkLeft - (p.name.inkLeft + p.name.width) - layout.gapPx) < 0.01, "فاصله‌ی جوهر تا جوهر همان gapPx است");
   ok(p.name.inkLeft + p.totalWidth <= layout.canvas.width, "خط از بوم بیرون نمی‌زند");
 }
 {
-  const long = { abl: 0, abr: (1900 / 172.2) * REF };
-  const p = planLine(labelRef, long, layout);
+  const p = planLine(labelRef, { abl: 0, abr: (1900 / 172.2) * REF }, layout);
   ok(p.fit === "shrunk" && p.nameScale < 1 && p.nameScale >= layout.fit.minScale, "نامِ بلند کوچک می‌شود، نه بیرون می‌زند", p);
   ok(p.totalWidth <= layout.fit.maxWidthPx + 0.5, "و بعد از کوچک شدن در عرضِ مجاز است", p.totalWidth);
 }
 {
-  const absurd = { abl: 0, abr: (9000 / 172.2) * REF };
-  const p = planLine(labelRef, absurd, layout);
+  const p = planLine(labelRef, { abl: 0, abr: (9000 / 172.2) * REF }, layout);
   ok(p.fit === "overflow" && p.nameScale === layout.fit.minScale, "نامِ بی‌نهایت بلند به کفِ اندازه می‌رسد و overflow اعلام می‌شود", p);
 }
 {
@@ -127,134 +203,125 @@ const labelRef = { abl: 0, abr: (585 / 133.9) * REF };
   ok(a.name.inkLeft !== b.name.inkLeft, "برچسبِ کوتاه‌تر (جناب آقای) خط را دوباره وسط‌چین می‌کند");
 }
 
-// ─── ۳) صف روی SQLiteِ واقعی ────────────────────────────────────
-{
-  const env = freshEnv();
-  const id = await createDraft(env, OWNER, "علی رضایی", T0);
-  ok(/^[0-9a-f]{12}$/.test(id), "شناسه ۱۲ رقمِ هگز است", id);
-  ok(Buffer.byteLength("CERT|m|" + id) <= 64, "callback_data زیرِ سقفِ ۶۴ بایتِ تلگرام است");
-  ok((await getJob(env, id)).status === "draft", "پیش‌نویس با وضعیتِ draft ساخته می‌شود");
+// ─── ۴) صفِ دسته‌ها روی SQLiteِ واقعی ──────────────────────────
+const ITEMS3 = [
+  { name: "راحیل غلامی", gender: "f" },
+  { name: "سید محمد سرآبادانی", gender: "m" },
+  { name: "فاطمه محمدی", gender: "f" },
+];
+const enq = (env, items = ITEMS3, o = {}) =>
+  enqueueBatch(env, { ownerId: OWNER, chatId: "555", messageId: 9, items, now: T0, ...o });
 
-  const wrong = await takeDraft(env, { id, ownerId: STRANGER, gender: "f", chatId: "1", messageId: 5, now: T0 + 1000 });
-  ok(wrong.ok === false && wrong.why === "owner", "کسِ دیگر نمی‌تواند پیش‌نویسِ مدیر را به صف ببرد", wrong);
-  ok((await getJob(env, id)).status === "draft", "و پیش‌نویس دست‌نخورده می‌ماند");
-
-  const t1 = await takeDraft(env, { id, ownerId: OWNER, gender: "f", chatId: "1", messageId: 5, now: T0 + 1000 });
-  ok(t1.ok && t1.job.status === "queued" && t1.job.gender === "f", "مالک پیش‌نویس را با جنسیت به صف می‌برد", t1);
-  const t2 = await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 + 2000 });
-  ok(t2.ok === false && t2.why === "gone", "زدنِ دوباره‌ی دکمه رد می‌شود", t2);
-  ok((await getJob(env, id)).gender === "f", "و جنسیتِ ثبت‌شده با دکمه‌ی دوم عوض نمی‌شود");
+{
+  const env = freshEnv();
+  const { batchId, ids } = await enq(env);
+  ok(/^[0-9a-f]{12}$/.test(batchId) && ids.length === 3, "شناسه‌ی دسته ۱۲ رقمِ هگز است و هر نام شناسه‌ی خودش را دارد");
+  ok(Buffer.byteLength("CERT|k|" + batchId) <= 64, "callback_data زیرِ سقفِ ۶۴ بایتِ تلگرام است");
+  const st = await batchStats(env, batchId);
+  ok(st.total === 3 && st.counts.queued === 3, "هر سه ردیف در صف نشستند", st);
+  ok(st.chat_id === "555" && st.message_id === 9 && st.owner_id === OWNER, "و شناسه‌ی گفتگو و پیامِ پیشرفت روی دسته ثبت شد");
+  const rows = env.DB.raw.prepare("SELECT name, gender, batch_pos, batch_total FROM cert_jobs ORDER BY rowid").all();
+  ok(rows.map((r) => r.batch_pos).join() === "1,2,3" && rows.every((r) => r.batch_total === 3), "جایگاه و کلِ دسته روی هر ردیف ثبت می‌شود", rows);
+  ok(rows.map((r) => r.gender).join() === "f,m,f", "جنسیتِ هر نام همان است که مدیر نوشت");
+}
+{
+  // ترتیب: ورک‌فلو دقیقاً به ترتیبِ لیست برمی‌دارد
+  const env = freshEnv();
+  await enq(env);
+  const a = await claimNext(env, T0 + 1), b = await claimNext(env, T0 + 1), c = await claimNext(env, T0 + 1), d = await claimNext(env, T0 + 1);
+  ok([a, b, c].map((j) => j.name).join("|") === ITEMS3.map((i) => i.name).join("|"), "claimNext به ترتیبِ لیست برمی‌دارد، هرچند همه در یک میلی‌ثانیه ساخته شدند", [a, b, c].map((j) => j.name));
+  ok(d === null, "و هر ردیف دقیقاً یک بار");
+  ok(a.status === "rendering", "ردیفِ برداشته‌شده rendering است");
+}
+{
+  // دو دسته: اولی کامل، بعد دومی
+  const env = freshEnv();
+  await enq(env, [{ name: "اول", gender: "m" }, { name: "دوم", gender: "m" }]);
+  await enq(env, [{ name: "سوم", gender: "f" }]);
+  const order = [];
+  for (let i = 0; i < 3; i++) order.push((await claimNext(env)).name);
+  ok(order.join() === "اول,دوم,سوم", "دسته‌ی دوم بعد از دسته‌ی اول می‌آید", order);
+  ok(await countActive(env) === 3, "countActive ردیف‌های در جریان را می‌شمارد");
+}
+{
+  // اتمیک: یک ردیفِ خراب کلِ دسته را نمی‌نشاند
+  const env = freshEnv();
+  let threw = false;
+  try { await enq(env, [{ name: "خوب", gender: "f" }, { name: null, gender: "f" }]); } catch { threw = true; }
+  ok(threw && env.DB.raw.prepare("SELECT COUNT(*) AS n FROM cert_jobs").get().n === 0, "درجِ دسته اتمیک است: یک ردیفِ خراب یعنی هیچ‌کدام نمی‌نشیند");
 }
 {
   const env = freshEnv();
-  const id = await createDraft(env, OWNER, "علی", T0);
-  const late = await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: T0 + DRAFT_TTL_MS + 1000 });
-  ok(late.ok === false && late.why === "expired", "پیش‌نویسِ کهنه‌تر از ۱۵ دقیقه منقضی است", late);
-  ok((await takeDraft(env, { id: "ffffffffffff", ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: T0 })).why === "gone", "شناسه‌ی ناموجود → gone");
+  const { ids } = await enq(env);
+  ok(await finishJob(env, ids[0], "done", null, T0 + 1) === false, "done از queued ممکن نیست - عکسی رندر نشده");
+  const j = await claimNext(env);
+  ok(await finishJob(env, j.id, "done", null, T0 + 2) === true, "done از rendering ممکن است");
+  ok(await finishJob(env, j.id, "done", null, T0 + 3) === false, "done دوباره اثری ندارد");
+  ok(await finishJob(env, j.id, "failed", "x", T0 + 4) === false, "ردیفِ انجام‌شده را نمی‌شود شکست‌خورده کرد");
+  ok((await getJob(env, j.id)).status === "done", "و وضعیتش done می‌ماند");
 }
 {
+  // لغوِ باقی‌مانده
   const env = freshEnv();
-  const id = await createDraft(env, OWNER, "علی", T0);
-  ok(await cancelDraft(env, id, STRANGER, T0) === false, "کسِ دیگر نمی‌تواند لغو کند");
-  ok(await cancelDraft(env, id, OWNER, T0) === true, "مالک لغو می‌کند");
-  ok((await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: T0 })).ok === false, "پیش‌نویسِ لغوشده به صف نمی‌رود");
+  const { batchId, ids } = await enq(env);
+  const first = await claimNext(env);
+  ok(await cancelBatch(env, batchId, STRANGER) === 0, "کسِ دیگر نمی‌تواند دسته را لغو کند");
+  ok(await cancelBatch(env, batchId, OWNER) === 2, "مالک دو ردیفِ منتظر را لغو می‌کند");
+  const st = await batchStats(env, batchId);
+  ok(st.counts.cancelled === 2 && st.counts.rendering === 1, "ردیفِ در حال رندر لغو نمی‌شود - تمام می‌شود", st.counts);
+  ok(await claimNext(env) === null, "و ردیفِ لغوشده هرگز برداشته نمی‌شود");
+  ok(await finishJob(env, first.id, "done") === true, "ردیفِ در حال رندر همچنان می‌تواند تمام شود");
+  ok(await cancelBatch(env, batchId, OWNER) === 0, "لغوِ دوباره چیزی پیدا نمی‌کند");
+  void ids;
 }
 {
+  // جاروی گیرکرده‌ها
   const env = freshEnv();
-  const mk = async (name, at) => {
-    const id = await createDraft(env, OWNER, name, at);
-    await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: at });
-    return id;
-  };
-  const a = await mk("اول", T0), b = await mk("دوم", T0 + 5000);
-  const c1 = await claimNext(env, T0 + 6000), c2 = await claimNext(env, T0 + 6000), c3 = await claimNext(env, T0 + 6000);
-  ok(c1.id === a && c2.id === b, "قدیمی‌ترین اول برداشته می‌شود (FIFO)", [c1 && c1.id, c2 && c2.id]);
-  ok(c3 === null, "هر درخواست دقیقاً یک بار برداشته می‌شود");
-  ok(c1.status === "rendering", "وضعیتِ برداشته‌شده rendering است");
-  ok(await countActive(env) === 2, "countActive درخواست‌های در جریان را می‌شمارد");
-
-  ok(await finishJob(env, a, "done", null, T0 + 7000) === true, "done از rendering ممکن است");
-  ok(await finishJob(env, a, "done", null, T0 + 8000) === false, "done دوباره اثری ندارد");
-  ok(await finishJob(env, a, "failed", "x", T0 + 9000) === false, "درخواستِ انجام‌شده را نمی‌شود شکست‌خورده کرد");
-  ok((await getJob(env, a)).status === "done", "و وضعیتش done می‌ماند");
-}
-{
-  const env = freshEnv();
-  const id = await createDraft(env, OWNER, "علی", T0);
-  await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: T0 });
-  ok(await finishJob(env, id, "done", null, T0 + 1) === false, "done از queued ممکن نیست - عکسی رندر نشده");
-}
-{
-  // جاروی گیرکرده‌ها و پاک‌سازیِ داده‌ی شخصی
-  const env = freshEnv();
-  const take = async (name, at) => {
-    const id = await createDraft(env, OWNER, name, at);
-    await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: at });
-    return id;
-  };
-  const stuckQueued = await take("منتظر", T0);
-  const stuckRendering = await take("درحال", T0);
-  await claimNext(env, T0 + 10); // قدیمی‌ترینِ queued را به rendering می‌برد
-  const fresh = await take("تازه", T0 + STALE_MS - 1000);
+  const { batchId } = await enq(env, [{ name: "منتظر", gender: "m" }, { name: "درحال", gender: "m" }, { name: "سوم", gender: "m" }]);
+  await claimNext(env, T0 + 10);
   const r = await sweep(env, T0 + STALE_MS + 5000);
-  const codes = Object.fromEntries(r.stale.map((j) => [j.id, j.error]));
-  ok(r.stale.length === 2, "هر دو درخواستِ گیرکرده شکست‌خورده اعلام شدند", r.stale.length);
-  ok(Object.values(codes).sort().join() === "no_runner,timeout", "دلیلشان با وضعیتِ قبلی می‌خواند (شروع نشد / طول کشید)", codes);
-  ok((await getJob(env, fresh)).status === "queued", "درخواستِ تازه دست‌نخورده می‌ماند");
-  void stuckQueued; void stuckRendering;
+  const codes = r.stale.map((j) => j.error).sort();
+  ok(r.stale.length === 3 && codes.join() === "no_runner,no_runner,timeout", "هر سه ردیفِ گیرکرده شکست‌خورده اعلام شدند، با دلیلی که با وضعیتِ قبلی می‌خواند", codes);
+  ok(r.stale.every((j) => j.batch_id === batchId), "و دسته‌شان معلوم است - برای تازه‌سازیِ یک‌بارِ پیام");
 }
 {
   const env = freshEnv();
-  const old = await createDraft(env, OWNER, "قدیمی", T0 - KEEP_MS - 5000);
-  await takeDraft(env, { id: old, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: T0 - KEEP_MS - 5000 });
+  await enq(env, [{ name: "تازه", gender: "m" }], { now: T0 + STALE_MS - 1000 });
+  ok((await sweep(env, T0 + STALE_MS + 5000)).stale.length === 0, "ردیفِ تازه دست‌نخورده می‌ماند");
+}
+{
+  // پاک‌سازیِ داده‌ی شخصی
+  const env = freshEnv();
+  const old = await enq(env, [{ name: "قدیمی", gender: "m" }], { now: T0 - KEEP_MS - 5000 });
   await claimNext(env, T0 - KEEP_MS - 4000);
-  await finishJob(env, old, "done", null, T0 - KEEP_MS - 3000);
-  const young = await createDraft(env, OWNER, "تازه", T0);
-  const staleDraft = await createDraft(env, OWNER, "پیش‌نویسِ کهنه", T0 - 2 * 86400000);
+  await finishJob(env, old.ids[0], "done", null, T0 - KEEP_MS - 3000);
+  const young = await enq(env, [{ name: "تازه", gender: "m" }], { now: T0 });
   const r = await sweep(env, T0);
-  ok(r.purged === 2, "نامِ انجام‌شده‌ی بیش از ۳۰ روز و پیش‌نویسِ بیش از یک روز پاک می‌شود", r);
-  ok((await getJob(env, old)) === null && (await getJob(env, staleDraft)) === null, "هر دو رفتند");
-  ok((await getJob(env, young)) !== null, "و پیش‌نویسِ تازه ماند");
+  ok(r.purged === 1 && (await getJob(env, old.ids[0])) === null, "نامِ انجام‌شده‌ی بیش از ۳۰ روز پاک می‌شود");
+  ok((await getJob(env, young.ids[0])) !== null, "و ردیفِ تازه ماند");
 }
 {
   const env = freshEnv();
-  const id = await createDraft(env, OWNER, "علی", T0);
-  await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1, now: T0 });
-  await claimNext(env, T0);
+  const { batchId, ids } = await enq(env);
+  await claimNext(env);
   const left = await failAllRendering(env, T0 + 1);
-  ok(left.length === 1 && (await getJob(env, id)).status === "failed", "failAllRendering هرچه نیمه‌کاره مانده را شکست‌خورده می‌کند");
+  ok(left.length === 1 && (await getJob(env, ids[0])).status === "failed", "failAllRendering هرچه نیمه‌کاره مانده را شکست‌خورده می‌کند");
+  ok(await failBatch(env, batchId, "dispatch", T0 + 2) === 2 && (await batchStats(env, batchId)).counts.failed === 3, "failBatch همه‌ی باقی‌مانده‌ی دسته را شکست‌خورده می‌کند");
 }
-
 {
-  // submitName روی SQLiteِ واقعی
-  const env = freshEnv();
-  const id = await createDraft(env, OWNER, "", T0);
-  await takeDraft(env, { id, ownerId: OWNER, gender: "f", chatId: "1", messageId: 5, now: T0 });
-  ok((await getJob(env, id)).status === "awaiting_name", "پیش‌نویسِ بدونِ نام بعد از جنسیت awaiting_name می‌شود، نه queued");
-  ok((await submitName(env, { id, ownerId: STRANGER, name: "علی", now: T0 + 1000 })).why === "gone", "کسِ دیگر نمی‌تواند نام بدهد");
-  ok((await getJob(env, id)).name === "", "و نام دست‌نخورده می‌ماند");
-  const r1 = await submitName(env, { id, ownerId: OWNER, name: "علی رضایی", now: T0 + 1000 });
-  ok(r1.ok && r1.job.status === "queued" && r1.job.name === "علی رضایی" && r1.job.gender === "f", "مالک نام می‌دهد و درخواست با همان جنسیت به صف می‌رود", r1);
-  const r2 = await submitName(env, { id, ownerId: OWNER, name: "نامِ دیگر", now: T0 + 2000 });
-  ok(r2.ok === false && (await getJob(env, id)).name === "علی رضایی", "نامِ دوم رد می‌شود و نامِ اول عوض نمی‌شود");
-
-  const late = await createDraft(env, OWNER, "", T0);
-  await takeDraft(env, { id: late, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 });
-  const e = await submitName(env, { id: late, ownerId: OWNER, name: "علی", now: T0 + DRAFT_TTL_MS + 1000 });
-  ok(e.ok === false && e.why === "expired", "بعد از ۱۵ دقیقه از انتخابِ جنسیت، نام منقضی است", e);
-
-  const c = await createDraft(env, OWNER, "", T0);
-  await takeDraft(env, { id: c, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 });
-  ok(await cancelDraft(env, c, OWNER, T0 + 1) === true, "لغو در مرحله‌ی «منتظرِ نام» هم کار می‌کند");
-  ok((await submitName(env, { id: c, ownerId: OWNER, name: "علی", now: T0 + 2 })).ok === false, "و بعد از لغو نام پذیرفته نمی‌شود");
-
-  const stale = await createDraft(env, OWNER, "", T0 - 3 * 86400000);
-  await takeDraft(env, { id: stale, ownerId: OWNER, gender: "m", chatId: "1", messageId: 5, now: T0 - 3 * 86400000 });
-  const sw = await sweep(env, T0);
-  ok((await getJob(env, stale)) === null && sw.purged >= 1, "درخواستِ منتظرِ نامِ بیش از یک روز پاک می‌شود - نام و جنسیتش نمی‌ماند");
+  // جدولِ نسخه‌ی قبلی (بدونِ ستون‌های دسته) بی‌خطا و بی‌ازدست‌دادنِ داده ارتقا می‌یابد
+  resetCertSchemaMemo();
+  const env = { DB: d1(), BOT_TOKEN: "T" };
+  env.DB.raw.exec(`CREATE TABLE cert_jobs (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, name TEXT NOT NULL, gender TEXT,
+    status TEXT NOT NULL, chat_id TEXT, message_id INTEGER, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+  env.DB.raw.prepare("INSERT INTO cert_jobs VALUES ('oldoldoldold', ?, 'قدیمی', 'f', 'done', '1', 2, NULL, 'a', 'b')").run(OWNER);
+  const b = await enq(env, [{ name: "تازه", gender: "m" }]);
+  const cols = env.DB.raw.prepare("PRAGMA table_info(cert_jobs)").all().map((c) => c.name);
+  ok(["batch_id", "batch_pos", "batch_total"].every((c) => cols.includes(c)), "ستون‌های دسته به جدولِ قدیمی اضافه می‌شود");
+  ok((await getJob(env, "oldoldoldold")).name === "قدیمی" && (await batchStats(env, b.batchId)).total === 1, "ردیفِ قدیمی می‌ماند و دسته‌ی تازه کار می‌کند");
 }
 
-// ─── ۴) فایل‌های خصوصی ───────────────────────────────────────────
+// ─── ۵) فایل‌های خصوصی ───────────────────────────────────────────
 ok(slotForFilename("template.png") === "template", "template.png → قالب");
 ok(slotForFilename("Template.PNG") === "template", "بزرگیِ حروف مهم نیست");
 ok(slotForFilename("YekanBakh-ExtraBlack.ttf") === "name_font", "ExtraBlack → فونتِ اسم");
@@ -264,8 +331,8 @@ ok(slotForFilename("YekanBakh-Bold.ttf") === null && slotForFilename("YekanBakh-
 ok(slotForFilename("photo.png") === null && slotForFilename("") === null && slotForFilename(undefined) === null, "فایلِ نامربوط شناخته نمی‌شود");
 ok(slotForFilename("template.png.exe") === null, "پسوندِ جعلی شناخته نمی‌شود");
 
-// ─── ۵) ساختِ ctx و fetchِ ساختگی ─────────────────────────────
-const sent = []; // هر درخواستِ بیرونی
+// ─── ctx و fetchِ ساختگی ────────────────────────────────────────
+const sent = [];
 function installFetch(handler) {
   globalThis.fetch = async (url, init = {}) => {
     sent.push({ url: String(url), method: init.method, body: init.body });
@@ -273,9 +340,14 @@ function installFetch(handler) {
   };
 }
 const jsonRes = (b, status = 200) => new Response(JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
+const ghOk = (url) => (url.includes("api.github.com") ? new Response(null, { status: 204 }) : jsonRes({ ok: true, result: {} }));
+const dispatches = () => sent.filter((s) => s.url.includes("api.github.com"));
+const tg = (method) => sent.filter((s) => s.url.endsWith("/" + method));
+const edits = () => tg("editMessageText").map((s) => JSON.parse(s.body));
 
-function makeCtx(env, { from = OWNER, match = "", data, doc, text, editFails = false } = {}) {
-  const calls = { reply: [], answer: [], edit: [], editMarkup: [], apiEdit: [] };
+function makeCtx(env, { from = OWNER, match = "", data, doc, text } = {}) {
+  const calls = { reply: [], answer: [], edit: [] };
+  let seq = 500;
   const ctx = {
     env,
     from: { id: Number(from) },
@@ -283,16 +355,9 @@ function makeCtx(env, { from = OWNER, match = "", data, doc, text, editFails = f
     match,
     message: doc ? { document: doc } : text !== undefined ? { text } : undefined,
     callbackQuery: data ? { data, message: { chat: { id: Number(from) }, message_id: 77 } } : undefined,
-    reply: async (t, o) => { calls.reply.push({ t, o }); },
+    reply: async (t, o) => { calls.reply.push({ t, o }); return { message_id: ++seq }; },
     answerCallbackQuery: async (o) => { calls.answer.push(o); },
     editMessageText: async (t, o) => { calls.edit.push({ t, o }); },
-    editMessageReplyMarkup: async (o) => { calls.editMarkup.push(o); },
-    api: {
-      editMessageText: async (chatId, messageId, t, o) => {
-        if (editFails) throw new Error("message to edit not found");
-        calls.apiEdit.push({ chatId, messageId, t, o });
-      },
-    },
   };
   return { ctx, calls };
 }
@@ -302,298 +367,183 @@ async function loadAssets(env) {
     await saveAsset(env, slot, { file_id: "fid_" + slot, file_size: 1234, file_name: file });
   }
 }
+const readyEnv = async (extra = ghEnv) => { const env = freshEnv(extra); await loadAssets(env); sent.length = 0; installFetch(ghOk); return env; };
+const rows = (env) => {
+  try { return env.DB.raw.prepare("SELECT * FROM cert_jobs ORDER BY rowid").all(); } catch { return []; }
+};
 
 // ─── ۶) فرمانِ /cert ─────────────────────────────────────────────
 {
-  const env = freshEnv();
-  await loadAssets(env);
-  const { ctx, calls } = makeCtx(env, { from: STRANGER, match: "علی رضایی" });
+  const env = await readyEnv();
+  const { ctx, calls } = makeCtx(env, { from: STRANGER, match: "خانم راحیل غلامی" });
   await handleCert(ctx);
   ok(calls.reply.length === 0, "برای غیرمدیر هیچ پاسخی نیست - انگار فرمان وجود ندارد");
-  // برای غیرمدیر حتی جدول هم ساخته نمی‌شود - قوی‌تر از «صفر ردیف».
   const table = env.DB.raw.prepare("SELECT name FROM sqlite_master WHERE name = 'cert_jobs'").get();
-  ok(!table || env.DB.raw.prepare("SELECT COUNT(*) AS n FROM cert_jobs").get().n === 0, "و به دیتابیس دست نمی‌زند");
+  ok(!table || rows(env).length === 0, "و به دیتابیس دست نمی‌زند");
+  ok(dispatches().length === 0, "و ورک‌فلویی راه نمی‌افتد");
 }
 {
-  const env = freshEnv();
-  const { ctx, calls } = makeCtx(env, { match: "علی رضایی" });
+  const env = freshEnv(ghEnv); sent.length = 0; installFetch(ghOk);
+  const { ctx, calls } = makeCtx(env, { match: "" });
   await handleCert(ctx);
-  ok(calls.reply.length === 1 && /هنوز کامل بارگذاری نشده/.test(calls.reply[0].t), "بدونِ فایل‌های گواهی، دکمه نمی‌دهد و می‌گوید چه چیزی کم است");
-  ok(!calls.reply[0].o || !calls.reply[0].o.reply_markup, "و دکمه‌ای نشان نمی‌دهد");
+  ok(/هنوز کامل بارگذاری نشده/.test(calls.reply[0].t), "بدونِ فایل‌های گواهی، می‌گوید چه چیزی کم است");
   ok(/template\.png/.test(calls.reply[0].t) && /ExtraBlack/.test(calls.reply[0].t) && /Light/.test(calls.reply[0].t), "نامِ سه فایل را می‌گوید");
+  ok((await getUserState(env, OWNER)) === null || (await getUserState(env, OWNER)).current_flow !== CERT_FLOW, "و منتظرِ لیست نمی‌ماند");
 }
 {
-  const env = freshEnv();
-  await loadAssets(env);
-  const { ctx, calls } = makeCtx(env, { match: "علي كريمي" });
+  const env = await readyEnv();
+  const { ctx, calls } = makeCtx(env, { match: "" });
   await handleCert(ctx);
-  const r = calls.reply[0];
-  ok(/«علی کریمی»/.test(r.t) && /تبدیل شد/.test(r.t), "نامِ پاک‌سازی‌شده نشان داده می‌شود و تبدیلِ حروفِ عربی اعلام می‌شود", r.t);
-  const btns = r.o.reply_markup.inline_keyboard.flat();
-  const m = btns.find((b) => /^CERT\|m\|/.test(b.callback_data)), f = btns.find((b) => /^CERT\|f\|/.test(b.callback_data));
-  ok(m && f && /آقای/.test(m.text) && /خانم/.test(f.text), "دو دکمه: جناب آقای و سرکار خانم");
-  ok(btns.some((b) => /^CERT\|x\|/.test(b.callback_data)), "و دکمه‌ی لغو");
-  ok(btns.every((b) => Buffer.byteLength(b.callback_data) <= 64), "همه‌ی callback_dataها در سقفِ تلگرام‌اند");
-  const row = await env.DB.raw.prepare("SELECT name, status, owner_id FROM cert_jobs").get();
-  ok(row.name === "علی کریمی" && row.status === "draft" && row.owner_id === OWNER, "پیش‌نویس با نامِ پاک‌سازی‌شده ذخیره می‌شود");
-}
-{
-  const env = freshEnv();
-  await loadAssets(env);
-  const { ctx, calls } = makeCtx(env, { match: "Ali" });
-  await handleCert(ctx);
-  ok(/لاتین/.test(calls.reply[0].t) && !(calls.reply[0].o || {}).reply_markup, "نامِ نامعتبر رد می‌شود، با دلیل و بی‌دکمه");
-  const none = makeCtx(env, { match: "" });
-  await handleCert(none.ctx);
-  const noneBtns = none.calls.reply[0].o.reply_markup.inline_keyboard.flat();
-  ok(noneBtns.some((b) => /^CERT\|m\|/.test(b.callback_data)) && noneBtns.some((b) => /^CERT\|f\|/.test(b.callback_data)),
-     "بدونِ نام، مستقیم دکمه‌های جنسیت می‌آید - نه راهنمای استفاده");
-}
-{
-  const env = freshEnv();
-  await loadAssets(env);
-  for (let i = 0; i < MAX_ACTIVE; i++) {
-    const id = await createDraft(env, OWNER, "نام " + "ا".repeat(i + 2));
-    await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1 });
-  }
-  const { ctx, calls } = makeCtx(env, { match: "علی" });
-  await handleCert(ctx);
-  ok(/در حال ساختن/.test(calls.reply[0].t), "وقتی چند گواهی در جریان است، درخواستِ تازه صبر می‌خواهد");
-}
-
-// ─── ۷) دکمه‌ها ─────────────────────────────────────────────────
-const ghOk = (url) =>
-  url.includes("api.github.com") ? new Response(null, { status: 204 }) : jsonRes({ ok: true, result: {} });
-async function draftFor(env, name = "علی رضایی") { return createDraft(env, OWNER, name); }
-
-{
-  const env = freshEnv({ GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" });
-  sent.length = 0; installFetch(ghOk);
-  const id = await draftFor(env);
-  const { ctx, calls } = makeCtx(env, { from: STRANGER, data: "CERT|f|" + id });
-  await handleCertCallback(ctx);
-  ok((await getJob(env, id)).status === "draft", "دکمه‌ی غیرمدیر هیچ اثری ندارد");
-  ok(calls.edit.length === 0 && sent.length === 0, "نه پیامی عوض می‌شود و نه ورک‌فلویی راه می‌افتد");
-  ok(calls.answer.length === 1 && !calls.answer[0], "فقط دکمه خنثی می‌شود - بی‌هیچ متنی");
-}
-{
-  const env = freshEnv({ GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" });
-  sent.length = 0; installFetch(ghOk);
-  const id = await draftFor(env);
-  const { ctx, calls } = makeCtx(env, { data: "CERT|f|" + id });
-  await handleCertCallback(ctx);
-  const job = await getJob(env, id);
-  ok(job.status === "queued" && job.gender === "f" && job.chat_id === String(OWNER) && job.message_id === 77, "زدنِ «سرکار خانم» درخواست را با جنسیت و پیامِ وضعیت به صف می‌برد", job);
-  ok(/در حال ساخت/.test(calls.edit[0].t) && /سرکار خانم/.test(calls.edit[0].t), "پیام به «در حال ساخت» عوض می‌شود");
-  ok(calls.edit[0].o.reply_markup.inline_keyboard.length === 0, "و دکمه‌ها برداشته می‌شوند تا دوباره زده نشوند");
-  const gh = sent.filter((s) => s.url.includes("api.github.com"));
-  ok(gh.length === 1 && /cert-render\.yml\/dispatches$/.test(gh[0].url), "ورک‌فلوی cert-render دقیقاً یک بار راه می‌افتد", gh.map((g) => g.url));
-  ok(!JSON.stringify(gh[0].body).includes("علی"), "و نامِ دانشجو در درخواستِ گیت‌هاب نیست - ریپو عمومی است", gh[0].body);
-  ok((await readConfig(env, PENDING_FLAG)) === "1", "علامتِ «کار در جریان» برای جاروی کران گذاشته می‌شود");
-
-  // دوباره زدنِ همان دکمه
-  const again = makeCtx(env, { data: "CERT|m|" + id });
-  const before = sent.length;
-  await handleCertCallback(again.ctx);
-  ok(sent.length === before, "دوباره زدنِ دکمه ورک‌فلوی دوم راه نمی‌اندازد");
-  ok(/قبلاً/.test(again.calls.answer[0].text), "و می‌گوید قبلاً انجام شده");
-  ok((await getJob(env, id)).gender === "f", "و جنسیتِ ثبت‌شده عوض نمی‌شود");
-}
-{
-  const env = freshEnv({ GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" });
-  sent.length = 0; installFetch(ghOk);
-  const id = await draftFor(env);
-  const { ctx, calls } = makeCtx(env, { data: "CERT|x|" + id });
-  await handleCertCallback(ctx);
-  ok((await getJob(env, id)).status === "cancelled" && sent.length === 0, "لغو: درخواست لغو می‌شود و چیزی راه نمی‌افتد");
-  ok(/لغو/.test(calls.edit[0].t), "و پیام «لغو شد» می‌شود");
-}
-{
-  // ورک‌فلو راه نیفتد: مدیر نباید برای همیشه منتظر بماند.
-  const env = freshEnv({ GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" });
-  sent.length = 0;
-  installFetch((url) => (url.includes("api.github.com") ? new Response("no", { status: 403 }) : jsonRes({ ok: true, result: {} })));
-  const id = await draftFor(env);
-  const { ctx } = makeCtx(env, { data: "CERT|m|" + id });
-  await handleCertCallback(ctx);
-  const job = await getJob(env, id);
-  ok(job.status === "failed" && job.error === "dispatch", "اگر ورک‌فلو راه نیفتد، درخواست همان لحظه شکست‌خورده اعلام می‌شود", job);
-  const tg = sent.filter((s) => s.url.includes("api.telegram.org"));
-  ok(tg.some((s) => /editMessageText/.test(s.url) && /انجام نشد/.test(String(s.body))), "و پیامِ وضعیتِ مدیر به «انجام نشد» عوض می‌شود");
-}
-{
-  const env = freshEnv();
-  const { ctx, calls } = makeCtx(env, { data: "CERT|f|not-a-valid-id" });
-  await handleCertCallback(ctx);
-  ok(calls.edit.length === 0 && calls.answer.length === 1, "شناسه‌ی خراب بی‌سروصدا نادیده گرفته می‌شود");
-}
-
-// ─── ۷ب) جریانِ اصلی: /cert ← جنسیت ← نام ─────────────────────
-//
-// همان چیزی که آکادمی خواست: دستور را می‌زنم، دکمه می‌آید، بعد اسم را وارد
-// می‌کنم و می‌سازد.
-const ghEnv = { GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" };
-const dispatches = () => sent.filter((s) => s.url.includes("api.github.com"));
-const rawJob = (env, id) => env.DB.raw.prepare("SELECT * FROM cert_jobs WHERE id = ?").get(id);
-
-async function bareThenGender(env, gender = "m") {
-  const a = makeCtx(env, { match: "" });
-  await handleCert(a.ctx);
-  const id = env.DB.raw.prepare("SELECT id FROM cert_jobs ORDER BY created_at DESC, rowid DESC LIMIT 1").get().id;
-  const t = makeCtx(env, { data: "CERT|" + gender + "|" + id });
-  await handleCertCallback(t.ctx);
-  return { id, bare: a, tap: t };
-}
-
-{
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const a = makeCtx(env, { match: "" });
-  await handleCert(a.ctx);
-  const draft = env.DB.raw.prepare("SELECT * FROM cert_jobs").get();
-  ok(draft.status === "draft" && draft.name === "", "دستورِ بی‌نام پیش‌نویسی بدونِ نام می‌سازد", draft);
-  ok(/جنسیت/.test(a.calls.reply[0].t), "و جنسیت را می‌پرسد");
-  ok(dispatches().length === 0, "هنوز ورک‌فلویی راه نمی‌افتد");
-
-  const t = makeCtx(env, { data: "CERT|m|" + draft.id });
-  await handleCertCallback(t.ctx);
-  const job = rawJob(env, draft.id);
-  ok(job.status === "awaiting_name" && job.gender === "m", "با زدنِ دکمه، درخواست منتظرِ نام می‌شود (نه در صف)", job);
-  ok(dispatches().length === 0, "و هنوز چیزی ساخته نمی‌شود - نام نیامده");
-  ok(/حالا نامِ دانشجو را بنویسید/.test(t.calls.edit[0].t) && /جناب آقای/.test(t.calls.edit[0].t), "ربات می‌گوید حالا نام را بنویسید و جنسیتِ انتخاب‌شده را تأیید می‌کند");
-  const cancelBtn = t.calls.edit[0].o.reply_markup.inline_keyboard.flat();
-  ok(cancelBtn.length === 1 && /^CERT\|x\|/.test(cancelBtn[0].callback_data), "و فقط دکمه‌ی لغو می‌ماند");
+  const t = calls.reply[0].t;
+  ok(/لیستِ نام‌ها را بفرستید/.test(t) && /خانم راحیل غلامی/.test(t) && /آقا سید محمد/.test(t), "/cert بدونِ نام، فرمتِ لیست را با مثال توضیح می‌دهد - نه دکمه‌ی جنسیت");
+  ok(/«خانم» یا «آقا»/.test(t) && /سرخط|زیرش/.test(t), "و می‌گوید چطور برای چند نفرِ هم‌جنس یک خط کافی است");
+  const btns = calls.reply[0].o.reply_markup.inline_keyboard.flat();
+  ok(btns.length === 1 && btns[0].callback_data === "CERT|c", "فقط دکمه‌ی لغو دارد");
   const st = await getUserState(env, OWNER);
-  ok(st.current_flow === CERT_FLOW && st.current_step === CERT_STEP && st.temp_data.job === draft.id, "حالتِ «منتظرِ نام» برای همین مدیر ثبت می‌شود", st);
+  ok(st.current_flow === CERT_FLOW && st.current_step === CERT_STEP, "و منتظرِ لیست می‌ماند", st);
+  ok(rows(env).length === 0 && dispatches().length === 0, "هنوز چیزی ساخته نمی‌شود");
 }
 {
-  // نامِ نامعتبر حالت را نمی‌بندد
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const { id } = await bareThenGender(env, "f");
-  const bad = makeCtx(env, { text: "Ali" });
-  await handleCertNameText(bad.ctx, await getUserState(env, OWNER));
-  ok(/لاتین/.test(bad.calls.reply[0].t) && /لغو/.test(bad.calls.reply[0].t), "نامِ نامعتبر رد می‌شود و راهِ ادامه یا لغو را می‌گوید");
-  ok(rawJob(env, id).status === "awaiting_name" && (await getUserState(env, OWNER)).current_flow === CERT_FLOW, "درخواست و حالت هر دو سرِ جایشان می‌مانند - مدیر دوباره می‌نویسد");
-  ok(dispatches().length === 0, "و چیزی ساخته نمی‌شود");
-
-  // و نامِ درست - با کیبوردِ عربی
-  const good = makeCtx(env, { text: "علي كريمي" });
-  await handleCertNameText(good.ctx, await getUserState(env, OWNER));
-  const job = rawJob(env, id);
-  ok(job.status === "queued" && job.name === "علی کریمی" && job.gender === "f", "نامِ درست پاک‌سازی می‌شود و درخواست با جنسیتی که پیش‌تر انتخاب شد به صف می‌رود", job);
-  ok((await getUserState(env, OWNER)).current_flow === null, "حالتِ «منتظرِ نام» پاک می‌شود - پیام‌های بعدیِ مدیر بلعیده نمی‌شوند");
-  const ed = good.calls.apiEdit[0];
-  ok(ed && ed.messageId === 77 && /علی کریمی/.test(ed.t) && /سرکار خانم/.test(ed.t) && /تبدیل شد/.test(ed.t) && /در حال ساخت/.test(ed.t),
-     "همان پیامِ دکمه‌ی لغو به «در حال ساخت» با نام و جنسیت و تبدیلِ حروفِ عربی تبدیل می‌شود", ed);
-  ok(ed.o.reply_markup.inline_keyboard.length === 0, "و دکمه‌ها برداشته می‌شوند");
-  ok(dispatches().length === 1 && /cert-render\.yml\/dispatches$/.test(dispatches()[0].url), "ورک‌فلوی رندر دقیقاً یک بار راه می‌افتد");
-  ok(!JSON.stringify(dispatches()[0].body).includes("کریمی"), "و نامِ دانشجو در درخواستِ گیت‌هاب نیست - ریپو عمومی است");
-
-  // پیامِ دوم با حالتِ کهنه
-  const again = makeCtx(env, { text: "یک نامِ دیگر" });
-  await handleCertNameText(again.ctx, { temp_data: { job: id } });
-  ok(/معتبر نیست/.test(again.calls.reply[0].t) && dispatches().length === 1, "پیامِ دوم درخواستِ دومی نمی‌سازد و ورک‌فلوی دوم راه نمی‌افتد");
-  ok(rawJob(env, id).name === "علی کریمی", "و نامِ ثبت‌شده عوض نمی‌شود");
+  // لیست در پیامِ بعد
+  const env = await readyEnv();
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  const { ctx, calls } = makeCtx(env, { text: "خانم\nراحیل غلامی\nفاطمه محمدی\nآقا\nسید محمد سرآبادانی" });
+  await handleCertListText(ctx);
+  const r = rows(env);
+  ok(r.length === 3 && r.map((x) => x.gender).join() === "f,f,m" && r.map((x) => x.name).join("|") === "راحیل غلامی|فاطمه محمدی|سید محمد سرآبادانی", "هر سه نام با جنسیتِ مدیر و به ترتیبِ لیست در صف می‌نشینند", r.map((x) => x.name));
+  ok(r.every((x) => x.status === "queued" && x.batch_total === 3), "در یک دسته، و همه منتظرِ رندر");
+  ok(calls.reply.length === 1 && /۳ گواهی در صف/.test(calls.reply[0].t), "یک پیامِ پیشرفت برای کلِ دسته (نه سه پیام)");
+  ok(/۱\. سرکار خانم راحیل غلامی/.test(calls.reply[0].t) && /۳\. جناب آقای سید محمد سرآبادانی/.test(calls.reply[0].t), "پیش‌نمایش ترتیب و جنسیتِ هر نام را نشان می‌دهد");
+  ok(r.every((x) => x.message_id === 501 && x.chat_id === OWNER), "و همه‌ی ردیف‌ها همان پیام را به‌روز می‌کنند");
+  ok(dispatches().length === 1 && /cert-render\.yml\/dispatches$/.test(dispatches()[0].url), "ورک‌فلوی رندر دقیقاً یک بار راه می‌افتد - نه یک بار برای هر نام");
+  ok(!/راحیل|فاطمه|سرآبادانی/.test(String(dispatches()[0].body)), "و نامِ هیچ دانشجویی در درخواستِ گیت‌هاب نیست - ریپو عمومی است");
+  ok((await getUserState(env, OWNER)).current_flow === null, "حالتِ «منتظرِ لیست» پاک می‌شود - پیام‌های بعدیِ مدیر بلعیده نمی‌شوند");
+  ok((await readConfig(env, PENDING_FLAG)) === "1", "علامتِ «کار در جریان» برای جاروی کران گذاشته می‌شود");
 }
 {
-  // مهلت: مدیر جنسیت را زد و رفت
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const { id } = await bareThenGender(env, "m");
-  env.DB.raw.prepare("UPDATE cert_jobs SET updated_at = ? WHERE id = ?").run(new Date(Date.now() - DRAFT_TTL_MS - 60000).toISOString(), id);
-  const late = makeCtx(env, { text: "علی رضایی" });
-  await handleCertNameText(late.ctx, await getUserState(env, OWNER));
-  ok(/منقضی/.test(late.calls.reply[0].t), "اگر مدیر بعد از ۱۵ دقیقه نام را بنویسد، می‌گوید منقضی شده");
-  ok(rawJob(env, id).status === "awaiting_name" && dispatches().length === 0, "و چیزی ساخته نمی‌شود");
+  // میان‌بر: لیست همراهِ خودِ دستور
+  const env = await readyEnv();
+  const one = makeCtx(env, { match: "خانم راحیل غلامی" });
+  await handleCert(one.ctx);
+  ok(rows(env).length === 1 && rows(env)[0].gender === "f", "میان‌بر: «/cert خانم نام» بی‌مرحله‌ی «لیست را بفرستید» می‌سازد");
+  ok(dispatches().length === 1, "و ورک‌فلو راه می‌افتد");
+
+  const env2 = await readyEnv();
+  await handleCert(makeCtx(env2, { match: "آقایان\nعلی رضایی\nحسین نوری\nخانم مریم احمدی" }).ctx);
+  ok(rows(env2).map((x) => x.gender + x.name).join("|") === "mعلی رضایی|mحسین نوری|fمریم احمدی", "میان‌بر چند خطی هم کار می‌کند", rows(env2).map((x) => x.name));
+}
+{
+  // همه یا هیچ
+  const env = await readyEnv();
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  const bad = makeCtx(env, { text: "خانم راحیل غلامی\nعلی رضایی\nآقا Ali\nخانم فاطمه محمدی" });
+  await handleCertListText(bad.ctx);
+  const t = bad.calls.reply[0].t;
+  ok(rows(env).length === 0 && dispatches().length === 0, "لیستِ ایراددار: هیچ گواهی‌ای ساخته نمی‌شود (حتی خط‌های درست)");
+  ok(/هیچ گواهی‌ای ساخته نشد/.test(t) && /خط ۲/.test(t) && /خط ۳/.test(t) && !/خط ۱/.test(t) && !/خط ۴/.test(t), "و فقط خط‌های بد با شماره‌شان گفته می‌شود", t);
+  ok(/جنسیت/.test(t) && /لاتین/.test(t), "با دلیلِ هرکدام");
+  ok((await getUserState(env, OWNER)).current_flow === CERT_FLOW, "حالت را نمی‌بندد: مدیر اصلاح‌شده را دوباره می‌فرستد");
+  const good = makeCtx(env, { text: "خانم راحیل غلامی\nآقا علی رضایی\nآقا حسین نوری\nخانم فاطمه محمدی" });
+  await handleCertListText(good.ctx);
+  ok(rows(env).length === 4 && (await getUserState(env, OWNER)).current_flow === null, "نسخه‌ی اصلاح‌شده ساخته می‌شود و حالت پاک می‌شود");
+}
+{
+  // میان‌بر با ایراد: حالتی نمی‌ماند
+  const env = await readyEnv();
+  const bad = makeCtx(env, { match: "راحیل غلامی" });
+  await handleCert(bad.ctx);
+  ok(/جنسیت/.test(bad.calls.reply[0].t) && /\/cert/.test(bad.calls.reply[0].t) && rows(env).length === 0, "میان‌برِ بی‌جنسیت رد می‌شود و راهِ دوباره‌فرستادن را می‌گوید");
+}
+{
+  // صف جا ندارد
+  const env = await readyEnv();
+  await enq(env, Array.from({ length: MAX_ACTIVE }, (_, i) => ({ name: "نام " + "ا".repeat(i % 9 + 2), gender: "m" })));
+  const { ctx, calls } = makeCtx(env, { match: "خانم علی رضایی" });
+  await handleCert(ctx);
+  ok(/جا نمی‌شود/.test(calls.reply[0].t) && rows(env).length === MAX_ACTIVE, "وقتی صف پر است لیستِ تازه در صف نمی‌نشیند");
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  // حالتِ منتظرِ لیست در این وضع: لیست که برسد، حالت پاک می‌شود (پیش‌نیاز آماده نیست)
+  const l = makeCtx(env, { text: "خانم علی رضایی" });
+  await handleCertListText(l.ctx);
   ok((await getUserState(env, OWNER)).current_flow === null, "و حالت پاک می‌شود تا مدیر برای همیشه «وسطِ گواهی» نماند");
 }
 {
-  // لغو در مرحله‌ی نام
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const { id } = await bareThenGender(env, "m");
-  const c = makeCtx(env, { data: "CERT|x|" + id });
+  // لغوِ «منتظرِ لیست»
+  const env = await readyEnv();
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  const c = makeCtx(env, { data: "CERT|c" });
   await handleCertCallback(c.ctx);
-  ok(rawJob(env, id).status === "cancelled", "دکمه‌ی لغو در مرحله‌ی «نام را بنویسید» درخواست را لغو می‌کند");
-  ok((await getUserState(env, OWNER)).current_flow === null, "و حالت را پاک می‌کند");
-  const late = makeCtx(env, { text: "علی" });
-  await handleCertNameText(late.ctx, { temp_data: { job: id } });
-  ok(/معتبر نیست/.test(late.calls.reply[0].t) && dispatches().length === 0, "و نامی که بعدش بیاید چیزی نمی‌سازد");
+  ok((await getUserState(env, OWNER)).current_flow === null && /لغو/.test(c.calls.edit[0].t), "دکمه‌ی لغو حالتِ «منتظرِ لیست» را پاک می‌کند و پیام را «لغو شد» می‌کند");
+  ok(rows(env).length === 0, "و چیزی ساخته نمی‌شود");
 }
 {
-  // /cert دوباره: از «منتظرِ نام» بیرون می‌آید، ولی فرآیندِ دیگری را خراب نمی‌کند
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  await bareThenGender(env, "m");
+  // /cert دوباره
+  const env = await readyEnv();
   await handleCert(makeCtx(env, { match: "" }).ctx);
-  ok((await getUserState(env, OWNER)).current_flow === null, "/cert دوباره حالتِ قبلیِ «منتظرِ نام» را پاک می‌کند");
-
+  await handleCert(makeCtx(env, { match: "خانم راحیل غلامی" }).ctx);
+  ok((await getUserState(env, OWNER)).current_flow === null, "/cert با لیست حالتِ قبلیِ «منتظرِ لیست» را پاک می‌کند");
   await setUserState(env, OWNER, { current_flow: "label_edit", current_step: "ask_label", temp_data: { x: 1 } });
-  await handleCert(makeCtx(env, { match: "" }).ctx);
+  await handleCert(makeCtx(env, { match: "آقا علی رضایی" }).ctx);
   ok((await getUserState(env, OWNER)).current_flow === "label_edit", "ولی فرآیندِ ویرایشِ برچسب را که وسطش بود خراب نمی‌کند");
 }
 {
-  // ضربه‌ی دکمه‌ی منو نامِ دانشجو نیست
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const { id } = await bareThenGender(env, "m");
+  // ضربه‌ی دکمه‌ی منو لیست نیست
+  const env = await readyEnv();
+  await handleCert(makeCtx(env, { match: "" }).ctx);
   const menu = makeCtx(env, { text: "تماس با ما" });
-  const consumed = await routeCertName(menu.ctx, await getUserState(env, OWNER), async (_e, t) => (t === "تماس با ما" ? "CONTACT" : null));
+  const consumed = await routeCertList(menu.ctx, await getUserState(env, OWNER), async (_e, t) => (t === "تماس با ما" ? "CONTACT" : null));
   ok(consumed === false, "اگر متن ضربه‌ی یک دکمه‌ی منو باشد، مصرف نمی‌شود و مسیریابیِ عادی ادامه می‌دهد");
-  ok((await getUserState(env, OWNER)).current_flow === null && rawJob(env, id).status === "awaiting_name", "حالتِ گواهی پاک می‌شود و هیچ گواهی‌ای به نامِ «تماس با ما» ساخته نمی‌شود");
-  ok(dispatches().length === 0 && menu.calls.reply.length === 0, "و ربات در آن لحظه چیزی نمی‌گوید و چیزی راه نمی‌اندازد");
+  ok((await getUserState(env, OWNER)).current_flow === null && rows(env).length === 0 && menu.calls.reply.length === 0, "حالتِ گواهی پاک می‌شود، چیزی ساخته نمی‌شود و ربات چیزی نمی‌گوید");
 
-  await setUserState(env, OWNER, { current_flow: CERT_FLOW, current_step: CERT_STEP, temp_data: { job: id } });
-  const name = makeCtx(env, { text: "علی رضایی" });
-  const consumed2 = await routeCertName(name.ctx, await getUserState(env, OWNER), async () => null);
-  ok(consumed2 === true && rawJob(env, id).status === "queued", "متنی که دکمه‌ی منو نیست به‌عنوانِ نام مصرف می‌شود");
+  await handleCert(makeCtx(env, { match: "" }).ctx);
+  const list = makeCtx(env, { text: "خانم علی رضایی" });
+  const c2 = await routeCertList(list.ctx, await getUserState(env, OWNER), async () => null);
+  ok(c2 === true && rows(env).length === 1, "متنی که دکمه‌ی منو نیست به‌عنوانِ لیست مصرف می‌شود");
 }
 {
-  // پیامِ وضعیت پاک شده باشد
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  await bareThenGender(env, "f");
-  const n = makeCtx(env, { text: "راحیل غلامی", editFails: true });
-  await handleCertNameText(n.ctx, await getUserState(env, OWNER));
-  ok(n.calls.reply.length === 1 && /در حال ساخت/.test(n.calls.reply[0].t), "اگر ویرایشِ پیامِ قبلی نشد، پیامِ تازه می‌فرستد");
-  ok(dispatches().length === 1, "و کار باز هم راه می‌افتد");
-}
-{
-  // صف پر است
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const { id } = await bareThenGender(env, "m");
-  for (let i = 0; i < MAX_ACTIVE; i++) {
-    const j = await createDraft(env, OWNER, "نام " + "ا".repeat(i + 2));
-    await takeDraft(env, { id: j, ownerId: OWNER, gender: "m", chatId: "1", messageId: 1 });
-  }
-  const n = makeCtx(env, { text: "علی رضایی" });
-  await handleCertNameText(n.ctx, await getUserState(env, OWNER));
-  ok(/در حال ساختن/.test(n.calls.reply[0].t) && rawJob(env, id).status === "awaiting_name", "وقتی صف پر است، نام مصرف نمی‌شود و مدیر دوباره می‌فرستد");
-}
-{
-  // غیرمدیر با حالتِ کهنه (نباید پیش بیاید، ولی اگر آمد بی‌اثر است)
-  const env = freshEnv(ghEnv);
-  await loadAssets(env);
-  sent.length = 0; installFetch(ghOk);
-  const { id } = await bareThenGender(env, "m");
-  const evil = makeCtx(env, { from: STRANGER, text: "علی رضایی" });
-  await setUserState(env, STRANGER, { current_flow: CERT_FLOW, current_step: CERT_STEP, temp_data: { job: id } });
-  await handleCertNameText(evil.ctx, await getUserState(env, STRANGER));
-  ok(rawJob(env, id).status === "awaiting_name" && dispatches().length === 0 && evil.calls.reply.length === 0, "غیرمدیر نمی‌تواند درخواستِ مدیر را با تایپِ نام پیش ببرد، و جوابی هم نمی‌گیرد");
+  // غیرمدیر با حالتِ کهنه
+  const env = await readyEnv();
+  await setUserState(env, STRANGER, { current_flow: CERT_FLOW, current_step: CERT_STEP, temp_data: {} });
+  const evil = makeCtx(env, { from: STRANGER, text: "خانم علی رضایی" });
+  await handleCertListText(evil.ctx);
+  ok(rows(env).length === 0 && dispatches().length === 0 && evil.calls.reply.length === 0, "غیرمدیر نمی‌تواند با تایپِ لیست گواهی بسازد، و جوابی هم نمی‌گیرد");
   ok((await getUserState(env, STRANGER)).current_flow === null, "و حالتِ ساختگی‌اش پاک می‌شود");
 }
+{
+  // لغوِ باقی‌مانده با دکمه
+  const env = await readyEnv();
+  await handleCert(makeCtx(env, { match: "خانم الف ب\nخانم ج د\nآقا ه و" }).ctx);
+  const batchId = rows(env)[0].batch_id;
+  const stranger = makeCtx(env, { from: STRANGER, data: "CERT|k|" + batchId });
+  await handleCertCallback(stranger.ctx);
+  ok(rows(env).every((x) => x.status === "queued") && stranger.calls.answer[0] === undefined, "دکمه‌ی لغوِ غیرمدیر هیچ اثری ندارد و جوابی هم نمی‌دهد");
+  sent.length = 0;
+  const own = makeCtx(env, { data: "CERT|k|" + batchId });
+  await handleCertCallback(own.ctx);
+  ok(rows(env).every((x) => x.status === "cancelled") && /۳ مورد لغو شد/.test(own.calls.answer[0].text), "مدیر باقی‌مانده را لغو می‌کند و تعدادش را می‌بیند");
+  ok(edits().length === 1 && /لغو شد/.test(edits()[0].text) && edits()[0].reply_markup.inline_keyboard.length === 0, "پیامِ پیشرفت به‌روز می‌شود و دکمه‌ی لغو برداشته می‌شود");
+  const again = makeCtx(env, { data: "CERT|k|" + batchId });
+  await handleCertCallback(again.ctx);
+  ok(/نمانده/.test(again.calls.answer[0].text), "لغوِ دوباره می‌گوید چیزی نمانده");
+}
+{
+  const env = await readyEnv();
+  const { ctx, calls } = makeCtx(env, { data: "CERT|k|zzzzzzzzzzzz" });
+  await handleCertCallback(ctx);
+  ok(calls.edit.length === 0 && calls.answer.length === 1, "شناسه‌ی خراب بی‌سروصدا نادیده گرفته می‌شود");
+}
+{
+  // ورک‌فلو راه نیفتد: مدیر نباید برای همیشه منتظر بماند
+  const env = await readyEnv();
+  sent.length = 0;
+  installFetch((url) => (url.includes("api.github.com") ? new Response("no", { status: 403 }) : jsonRes({ ok: true, result: {} })));
+  await handleCert(makeCtx(env, { match: "خانم الف ب\nآقا ج د" }).ctx);
+  const r = rows(env);
+  ok(r.every((x) => x.status === "failed" && x.error === "dispatch"), "اگر ورک‌فلو راه نیفتد، کلِ دسته همان لحظه شکست‌خورده اعلام می‌شود", r.map((x) => x.status));
+  ok(edits().some((e) => /انجام نشد/.test(e.text) && /گیت‌هاب/.test(e.text)), "و پیامِ پیشرفت دلیلش را می‌گوید");
+}
 
-// ─── ۸) آپلودِ فایل‌ها از مدیر ─────────────────────────────────
+// ─── ۷) آپلودِ فایل‌ها از مدیر ─────────────────────────────────
 {
   const env = freshEnv();
   const doc = (name, extra = {}) => ({ file_id: "id_" + name, file_size: 4_000_000, file_name: name, mime_type: "image/png", ...extra });
@@ -616,82 +566,130 @@ async function bareThenGender(env, gender = "m") {
   ok((await missingAssets(env)).length === 0 && /آماده/.test(last.calls.reply[0].t), "با سومین فایل همه‌چیز آماده اعلام می‌شود");
 }
 
-// ─── ۹) رساندنِ عکس ─────────────────────────────────────────────
-const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4, 5, 6, 7, 8]).buffer;
-async function renderingJob(env, name = "راحیل غلامی", gender = "f") {
-  const id = await createDraft(env, OWNER, name);
-  await takeDraft(env, { id, ownerId: OWNER, gender, chatId: "555", messageId: 9 });
-  await claimNext(env);
-  return id;
+// ─── ۸) پیامِ پیشرفت ────────────────────────────────────────────
+const St = (counts, failed = [], total) => ({
+  total: total ?? Object.values(counts).reduce((a, b) => a + b, 0),
+  counts: { queued: 0, rendering: 0, done: 0, failed: 0, cancelled: 0, ...counts }, failed,
+});
+{
+  ok(/در حال ساختِ گواهی‌ها: ۳ از ۱۰ ارسال شد/.test(batchText(St({ done: 3, queued: 6, rendering: 1 }))), "در جریان: «۳ از ۱۰ ارسال شد»");
+  ok(batchText(St({ done: 10 })) === "✅ هر ۱۰ گواهی ارسال شد.", "همه ارسال شد");
+  ok(batchText(St({ done: 1 })) === "✅ گواهی ارسال شد.", "یک گواهی: بدونِ «هر ۱»");
+  const t = batchText(St({ done: 8, failed: 2 }, [{ name: "علی رضایی", error: "send" }, { name: "مریم احمدی", error: "render" }]));
+  ok(/۸ از ۱۰ گواهی ارسال شد/.test(t) && /علی رضایی — تلگرام عکس را نپذیرفت/.test(t) && /مریم احمدی — خطا در رندر/.test(t), "شکست‌ها با نام و دلیلِ هرکدام در همان پیام می‌آیند", t);
+  ok(/دوباره بفرستید/.test(t), "و راهِ ساختنِ دوباره را می‌گوید");
+  ok(/۱ مورد لغو شد|✖️ ۱/.test(batchText(St({ done: 2, cancelled: 1 }))), "لغوشده‌ها شمرده می‌شوند");
+  ok(/❌ ۱ مورد انجام نشد/.test(batchText(St({ done: 1, failed: 1, queued: 1 }, [{ name: "ا", error: "send" }]))), "در جریان هم تعدادِ شکست‌ها دیده می‌شود");
+  const many = batchText(St({ failed: 12 }, Array.from({ length: 12 }, (_, i) => ({ name: "نام" + i, error: "send" }))));
+  ok(/و ۲ مورد دیگر/.test(many) && (many.match(/•/g) || []).length === 11, "فهرستِ شکست‌ها از ۱۰ مورد بلند نمی‌شود");
 }
+
+// ─── ۹) رساندنِ عکس‌ها پشتِ سرِ هم ──────────────────────────────
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4, 5, 6, 7, 8]).buffer;
 ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]).buffer) && !looksLikePng(new ArrayBuffer(3)), "تشخیصِ PNG از امضای ۸ بایتی");
 
 {
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true, result: { message_id: 1 } }));
-  const id = await renderingJob(env);
-  const r = await completeJob(env, id, PNG, "ok");
-  ok(r.status === 200 && (await getJob(env, id)).status === "done", "عکس می‌رسد و درخواست done می‌شود", r);
-  const doc = sent.find((s) => /sendDocument$/.test(s.url));
-  ok(!!doc, "با sendDocument فرستاده می‌شود، نه sendPhoto - عکس را تلگرام فشرده می‌کند");
-  const form = doc.body;
-  ok(form instanceof FormData && form.get("chat_id") === "555", "به گفتگوی همان مدیر");
-  const file = form.get("document");
-  ok(file instanceof Blob && file.type === "image/png" && file.size === PNG.byteLength && file.name === "certificate.png", "فایل PNG با نامِ certificate.png و بایت‌های دست‌نخورده");
-  ok(/سرکار خانم راحیل غلامی/.test(form.get("caption")), "زیرنویس جنسیت و نام را دارد");
-  ok(sent.some((s) => /editMessageText$/.test(s.url) && /ارسال شد/.test(String(s.body))), "و پیامِ وضعیت به «ارسال شد» عوض می‌شود");
+  const { batchId } = await enq(env);
+  const order = [];
+  for (let i = 0; i < 3; i++) {
+    const job = await claimNext(env);
+    const r = await completeJob(env, job.id, PNG, "ok");
+    order.push(r.status);
+  }
+  ok(order.join() === "200,200,200", "هر سه عکس می‌رسد");
+  const docs = tg("sendDocument");
+  ok(docs.length === 3, "با سه sendDocument (فایل) - نه sendPhoto، که تلگرام فشرده‌اش می‌کند");
+  const caps = docs.map((d) => d.body.get("caption"));
+  ok(/گواهی ۱ از ۳.*سرکار خانم راحیل غلامی/.test(caps[0].replace(/۱/g, "1").replace(/۳/g, "3") ) || /گواهی ۱ از ۳ — سرکار خانم راحیل غلامی/.test(caps[0]), "اولی: «گواهی ۱ از ۳ — سرکار خانم راحیل غلامی»", caps[0]);
+  ok(/۲ از ۳ — جناب آقای سید محمد سرآبادانی/.test(caps[1]) && /۳ از ۳ — سرکار خانم فاطمه محمدی/.test(caps[2]), "دومی و سومی به ترتیبِ لیست، با جنسیتِ درست", caps);
+  ok(docs.every((d) => d.body instanceof FormData && d.body.get("chat_id") === "555"), "همه به گفتگوی همان مدیر");
+  const f = docs[0].body.get("document");
+  ok(f instanceof Blob && f.type === "image/png" && f.size === PNG.byteLength && f.name === "certificate.png", "فایلِ PNG با نامِ certificate.png و بایت‌های دست‌نخورده");
+  const e = edits();
+  ok(e.length === 3 && e.every((x) => x.message_id === 9 && x.chat_id === "555"), "فقط یک پیام به‌روز می‌شود، با هر گواهی یک بار (نه پیامِ جدا برای هر نام)");
+  ok(/۱ از ۳ ارسال شد/.test(e[0].text) && /۲ از ۳ ارسال شد/.test(e[1].text) && e[2].text === "✅ هر ۳ گواهی ارسال شد.", "پیشرفتِ «۱ از ۳» ← «۲ از ۳» ← «هر ۳ گواهی ارسال شد»", e.map((x) => x.text));
+  ok(e[0].reply_markup.inline_keyboard.length === 1 && e[2].reply_markup.inline_keyboard.length === 0, "دکمه‌ی «لغوِ باقی‌مانده» تا وقتی چیزی مانده هست و در پایان برداشته می‌شود");
+  ok((await batchStats(env, batchId)).counts.done === 3, "و هر سه done شد");
 
-  const before = sent.filter((s) => /sendDocument$/.test(s.url)).length;
-  const dup = await completeJob(env, id, PNG, "ok");
-  ok(dup.status === 409, "تکرارِ آپلود 409 می‌گیرد", dup);
-  ok(sent.filter((s) => /sendDocument$/.test(s.url)).length === before, "و هرگز عکسِ دوم نمی‌فرستد");
+  const before = tg("sendDocument").length;
+  const job1 = rows(env)[0];
+  ok((await completeJob(env, job1.id, PNG)).status === 409 && tg("sendDocument").length === before, "تکرارِ آپلود 409 می‌گیرد و هرگز عکسِ دوم نمی‌فرستد");
+}
+{
+  // تک‌نام: بدونِ «۱ از ۱»
+  const env = freshEnv();
+  sent.length = 0; installFetch(() => jsonRes({ ok: true }));
+  await enq(env, [{ name: "راحیل غلامی", gender: "f" }]);
+  await completeJob(env, (await claimNext(env)).id, PNG);
+  ok(!/از/.test(tg("sendDocument")[0].body.get("caption")), "زیرنویسِ تک‌نام «از» ندارد");
+  ok(edits()[0].text === "✅ گواهی ارسال شد.", "و پیامِ پایانی «گواهی ارسال شد» است");
+}
+{
+  // شکستِ یکی، موفقیتِ بقیه
+  const env = freshEnv();
+  sent.length = 0;
+  let k = 0;
+  installFetch((url) => (/sendDocument$/.test(url) && ++k === 2 ? new Response("no", { status: 400 }) : jsonRes({ ok: true })));
+  const { batchId } = await enq(env);
+  const rs = [];
+  for (let i = 0; i < 3; i++) rs.push((await completeJob(env, (await claimNext(env)).id, PNG)).status);
+  ok(rs.join() === "200,502,200", "شکستِ یک گواهی بقیه را نمی‌اندازد", rs);
+  const st = await batchStats(env, batchId);
+  ok(st.counts.done === 2 && st.counts.failed === 1 && st.failed[0].name === "سید محمد سرآبادانی" && st.failed[0].error === "send", "دسته: ۲ انجام، ۱ شکست با نام و دلیل", st);
+  const last = edits().at(-1).text;
+  ok(/۲ از ۳ گواهی ارسال شد/.test(last) && /سید محمد سرآبادانی — تلگرام عکس را نپذیرفت/.test(last), "پیامِ پایانی دقیقاً می‌گوید کدام نشد", last);
+  ok(edits().length === 3, "و باز هم فقط همان یک پیام به‌روز شد - شکست پیامِ جدا نساخت");
 }
 {
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true }));
-  const id = await renderingJob(env, "علی", "m");
-  ok((await completeJob(env, id, new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer)).status === 400, "فایلِ غیرِ PNG رد می‌شود");
-  ok((await completeJob(env, id, new ArrayBuffer(0))).status === 400, "فایلِ خالی رد می‌شود");
+  const { ids } = await enq(env, [{ name: "علی رضایی", gender: "m" }]);
+  const job = await claimNext(env);
+  ok((await completeJob(env, job.id, new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]).buffer)).status === 400, "فایلِ غیرِ PNG رد می‌شود");
+  ok((await completeJob(env, job.id, new ArrayBuffer(0))).status === 400, "فایلِ خالی رد می‌شود");
   ok((await completeJob(env, "ffffffffffff", PNG)).status === 404, "شناسه‌ی ناموجود 404 است");
-  ok(sent.length === 0, "و در این سه حالت هیچ چیزی به تلگرام نمی‌رود");
-  ok((await getJob(env, id)).status === "rendering", "درخواست هنوز منتظرِ عکسِ درست است");
+  ok(sent.length === 0 && (await getJob(env, ids[0])).status === "rendering", "در این سه حالت هیچ چیزی به تلگرام نمی‌رود و درخواست هنوز منتظرِ عکسِ درست است");
 }
 {
-  const env = freshEnv();
-  sent.length = 0; installFetch(() => { throw new Error("network"); });
-  const id = await renderingJob(env);
-  const r = await completeJob(env, id, PNG);
-  ok(r.status === 502 && (await getJob(env, id)).status === "failed" && (await getJob(env, id)).error === "send", "اگر تلگرام عکس را نگرفت، درخواست شکست‌خورده با دلیلِ send است", r);
-}
-{
-  // ورک‌فلوی دیررسیده: درخواست از قبل شکست‌خورده اعلام شده بود
+  // ورک‌فلوی دیررسیده
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true }));
-  const id = await renderingJob(env);
-  await failJob(env, id, "timeout");
-  const r = await completeJob(env, id, PNG);
-  ok(r.status === 409 && !sent.some((s) => /sendDocument$/.test(s.url)), "ورک‌فلوی دیررسیده نمی‌تواند درخواستِ شکست‌خورده را انجام‌شده کند و عکسی نمی‌فرستد");
+  await enq(env, [{ name: "علی رضایی", gender: "m" }]);
+  const job = await claimNext(env);
+  await failJob(env, job.id, "timeout");
+  const before = tg("sendDocument").length;
+  ok((await completeJob(env, job.id, PNG)).status === 409 && tg("sendDocument").length === before, "ورک‌فلوی دیررسیده نمی‌تواند ردیفِ شکست‌خورده را انجام‌شده کند و عکسی نمی‌فرستد");
 }
 {
+  // ردیفِ لغوشده هرگز رندر نمی‌شود، پس عکسش هم نمی‌آید
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true }));
-  const id = await renderingJob(env);
-  await completeJob(env, id, PNG, "shrunk");
-  ok(/کوچک شد/.test(sent.find((s) => /sendDocument$/.test(s.url)).body.get("caption")), "اگر فونت کوچک شده باشد، مدیر در زیرنویس می‌فهمد");
+  const { batchId, ids } = await enq(env);
+  await cancelBatch(env, batchId, OWNER);
+  ok((await completeJob(env, ids[1], PNG)).status === 409 && tg("sendDocument").length === 0, "ردیفِ لغوشده عکس نمی‌گیرد، حتی اگر ورک‌فلو بخواهد بفرستد");
 }
 {
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true }));
-  const id = await renderingJob(env);
-  await completeJob(env, id, PNG, "overflow");
-  ok(/جا نمی‌شود/.test(sent.find((s) => /sendDocument$/.test(s.url)).body.get("caption")), "و اگر حتی با کوچک‌ترین اندازه جا نشد، هشدار می‌گیرد");
+  await enq(env, [{ name: "علی رضایی", gender: "m" }]);
+  const job = await claimNext(env);
+  await completeJob(env, job.id, PNG, "shrunk");
+  ok(/کوچک شد/.test(tg("sendDocument")[0].body.get("caption")), "اگر فونت کوچک شده باشد، مدیر در زیرنویس می‌فهمد");
+  const env2 = freshEnv();
+  sent.length = 0; installFetch(() => jsonRes({ ok: true }));
+  await enq(env2, [{ name: "علی رضایی", gender: "m" }]);
+  await completeJob(env2, (await claimNext(env2)).id, PNG, "overflow");
+  ok(/جا نمی‌شود/.test(tg("sendDocument")[0].body.get("caption")), "و اگر حتی با کوچک‌ترین اندازه جا نشد، هشدار می‌گیرد");
 }
 {
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true }));
-  const id = await renderingJob(env);
-  ok(await failJob(env, id, "<script>") === true && (await getJob(env, id)).error === "other", "کدِ دلخواهِ ورک‌فلو به «other» تبدیل می‌شود - متنِ آزاد منعکس نمی‌شود");
-  ok(await failJob(env, id, "render") === false, "شکستِ دوباره اثری ندارد");
+  await enq(env, [{ name: "علی رضایی", gender: "m" }]);
+  const job = await claimNext(env);
+  ok(await failJob(env, job.id, "<script>") === true && (await getJob(env, job.id)).error === "other", "کدِ دلخواهِ ورک‌فلو به «other» تبدیل می‌شود - متنِ آزاد منعکس نمی‌شود");
+  ok(await failJob(env, job.id, "render") === false, "شکستِ دوباره اثری ندارد");
 }
 
 // ─── ۱۰) فایل‌های خصوصی از تلگرام به ورک‌فلو ────────────────────
@@ -720,24 +718,25 @@ ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]
   ok(r0.skipped === true && sent.length === 0, "روزِ عادی (بدونِ علامت) هیچ‌کاری نمی‌کند و به تلگرام نمی‌زند");
 }
 {
-  const env = freshEnv({ GITHUB_DISPATCH_TOKEN: "t", GITHUB_REPO: "o/r", GITHUB_REF_NAME: "main" });
+  const env = freshEnv(ghEnv);
   sent.length = 0; installFetch(ghOk);
-  const id = await createDraft(env, OWNER, "علی رضایی", T0);
-  await takeDraft(env, { id, ownerId: OWNER, gender: "m", chatId: "555", messageId: 4, now: T0 });
-  await startRender(env, await getJob(env, id));
+  const { batchId } = await enq(env);
+  await startRender(env, batchId);
   ok((await readConfig(env, PENDING_FLAG)) === "1", "علامتِ در-جریان روشن است");
   const r = await sweepIfPending(env, T0 + STALE_MS + 60000);
-  const job = await getJob(env, id);
-  ok(r.failed === 1 && job.status === "failed" && job.error === "no_runner", "اگر ورک‌فلو هرگز شروع نکرد، کران بعد از شش دقیقه درخواست را شکست‌خورده می‌کند", job);
-  ok(sent.some((s) => /editMessageText$/.test(s.url) && /شروع نشد/.test(String(s.body))), "و مدیر دلیلش را می‌فهمد");
+  const st = await batchStats(env, batchId);
+  ok(r.failed === 3 && st.counts.failed === 3 && st.failed.every((f) => f.error === "no_runner"), "اگر ورک‌فلو هرگز شروع نکرد، کران بعد از شش دقیقه کلِ دسته را شکست‌خورده می‌کند", st);
+  const e = edits();
+  ok(e.length === 1 && /شروع نشد/.test(e[0].text), "و مدیر دلیلش را می‌فهمد - با یک پیام برای کلِ دسته، نه سه پیام", e.map((x) => x.text));
   ok((await readConfig(env, PENDING_FLAG)) === "", "و چون چیزی در جریان نمانده، علامت پاک می‌شود");
 }
 {
   const env = freshEnv();
   sent.length = 0; installFetch(() => jsonRes({ ok: true }));
-  const id = await renderingJob(env);
-  const n1 = await failLeftovers(env);
-  ok(n1 === 1 && (await getJob(env, id)).status === "failed", "پایانِ ورک‌فلو: هرچه نیمه‌کاره ماند شکست‌خورده و اعلام می‌شود");
+  const { batchId } = await enq(env);
+  await claimNext(env);
+  ok(await failLeftovers(env) === 1, "پایانِ ورک‌فلو: هرچه نیمه‌کاره ماند شکست‌خورده شمرده می‌شود");
+  ok((await batchStats(env, batchId)).counts.failed === 1 && edits().length === 1, "و پیامِ پیشرفت یک بار به‌روز می‌شود");
 }
 
 // ─── ۱۲) هیچ‌چیزِ خصوصی در ریپو نیست ────────────────────────────
@@ -758,6 +757,7 @@ ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]
   ok(!/^\s+inputs:/m.test(wf), "ورک‌فلوی گواهی ورودی ندارد - نامِ دانشجو در تاریخچه‌ی عمومی نمی‌ماند");
   const loop = fs.readFileSync(root + "scripts/cert/job-loop.mjs", "utf8");
   ok(!/console\.(log|error)\([^)]*job\.name/.test(loop) && !/err\.message/.test(loop.replace(/\/\/.*$/gm, "").replace(/"[^"\n]*err\.message[^"\n]*"/g, "")), "حلقه‌ی ورک‌فلو نام یا متنِ خطا را چاپ نمی‌کند (ممکن است نام را داشته باشد)");
+  ok(/MAX_JOBS = 60/.test(loop) && /timeout-minutes: 15/.test(wf), "ظرفیتِ ورک‌فلو برای دو دسته‌ی کامل کافی است (۶۰ گواهی، ۱۵ دقیقه)");
 }
 
 console.log("\n" + n + " ادعا");

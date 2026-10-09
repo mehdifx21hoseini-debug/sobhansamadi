@@ -2,34 +2,29 @@
 //
 // جریان:
 //   ۱. مدیر می‌نویسد: /cert
-//   ۲. ربات دو دکمه می‌دهد: «جناب آقای» و «سرکار خانم»
-//   ۳. مدیر یکی را می‌زند؛ ربات می‌گوید «حالا نامِ دانشجو را بنویسید»
-//   ۴. مدیر نام را تایپ می‌کند (ي و ك عربی خودکار به فارسی برمی‌گردد)
-//   ۵. درخواست در صف می‌نشیند و ورک‌فلوی رندر راه می‌افتد
-//   ۶. عکسِ باکیفیت به‌صورتِ فایل در همین گفتگو می‌آید (حدود یک دقیقه)
+//   ۲. ربات می‌گوید «لیست را بفرستید»؛ هر خط یک نفر، با «آقا» یا «خانم» اول خط
+//   ۳. مدیر لیست را می‌فرستد - یک نام یا ده نام یا سی نام
+//   ۴. ربات همه را یک‌جا به صف می‌برد و ورک‌فلوی رندر راه می‌افتد
+//   ۵. گواهی‌ها به ترتیبِ لیست، پشتِ سرِ هم، به‌صورتِ فایل در همین گفتگو می‌آیند
 //
-// میان‌بر: «/cert نام» نام را همان‌جا می‌گیرد و فقط دکمه‌ی جنسیت را می‌پرسد.
+// میان‌بر: «/cert خانم راحیل غلامی» (یا چند خط، در همان پیام) بی‌مرحله‌ی «لیست
+// را بفرستید» می‌سازد.
 //
-// چرا دکمه و نه دو دستورِ جدا: جنسیت تنها چیزی است که از روی نام نمی‌شود
-// حدس زد، و حدسِ غلط یعنی «جناب آقای» برای یک خانم - روی یک گواهیِ
-// رسمی. دکمه آن را یک انتخابِ صریح می‌کند.
+// جنسیت را مدیر مشخص می‌کند، نه ربات: از روی نام نمی‌شود حدسش زد و حدسِ غلط
+// یعنی «جناب آقای» روی گواهیِ یک خانم. فرمتِ لیست در list.js شرح داده شده.
 //
-// چرا فقط مدیر: دستور اصلاً برای دیگران وجود ندارد. جوابی نمی‌دهد،
-// حتی «این دستور فقط برای مدیر است» - که خودش اعلامِ وجودِ آن می‌بود.
-// در منوی «/» هم فقط برای مدیر ثبت می‌شود (registry.js).
+// همه یا هیچ: اگر حتی یک خط ایراد داشته باشد، هیچ گواهی‌ای ساخته نمی‌شود و
+// همه‌ی ایراد‌ها یک‌جا گفته می‌شود. نیمه‌ساختنِ یک لیست یعنی مدیر باید بفهمد
+// کدام‌ها ساخته شده، و دوباره‌فرستادنش نام‌های ساخته‌شده را تکراری می‌کرد.
+//
+// چرا فقط مدیر: دستور اصلاً برای دیگران وجود ندارد. جوابی نمی‌دهد، حتی «این
+// دستور فقط برای مدیر است» - که خودش اعلامِ وجودِ آن می‌بود. در منوی «/» هم
+// فقط برای مدیر ثبت می‌شود (registry.js).
 
 import { isOwner } from "../owner.js";
 import { getUserState, setUserState, clearUserState } from "../db.js";
-import { normalizeName } from "../certificate/name.js";
-import {
-  createDraft,
-  takeDraft,
-  submitName,
-  getJob,
-  cancelDraft,
-  countActive,
-  MAX_ACTIVE,
-} from "../certificate/store.js";
+import { parseList, MAX_BATCH } from "../certificate/list.js";
+import { enqueueBatch, cancelBatch, countActive, MAX_ACTIVE } from "../certificate/store.js";
 import {
   GENDER_LABEL,
   SLOTS,
@@ -39,30 +34,39 @@ import {
   readAsset,
   missingAssets,
   startRender,
+  refreshBatch,
+  fa,
 } from "../certificate/service.js";
 
 export const CERT_PREFIX = "CERT|";
-// حالتِ «منتظرِ نام» در user_state. همان الگوی ویرایشِ برچسب و لینک.
-export const CERT_FLOW = "cert_name";
-export const CERT_STEP = "ask_name";
+// حالتِ «منتظرِ لیست» در user_state. همان الگوی ویرایشِ برچسب و لینک.
+export const CERT_FLOW = "cert_list";
+export const CERT_STEP = "ask_list";
 
 const NO_KEYBOARD = { inline_keyboard: [] };
 
-function keyboard(id) {
+const HOW_TO =
+  "🎓 ساخت گواهی\n\n" +
+  "لیستِ نام‌ها را بفرستید؛ هر خط یک نفر، با «آقا» یا «خانم» اولِ خط:\n\n" +
+  "خانم راحیل غلامی\n" +
+  "آقا سید محمد سرآبادانی\n\n" +
+  "اگر چند نفر هم‌جنس‌اند، یک خط «خانم» یا «آقا» بنویسید و نام‌ها را زیرش بیاورید:\n\n" +
+  "خانم\n" +
+  "راحیل غلامی\n" +
+  "فاطمه محمدی\n" +
+  "آقا\n" +
+  "سید محمد سرآبادانی\n\n" +
+  "تا " + fa(MAX_BATCH) + " نام در هر بار. همه به ترتیب ساخته و پشتِ سرِ هم فرستاده می‌شوند.";
+
+function waitKeyboard() {
   return {
-    inline_keyboard: [
-      [
-        { text: "👨 جناب آقای", callback_data: CERT_PREFIX + "m|" + id, style: "primary" },
-        { text: "👩 سرکار خانم", callback_data: CERT_PREFIX + "f|" + id, style: "primary" },
-      ],
-      [{ text: "✖️ لغو", callback_data: CERT_PREFIX + "x|" + id, style: "danger" }],
-    ],
+    inline_keyboard: [[{ text: "✖️ لغو", callback_data: CERT_PREFIX + "c", style: "danger" }]],
   };
 }
 
-// پیش از نشان دادنِ دکمه‌ها: فایل‌های گواهی بارگذاری شده‌اند و صف جا دارد؟
-// وگرنه مدیر دکمه را می‌زند و یک دقیقه بعد با شکست روبه‌رو می‌شود.
-async function preflight(ctx) {
+// پیش از ساختن: فایل‌های گواهی بارگذاری شده‌اند و صف جا دارد؟ وگرنه مدیر یک
+// دقیقه بعد با شکست روبه‌رو می‌شد.
+async function preflight(ctx, need) {
   const missing = await missingAssets(ctx.env);
   if (missing.length > 0) {
     await ctx.reply(
@@ -72,18 +76,71 @@ async function preflight(ctx) {
     );
     return false;
   }
-  if ((await countActive(ctx.env)) >= MAX_ACTIVE) {
-    await ctx.reply("چند گواهی هنوز در حال ساختن است. چند لحظه صبر کنید و دوباره امتحان کنید.");
+  if ((await countActive(ctx.env)) + need > MAX_ACTIVE) {
+    await ctx.reply(
+      "چند گواهی هنوز در حال ساختن است و این لیست در صف جا نمی‌شود. چند لحظه صبر کنید و دوباره بفرستید."
+    );
     return false;
   }
   return true;
 }
 
-// مدیری که /cert را دوباره می‌زند نباید در «منتظرِ نامِ» قبلی گیر کند - ولی
+// مدیری که /cert را دوباره می‌زند نباید در «منتظرِ لیست»ِ قبلی گیر کند - ولی
 // حالتِ فرآیندِ دیگری (ویرایشِ برچسب، لینک...) را هم نباید پاک کنیم.
 async function leaveCertFlow(ctx) {
   const st = await getUserState(ctx.env, ctx.from.id).catch(() => null);
   if (st && st.current_flow === CERT_FLOW) await clearUserState(ctx.env, ctx.from.id);
+}
+
+function errorText(errors, again) {
+  const lines = ["❌ هیچ گواهی‌ای ساخته نشد؛ این موردها ایراد دارند:", ""];
+  for (const e of errors.slice(0, 10)) {
+    lines.push(e.line ? "• خط " + fa(e.line) + " «" + e.text + "» — " + e.reason : "• " + e.reason);
+  }
+  if (errors.length > 10) lines.push("• و " + fa(errors.length - 10) + " ایرادِ دیگر");
+  lines.push("", again);
+  return lines.join("\n");
+}
+
+/**
+ * متنِ لیست → دسته در صف.
+ * @returns {Promise<"ok"|"retry"|"stop">}
+ *   retry: لیست ایراد داشت و مدیر می‌تواند اصلاح‌شده را دوباره بفرستد.
+ *   stop: پیش‌نیازها (فایل‌ها، جای صف) آماده نبود؛ حالت باید پاک شود.
+ */
+async function build(ctx, raw, again) {
+  const parsed = parseList(raw);
+  if (!parsed.ok) {
+    await ctx.reply(errorText(parsed.errors, again));
+    return "retry";
+  }
+  const items = parsed.items;
+  if (!(await preflight(ctx, items.length))) return "stop";
+
+  // پیامِ پیشرفت را اول می‌فرستیم تا شناسه‌اش را بدانیم: هر ردیفِ دسته
+  // همین پیام را به‌روز می‌کند، نه پیامِ جدا برای هر نام.
+  const converted = items.filter((i) => i.converted).length;
+  const preview = items
+    .slice(0, 15)
+    .map((it, i) => fa(i + 1) + ". " + GENDER_LABEL[it.gender] + " " + it.name)
+    .join("\n");
+  const msg = await ctx.reply(
+    "⏳ " + fa(items.length) + " گواهی در صف:\n\n" + preview +
+      (items.length > 15 ? "\n… و " + fa(items.length - 15) + " نامِ دیگر" : "") +
+      (converted ? "\n\n(حروفِ عربی در " + fa(converted) + " نام به فارسی تبدیل شد.)" : "")
+  );
+
+  const { batchId } = await enqueueBatch(ctx.env, {
+    ownerId: ctx.from.id,
+    chatId: ctx.chat && ctx.chat.id != null ? ctx.chat.id : ctx.from.id,
+    messageId: msg && msg.message_id ? msg.message_id : null,
+    items,
+  });
+
+  // اگر ورک‌فلو راه نیفتد، startRender خودش کلِ دسته را شکست‌خورده اعلام
+  // و پیامِ پیشرفت را عوض می‌کند - اینجا کاری نمی‌ماند.
+  await startRender(ctx.env, batchId);
+  return "ok";
 }
 
 export async function handleCert(ctx) {
@@ -92,38 +149,59 @@ export async function handleCert(ctx) {
 
   const raw = String(ctx.match || "").trim();
 
-  // دستورِ بی‌نام: اول جنسیت، بعد نام.
+  // دستورِ بی‌نام: لیست را بخواه و منتظر بمان.
   if (!raw) {
-    if (!(await preflight(ctx))) return;
-    await leaveCertFlow(ctx);
-    const id = await createDraft(ctx.env, ctx.from.id, "");
-    await ctx.reply("🎓 ساخت گواهی\n\nجنسیتِ دانشجو را انتخاب کنید 👇", {
-      reply_markup: keyboard(id),
+    if (!(await preflight(ctx, 0))) return;
+    await setUserState(ctx.env, ctx.from.id, {
+      current_flow: CERT_FLOW,
+      current_step: CERT_STEP,
+      temp_data: {},
     });
+    await ctx.reply(HOW_TO, { reply_markup: waitKeyboard() });
     return;
   }
 
-  // میان‌بر: «/cert نام» - نام همین‌جاست، فقط جنسیت مانده.
-  const n = normalizeName(raw);
-  if (!n.ok) {
-    await ctx.reply("❌ " + n.reason + "\nدوباره بنویسید: /cert نام و نام‌خانوادگی");
-    return;
-  }
-  if (!(await preflight(ctx))) return;
+  // میان‌بر: لیست همراهِ خودِ دستور آمده.
   await leaveCertFlow(ctx);
-
-  const id = await createDraft(ctx.env, ctx.from.id, n.name);
-  const note = n.converted ? "\n(حروفِ عربی به فارسی تبدیل شد.)" : "";
-  await ctx.reply("🎓 گواهی برای:\n«" + n.name + "»" + note + "\n\nجنسیت را انتخاب کنید 👇", {
-    reply_markup: keyboard(id),
-  });
+  await build(ctx, raw, "اصلاح‌شده را دوباره بفرستید: /cert و لیست");
 }
 
-const GONE_TEXT = {
-  gone: "این درخواست قبلاً انجام یا لغو شده.",
-  expired: "این درخواست منقضی شده؛ دوباره /cert را بزنید.",
-  owner: "این درخواست مالِ شما نیست.",
-};
+/**
+ * مدیر لیست را فرستاده (پس از «/cert»).
+ *
+ * لیستِ ایراددار حالت را نمی‌بندد: مدیر اصلاح‌شده را دوباره می‌فرستد یا «لغو»
+ * را می‌زند. ولی وقتی پیش‌نیازها آماده نیست حالت پاک می‌شود، تا مدیر برای
+ * همیشه «وسطِ گواهی» نماند و پیام‌های بعدی‌اش بلعیده نشود.
+ */
+export async function handleCertListText(ctx) {
+  if (!isOwner(ctx)) {
+    await clearUserState(ctx.env, ctx.from.id);
+    return;
+  }
+  const r = await build(ctx, ctx.message.text, "اصلاح‌شده را دوباره بفرستید، یا دکمه‌ی «لغو» را بزنید.");
+  if (r !== "retry") await clearUserState(ctx.env, ctx.from.id);
+}
+
+/**
+ * مسیریابیِ متنِ مدیر وقتی منتظرِ لیستِ گواهی هستیم.
+ *
+ * ضربه‌ی یک دکمه‌ی منو لیست حساب نمی‌شود: «تماس با ما» حروفِ فارسیِ مجاز است
+ * و بی‌این بررسی همین عبارت به‌عنوانِ نام پردازش می‌شد (البته بی‌جنسیت و
+ * رد می‌شد، ولی مدیر گیر می‌ماند). مدیر که دکمه‌ی منو را زده از گواهی بیرون
+ * آمده - حالت پاک می‌شود و همان دکمه کارِ خودش را می‌کند.
+ *
+ * @param {(env: object, text: string) => Promise<unknown>} resolveMenuAction
+ * @returns {Promise<boolean>} true یعنی متن مالِ گواهی بود و مصرف شد؛ false
+ *   یعنی مسیریابیِ عادی باید ادامه بدهد.
+ */
+export async function routeCertList(ctx, state, resolveMenuAction) {
+  if (await resolveMenuAction(ctx.env, ctx.message.text)) {
+    await clearUserState(ctx.env, ctx.from.id);
+    return false;
+  }
+  await handleCertListText(ctx, state);
+  return true;
+}
 
 export async function handleCertCallback(ctx) {
   // غیرمدیر: دکمه را خنثی می‌کنیم و هیچ نشانی نمی‌دهیم.
@@ -133,169 +211,26 @@ export async function handleCertCallback(ctx) {
   }
 
   const [, act, id] = String(ctx.callbackQuery.data || "").split("|");
-  if (!/^[0-9a-f]{12}$/.test(id || "")) {
-    await ctx.answerCallbackQuery().catch(() => {});
-    return;
-  }
 
-  if (act === "x") {
-    const ok = await cancelDraft(ctx.env, id, ctx.from.id);
+  // لغوِ «منتظرِ لیست».
+  if (act === "c") {
     await leaveCertFlow(ctx);
-    await ctx.answerCallbackQuery({ text: ok ? "لغو شد" : GONE_TEXT.gone }).catch(() => {});
+    await ctx.answerCallbackQuery({ text: "لغو شد" }).catch(() => {});
     await ctx.editMessageText("✖️ لغو شد.", { reply_markup: NO_KEYBOARD }).catch(() => {});
     return;
   }
-  if (act !== "f" && act !== "m") {
-    await ctx.answerCallbackQuery().catch(() => {});
-    return;
-  }
 
-  if ((await countActive(ctx.env)) >= MAX_ACTIVE) {
-    await ctx.answerCallbackQuery({
-      text: "چند گواهی در حال ساختن است؛ کمی صبر کنید.",
-      show_alert: true,
-    }).catch(() => {});
-    return;
-  }
-
-  const msg = ctx.callbackQuery.message;
-  const taken = await takeDraft(ctx.env, {
-    id,
-    ownerId: ctx.from.id,
-    gender: act,
-    chatId: msg && msg.chat ? msg.chat.id : ctx.from.id,
-    messageId: msg ? msg.message_id : null,
-  });
-
-  if (!taken.ok) {
-    // دکمه‌ها را هم برمی‌داریم تا دوباره زده نشوند.
-    await ctx.answerCallbackQuery({ text: GONE_TEXT[taken.why] || GONE_TEXT.gone }).catch(() => {});
-    await ctx.editMessageReplyMarkup({ reply_markup: NO_KEYBOARD }).catch(() => {});
-    return;
-  }
-
-  const job = taken.job;
-
-  // دستورِ بی‌نام: جنسیت انتخاب شد، حالا منتظرِ نام می‌مانیم.
-  if (job.status === "awaiting_name") {
-    await setUserState(ctx.env, ctx.from.id, {
-      current_flow: CERT_FLOW,
-      current_step: CERT_STEP,
-      temp_data: { job: job.id },
-    });
-    await ctx.answerCallbackQuery({ text: GENDER_LABEL[act] }).catch(() => {});
+  // لغوِ باقی‌ماندنی‌های یک دسته. آنچه همین حالا در حال رندر است تمام می‌شود.
+  if (act === "k" && /^[0-9a-f]{12}$/.test(id || "")) {
+    const n = await cancelBatch(ctx.env, id, ctx.from.id);
     await ctx
-      .editMessageText(
-        "✅ " + GENDER_LABEL[act] + "\n\nحالا نامِ دانشجو را بنویسید و بفرستید:\n(مثلاً: سید محمد سرآبادانی)",
-        {
-          reply_markup: {
-            inline_keyboard: [[{ text: "✖️ لغو", callback_data: CERT_PREFIX + "x|" + job.id, style: "danger" }]],
-          },
-        }
-      )
+      .answerCallbackQuery({ text: n > 0 ? fa(n) + " مورد لغو شد" : "چیزی برای لغو نمانده" })
       .catch(() => {});
+    await refreshBatch(ctx.env, id);
     return;
   }
 
-  await ctx.answerCallbackQuery({ text: "در حال ساخت…" }).catch(() => {});
-  await ctx
-    .editMessageText(
-      "⏳ گواهیِ «" + job.name + "» (" + GENDER_LABEL[act] + ") در حال ساخت است.\n" +
-        "حدود یک دقیقه طول می‌کشد و همین‌جا می‌آید.",
-      { reply_markup: NO_KEYBOARD }
-    )
-    .catch(() => {});
-
-  // اگر ورک‌فلو راه نیفتد، startRender خودش درخواست را شکست‌خورده اعلام
-  // و به مدیر خبر می‌دهد - اینجا کاری نمی‌ماند.
-  await startRender(ctx.env, job);
-}
-
-/**
- * مدیر نامِ دانشجو را تایپ کرده (پس از انتخابِ جنسیت).
- *
- * نامِ نامعتبر حالت را نمی‌بندد: مدیر دوباره می‌نویسد یا «لغو» را می‌زند.
- * ولی درخواستِ منقضی یا از دست رفته حالت را پاک می‌کند، تا مدیر برای
- * همیشه «وسطِ گواهی» نماند و پیام‌های بعدی‌اش بلعیده نشود.
- */
-export async function handleCertNameText(ctx, state) {
-  const leave = () => clearUserState(ctx.env, ctx.from.id);
-  if (!isOwner(ctx)) {
-    await leave();
-    return;
-  }
-
-  const id = state && state.temp_data && state.temp_data.job;
-  const job = id ? await getJob(ctx.env, id) : null;
-  if (!job || job.owner_id !== String(ctx.from.id) || job.status !== "awaiting_name") {
-    await leave();
-    await ctx.reply("این درخواست دیگر معتبر نیست؛ دوباره /cert را بزنید.");
-    return;
-  }
-
-  const n = normalizeName(ctx.message.text);
-  if (!n.ok) {
-    await ctx.reply("❌ " + n.reason + "\nدوباره نام را بنویسید، یا دکمه‌ی «لغو» را بزنید.");
-    return;
-  }
-
-  if ((await countActive(ctx.env)) >= MAX_ACTIVE) {
-    await ctx.reply("چند گواهی در حال ساختن است؛ چند لحظه صبر کنید و نام را دوباره بفرستید.");
-    return;
-  }
-
-  const r = await submitName(ctx.env, { id, ownerId: ctx.from.id, name: n.name });
-  await leave();
-  if (!r.ok) {
-    await ctx.reply(r.why === "expired" ? GONE_TEXT.expired : GONE_TEXT.gone);
-    return;
-  }
-
-  const queued = r.job;
-  const text =
-    "⏳ گواهیِ «" + queued.name + "» (" + GENDER_LABEL[queued.gender] + ") در حال ساخت است." +
-    (n.converted ? "\n(حروفِ عربی به فارسی تبدیل شد.)" : "") +
-    "\nحدود یک دقیقه طول می‌کشد و همین‌جا می‌آید.";
-
-  // همان پیامی که دکمه‌ی «لغو» داشت، به پیامِ وضعیت تبدیل می‌شود؛ شکستش
-  // (مثلاً پیام پاک شده) پیامِ تازه می‌فرستد و بعدی‌ها هم از notify می‌آیند.
-  let edited = false;
-  if (queued.message_id) {
-    try {
-      await ctx.api.editMessageText(queued.chat_id, queued.message_id, text, {
-        reply_markup: NO_KEYBOARD,
-      });
-      edited = true;
-    } catch {
-      edited = false;
-    }
-  }
-  if (!edited) await ctx.reply(text);
-
-  // اگر ورک‌فلو راه نیفتد، startRender خودش درخواست را شکست‌خورده اعلام
-  // و به مدیر خبر می‌دهد.
-  await startRender(ctx.env, queued);
-}
-
-/**
- * مسیریابیِ متنِ مدیر وقتی منتظرِ نامِ گواهی هستیم.
- *
- * ضربه‌ی یک دکمه‌ی منو نامِ دانشجو حساب نمی‌شود: «تماس با ما» حروفِ فارسیِ
- * مجاز است و بی‌این بررسی گواهی‌ای به نامِ «تماس با ما» ساخته می‌شد. مدیر که
- * دکمه‌ی منو را زده از گواهی بیرون آمده - حالت پاک می‌شود و همان دکمه کارِ
- * خودش را می‌کند.
- *
- * @param {(env: object, text: string) => Promise<unknown>} resolveMenuAction
- * @returns {Promise<boolean>} true یعنی متن مالِ گواهی بود و مصرف شد؛ false
- *   یعنی مسیریابیِ عادی باید ادامه بدهد.
- */
-export async function routeCertName(ctx, state, resolveMenuAction) {
-  if (await resolveMenuAction(ctx.env, ctx.message.text)) {
-    await clearUserState(ctx.env, ctx.from.id);
-    return false;
-  }
-  await handleCertNameText(ctx, state);
-  return true;
+  await ctx.answerCallbackQuery().catch(() => {});
 }
 
 /**

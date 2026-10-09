@@ -62,7 +62,7 @@ import {
   handleCertAssets,
   handleCertCallback,
   handleCertAsset,
-  routeCertName,
+  routeCertList,
   CERT_FLOW,
   CERT_STEP,
 } from "./commands/cert.js";
@@ -335,11 +335,11 @@ export function createBot(token, env, botInfo, build = "?") {
       return;
     }
 
-    // نامِ دانشجو برای گواهی، پس از انتخابِ جنسیت. اگر متن ضربه‌ی یک دکمه‌ی
-    // منو بود، routeCertName حالت را پاک می‌کند و false می‌دهد تا همان دکمه
+    // لیستِ نام‌های گواهی، پس از «/cert». اگر متن ضربه‌ی یک دکمه‌ی
+    // منو بود، routeCertList حالت را پاک می‌کند و false می‌دهد تا همان دکمه
     // کارِ خودش را بکند؛ چرایش بالای تابع نوشته شده.
     if (state?.current_flow === CERT_FLOW && state.current_step === CERT_STEP) {
-      if (await routeCertName(ctx, state, resolveMenuAction)) return;
+      if (await routeCertList(ctx, state, resolveMenuAction)) return;
     }
 
     // اگر کاربر وسط یه فرآیند چندمرحله‌ای (ثبت‌نام/مشاوره/پشتیبانی) است

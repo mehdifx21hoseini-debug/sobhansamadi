@@ -21,7 +21,7 @@
 
 import { readConfig, writeConfig } from "../content/channel.js";
 import { dispatchWorkflow } from "../ops/dispatch.js";
-import { finishJob, getJob, sweep, countActive, failAllRendering } from "./store.js";
+import { finishJob, getJob, sweep, countActive, failAllRendering, batchStats, failBatch } from "./store.js";
 
 export const WORKFLOW = "cert-render.yml";
 export const PENDING_FLAG = "cert_pending";
@@ -125,42 +125,92 @@ export async function streamAsset(env, slot) {
 }
 
 // ─── پیام به مدیر ────────────────────────────────────────────────
+//
+// هر دسته یک پیامِ پیشرفت دارد که با هر گواهی به‌روز می‌شود. شکستِ یک نام
+// پیامِ جدا نمی‌سازد و پیامِ دسته را هم با متنِ تک‌نام جای‌گزین نمی‌کند؛
+// فقط در همین یک پیام جمع می‌شود.
 
 export const REASONS = {
-  dispatch: "راه‌اندازیِ رندر در گیت‌هاب ممکن نشد.",
-  no_runner: "رندر در شش دقیقه شروع نشد.",
-  timeout: "رندر بیش از شش دقیقه طول کشید.",
-  template: "قالب یا فونت‌ها مشکل دارند. با /certassets بررسی کنید.",
-  render: "خطا در رندرِ عکس.",
-  send: "ارسالِ عکس به تلگرام نشد.",
-  other: "خطای ناشناخته.",
+  dispatch: "راه‌اندازیِ رندر در گیت‌هاب ممکن نشد",
+  no_runner: "رندر در شش دقیقه شروع نشد",
+  timeout: "رندر بیش از شش دقیقه طول کشید",
+  template: "قالب یا فونت‌ها مشکل دارند (/certassets)",
+  render: "خطا در رندر",
+  name: "نامِ نامعتبر",
+  send: "تلگرام عکس را نپذیرفت",
+  other: "خطای ناشناخته",
 };
 
-/** پیامِ وضعیت را عوض می‌کند؛ اگر نشد، پیامِ تازه می‌فرستد. بی‌صدا شکست می‌خورد. */
-export async function notify(env, job, text) {
-  if (!job || !job.chat_id) return;
-  try {
-    if (job.message_id) {
-      const r = await tgJson(env, "editMessageText", {
-        chat_id: job.chat_id,
-        message_id: job.message_id,
-        text,
-        reply_markup: { inline_keyboard: [] },
-      });
-      if (r.ok) return;
-    }
-    await tgJson(env, "sendMessage", { chat_id: job.chat_id, text });
-  } catch {
-    // مدیر دست‌کم از راهِ نرسیدنِ عکس می‌فهمد؛ اطلاع‌رسانی نباید چیزی را بشکند.
+const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+export const fa = (n) => String(n).replace(/[0-9]/g, (d) => FA_DIGITS[d]);
+
+/** متنِ پیامِ پیشرفتِ یک دسته. خالص - برای تست. */
+export function batchText(st) {
+  const c = st.counts;
+  const active = c.queued + c.rendering;
+  const lines = [];
+
+  if (active > 0) {
+    lines.push("⏳ در حال ساختِ گواهی‌ها: " + fa(c.done) + " از " + fa(st.total) + " ارسال شد");
+    if (c.failed > 0) lines.push("❌ " + fa(c.failed) + " مورد انجام نشد");
+    lines.push("", "هرکدام که آماده شود همین‌جا می‌آید.");
+  } else if (c.done === st.total) {
+    lines.push(st.total === 1 ? "✅ گواهی ارسال شد." : "✅ هر " + fa(st.total) + " گواهی ارسال شد.");
+  } else {
+    lines.push("✅ " + fa(c.done) + " از " + fa(st.total) + " گواهی ارسال شد.");
   }
+
+  if (active === 0) {
+    if (st.failed.length > 0) {
+      lines.push("", "❌ انجام نشد:");
+      for (const f of st.failed.slice(0, 10)) {
+        lines.push("• " + f.name + " — " + (REASONS[f.error] || REASONS.other));
+      }
+      if (st.failed.length > 10) lines.push("• و " + fa(st.failed.length - 10) + " مورد دیگر");
+      lines.push("", "برای ساختنِ دوباره، همان خط‌ها را دوباره بفرستید (/cert).");
+    }
+    if (c.cancelled > 0) lines.push("", "✖️ " + fa(c.cancelled) + " مورد لغو شد.");
+  }
+  return lines.join("\n");
 }
 
-export function failureText(job, code) {
-  return (
-    "❌ ساخت گواهی برای «" + job.name + "» انجام نشد.\n" +
-    (REASONS[code] || REASONS.other) + "\n\n" +
-    "دوباره امتحان کنید: /cert " + job.name
-  );
+/** دکمه‌ی «لغوِ باقی‌مانده»، فقط تا وقتی چیزی در صف مانده. */
+export function batchKeyboard(batchId, st) {
+  if (st.counts.queued === 0) return { inline_keyboard: [] };
+  return {
+    inline_keyboard: [
+      [{ text: "✖️ لغوِ باقی‌مانده", callback_data: "CERT|k|" + batchId, style: "danger" }],
+    ],
+  };
+}
+
+/**
+ * پیامِ پیشرفتِ دسته را تازه می‌کند. بی‌صدا شکست می‌خورد: اطلاع‌رسانی نباید
+ * چیزی را بشکند، و مدیر دست‌کم از رسیدنِ خودِ عکس‌ها می‌فهمد.
+ */
+export async function refreshBatch(env, batchId) {
+  try {
+    const st = await batchStats(env, batchId);
+    if (!st || !st.chat_id) return;
+    const text = batchText(st);
+    const active = st.counts.queued + st.counts.rendering;
+    if (st.message_id) {
+      const r = await tgJson(env, "editMessageText", {
+        chat_id: st.chat_id,
+        message_id: st.message_id,
+        text,
+        reply_markup: batchKeyboard(batchId, st),
+      });
+      // «message is not modified» خطا نیست؛ هر خطای دیگر هم فقط وقتی پیامِ تازه
+      // می‌خواهد که کار تمام شده باشد - وگرنه هر تازه‌سازی یک پیامِ جدید می‌شد.
+      if (r.ok || active > 0) return;
+    } else if (active > 0) {
+      return;
+    }
+    await tgJson(env, "sendMessage", { chat_id: st.chat_id, text });
+  } catch {
+    // دیده نشد؛ مهم نیست.
+  }
 }
 
 // ─── گذارها ──────────────────────────────────────────────────────
@@ -170,16 +220,17 @@ export async function failJob(env, id, code) {
   const job = await getJob(env, id);
   if (!job) return false;
   if (!(await finishJob(env, id, "failed", safe))) return false;
-  await notify(env, job, failureText(job, safe));
+  if (job.batch_id) await refreshBatch(env, job.batch_id);
   return true;
 }
 
-/** پس از زدنِ دکمه: علامتِ «در انتظار» و روشن کردنِ ورک‌فلو. */
-export async function startRender(env, job) {
+/** پس از ثبتِ دسته: علامتِ «در انتظار» و روشن کردنِ ورک‌فلو. */
+export async function startRender(env, batchId) {
   await writeConfig(env, PENDING_FLAG, "1");
   const r = await dispatchWorkflow(env, WORKFLOW);
   if (!r.ok) {
-    await failJob(env, job.id, "dispatch");
+    await failBatch(env, batchId, "dispatch");
+    await refreshBatch(env, batchId);
     return { ok: false, detail: r.skipped || String(r.status || "") };
   }
   return { ok: true };
@@ -202,9 +253,8 @@ const FIT_NOTE = {
  * عکسِ رندرشده را به مدیر می‌رساند.
  *
  * @returns {Promise<{status: number, error?: string}>}
- *   409 یعنی این درخواست دیگر منتظرِ عکس نیست (قبلاً فرستاده شده یا
- *   شکست‌خورده اعلام شده) - پس تکرارِ آپلودِ ورک‌فلو هیچ‌وقت عکسِ دوم
- *   نمی‌فرستد.
+ *   409 یعنی این درخواست دیگر منتظرِ عکس نیست (قبلاً فرستاده شده، لغو یا
+ *   شکست‌خورده اعلام شده) - پس تکرارِ آپلودِ ورک‌فلو هرگز عکسِ دوم نمی‌فرستد.
  */
 export async function completeJob(env, id, bytes, fit = "ok") {
   const job = await getJob(env, id);
@@ -215,7 +265,8 @@ export async function completeJob(env, id, bytes, fit = "ok") {
   if (!looksLikePng(bytes)) return { status: 400, error: "not_png" };
 
   const label = GENDER_LABEL[job.gender] || "";
-  const caption = "🎓 گواهی — " + label + " " + job.name + (FIT_NOTE[fit] || "");
+  const where = job.batch_total > 1 ? " " + fa(job.batch_pos) + " از " + fa(job.batch_total) : "";
+  const caption = "🎓 گواهی" + where + " — " + label + " " + job.name + (FIT_NOTE[fit] || "");
 
   // فایل (document)، نه عکس: تلگرام عکس را فشرده می‌کند و کیفیتِ ۳۵۸۴ پیکسلی
   // از بین می‌رفت.
@@ -241,15 +292,21 @@ export async function completeJob(env, id, bytes, fit = "ok") {
     return { status: 502, error: "telegram" };
   }
   await finishJob(env, id, "done");
-  await notify(env, job, "✅ گواهیِ «" + job.name + "» ارسال شد.");
+  if (job.batch_id) await refreshBatch(env, job.batch_id);
   return { status: 200 };
 }
 
 // ─── گیرکردن ─────────────────────────────────────────────────────
 
+/** هر دسته‌ی تحت‌تأثیر فقط یک بار تازه می‌شود، نه یک بار برای هر ردیف. */
+async function refreshAffected(env, rows) {
+  const ids = [...new Set(rows.map((r) => r.batch_id).filter(Boolean))];
+  for (const id of ids) await refreshBatch(env, id);
+}
+
 export async function sweepAndNotify(env, now = Date.now()) {
   const { stale, purged } = await sweep(env, now);
-  for (const job of stale) await notify(env, job, failureText(job, job.error));
+  await refreshAffected(env, stale);
   return { failed: stale.length, purged };
 }
 
@@ -268,6 +325,6 @@ export async function sweepIfPending(env, now = Date.now()) {
 /** پایانِ اجرای ورک‌فلو: هرچه نیمه‌کاره مانده شکست‌خورده است و مدیر باید بداند. */
 export async function failLeftovers(env) {
   const rows = await failAllRendering(env);
-  for (const job of rows) await notify(env, job, failureText(job, "render"));
+  await refreshAffected(env, rows);
   return rows.length;
 }

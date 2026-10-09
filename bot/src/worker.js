@@ -62,9 +62,9 @@ import {
 } from "./econ/subscribers.js";
 import {
   claimNext as certClaimNext,
-  createDraft as certCreateDraft,
-  takeDraft as certTakeDraft,
-  cancelDraft as certCancelDraft,
+  enqueueBatch as certEnqueueBatch,
+  cancelBatch as certCancelBatch,
+  batchStats as certBatchStats,
   finishJob as certFinishJob,
   countActive as certCountActive,
   ensureCertSchema,
@@ -126,7 +126,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-66";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-67";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1342,49 +1342,47 @@ async function handleAdmin(request, url, env) {
     const steps = [];
     const say = (step, got, want) =>
       steps.push({ step, got, want, ok: JSON.stringify(got) === JSON.stringify(want) });
-    const ids = [];
+    const batches = [];
     try {
       await ensureCertSchema(env);
       const owner = "selftest-owner";
-      const other = "selftest-other";
-      const a = await certCreateDraft(env, owner, "آزمون");
-      ids.push(a);
-      const wrong = await certTakeDraft(env, { id: a, ownerId: other, gender: "f", chatId: "0", messageId: 1 });
-      say("مالکِ دیگر نمی‌تواند پیش‌نویس را بردارد", wrong.ok === false && wrong.why, "owner");
-      const t1 = await certTakeDraft(env, { id: a, ownerId: owner, gender: "f", chatId: "0", messageId: 1 });
-      say("مالک پیش‌نویس را به صف می‌برد", t1.ok, true);
-      const t2 = await certTakeDraft(env, { id: a, ownerId: owner, gender: "m", chatId: "0", messageId: 1 });
-      say("زدنِ دوباره‌ی دکمه درخواستِ دوم نمی‌سازد", t2.ok, false);
-      say("جنسیتِ ثبت‌شده با زدنِ دوم عوض نشد", (await env.DB.prepare(`SELECT gender FROM cert_jobs WHERE id = ?`).bind(a).first()).gender, "f");
-      say("done از حالتِ queued ممکن نیست", await certFinishJob(env, a, "done"), false);
-      say("شکست از queued ممکن است", await certFinishJob(env, a, "failed", "other"), true);
-      say("شکستِ دوباره اثری ندارد", await certFinishJob(env, a, "failed", "other"), false);
+      const items = [
+        { name: "آزمون یک", gender: "f" },
+        { name: "آزمون دو", gender: "m" },
+        { name: "آزمون سه", gender: "f" },
+      ];
+      const b = await certEnqueueBatch(env, { ownerId: owner, chatId: "0", messageId: 1, items });
+      batches.push(b.batchId);
+      let st = await certBatchStats(env, b.batchId);
+      say("دسته با همه‌ی ردیف‌ها در صف می‌نشیند", [st.total, st.counts.queued], [3, 3]);
+      const pos = (await env.DB.prepare(`SELECT batch_pos AS p FROM cert_jobs WHERE batch_id = ? ORDER BY rowid`).bind(b.batchId).all()).results.map((r) => r.p);
+      say("ترتیبِ درج همان ترتیبِ لیست است", pos, [1, 2, 3]);
 
-      const b = await certCreateDraft(env, owner, "آزمون دو");
-      ids.push(b);
-      say("لغو پیش‌نویس", await certCancelDraft(env, b, owner), true);
-      say("پیش‌نویسِ لغوشده دیگر به صف نمی‌رود",
-        (await certTakeDraft(env, { id: b, ownerId: owner, gender: "m", chatId: "0", messageId: 1 })).ok, false);
+      say("لغوِ دسته برای مالکِ دیگر اثری ندارد", await certCancelBatch(env, b.batchId, "selftest-other"), 0);
+      say("done از حالتِ queued ممکن نیست", await certFinishJob(env, b.ids[0], "done"), false);
 
-      // claimNext فقط وقتی امن است که صف واقعاً خالی باشد - وگرنه ممکن
-      // بود درخواستِ واقعیِ مدیر را بردارد.
-      if ((await certCountActive(env)) === 0) {
-        const c = await certCreateDraft(env, owner, "آزمون سه");
-        ids.push(c);
-        await certTakeDraft(env, { id: c, ownerId: owner, gender: "m", chatId: "0", messageId: 1 });
-        const claimed = await certClaimNext(env);
-        say("claimNext همان درخواست را برمی‌دارد", claimed && claimed.id, c);
-        say("claimNext بار دوم چیزی نمی‌یابد", await certClaimNext(env), null);
-        say("done از rendering ممکن است", await certFinishJob(env, c, "done"), true);
-        say("done دوباره اثری ندارد", await certFinishJob(env, c, "done"), false);
+      // claimNext فقط وقتی امن است که صف واقعاً خالی باشد: دسته‌ی ساختگی هم
+      // در صف است، پس شرط «فقط همین سه تا» است - وگرنه ممکن بود درخواستِ
+      // واقعیِ مدیر را بردارد.
+      if ((await certCountActive(env)) === 3) {
+        const c1 = await certClaimNext(env);
+        say("claimNext اولین ردیفِ لیست را برمی‌دارد", c1 && c1.name, "آزمون یک");
+        const c2 = await certClaimNext(env);
+        say("و بعد دومی را (ترتیبِ لیست)", c2 && c2.name, "آزمون دو");
+        say("done از rendering ممکن است", await certFinishJob(env, c1.id, "done"), true);
+        say("done دوباره اثری ندارد", await certFinishJob(env, c1.id, "done"), false);
+        say("لغوِ باقی‌مانده فقط ردیفِ منتظر را لغو می‌کند (نه در حال رندر را)", await certCancelBatch(env, b.batchId, owner), 1);
+        st = await certBatchStats(env, b.batchId);
+        say("وضعیتِ دسته", [st.counts.done, st.counts.rendering, st.counts.cancelled, st.counts.queued], [1, 1, 1, 0]);
+        say("claimNext بعد از لغو چیزی نمی‌یابد", await certClaimNext(env), null);
       } else {
         steps.push({ step: "claimNext", skipped: "صف خالی نبود", ok: true });
       }
     } catch (err) {
       steps.push({ step: "استثنا", got: String(err && err.message), ok: false });
     } finally {
-      for (const id of ids) {
-        await env.DB.prepare(`DELETE FROM cert_jobs WHERE id = ?`).bind(id).run().catch(() => {});
+      for (const id of batches) {
+        await env.DB.prepare(`DELETE FROM cert_jobs WHERE batch_id = ?`).bind(id).run().catch(() => {});
       }
     }
     const failed = steps.filter((s) => !s.ok);
