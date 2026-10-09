@@ -93,11 +93,11 @@ jobs:
           # «از کجا». یک بار بهینه‌سازی بر اساسِ حدس انجام شد و هیچ
           # اثری نداشت - چون جایی را بست که مقصر نبود. این بخش همان
           # حدس را با داده جای‌گزین می‌کند.
-          Q_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$FROM" --arg u "$TODAY" '{
+          Q_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$TODAY" --arg u "$TODAY" '{
             query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1QueriesAdaptiveGroups(limit:100,filter:{date_geq:$s,date_leq:$u}){sum{rowsRead rowsWritten}count dimensions{query}}}}}",
             variables: {a:$a, s:$s, u:$u}
           }')
-          echo "─── سنگین‌ترین کوئری‌ها (بر اساس ردیف‌خوانی) ───"
+          echo "─── سنگین‌ترین کوئری‌ها - فقط امروز (UTC)، بر اساس ردیف‌خوانی ───"
           ask "$Q_Q" | mask | jq -r '
             if .errors then "خطا: " + (.errors | map(.message) | join("; "))
             else (.data.viewer.accounts[0].d1QueriesAdaptiveGroups // [])
