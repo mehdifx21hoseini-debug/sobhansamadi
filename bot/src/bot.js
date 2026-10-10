@@ -56,7 +56,7 @@ import { VOTE_PREFIX, recordVote } from "./ai/log.js";
 import { mainMenuKeyboard, resolveMenuAction } from "./menu.js";
 import { membershipGate } from "./membershipGate.js";
 import { touchUser } from "./db.js";
-import { isOwner } from "./owner.js";
+import { isOwner, isCertAdmin } from "./owner.js";
 import {
   handleCert,
   handleCertAssets,
@@ -67,7 +67,7 @@ import {
   CERT_STEP,
 } from "./commands/cert.js";
 import { isDbOutage, notifyOwner, USER_TEXT } from "./dbOutage.js";
-import { ensureAdminCommands } from "./commands/registry.js";
+import { ensureAdminCommands, CERT_COMMANDS } from "./commands/registry.js";
 import { getUserState, clearUserState } from "./db.js";
 import {
   sendEconCalendar,
@@ -224,6 +224,8 @@ export function createBot(token, env, botInfo, build = "?") {
       // منتظرش نمی‌مانیم: این یک کار جانبی است و نباید پاسخ به مدیر را
       // پشت یک درخواست دیگر به تلگرام نگه دارد.
       ensureAdminCommands(ctx).catch(() => {});
+    } else if (isCertAdmin(ctx)) {
+      ensureAdminCommands(ctx, CERT_COMMANDS).catch(() => {});
     }
     return next();
   });

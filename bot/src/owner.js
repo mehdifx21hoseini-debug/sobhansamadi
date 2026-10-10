@@ -32,3 +32,18 @@ export function isOwner(ctx) {
   const username = String(from.username || "").toLowerCase();
   return !!username && OWNER_USERNAMES.includes(username);
 }
+
+// کسانی که فقط ساختنِ گواهی را دارند - نه مدیر.
+//
+// جدا از OWNER_IDS نگه داشته می‌شوند تا «اجازه‌ی گواهی» هرگز به بقیه‌ی
+// دسترسی‌های مدیر (ویرایش محتوا، آمار کاربران، پیام همگانی...) نشت نکند:
+// isOwner برای این آیدی‌ها همچنان false است و هر مسیری که فقط isOwner را
+// می‌شناسد برایشان بسته می‌ماند. تنها /cert با isCertAdmin باز می‌شود؛
+// بارگذاریِ فایل‌های گواهی (/certassets و ارسالِ فایل) فقط مدیر.
+export const CERT_ONLY_IDS = ["6929332443"];
+
+export function isCertAdmin(ctx) {
+  if (isOwner(ctx)) return true;
+  const from = ctx && ctx.from;
+  return !!from && CERT_ONLY_IDS.includes(String(from.id));
+}

@@ -29,7 +29,7 @@ import {
 } from "../src/certificate/service.js";
 import { readConfig } from "../src/content/channel.js";
 import {
-  handleCert, handleCertCallback, handleCertAsset, handleCertListText, routeCertList,
+  handleCert, handleCertAssets, handleCertCallback, handleCertAsset, handleCertListText, routeCertList,
   CERT_FLOW, CERT_STEP,
 } from "../src/commands/cert.js";
 import { planLine, REF } from "../../scripts/cert/layout.mjs";
@@ -757,6 +757,41 @@ ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]
   const loop = fs.readFileSync(root + "scripts/cert/job-loop.mjs", "utf8");
   ok(!/console\.(log|error)\([^)]*job\.name/.test(loop) && !/err\.message/.test(loop.replace(/\/\/.*$/gm, "").replace(/"[^"\n]*err\.message[^"\n]*"/g, "")), "حلقه‌ی ورک‌فلو نام یا متنِ خطا را چاپ نمی‌کند (ممکن است نام را داشته باشد)");
   ok(/MAX_JOBS = 60/.test(loop) && /timeout-minutes: 15/.test(wf), "ظرفیتِ ورک‌فلو برای دو دسته‌ی کامل کافی است (۶۰ گواهی، ۱۵ دقیقه)");
+}
+
+// ─── ۱۱) کاربرِ «فقط گواهی» ─────────────────────────────────────
+{
+  const CERT_ONLY = "6929332443";
+  const { isOwner, isCertAdmin, CERT_ONLY_IDS } = await import("../src/owner.js");
+  const { CERT_COMMANDS, ADMIN_COMMANDS } = await import("../src/commands/registry.js");
+  const fake = (id) => ({ from: { id: Number(id) } });
+  ok(CERT_ONLY_IDS.includes(CERT_ONLY) && isCertAdmin(fake(CERT_ONLY)) && isCertAdmin(fake(OWNER)) && !isCertAdmin(fake(STRANGER)), "isCertAdmin: مدیر و کاربرِ گواهی بله، غریبه نه");
+  ok(!isOwner(fake(CERT_ONLY)), "ولی کاربرِ گواهی مدیر نیست - بقیه‌ی دسترسی‌های مدیر برایش بسته می‌ماند");
+  ok(CERT_COMMANDS.map((c) => c.command).sort().join() === "cert,help,start", "منوی «/» او فقط start، help و cert است");
+  ok(ADMIN_COMMANDS.length > CERT_COMMANDS.length, "و منوی مدیر همچنان کامل است");
+
+  const env = await readyEnv();
+  const a = makeCtx(env, { from: CERT_ONLY });
+  await handleCert(a.ctx);
+  ok(a.calls.reply.length === 1 && (await getUserState(env, CERT_ONLY)).current_flow === CERT_FLOW, "/cert برای او کار می‌کند و منتظرِ لیست می‌ماند");
+  const b = makeCtx(env, { from: CERT_ONLY, text: "خانم راحیل غلامی\nآقا علی رضایی" });
+  await handleCertListText(b.ctx);
+  ok(rows(env).length === 2 && rows(env).every((r) => r.owner_id === CERT_ONLY) && dispatches().length >= 1, "لیستش ساخته می‌شود و دسته به نامِ خودش ثبت می‌شود");
+  const batchId = rows(env)[0].batch_id;
+  const c = makeCtx(env, { from: CERT_ONLY, data: "CERT|k|" + batchId });
+  await handleCertCallback(c.ctx);
+  ok((await batchStats(env, batchId)).counts.cancelled === 2, "دکمه‌ی لغو برای او کار می‌کند");
+
+  const d = makeCtx(env, { from: CERT_ONLY });
+  await handleCertAssets(d.ctx);
+  ok(d.calls.reply.length === 0, "/certassets (وضعیتِ فایل‌ها) برایش وجود ندارد");
+  const e = makeCtx(env, { from: CERT_ONLY, doc: { file_name: "template.png", file_size: 10, file_id: "x" } });
+  ok((await handleCertAsset(e.ctx)) === false && e.calls.reply.length === 0, "و بارگذاریِ قالب و فونت را هم نمی‌تواند بکند");
+
+  const bare = freshEnv();
+  const f = makeCtx(bare, { from: CERT_ONLY });
+  await handleCert(f.ctx);
+  ok(f.calls.reply.length === 1 && /با مدیر/.test(f.calls.reply[0].t) && !/certassets/.test(f.calls.reply[0].t), "اگر فایل‌های گواهی نباشد، فقط می‌گوید با مدیر هماهنگ کند");
 }
 
 console.log("\n" + n + " ادعا");

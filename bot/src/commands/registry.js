@@ -31,6 +31,12 @@ export const ADMIN_COMMANDS = [
   { command: "resetchannel", description: "🔄 عوض کردن کانال محتوا" },
 ];
 
+// منوی «/» برای کسی که فقط گواهی دارد.
+export const CERT_COMMANDS = [
+  ...PUBLIC_COMMANDS,
+  { command: "cert", description: "🎓 ساخت گواهی دانشجو" },
+];
+
 // چه گفتگوهایی فهرست مدیر را گرفته‌اند. فقط در حافظه‌ی همین isolate
 // می‌ماند و با سرد شدنش پاک می‌شود - که ایرادی ندارد: تلگرام این
 // فراخوانی را idempotent می‌داند و تکرارش فقط یک درخواست اضافه است،
@@ -47,14 +53,14 @@ const registered = new Set();
  * شکستش هیچ‌وقت نباید جلوی پردازش پیام را بگیرد - یک فهرست دستور، به
  * اندازه‌ی جواب ندادن به کاربر مهم نیست.
  */
-export async function ensureAdminCommands(ctx) {
+export async function ensureAdminCommands(ctx, commands = ADMIN_COMMANDS) {
   const chatId = ctx.chat && ctx.chat.id;
   if (!chatId || ctx.chat.type !== "private") return;
   if (registered.has(chatId)) return;
   registered.add(chatId);
 
   try {
-    await ctx.api.setMyCommands(ADMIN_COMMANDS, {
+    await ctx.api.setMyCommands(commands, {
       scope: { type: "chat", chat_id: chatId },
     });
   } catch (err) {

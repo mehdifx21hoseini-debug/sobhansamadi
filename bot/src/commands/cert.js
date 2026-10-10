@@ -21,7 +21,7 @@
 // دستور فقط برای مدیر است» - که خودش اعلامِ وجودِ آن می‌بود. در منوی «/» هم
 // فقط برای مدیر ثبت می‌شود (registry.js).
 
-import { isOwner } from "../owner.js";
+import { isOwner, isCertAdmin } from "../owner.js";
 import { getUserState, setUserState, clearUserState } from "../db.js";
 import { parseList, MAX_BATCH } from "../certificate/list.js";
 import { enqueueBatch, cancelBatch, countActive, MAX_ACTIVE } from "../certificate/store.js";
@@ -69,6 +69,10 @@ function waitKeyboard() {
 async function preflight(ctx, need) {
   const missing = await missingAssets(ctx.env);
   if (missing.length > 0) {
+    if (!isOwner(ctx)) {
+      await ctx.reply("⚠️ ساختِ گواهی هنوز آماده نیست. با مدیر هماهنگ کنید.");
+      return false;
+    }
     await ctx.reply(
       "⚠️ فایل‌های گواهی هنوز کامل بارگذاری نشده‌اند:\n" +
         missing.map((s) => "• " + SLOTS[s].title + " (" + SLOTS[s].hint + ")").join("\n") +
@@ -145,7 +149,7 @@ async function build(ctx, raw, again) {
 
 export async function handleCert(ctx) {
   // برای غیرمدیر انگار وجود ندارد.
-  if (!isOwner(ctx)) return;
+  if (!isCertAdmin(ctx)) return;
 
   const raw = String(ctx.match || "").trim();
 
@@ -174,7 +178,7 @@ export async function handleCert(ctx) {
  * همیشه «وسطِ گواهی» نماند و پیام‌های بعدی‌اش بلعیده نشود.
  */
 export async function handleCertListText(ctx) {
-  if (!isOwner(ctx)) {
+  if (!isCertAdmin(ctx)) {
     await clearUserState(ctx.env, ctx.from.id);
     return;
   }
@@ -205,7 +209,7 @@ export async function routeCertList(ctx, state, resolveMenuAction) {
 
 export async function handleCertCallback(ctx) {
   // غیرمدیر: دکمه را خنثی می‌کنیم و هیچ نشانی نمی‌دهیم.
-  if (!isOwner(ctx)) {
+  if (!isCertAdmin(ctx)) {
     await ctx.answerCallbackQuery().catch(() => {});
     return;
   }
