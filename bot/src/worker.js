@@ -11,6 +11,7 @@ import { handleMiniapp } from "./econ/miniapp.js";
 import { ECON_APP_HTML } from "./econ/appHtml.js";
 import { stats as cacheStats } from "./cache.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
+import { autoSyncIfSeedChanged } from "./ai/source.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
@@ -127,7 +128,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-76";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-77";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1927,6 +1928,16 @@ export default {
             console.log("هشدار قبل از خبر:", JSON.stringify(n));
           }
         })().catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
+      );
+
+      // پایگاه دانش دستیار: اگر seed عوض شده (مثلاً نسخه‌ی تازه‌ی SSProX)
+      // خودش همگام و بردارها را می‌سازد. روزِ عادی یک خواندنِ یک‌ردیفی.
+      ctx.waitUntil(
+        autoSyncIfSeedChanged(env)
+          .then((r) => {
+            if (r && r.synced) console.log("همگام‌سازیِ خودکارِ پایگاه دانش:", JSON.stringify(r));
+          })
+          .catch((err) => console.error("همگام‌سازیِ خودکارِ پایگاه دانش شکست خورد:", err && err.message))
       );
 
       // گواهی‌های گیرکرده. فقط وقتی درخواستی در جریان است چیزی می‌خواند: در

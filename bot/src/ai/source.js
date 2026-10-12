@@ -19,6 +19,8 @@ import { SECTIONS, resolveSection } from "../content/sectionText.js";
 import { embedBatch, EMBED_BATCH_MAX, EMBED_DIMS } from "./gemini.js";
 import { ensureKbSchema, invalidateKbCache } from "./kb.js";
 import { SEED } from "./seed.js";
+import { SSPROX, SSPROX_VERSION } from "./ssproxKb.js";
+import { readConfig, writeConfig } from "../content/channel.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS kb_source (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,13 +59,31 @@ function hash(s) {
   return h.toString(36);
 }
 
+// دسته‌هایی که دیگر از seed قدیمی وارد نمی‌شوند.
+//
+// ۹۵ مدخل «اکسپرت» و یک مدخل «SSProX» در seed قدیمی درباره‌ی نسخه‌ی
+// پیشین اکسپرت بودند. جای همه‌شان را پایگاه دانش رسمی SS Pro X (ssproxKb.js)
+// گرفته است؛ ماندنِ دو منبع برای یک محصول یعنی دستیار گاهی از قدیمی
+// جواب می‌دهد، با عددها و رفتارهای نسخه‌ی پیش.
+//
+// seed.js دست نخورده می‌ماند (آرشیوِ داده‌ی اصلی)؛ فقط اینجا کنار گذاشته
+// می‌شود.
+export const RETIRED_SEED_CATEGORIES = ["اکسپرت", "SSProX"];
+
 function seedEntries() {
-  return SEED.map((e) => ({
+  const old = SEED.filter((e) => !RETIRED_SEED_CATEGORIES.includes(e.category)).map((e) => ({
     origin: "seed:" + hash(e.question),
     category: e.category,
     question: e.question,
     answer: e.answer,
   }));
+  const ssprox = SSPROX.map((e) => ({
+    origin: "seed:ssprox:" + e.id,
+    category: e.category,
+    question: e.question,
+    answer: e.answer,
+  }));
+  return [...old, ...ssprox];
 }
 
 // متن بخش‌ها → پرسش و پاسخ.
@@ -129,7 +149,38 @@ async function syncSources(env) {
         .bind(e.origin, e.category, e.question, e.answer, now)
     )
   );
+  await retireStale(env, entries);
   return entries.length;
+}
+
+/**
+ * مدخل‌هایی که دیگر در seed نیستند، و مدخل‌های دسته‌های بازنشسته را خاموش
+ * می‌کند - حذف نمی‌شوند، فقط active = 0، پس برگشت‌پذیر است و ردیف در
+ * kb_source می‌ماند.
+ *
+ * چرا لازم است: syncSources فقط upsert می‌کند. مدخلی که از seed برداشته
+ * شود، ردیفش در D1 همچنان active می‌ماند و دستیار از آن جواب می‌داد.
+ * مدخل‌های دستی و ویرایش‌شده (origin غیر seed) فقط وقتی خاموش می‌شوند که
+ * در یکی از دسته‌های بازنشسته باشند - یعنی همان متنِ قدیمیِ اکسپرت.
+ */
+async function retireStale(env, entries) {
+  const keep = new Set(entries.map((e) => e.origin));
+  const { results } = await env.DB
+    .prepare(`SELECT id, origin, category FROM kb_source WHERE active = 1`)
+    .all();
+  const retired = new Set(RETIRED_SEED_CATEGORIES);
+  const off = (results || []).filter((r) => {
+    const isSeed = String(r.origin || "").startsWith("seed:");
+    if (isSeed && !keep.has(r.origin)) return true;
+    // دسته‌ی بازنشسته، ولی نه مدخل‌های تازه‌ی SSProX که در keep هستند.
+    return retired.has(r.category) && !keep.has(r.origin);
+  });
+  if (off.length === 0) return 0;
+  await runChunked(
+    env,
+    off.map((r) => env.DB.prepare(`UPDATE kb_source SET active = 0 WHERE id = ?`).bind(r.id))
+  );
+  return off.length;
 }
 
 export async function listSource(env) {
@@ -513,4 +564,32 @@ export async function syncAndRebuild(env) {
     e.cause = err;
     throw e;
   }
+}
+
+
+// ─── همگام‌سازیِ خودکار پس از عوض شدنِ seed ─────────────────────────────
+//
+// /kbsync را فقط مدیر در تلگرام می‌زند. بعد از یک دیپلوی که پایگاه دانش را
+// عوض می‌کند (مثل جای‌گزینیِ اکسپرت)، تا کسی /kbsync نزند دستیار هنوز از
+// مدخل‌های قدیمی جواب می‌دهد. پس نسخه‌ی seed در bot_config ثبت می‌شود و
+// کرانِ پنج‌دقیقه‌ای اگر با نسخه‌ی کد فرق داشت، خودش همگام می‌کند.
+//
+// هزینه‌ی روزهای عادی: یک خواندنِ یک‌ردیفی در هر تیک.
+// نسخه فقط بعد از موفقیتِ کامل (بدونِ مدخلِ بی‌بردار) ثبت می‌شود؛ وگرنه
+// تیکِ بعد دوباره تلاش می‌کند.
+
+const KB_SEED_VERSION_KEY = "kb_seed_version";
+
+export function currentSeedVersion() {
+  return "ssprox-" + SSPROX_VERSION + "-" + SSPROX.length + "-" + hash(RETIRED_SEED_CATEGORIES.join(","));
+}
+
+export async function autoSyncIfSeedChanged(env) {
+  if (!env.GEMINI_API_KEY) return { skipped: "GEMINI_API_KEY" };
+  const want = currentSeedVersion();
+  const have = await readConfig(env, KB_SEED_VERSION_KEY).catch(() => "");
+  if (String(have) === want) return { skipped: "به‌روز" };
+  const r = await syncAndRebuild(env);
+  if (r.pending === 0) await writeConfig(env, KB_SEED_VERSION_KEY, want);
+  return { synced: true, ...r };
 }
