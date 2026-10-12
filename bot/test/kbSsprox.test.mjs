@@ -44,7 +44,7 @@ const NON_EXPERT = SEED.length - EXPERT_OLD;
 // ─── ۱) داده‌ی تازه ─────────────────────────────────────────────
 ok(SSPROX.length === 164 && new Set(SSPROX.map((e) => e.id)).size === 164, "۱۶۴ مدخلِ یکتا از فایلِ V2.1");
 ok(!SSPROX.some((e) => /STAFF/.test(e.id)), "هیچ مدخلِ «تیم پشتیبانی» وارد نشده");
-ok(!SSPROX.some((e) => /staff|compile|F7|AVX2|X64 Regular/i.test(e.answer + e.question)), "و هیچ متنِ داخلیِ کامپایل در مدخل‌ها نیست");
+ok(!SSPROX.some((e) => /ساختن فایل نهایی|کامپایل درست|نکته‌ی هر انتشار|اطلاعاتی که برای بررسی مشکل کاربر|Maximum Optimization|بدون اینکه کاربر چیزی را آپدیت/.test(e.answer + e.question)), "و هیچ جمله‌ی داخلیِ تیم (کامپایل، گزارش مشکل، انتشار) در مدخل‌ها نیست");
 ok(SSPROX.some((e) => /SSProX/i.test(e.question)) && SSPROX.some((e) => /اس اس پرو ایکس/.test(e.question)), "اسم‌های مختلفِ اکسپرت در سوالِ مدخل‌ها هست (ssprox و اس اس پرو ایکس)");
 ok(EXPERT_OLD === 96 && NON_EXPERT === 127, "seed قدیمی: ۹۶ مدخلِ اکسپرت/SSProX و ۱۲۷ مدخلِ دیگر", { EXPERT_OLD, NON_EXPERT });
 
