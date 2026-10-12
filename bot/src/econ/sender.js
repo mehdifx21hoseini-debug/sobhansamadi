@@ -591,6 +591,10 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
     lastId = pending[i].telegram_user_id;
     // مکث هر بیست پیام، برای نخوردن به سقفِ نرخِ تلگرام.
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
+    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
+    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
+    if (i % 20 === 19) await advanceCursor(env, "digest", ref, shard, lastId);
   }
   await advanceCursor(env, "digest", ref, shard, lastId);
 
@@ -700,6 +704,10 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
     }
     lastId = pending[i].telegram_user_id;
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
+    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
+    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
+    if (i % 20 === 19) await advanceCursor(env, "holiday", ref, shard, lastId);
   }
   await advanceCursor(env, "holiday", ref, shard, lastId);
 
@@ -1348,6 +1356,10 @@ export async function runWeeklyGreeting(env, now = new Date(), shard = null) {
     if (res === "stop") { stopped = true; break; }
     lastId = pending[i].telegram_user_id;
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
+    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
+    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
+    if (i % 20 === 19) await advanceCursor(env, "greet", ref, shard, lastId);
   }
   await advanceCursor(env, "greet", ref, shard, lastId);
 
@@ -1450,6 +1462,10 @@ export async function runNotice(env, now = new Date(), shard = null) {
     if (res === "stop") { stopped = true; break; }
     lastId = pending[i].telegram_user_id;
     if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
+    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
+    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
+    if (i % 20 === 19) await advanceCursor(env, "notice", ref, shard, lastId);
   }
   await advanceCursor(env, "notice", ref, shard, lastId);
 

@@ -94,6 +94,7 @@ jobs:
             w="$1"
             body="body-$ENDPOINT-$w.json"
             total=0
+            fails=0
             for i in $(seq 1 $MAX); do
               code=$(curl -sS --max-time 120 -o "$body" -w '%{http_code}' \
                 -H "x-admin-key: $ADMIN_KEY" \
@@ -104,9 +105,19 @@ jobs:
                 # exactly where this stopped, because nobody is marked as
                 # sent unless the message actually went out.
                 echo "[$ENDPOINT] کارگر $w دور $i: کد $code - دوباره تلاش می‌شود"
-                sleep 5
+                fails=$((fails + 1))
+                # شش شکستِ پشتِ هم یعنی ورکر الان جواب نمی‌دهد. ادامه دادن فقط
+                # خواندنِ D1 را بیهوده بالا می‌برد (هر دورِ ناموفق دوباره جدول را
+                # می‌گردد). ادامه‌ی کار با کرانِ پنج‌دقیقه‌ای و جاروی ساعتی است.
+                if [ "$fails" -ge 6 ]; then
+                  echo "$total" > "count-$w.txt"
+                  echo "::warning::کارگر $w بعد از $fails شکستِ پشتِ هم ایستاد - بقیه با کران ادامه می‌یابد."
+                  return 0
+                fi
+                sleep $((5 * fails))
                 continue
               fi
+              fails=0
 
               # Never print the body raw: it is JSON from an admin route and
               # anything token-shaped in it must not reach a public log.
