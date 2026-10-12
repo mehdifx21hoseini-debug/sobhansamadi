@@ -1,6 +1,6 @@
 import { InlineKeyboard } from "grammy";
 import { handleStart } from "./commands/start.js";
-import { isOwner } from "./owner.js";
+import { isOwner, isCertAdmin } from "./owner.js";
 import { sendSection } from "./content/sectionText.js";
 import { gateChannel } from "./content/botLinks.js";
 
@@ -71,6 +71,13 @@ export function membershipGate() {
     // مدیران از چک عضویت معافند. بدون این، مدیری که هنوز عضو کانال نشده
     // پشت دروازه‌ی خودش می‌ماند و دیگر نمی‌تواند چیزی را درست کند.
     if (isOwner(ctx)) {
+      return next();
+    }
+
+    // کاربرِ «فقط گواهی» هم معاف است: ادمینِ آکادمی است و نباید برای
+    // ساختنِ گواهی اول عضوِ کانال شود. فقط از چکِ عضویت معاف می‌شود؛
+    // دسترسی‌های مدیریتی را isOwner می‌دهد و او ندارد.
+    if (isCertAdmin(ctx)) {
       return next();
     }
 

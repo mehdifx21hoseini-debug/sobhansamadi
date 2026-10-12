@@ -794,4 +794,29 @@ ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]
   ok(f.calls.reply.length === 1 && /با مدیر/.test(f.calls.reply[0].t) && !/certassets/.test(f.calls.reply[0].t), "اگر فایل‌های گواهی نباشد، فقط می‌گوید با مدیر هماهنگ کند");
 }
 
+// ─── ۱۲) دروازه‌ی عضویت کانال ────────────────────────────────────
+{
+  const { membershipGate } = await import("../src/membershipGate.js");
+  const gate = membershipGate();
+  const run = async (id) => {
+    let passed = false, replies = 0, checked = false;
+    const ctx = {
+      from: { id: Number(id) }, chat: { id: Number(id), type: "private" },
+      env: {}, // بدونِ تنظیمات: اگر چکِ عضویت اجرا شود، نه جوابِ درست می‌دهد
+      api: { getChatMember: async () => { checked = true; return { status: "left" }; } },
+      reply: async () => { replies++; },
+    };
+    const quiet = console.error; console.error = () => {};
+    try { await gate(ctx, async () => { passed = true; }); } catch { /* sendSection بدونِ دیتابیس */ }
+    console.error = quiet;
+    return { passed, replies, checked };
+  };
+  const c = await run("6929332443");
+  ok(c.passed === true && c.checked === false, "کاربرِ فقط‌گواهی از چکِ عضویتِ کانال معاف است (حتی چک هم نمی‌شود)");
+  const o = await run("6923823275");
+  ok(o.passed === true && o.checked === false, "مدیر هم معاف است (مثل قبل)");
+  const x = await run("111222333");
+  ok(x.passed === false && x.checked === true, "غریبه‌ی غیرعضو هنوز پشتِ دروازه می‌ماند");
+}
+
 console.log("\n" + n + " ادعا");
