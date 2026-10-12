@@ -21,6 +21,11 @@ const EMBED_MODEL = "gemini-embedding-001";
 // عملاً روی هم می‌افتند و «Half Close» از «Close All» جدا نمی‌شود.
 export const EMBED_DIMS = 768;
 const CHAT_MODEL = "gemini-3.1-flash-lite";
+// مدل جایگزین، فقط وقتی مدل اصلی پشتِ هم خطای گذرا داد.
+//
+// ۱۲ اکتبر مدل اصلی ساعت‌ها «503 high demand» داد و دستیار برای همه‌ی
+// متن‌های آزاد به «متوجه منظورتون نشدم» افتاد - حتی برای «سلام».
+const FALLBACK_CHAT_MODEL = "gemini-2.5-flash";
 const TEMPERATURE = 1.1;
 
 // همان شکلی که Output Parser در n8n تحمیل می‌کرد. حالا خود Gemini آن را
@@ -55,7 +60,9 @@ async function callGemini(env, path, body, timeoutMs) {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error("پاسخ ناموفق از Gemini: " + res.status + " " + detail.slice(0, 200));
+    const err = new Error("پاسخ ناموفق از Gemini: " + res.status + " " + detail.slice(0, 200));
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -122,21 +129,49 @@ export async function embedBatch(env, texts) {
  * دارند (مثل پیشنهاد مدخل پایگاه دانش) و تنها فرقشان شماست - کپی کردن
  * این تابع یعنی دو جا که باید هم‌زمان درست بمانند.
  */
+// خطاهای گذرا: ارزش دارد دوباره امتحان شوند. خطای ۴۰۰ و ۴۰۳ (کلید یا
+// درخواست غلط) نه - تکرارشان فقط وقت می‌سوزاند.
+function isTransient(err) {
+  const st = err && err.status;
+  if (st) return st === 429 || (st >= 500 && st <= 599);
+  const name = err && err.name;
+  return name === "TimeoutError" || name === "AbortError" || name === "TypeError";
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 export async function generateStructured(env, systemPrompt, userText, schema, temperature) {
-  const data = await callGemini(
-    env,
-    `/${CHAT_MODEL}:generateContent`,
-    {
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents: [{ role: "user", parts: [{ text: String(userText) }] }],
-      generationConfig: {
-        temperature: typeof temperature === "number" ? temperature : TEMPERATURE,
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: String(userText) }] }],
+    generationConfig: {
+      temperature: typeof temperature === "number" ? temperature : TEMPERATURE,
+      responseMimeType: "application/json",
+      responseSchema: schema,
     },
-    25000
-  );
+  };
+
+  // دو بار مدل اصلی (با مکث کوتاه)، بعد مدل جایگزین. کلِ مهلت از سقفِ
+  // مسیرِ قبلی (۲۵ ثانیه) بیشتر نمی‌شود، تا ورکر وسطِ کار کشته نشود.
+  const attempts = [
+    [CHAT_MODEL, 9000, 0],
+    [CHAT_MODEL, 7000, 700],
+    [FALLBACK_CHAT_MODEL, 9000, 0],
+  ];
+  let data;
+  let lastErr;
+  for (const [model, timeout, wait] of attempts) {
+    if (wait) await sleep(wait);
+    try {
+      data = await callGemini(env, `/${model}:generateContent`, body, timeout);
+      break;
+    } catch (err) {
+      lastErr = err;
+      if (!isTransient(err)) throw err;
+      console.error("Gemini خطای گذرا داد (" + model + "):", err && err.message ? String(err.message).slice(0, 80) : err);
+    }
+  }
+  if (!data) throw lastErr;
 
   const text =
     data &&

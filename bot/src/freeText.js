@@ -25,6 +25,14 @@ const NUDGE_TEXT = [
   "از منوی پایین یکی از بخش‌ها رو انتخاب کنید، یا اگر سوالی دارید روی «💬 پشتیبانی» بزنید تا تیم آکادمی جواب بده.",
 ].join("\n");
 
+// وقتی دستیار خطا داد (شلوغیِ سرویس و مانند آن). «متوجه نشدم» دروغ است:
+// سوال را فهمیده‌ایم، فقط الان نمی‌توانیم جواب بدهیم.
+const BUSY_TEXT = [
+  "الان ضغط زیاده و نتونستم جواب بدم 🙏",
+  "",
+  "چند لحظه‌ی دیگه دوباره بپرسید، یا روی «💬 پشتیبانی» بزنید تا تیم آکادمی جواب بده.",
+].join("\n");
+
 export async function handleFreeText(ctx, state) {
   const text = (ctx.message.text || "").trim();
   if (!text) return;
@@ -32,6 +40,7 @@ export async function handleFreeText(ctx, state) {
   await ctx.replyWithChatAction("typing").catch(() => {});
 
   let result = null;
+  let failed = false;
   try {
     result = await askFaq(ctx.env, {
       question: text,
@@ -43,11 +52,12 @@ export async function handleFreeText(ctx, state) {
       currentStep: state?.current_step,
     });
   } catch (err) {
+    failed = true;
     console.error("دستیار روی متن آزاد پاسخ نداد:", err && err.message);
   }
 
   if (!result) {
-    await ctx.reply(NUDGE_TEXT, { reply_markup: await mainMenuKeyboard(ctx.env) });
+    await ctx.reply(failed ? BUSY_TEXT : NUDGE_TEXT, { reply_markup: await mainMenuKeyboard(ctx.env) });
     return;
   }
 
