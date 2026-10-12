@@ -12,6 +12,8 @@ import { ECON_APP_HTML } from "./econ/appHtml.js";
 import { stats as cacheStats } from "./cache.js";
 import { PUBLIC_COMMANDS } from "./commands/registry.js";
 import { autoSyncIfSeedChanged } from "./ai/source.js";
+import { askFaq } from "./ai/faq.js";
+import { loadKb } from "./ai/kb.js";
 import { handleAiApi, corsPreflight } from "./admin/aiApi.js";
 import { isValidCrmSession } from "./admin/crmAuth.js";
 import { importAll, importTable } from "./crm/importer.js";
@@ -128,7 +130,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-78";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-79";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1336,6 +1338,42 @@ async function handleAdmin(request, url, env) {
   }
 
   /**
+   * یک سوال آزمایشی از دستیار - برای دیدنِ علتِ واقعیِ «متوجه منظورتون نشدم».
+   *
+   * چرا لازم شد: askFaq هر شکستی (کلید، سهمیه‌ی Gemini، JSON نامعتبر، پایگاه
+   * دانش خالی) را به یک null تبدیل می‌کند و کاربر فقط پیامِ «متوجه
+   * نشدم» می‌بیند. از بیرون هیچ‌کدام از این‌ها قابل‌تشخیص نبود.
+   *
+   * خروجی: فقط نام و پیامِ خطا، تعداد مدخل، و جواب. هیچ داده‌ی کاربری
+   * نیست (کاربرِ ساختگی)، و چیزی ثبت نمی‌شود.
+   */
+  if (url.pathname === "/admin/ai-ask") {
+    const q = (url.searchParams.get("q") || "").slice(0, 300);
+    if (!q) return json({ ok: false, error: "q لازم است" }, 400);
+    const out = { ok: true, build: BUILD, gemini_key: !!env.GEMINI_API_KEY };
+    try {
+      const kb = await loadKb(env);
+      out.kb_rows = kb.rows.length;
+      out.kb_vectors = kb.vectors.size;
+      const r = await askFaq(env, { question: q, user: { id: 0, first_name: "", last_name: "" }, history: "" });
+      if (!r) {
+        out.result = null;
+      } else {
+        out.result = {
+          answer: r.answer,
+          needs_human: r.needsHuman,
+          reason: r.reason,
+          matched_kb_ids: r.matchedKbIds,
+        };
+      }
+    } catch (err) {
+      out.ok = false;
+      out.error = String((err && err.message) || err).slice(0, 300);
+    }
+    return json(out);
+  }
+
+  /**
    * خودآزمایِ صفِ گواهی روی D1 واقعی. هیچ پیامی به تلگرام نمی‌رود و هیچ
    * درخواستِ واقعی‌ای لمس نمی‌شود: با آیدیِ مالکِ ساختگی کار می‌کند و
    * ردیف‌های خودش را در پایان پاک می‌کند.
@@ -1568,6 +1606,7 @@ export default {
       url.pathname === "/admin/cert-fail" ||
       url.pathname === "/admin/cert-sweep" ||
       url.pathname === "/admin/cert-selftest" ||
+      url.pathname === "/admin/ai-ask" ||
       url.pathname === "/admin/env-names" ||
       url.pathname === "/admin/econ-ingest" ||
       url.pathname === "/admin/econ-explain" ||
