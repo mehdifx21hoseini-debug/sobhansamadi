@@ -11,6 +11,7 @@ import { mainMenuKeyboard } from "./menu.js";
 import { askFaq } from "./ai/faq.js";
 import { recordKbUsage } from "./ai/kb.js";
 import { logAnswer, answerKeyboard } from "./ai/log.js";
+import { fixBidi } from "./ai/bidi.js";
 
 // وقتی دستیار در دسترس نیست. عمداً تیکت ساخته نمی‌شود.
 //
@@ -83,11 +84,11 @@ export async function handleFreeText(ctx, state) {
       last_name: ctx.from.last_name,
       message: text,
     });
-    await ctx.reply(result.answer, { reply_markup: await mainMenuKeyboard(ctx.env) });
+    await ctx.reply(fixBidi(result.answer), { reply_markup: await mainMenuKeyboard(ctx.env) });
     return;
   }
 
-  await ctx.reply(result.answer, { reply_markup: answerKeyboard(logId) });
+  await ctx.reply(fixBidi(result.answer), { reply_markup: answerKeyboard(logId) });
 
   // تاریخچه را نگه می‌داریم تا سوال بعدی ادامه‌ی همین مکالمه باشد و
   // دستیار دوباره سلام نکند. اگر کاربر وسط یک فرآیند بود، فرآیندش
