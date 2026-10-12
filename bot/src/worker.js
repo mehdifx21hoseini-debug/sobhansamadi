@@ -127,7 +127,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-74";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-75";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -998,7 +998,7 @@ async function handleAdmin(request, url, env) {
       // «هشدارها کار می‌کنند» سازگار است هم با «فقط خلاصه رفته».
       const log = await env.DB.prepare(
         `SELECT kind, COUNT(*) AS n, MAX(sent_at) AS last
-           FROM econ_sent_log WHERE sent_at >= ? GROUP BY kind ORDER BY n DESC`
+           FROM econ_sent_log INDEXED BY idx_econ_sent_at WHERE sent_at >= ? GROUP BY kind ORDER BY n DESC`
       ).bind(since).all();
 
       // مشترکینِ فعال، به تفکیکِ فاصله‌ی انتخابی.
