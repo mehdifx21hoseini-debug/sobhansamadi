@@ -126,3 +126,20 @@ jobs:
                 else map("\(.dimensions.scriptName): درخواست \(.sum.requests)  ·  subrequest \(.sum.subrequests)  ·  خطا \(.sum.errors)") | join("\n")
                 end
             end'
+
+          # ── Workers: بر حسب «وضعیت» و CPU ───────────────────────────
+          # ۵۰۳ در ورک‌فلوها: از خودِ ورکر نیست. status اینجا می‌گوید
+          # کلادفلر چرا رد کرده (exceededCpu، exceededResources، ...).
+          S_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$SINCE" --arg u "$UNTIL" '{
+            query: "query($a:String!,$s:Time!,$u:Time!){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:100,filter:{datetime_geq:$s,datetime_leq:$u}){sum{requests subrequests}quantiles{cpuTimeP50 cpuTimeP99 wallTimeP99}dimensions{status}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo
+          echo "─── Workers به تفکیک وضعیت ───"
+          ask "$S_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].workersInvocationsAdaptive // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else map("\(.dimensions.status): درخواست \(.sum.requests)  ·  CPU p50 \(.quantiles.cpuTimeP50)µs  p99 \(.quantiles.cpuTimeP99)µs  ·  wall p99 \(.quantiles.wallTimeP99)ms") | join("\n")
+                end
+            end'
