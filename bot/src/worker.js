@@ -128,7 +128,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-77";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-78";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1506,6 +1506,11 @@ async function handleAdmin(request, url, env) {
       holidays: await count("SELECT COUNT(*) FROM econ_holidays"),
       ai_cache: await count("SELECT COUNT(*) FROM econ_ai_cache"),
       ai_kb: await count("SELECT COUNT(*) FROM ai_kb"),
+      // جای‌گزینیِ اکسپرت: تازه‌ها باید ۱۶۴ باشند، قدیمی‌ها صفر، و همه بردار داشته باشند.
+      ai_kb_ssprox: await count("SELECT COUNT(*) FROM ai_kb WHERE category = 'SSProX'"),
+      ai_kb_old_expert: await count("SELECT COUNT(*) FROM ai_kb WHERE category = 'اکسپرت'"),
+      ai_kb_no_vector: await count("SELECT COUNT(*) FROM ai_kb WHERE embedding IS NULL"),
+      kb_seed_version: await readConfig(env, "kb_seed_version").catch(() => ""),
       content_files: await count("SELECT COUNT(*) FROM content_library"),
       content_texts: await count("SELECT COUNT(*) FROM text_content"),
       phone_book: await count("SELECT COUNT(*) FROM phone_book"),
