@@ -133,7 +133,7 @@ export async function savePhone(env, { telegramUserId, phone, name, username, so
  * LEFT JOIN عمداً نیست: با JOIN، کسی که هنوز لیدی برایش ساخته نشده از
  * فهرست می‌افتاد - و همان‌ها تازه‌ترین شماره‌ها هستند.
  */
-export async function listPhones(env, { limit = 2000 } = {}) {
+export async function listPhones(env, { limit = 2000, max = 5000 } = {}) {
   await ensurePhoneSchema(env);
   // این کوئری از crm_leads هم می‌خواند، و آن جدول را طرحِ CRM می‌سازد نه
   // طرحِ دفترچه‌ی شماره.
@@ -161,7 +161,7 @@ export async function listPhones(env, { limit = 2000 } = {}) {
          FROM phone_book p
         ORDER BY p.created_at DESC LIMIT ?`
     )
-    .bind(Math.min(Number(limit) || 2000, 5000))
+    .bind(Math.min(Number(limit) || 2000, max))
     .all();
 
   return (results || []).map((r) => ({
@@ -208,4 +208,55 @@ function safeList(raw) {
   } catch {
     return [];
   }
+}
+
+/**
+ * همه‌ی شماره‌ها برای خروجیِ اکسل - با دو خواندنِ خطی به‌جای زیرکوئری.
+ *
+ * listPhones برای هر شماره دو زیرکوئری روی crm_leads دارد و آن جدول روی
+ * telegram_user_id ایندکس ندارد: هر زیرکوئری کلِ جدول را می‌خواند. برای
+ * صفحه‌ی ۲۰۰۰تاییِ پنل قابل‌تحمل بود، ولی «همه‌ی شماره‌ها» یعنی
+ * (تعداد شماره) × (تعداد لید) × ۲ ردیفِ خوانده‌شده - میلیون‌ها خواندنِ
+ * D1 برای یک دستور. اینجا هر جدول یک بار خوانده می‌شود و در حافظه
+ * به هم می‌رسند.
+ */
+export async function listAllPhones(env) {
+  await ensurePhoneSchema(env);
+  await ensureCrmSchema(env);
+  const [phones, leads] = await Promise.all([
+    env.DB
+      .prepare(
+        `SELECT telegram_user_id, phone, name, username, sources, created_at, updated_at
+           FROM phone_book ORDER BY created_at DESC`
+      )
+      .all(),
+    env.DB
+      .prepare(
+        `SELECT telegram_user_id, course, request_type FROM crm_leads
+          WHERE telegram_user_id IS NOT NULL`
+      )
+      .all(),
+  ]);
+  const byUser = new Map();
+  for (const l of leads.results || []) {
+    const k = String(l.telegram_user_id);
+    let e = byUser.get(k);
+    if (!e) byUser.set(k, (e = { courses: new Set(), types: new Set() }));
+    if (l.course && String(l.course).trim()) e.courses.add(String(l.course).trim());
+    if (l.request_type && String(l.request_type).trim()) e.types.add(String(l.request_type).trim());
+  }
+  return (phones.results || []).map((r) => {
+    const e = byUser.get(String(r.telegram_user_id));
+    return {
+      telegram_user_id: r.telegram_user_id,
+      phone: r.phone,
+      name: r.name,
+      username: r.username,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      sources: safeList(r.sources),
+      courses: e ? [...e.courses] : [],
+      request_types: e ? [...e.types] : [],
+    };
+  });
 }
