@@ -67,6 +67,7 @@ import {
   CERT_STEP,
 } from "./commands/cert.js";
 import { handlePhones } from "./commands/phones.js";
+import { handleUnanswered } from "./commands/unanswered.js";
 import { isDbOutage, notifyOwner, USER_TEXT } from "./dbOutage.js";
 import { ensureAdminCommands, CERT_COMMANDS } from "./commands/registry.js";
 import { getUserState, clearUserState } from "./db.js";
@@ -261,6 +262,8 @@ export function createBot(token, env, botInfo, build = "?") {
   bot.command("members", handleMembers);
   // خروجیِ اکسلِ شماره‌ها. فقط مدیرِ اصلی (نه «فقط گواهی»).
   bot.command("phones", handlePhones);
+  // فهرستِ سوال‌های بی‌جوابِ دستیار (اکسل). فقط مدیرِ اصلی.
+  bot.command("unanswered", handleUnanswered);
   // گواهیِ دانشجو. فقط مدیر؛ برای بقیه انگار وجود ندارد.
   bot.command("cert", handleCert);
   bot.command("certassets", handleCertAssets);

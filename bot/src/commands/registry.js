@@ -20,6 +20,7 @@ export const ADMIN_COMMANDS = [
   { command: "diag", description: "🔧 وضعیت ربات" },
   { command: "members", description: "👥 تعداد کاربران ربات" },
   { command: "phones", description: "📱 خروجی اکسل شماره‌های ثبت‌شده" },
+  { command: "unanswered", description: "📋 سوال‌های بی‌جوابِ دستیار (اکسل)" },
   { command: "cert", description: "🎓 ساخت گواهی دانشجو" },
   { command: "certassets", description: "🎓 وضعیت فایل‌های گواهی" },
   { command: "kbsync", description: "🧠 ساختن پایگاه دانش دستیار" },
