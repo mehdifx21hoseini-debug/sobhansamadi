@@ -176,6 +176,9 @@ const RECENT = String(AT9.getTime() - 60_000);
 {
   const r = await drainDailyDigest(
     envAt({
+      // مسیرِ قدیمیِ جاروی ساعتی را می‌سنجد؛ مسیرِ عکس تستِ خودش را
+      // در econSnapshot.test.mjs دارد.
+      econ_audience_snapshot: "off",
       ["econ_cur_digest_" + REF + "_0of6"]: "999",
       ["econ_swept_digest_" + REF + "_0of6"]: RECENT,
     }),
@@ -192,6 +195,7 @@ const RECENT = String(AT9.getTime() - 60_000);
 {
   const r = await drainDailyDigest(
     envAt({
+      econ_audience_snapshot: "off",
       ["econ_cur_digest_" + REF + "_all"]: "999",
       ["econ_swept_digest_" + REF + "_all"]: RECENT,
     }),

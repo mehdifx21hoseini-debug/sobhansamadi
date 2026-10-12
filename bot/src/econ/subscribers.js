@@ -590,6 +590,48 @@ export async function listPendingAudience(env, kind, ref, limit, shard, after) {
   }));
 }
 
+/**
+ * همان فهرستِ مخاطبِ listPendingAudience، ولی به‌شکلِ یک رشته‌ی
+ * «آیدی۱,آیدی۲,...» - برای ساختنِ عکسِ فهرست.
+ *
+ * چرا جدا: listPendingAudience برای هر مخاطب یک ردیف برمی‌گرداند و
+ * رمزگشاییِ ۱۷ هزار ردیف در خودِ ورکر CPU می‌برد. group_concat همان
+ * کار را داخلِ D1 می‌کند و یک ردیف با یک رشته می‌دهد.
+ *
+ * شرط‌ها باید با listPendingAudience یکی بمانند: تستِ econSnapshot همین
+ * را روی داده‌ی واقعی می‌سنجد.
+ */
+export async function listPendingAudienceIds(env, kind, ref) {
+  await ensureSubscriberSchema(env);
+  const col = dayColumn(kind, ref);
+  const sentClause = col
+    ? `AND (u.` + col + ` IS NULL OR u.` + col + ` <> ?)`
+    : `AND NOT EXISTS (
+                SELECT 1 FROM econ_sent_log l
+                 WHERE l.kind = ? AND l.ref = ?
+                   AND l.telegram_user_id = u.telegram_user_id)`;
+  const binds = col ? [String(ref)] : [String(kind), String(ref)];
+  const row = await env.DB
+    .prepare(
+      `SELECT group_concat(id, ',') AS ids FROM (
+         SELECT u.telegram_user_id AS id
+           FROM user_state u
+          WHERE u.blocked_at IS NULL
+            AND NOT EXISTS (
+                  SELECT 1 FROM econ_subscriber s
+                   WHERE s.telegram_user_id = u.telegram_user_id
+                     AND s.digest_off = 1)
+            ` +
+        sentClause +
+        `
+          ORDER BY u.telegram_user_id)`
+    )
+    .bind(...binds)
+    .first();
+  const ids = row && row.ids ? String(row.ids) : "";
+  return ids ? ids.split(",") : [];
+}
+
 /** چند نفر مخاطبِ خلاصه‌اند و امروز برای چند نفرشان رفته. */
 export async function digestAudienceStats(env, kind, ref) {
   await ensureSubscriberSchema(env);

@@ -29,6 +29,7 @@ import {
   unclaimDay,
   listPendingSubscribers,
   listPendingAudience,
+  listPendingAudienceIds,
   digestAudienceStats,
   markBlocked,
 } from "./subscribers.js";
@@ -430,6 +431,178 @@ const SWEEP_EVERY_MS = 60 * 60 * 1000;
  *   وگرنه یعنی «این بار نگاه نکردیم».
  */
 async function nextChunk(env, kind, ref, shard, now = Date.now()) {
+  // «عکسِ فهرستِ مخاطب» - مسیرِ پیش‌فرض. اگر خاموش باشد یا نشود ساخت،
+  // همان مسیرِ قدیمیِ D1 در ادامه کار می‌کند.
+  if (await snapshotOn(env)) {
+    const snap = await nextChunkSnapshot(env, kind, ref, shard, now).catch((err) => {
+      console.error("عکسِ فهرستِ مخاطب شکست خورد، مسیرِ قدیمی:", err && err.message);
+      return null;
+    });
+    if (snap) return snap;
+  }
+  return nextChunkLegacy(env, kind, ref, shard, now);
+}
+
+// ─── عکسِ فهرستِ مخاطب ──────────────────────────────────────────────
+//
+// ─── چرا ────────────────────────────────────────────────────────────
+//
+// هر دورِ ارسال پیش از این کوئریِ مخاطب را روی user_state اجرا می‌کرد.
+// `CAST(id) % 6` ایندکس ندارد، پس هر شارد برای پیدا کردنِ ۴۵ نفر باید
+// تا ۱۶ هزار ردیف را رد می‌کرد - و بعد از هر ۵۰۳، جاروی ساعتی یا شروعِ
+// دوباره، از اول. ۱۲ اکتبر ۵٫۰۵ میلیون خواندن، و ربات برای همه ساکت شد.
+//
+// حالا فهرستِ مخاطبِ هر (نوع، روز) یک بار با همان کوئریِ قبلی ساخته و در
+// **یک ردیف** bot_config ذخیره می‌شود. D1 ردیف می‌شمارد نه حجم، پس
+// خواندنش یک ردیف است. هر دور فقط آن یک ردیف را می‌خواند و تکه‌اش را در
+// حافظه برمی‌دارد.
+//
+// ─── چه چیزی عوض نشده ──────────────────────────────────────────────
+//
+// «آیا این نفر قبلاً گرفته؟» هنوز با claimِ اتمیکِ هر نفر تعیین می‌شود
+// (claimAndSend). عکس فقط می‌گوید «چه کسانی کاندیدند»؛ هرگز نمی‌گوید
+// «چه کسانی گرفته‌اند». پس عکسِ کهنه یا ساخته‌شده‌ی هم‌زمان نمی‌تواند
+// پیامِ تکراری بسازد - بدترین حالتش یک کاندیدِ اضافه است که claim رد
+// می‌کند.
+//
+// ─── کهنگی ─────────────────────────────────────────────────────────
+//
+// تازه‌واردی که بعد از ساختِ عکس عضو شود در آن نیست. همان جاروی ساعتی
+// قبلی او را می‌گیرد: وقتی نشانگرِ یک شارد تمام شد و عکس بیش از یک
+// ساعت از ساختش گذشته، عکس دوباره ساخته می‌شود - فقط با کسانی که هنوز
+// نگرفته‌اند - و آن شارد از اولِ آن می‌خواند.
+//
+// کلیدِ برگشت: bot_config.econ_audience_snapshot = off.
+
+const SNAP_FLAG = "econ_audience_snapshot";
+// سقفِ اندازه‌ی یک ردیفِ D1 دو مگابایت است. بالاتر از این به مسیرِ
+// قدیمی برمی‌گردیم تا ذخیره‌ی عکس بی‌صدا شکست نخورد.
+const SNAP_MAX_CHARS = 1_500_000;
+
+const snapMem = new Map();
+
+// برای تست‌ها: حافظه‌ی ایزوله بینِ دو دیتابیسِ جدا نباید بماند.
+export function resetSnapshotMemo() {
+  snapMem.clear();
+}
+
+function snapKey(kind, ref) {
+  return "econ_aud_" + kind + "_" + ref;
+}
+
+async function snapshotOn(env) {
+  const v = await readConfig(env, SNAP_FLAG).catch(() => "");
+  return String(v).toLowerCase() !== "off";
+}
+
+function parseSnapshot(raw) {
+  try {
+    const o = JSON.parse(raw);
+    if (!o || typeof o.t !== "number" || typeof o.ids !== "string") return null;
+    return { t: o.t, ids: o.ids ? o.ids.split(",") : [] };
+  } catch {
+    return null;
+  }
+}
+
+async function buildSnapshot(env, kind, ref, now) {
+  // همان کوئریِ مخاطبِ همیشگی، بدونِ نشانگر و تکه‌بندی: فقط کسانی که
+  // بلاک نیستند، خاموشش نکرده‌اند و این پیام را هنوز نگرفته‌اند.
+  const ids = await listPendingAudienceIds(env, kind, ref);
+  // ترتیبِ group_concat به ORDER BYِ زیرکوئری وابسته است و SQLite آن را
+  // تضمین نمی‌کند؛ جست‌وجوی دودویی به ترتیب نیاز دارد. بررسی ارزان است.
+  for (let i = 1; i < ids.length; i++) {
+    if (ids[i - 1] > ids[i]) {
+      ids.sort();
+      break;
+    }
+  }
+  // آیدیِ تلگرام عددی است. چیزِ دیگری یعنی داده‌ی غیرمنتظره: عکس نمی‌سازیم.
+  if (!ids.every((id) => /^\d+$/.test(id))) return null;
+  const value = JSON.stringify({ t: now, ids: ids.join(",") });
+  if (value.length > SNAP_MAX_CHARS) return null;
+  const key = snapKey(kind, ref);
+  await writeConfig(env, key, value);
+  // عکس‌های روزهای پیش را پاک می‌کند، تا جدول بی‌پایان بزرگ نشود.
+  await env.DB
+    .prepare(`DELETE FROM bot_config WHERE key LIKE ? ESCAPE '\\' AND key <> ?`)
+    .bind("econ\\_aud\\_" + kind + "\\_%", key)
+    .run()
+    .catch(() => {});
+  const rec = { t: now, ids };
+  snapMem.set(key, rec);
+  return rec;
+}
+
+// تکه‌ی بعدی از عکس: ids بعد از `after` (مقایسه‌ی متنی، همان ترتیبِ
+// ORDER BY در SQLite)، که به این شارد می‌رسند، حداکثر `limit` تا.
+function pickChunk(rec, shard, after, limit) {
+  const ids = rec.ids;
+  const shards = shard && shard.of > 1 ? Math.floor(shard.of) : 0;
+  const mine = shards ? Math.floor(shard.index) % shards : 0;
+  let lo = 0;
+  if (after) {
+    let hi = ids.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (ids[mid] > after) hi = mid;
+      else lo = mid + 1;
+    }
+  }
+  const out = [];
+  for (let i = lo; i < ids.length && out.length < limit; i++) {
+    const id = ids[i];
+    if (shards && Number(id) % shards !== mine) continue;
+    out.push({ telegram_user_id: id, chat_id: id });
+  }
+  return out;
+}
+
+async function nextChunkSnapshot(env, kind, ref, shard, now) {
+  const key = snapKey(kind, ref);
+  let built = false;
+  let rec = snapMem.get(key);
+  if (!rec) {
+    const raw = await readConfig(env, key).catch(() => "");
+    rec = raw ? parseSnapshot(raw) : null;
+  }
+  if (!rec) {
+    rec = await buildSnapshot(env, kind, ref, now);
+    if (!rec) return null;
+    built = true;
+  }
+  snapMem.set(key, rec);
+
+  const after = await readConfig(env, cursorKey(kind, ref, shard)).catch(() => "");
+  const rows = pickChunk(rec, shard, after, SEND_BUDGET);
+  if (rows.length > 0) return { rows, swept: false, throttled: false };
+
+  // بدونِ نشانگر: این شارد هنوز شروع نکرده و عکس کلِ فهرست است، پس
+  // خالی بودنش یعنی واقعاً چیزی نیست.
+  if (!after) return { rows: [], swept: true, throttled: false };
+
+  // نشانگر تمام شد. عکسِ تازه (همین الان ساخته یا کمتر از یک ساعت پیش)
+  // یعنی جاروی تازه‌ای هست و چیزی جا نمانده.
+  if (!built) {
+    if (now - rec.t < SWEEP_EVERY_MS) return { rows: [], swept: false, throttled: true };
+    // شاردِ دیگری شاید همین حالا دوباره ساخته باشد.
+    const raw = await readConfig(env, key).catch(() => "");
+    const fresh = raw ? parseSnapshot(raw) : null;
+    if (fresh && fresh.t > rec.t) {
+      rec = fresh;
+      snapMem.set(key, rec);
+    }
+    if (now - rec.t >= SWEEP_EVERY_MS) {
+      const rebuilt = await buildSnapshot(env, kind, ref, now);
+      if (!rebuilt) return null;
+      rec = rebuilt;
+    }
+  }
+  // تازه‌واردها و برگشته‌ها: از اولِ عکسِ تازه، بی‌نشانگر.
+  return { rows: pickChunk(rec, shard, null, SEND_BUDGET), swept: true, throttled: false };
+}
+
+async function nextChunkLegacy(env, kind, ref, shard, now = Date.now()) {
   const after = await readConfig(env, cursorKey(kind, ref, shard)).catch(() => "");
   if (after) {
     const rows = await listPendingAudience(env, kind, ref, SEND_BUDGET, shard, after);
