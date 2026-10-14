@@ -37,7 +37,7 @@ import { makeLabelHelpers } from "./labels.js";
 import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
 import { noticeTextFor, noticeButtonFor, NOTICE_DATES } from "../content/notices.js";
 import { eventToken } from "./explain.js";
-import { readConfig, writeConfig } from "../content/channel.js";
+import { readConfig, writeConfig, ensureConfig } from "../content/channel.js";
 import {
   RLM,
   IMPORTANCE_EMOJI,
@@ -214,8 +214,13 @@ export const ALERT_TIERS = [60, 30, 15, 5];
  */
 export function alertTiersOpening(events) {
   const out = [];
+  // فقط خبرهایی که واقعاً هشداری برایشان می‌رود. dueEvents هشدار را روی
+  // ارزهای پیش‌فرض (دلار) می‌بندد؛ بدونِ همین فیلتر، یک خبرِ مهمِ پوند یا
+  // یورو هم چهار اجرای درِین راه می‌انداخت که ۳٬۴۰۰ مشترک را می‌خواند
+  // و به هیچ‌کس پیامی نمی‌داد (۱۴ اکتبر: ~۲۵۰ هزار خواندنِ بیهوده).
+  const relevant = filterByCurrencies(events || [], DEFAULT_CURRENCIES);
   for (const m of ALERT_TIERS) {
-    for (const e of events || []) {
+    for (const e of relevant) {
       if (!e.date || !e.time) continue;
       if (e.status === "released") continue;
       if (e.importance !== "high" && e.importance !== "medium") continue;
@@ -558,6 +563,67 @@ function pickChunk(rec, shard, after, limit) {
   return out;
 }
 
+// قفلِ ساختنِ عکس.
+//
+// بدونِ قفل، شش کارگرِ موازی در دقیقه‌ی اول هر کدام عکس را نمی‌یافتند و
+// هر کدام شروع به ساختنش می‌کردند - و چون ساختن چند ثانیه طول می‌کشد،
+// دورهای بعدیِ همان کارگرها هم دوباره می‌ساختند. ۱۴ اکتبر ۳۹ بار ساخته شد
+// (۷۹۵ هزار خواندن، ۷۰٪ مصرفِ آن روز) به‌جای یک بار (۲۰ هزار).
+//
+// قفل یک ردیفِ bot_config است که با INSERT OR IGNORE اتمیک گرفته می‌شود.
+// کسی که قفل را نگرفت منتظر می‌ماند تا عکس ظاهر شود (هر بار فقط یک
+// ردیف می‌خواند)، و قفلِ بیش از ۳۰ ثانیه، مالِ ورکرِ مرده است و
+// برداشته می‌شود.
+const SNAP_LOCK_STALE_MS = 30_000;
+const SNAP_WAIT_STEP_MS = 700;
+const SNAP_WAIT_STEPS = 14;
+
+function lockKey(kind, ref) {
+  return "econ_audlock_" + kind + "_" + ref;
+}
+
+async function takeLock(env, kind, ref, now) {
+  await ensureConfig(env);
+  const key = lockKey(kind, ref);
+  const iso = new Date().toISOString();
+  const ins = await env.DB
+    .prepare(`INSERT OR IGNORE INTO bot_config (key, value, updated_at) VALUES (?, ?, ?)`)
+    .bind(key, String(now), iso)
+    .run();
+  if ((ins.meta ? ins.meta.changes || 0 : 0) > 0) return true;
+  const take = await env.DB
+    .prepare(`UPDATE bot_config SET value = ?, updated_at = ? WHERE key = ? AND CAST(value AS INTEGER) < ?`)
+    .bind(String(now), iso, key, now - SNAP_LOCK_STALE_MS)
+    .run();
+  return (take.meta ? take.meta.changes || 0 : 0) > 0;
+}
+
+async function dropLock(env, kind, ref) {
+  await env.DB.prepare(`DELETE FROM bot_config WHERE key = ?`).bind(lockKey(kind, ref)).run().catch(() => {});
+}
+
+/**
+ * عکس را می‌سازد - یا اگر کسِ دیگری می‌سازد، منتظرش می‌ماند.
+ * @returns {Promise<{rec, built:boolean}|null>} null یعنی نشد (مسیر قدیمی)
+ */
+async function buildOrWait(env, kind, ref, now, key) {
+  if (await takeLock(env, kind, ref, now)) {
+    try {
+      const rec = await buildSnapshot(env, kind, ref, now);
+      return rec ? { rec, built: true } : null;
+    } finally {
+      await dropLock(env, kind, ref);
+    }
+  }
+  for (let i = 0; i < SNAP_WAIT_STEPS; i++) {
+    await new Promise((r) => setTimeout(r, SNAP_WAIT_STEP_MS));
+    const raw = await readConfig(env, key).catch(() => "");
+    const rec = raw ? parseSnapshot(raw) : null;
+    if (rec) return { rec, built: false };
+  }
+  return null;
+}
+
 async function nextChunkSnapshot(env, kind, ref, shard, now) {
   const key = snapKey(kind, ref);
   let built = false;
@@ -567,9 +633,10 @@ async function nextChunkSnapshot(env, kind, ref, shard, now) {
     rec = raw ? parseSnapshot(raw) : null;
   }
   if (!rec) {
-    rec = await buildSnapshot(env, kind, ref, now);
-    if (!rec) return null;
-    built = true;
+    const got = await buildOrWait(env, kind, ref, now, key);
+    if (!got) return null;
+    rec = got.rec;
+    built = got.built;
   }
   snapMem.set(key, rec);
 
@@ -593,9 +660,17 @@ async function nextChunkSnapshot(env, kind, ref, shard, now) {
       snapMem.set(key, rec);
     }
     if (now - rec.t >= SWEEP_EVERY_MS) {
-      const rebuilt = await buildSnapshot(env, kind, ref, now);
-      if (!rebuilt) return null;
-      rec = rebuilt;
+      // بازسازیِ ساعتی هم قفل دارد؛ اگر قفل دستِ دیگری بود، با عکسِ فعلی
+      // ادامه می‌دهیم - این کار نباید منتظر بماند.
+      if (await takeLock(env, kind, ref, now)) {
+        try {
+          const rebuilt = await buildSnapshot(env, kind, ref, now);
+          if (!rebuilt) return null;
+          rec = rebuilt;
+        } finally {
+          await dropLock(env, kind, ref);
+        }
+      }
     }
   }
   // تازه‌واردها و برگشته‌ها: از اولِ عکسِ تازه، بی‌نشانگر.

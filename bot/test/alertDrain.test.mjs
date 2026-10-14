@@ -203,6 +203,8 @@ ok(
   alertTiersOpening([ev(3), ev(58)])
 );
 ok(alertTiersOpening([]).length === 0, "و روزِ خالی هیچ اجرایی نمی‌سازد");
+ok(alertTiersOpening([ev(58, { currency: "GBP" })]).length === 0 && alertTiersOpening([ev(13, { currency: "EUR" })]).length === 0, "خبرِ مهمِ پوند/یورو پنجره‌ای باز نمی‌کند - هشدار فقط دلاری است و درِین بی‌ثمر است");
+ok(alertTiersOpening([ev(58, { currency: "All" })]).join(",") === "60", "خبرِ «همه‌ی ارزها» (مثل IMF) هنوز باز می‌کند");
 
 // ─── ۲) خودِ کوئریِ صفحه‌بندی ────────────────────────────────────
 {

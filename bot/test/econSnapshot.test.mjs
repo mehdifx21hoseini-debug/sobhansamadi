@@ -198,4 +198,30 @@ const touchesUserState = (env, from) => env.DB.log.slice(from).filter((q) => /FR
   ok(JSON.stringify(a2) === JSON.stringify(b2), "و برای روزهای قدیمی (دفترِ ارسال) هم یکی است", { a: a2.length, b: b2.length });
 }
 
+// ─── ۱۰) هم‌زمانیِ شش کارگر: عکس فقط یک بار ساخته می‌شود ───────────────
+{
+  const env = await setup(500);
+  sent.length = 0;
+  const from = env.DB.log.length;
+  // شش شارد هم‌زمان، دورِ اول - همان لحظه‌ی شروعِ درِین.
+  const rs = await Promise.all([0, 1, 2, 3, 4, 5].map((i) => runDailyDigest(env, NOW, { of: 6, index: i })));
+  const builds = env.DB.log.slice(from).filter((q) => /group_concat/i.test(q)).length;
+  ok(builds === 1, "شش کارگرِ هم‌زمان: عکس دقیقاً یک بار ساخته می‌شود (نه ۶ یا بیشتر)", builds);
+  ok(rs.every((r) => r.sent > 0 || r.chunk > 0), "و همه‌ی شش کارگر از همان عکس تکه می‌گیرند");
+  const lock = DBlock(env);
+  ok(lock === undefined, "قفل بعد از ساخت برداشته می‌شود");
+}
+function DBlock(env) {
+  return env.DB.raw.prepare("SELECT value FROM bot_config WHERE key LIKE 'econ\\_audlock\\_%' ESCAPE '\\'").get()?.value;
+}
+{
+  // قفلِ کهنه (ورکرِ مرده) مانعِ ساخت نمی‌شود.
+  const env = await setup(60);
+  await writeConfig(env, "econ_audlock_digest_" + REF, String(NOW.getTime() - 120_000));
+  sent.length = 0;
+  const r = await runDailyDigest(env, NOW, null);
+  ok(r.chunk > 0, "قفلِ بیش از ۳۰ ثانیه برداشته می‌شود و عکس ساخته می‌شود", r);
+}
+
+
 console.log("\n" + n + " ادعا");

@@ -13,7 +13,7 @@
 
 const KEY = "content_channel_id";
 
-async function ensureConfig(env) {
+export async function ensureConfig(env) {
   await env.DB
     .prepare(
       `CREATE TABLE IF NOT EXISTS bot_config (
