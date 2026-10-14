@@ -130,7 +130,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-83";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-84";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1959,9 +1959,32 @@ export default {
           try {
             const opening = await alertOpeningNow(env);
             if (opening.length > 0) {
+              // ۱۴ اکتبر هر پنجره دوبار دیسپچ شد (با ~۳۰ ثانیه فاصله) و دو
+              // دسته کارگر روی هم افتادند. یک قفلِ کوتاه (ردیفِ bot_config،
+              // INSERT OR IGNORE) فقط اولی را می‌گذراند؛ اگر دیسپچ شکست
+              // بخورد قفل برداشته می‌شود تا تیکِ بعد دوباره امتحان کند.
+              const lockKey = "econ_altdisp_" + opening.join("-") + "_" + Math.floor(Date.now() / 240000);
+              await ensureCrmSchema(env).catch(() => {});
+              let mine = true;
+              try {
+                const ins = await env.DB
+                  .prepare("INSERT OR IGNORE INTO bot_config (key, value, updated_at) VALUES (?, ?, ?)")
+                  .bind(lockKey, "1", new Date().toISOString())
+                  .run();
+                mine = (ins.meta ? ins.meta.changes || 0 : 1) > 0;
+              } catch (_) {
+                mine = true;
+              }
+              if (!mine) {
+                console.log("دیسپچِ تکراریِ هشدار رد شد:", lockKey);
+                return;
+              }
               const r = await dispatchWorkflow(env, "econ-alert.yml");
               dispatched = !!(r && r.ok);
               console.log("شروعِ درِینِ هشدار:", JSON.stringify({ opening, ...r }));
+              if (!dispatched) {
+                await env.DB.prepare("DELETE FROM bot_config WHERE key = ?").bind(lockKey).run().catch(() => {});
+              }
             }
           } catch (err) {
             console.error("تصمیمِ درِینِ هشدار شکست خورد:", err && err.message);
