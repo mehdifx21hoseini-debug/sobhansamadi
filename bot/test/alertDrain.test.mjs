@@ -420,6 +420,7 @@ clearAll();
   const r2 = await runAlertSweep(env, WEEKDAY, null, "");
   ok(r2.sent === 0 && log.length === 2, "اجرای دوباره چیزی نمی‌فرستد", r2);
 
+  clearAll();
   const db2 = fakeDb({ events: [a, c], subs: [subscriber(9101, 60)], config: SENDER_ON });
   const r3 = await runAlertSweep({ DB: db2, BOT_TOKEN: "x" }, WEEKDAY, null, "");
   ok(r3.sent === 1 && db2.claimed.size === 2,
