@@ -398,4 +398,32 @@ clearAll();
   ok(log.length === 0 && db.claimed.size === 0, "ولی باز هم نه پیامی و نه claimی", log.length);
 }
 
+// ─── ۸) خبرهای هم‌زمان یک ردیفِ دفتر دارند ──────────────────────
+//
+// ۱۵ اکتبر شش خبرِ ۱۲:۳۰ برای هر نفر شش ردیف می‌ساخت و نوشتنِ روز از
+// سقف گذشت. حالا claim به‌ازای لحظه است: یک ردیف، یک پیام، و اجرای
+// دوباره چیزی نمی‌فرستد. خبری در لحظه‌ی دیگر ردیفِ جدا می‌گیرد.
+clearAll();
+{
+  const a = ev(58, { event_id: "A" });
+  const b = ev(58, { event_id: "B" });
+  const c = ev(40, { event_id: "C" });
+  const subs = [subscriber(9001, 60), subscriber(9002, 60)];
+  const log = [];
+  installFetch(log);
+  const db = fakeDb({ events: [a, b], subs, config: SENDER_ON });
+  const env = { DB: db, BOT_TOKEN: "x" };
+  const r1 = await runAlertSweep(env, WEEKDAY, null, "");
+  ok(r1.sent === 2, "هر مشترک یک پیام گرفت", r1);
+  ok(r1.events === 4, "و هر پیام هر دو خبر را داشت", r1);
+  ok(db.claimed.size === 2, "ولی فقط دو ردیف دفتر نوشته شد (نه چهار)", [...db.claimed]);
+  const r2 = await runAlertSweep(env, WEEKDAY, null, "");
+  ok(r2.sent === 0 && log.length === 2, "اجرای دوباره چیزی نمی‌فرستد", r2);
+
+  const db2 = fakeDb({ events: [a, c], subs: [subscriber(9101, 60)], config: SENDER_ON });
+  const r3 = await runAlertSweep({ DB: db2, BOT_TOKEN: "x" }, WEEKDAY, null, "");
+  ok(r3.sent === 1 && db2.claimed.size === 2,
+    "خبرِ لحظه‌ی دیگر ردیفِ جدا می‌گیرد", [...db2.claimed]);
+}
+
 console.log("\n" + n + " ادعا");

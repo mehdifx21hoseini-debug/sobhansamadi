@@ -1112,6 +1112,11 @@ function alertKeyboard(list) {
   return { inline_keyboard: rows };
 }
 
+/** کلیدِ دفترِ هشدار: لحظه‌ی خبر، نه خودِ خبر. */
+export function alertGroupRef(e) {
+  return "G:" + e.date + " " + e.time;
+}
+
 /**
  * رویدادهایی که همین حالا در پنجره‌ی هشدارِ این کاربر هستند.
  *
@@ -1266,9 +1271,26 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
 
     // فقط خبرهایی که هنوز برای این کاربر نرفته‌اند. claim پیش از ارسال
     // انجام می‌شود - دلیلش بالای claim نوشته است.
-    const fresh = [];
+    //
+    // claim به‌ازای «لحظه‌ی خبر» است، نه هر خبر. ۱۵ اکتبر شش خبر هم‌زمان
+    // (۱۲:۳۰) برای هر نفر شش ردیفِ دفتر می‌ساخت - هر ردیف سه نوشتن (جدول،
+    // کلیدِ اصلی، ایندکسِ sent_at) - و نوشتنِ روز به ۱۲۳٬۸۲۴ رسید. حالا
+    // خبرهای هم‌زمان یک ردیف دارند و یک پیام می‌روند، همان‌طور که قبلاً هم
+    // یک پیامِ تجمیعی می‌رفت. اگر لحظه‌ای که قبلاً claim شده خبرِ تازه‌ای
+    // بگیرد، آن خبر نمی‌رود (کم‌فرستادن، نه دوباره‌فرستادن).
+    const groups = new Map();
     for (const e of due) {
-      if (await claim(env, "alert", e.event_id, s.telegram_user_id)) fresh.push(e);
+      const g = alertGroupRef(e);
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(e);
+    }
+    const fresh = [];
+    const claimed = [];
+    for (const [g, evs] of groups) {
+      if (await claim(env, "alert", g, s.telegram_user_id)) {
+        claimed.push(g);
+        fresh.push(...evs);
+      }
     }
     if (fresh.length === 0) {
       cursor = s.telegram_user_id;
@@ -1297,8 +1319,8 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
         });
       }
     } catch {
-      for (const e of fresh) {
-        await unclaim(env, "alert", e.event_id, s.telegram_user_id).catch(() => {});
+      for (const g of claimed) {
+        await unclaim(env, "alert", g, s.telegram_user_id).catch(() => {});
       }
       // نشانگر عمداً جلو نمی‌رود: این نفر هنوز پیامی نگرفته و دورِ بعد
       // باید دوباره سراغش برود.
