@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     # پنجره‌ی هشدار حداکثر یک ساعت است؛ اجرایی که بیش از این طول بکشد
     # دیگر به کارِ کسی نمی‌آید.
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Drain the alert queue
         env:
