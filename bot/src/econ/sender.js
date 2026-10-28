@@ -846,12 +846,25 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
   }
   await advanceCursor(env, "digest", ref, shard, lastId);
 
+  // `throttled` اینجا همیشه false است و ایستادن با `stopped` خبر داده می‌شود.
+  //
+  // ─── باگی که این جدایی را لازم کرد ──────────────────────────────
+  //
+  // ۲۸ اکتبر یک ارسالِ ناموفق به تلگرام (claimAndSend → "stop") جواب را
+  // `throttled:true` می‌کرد، و ورک‌فلو آن را «الان کاری نیست» می‌فهمد و
+  // همان شارد را می‌بندد - وسطِ فهرست. شش شارد با دورِ نیمه‌پر (۹، ۲۱، ۱۰،
+  // ۳۵، ۲۲ پیام) بسته شدند و فقط ۵٬۷۴۴ نفر از ~۱۶٫۹ هزار خلاصه گرفتند؛
+  // بقیه تا ۱۳:۴۳ تهران منتظر ماندند.
+  //
+  // `throttled` فقط یعنی «جارو هنوز زود است» (از nextChunk) و ایستادنِ
+  // ورک‌فلو درست است. ایستادنِ وسطِ تکه یعنی کار مانده و باید دورِ بعد
+  // ادامه بدهد: نشانگر تا نفرِ آخرِ واقعاً پردازش‌شده جلو رفته.
   // پرچمِ پایان فقط در شاخه‌ی بالا زده می‌شود - جایی که کوئری واقعاً
   // دست خالی برگشته. تکه‌ی کوتاه‌تر از بودجه دلیلِ کافی نیست: وقتی چند
   // درِین موازی کار می‌کنند، ممکن است بقیه‌ی فهرست را همان لحظه
   // همکارهایش برداشته باشند و هنوز در حالِ فرستادن باشند. یک دورِ اضافه
   // ارزان است؛ جا ماندنِ چند نفر نه.
-  return { ...stats, weekend: digest.weekend, chunk: pending.length, done: false, throttled: stopped };
+  return { ...stats, weekend: digest.weekend, chunk: pending.length, done: false, throttled: false, stopped };
 }
 
 // ─── ۱ب) اعلانِ تعطیلی بانکی ────────────────────────────────────────
@@ -964,7 +977,8 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
     holiday: holiday.name,
     chunk: pending.length,
     done: false,
-    throttled: stopped,
+    throttled: false,
+    stopped,
   };
 }
 
@@ -1633,7 +1647,7 @@ export async function runWeeklyGreeting(env, now = new Date(), shard = null) {
   }
   await advanceCursor(env, "greet", ref, shard, lastId);
 
-  return { ...stats, index: greetIndex(ref, MONDAY_GREETINGS.length) + 1, chunk: pending.length, throttled: stopped };
+  return { ...stats, index: greetIndex(ref, MONDAY_GREETINGS.length) + 1, chunk: pending.length, throttled: false, stopped };
 }
 
 /** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
@@ -1739,7 +1753,7 @@ export async function runNotice(env, now = new Date(), shard = null) {
   }
   await advanceCursor(env, "notice", ref, shard, lastId);
 
-  return { ...stats, chunk: pending.length, throttled: stopped };
+  return { ...stats, chunk: pending.length, throttled: false, stopped };
 }
 
 /** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */

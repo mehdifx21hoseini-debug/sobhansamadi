@@ -224,4 +224,36 @@ function DBlock(env) {
 }
 
 
+// ─── ۸) ارسالِ ناموفق وسطِ تکه: شارد نباید «تمام شد» بگوید ──────────
+//
+// ۲۸ اکتبر یک خطای تلگرام وسطِ تکه `throttled:true` برمی‌گرداند و
+// ورک‌فلو آن را «کاری نیست» می‌فهمد و شارد را می‌بندد: فقط ۵٬۷۴۴ نفر از
+// ~۱۶٫۹ هزار خلاصه گرفتند. حالا ایستادن با `stopped` خبر داده می‌شود و
+// `throttled` فقط برای «جارو هنوز زود است» می‌ماند.
+{
+  const env = await setup(200);
+  sent.length = 0;
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (url, init) => {
+    calls++;
+    if (calls === 10) throw new Error("network down");
+    return realFetch(url, init);
+  };
+  const r = await runDailyDigest(env, NOW, { of: 1, index: 0 });
+  globalThis.fetch = realFetch;
+  ok(r.stopped === true, "خطای ارسال وسطِ تکه: stopped=true", r);
+  ok(r.throttled === false, "و throttled نیست (ورک‌فلو نباید شارد را ببندد)", r);
+  ok(r.done === false, "و done هم نیست", r);
+  // دورِ بعد از همان‌جا ادامه می‌دهد و کسی جا نمی‌ماند.
+  const seen = new Set(sent);
+  for (let i = 0; i < 20; i++) {
+    const before = sent.length;
+    const rr = await runDailyDigest(env, NOW, { of: 1, index: 0 });
+    for (const id of sent.slice(before)) seen.add(id);
+    if (rr.done === true) break;
+  }
+  ok(seen.size === 200, "با ادامه‌ی دورها، هر ۲۰۰ نفر دقیقاً یک بار می‌گیرند", seen.size);
+}
+
 console.log("\n" + n + " ادعا");

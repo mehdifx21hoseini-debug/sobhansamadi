@@ -91,6 +91,7 @@ import {
 import { EXPLAIN_FLAG, explainEnabled } from "./econ/explain.js";
 import { dispatchWorkflow } from "./ops/dispatch.js";
 import { isActualsSlot } from "./econ/actualsSchedule.js";
+import { isDigestRetrySlot } from "./econ/digestRetry.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
 // آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
@@ -1889,6 +1890,15 @@ export default {
           dispatchWorkflow(env, "ff-actuals.yml")
             .then((r) => console.log("شروعِ خواندنِ عددها:", JSON.stringify(r)))
             .catch((err) => console.error("شروعِ خواندنِ عددها شکست خورد:", err && err.message))
+        );
+      }
+
+      // دورِ دومِ خلاصه‌ی صبح، ۹:۰۰ تهران. توضیح در digestRetry.js.
+      if (isDigestRetrySlot(new Date(event.scheduledTime || Date.now()))) {
+        ctx.waitUntil(
+          dispatchWorkflow(env, "econ-digest.yml")
+            .then((r) => console.log("دورِ دومِ خلاصه:", JSON.stringify(r)))
+            .catch((err) => console.error("دورِ دومِ خلاصه شکست خورد:", err && err.message))
         );
       }
 
