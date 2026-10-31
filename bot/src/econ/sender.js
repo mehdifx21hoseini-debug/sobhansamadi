@@ -440,6 +440,9 @@ async function nextChunk(env, kind, ref, shard, now = Date.now()) {
   // همان مسیرِ قدیمیِ D1 در ادامه کار می‌کند.
   if (await snapshotOn(env)) {
     const snap = await nextChunkSnapshot(env, kind, ref, shard, now).catch((err) => {
+      // خطای خواندنِ ردیفِ عکس عمداً به مسیرِ قدیمی نمی‌افتد: آن مسیر هر دور
+      // تا ۱۶ هزار ردیف را رد می‌کند، و ورک‌فلو خطا را دوباره امتحان می‌کند.
+      if (err && err.name === "SnapshotReadError") throw err;
       console.error("عکسِ فهرستِ مخاطب شکست خورد، مسیرِ قدیمی:", err && err.message);
       return null;
     });
@@ -522,10 +525,21 @@ async function buildSnapshot(env, kind, ref, now) {
       break;
     }
   }
-  // آیدیِ تلگرام عددی است. چیزِ دیگری یعنی داده‌ی غیرمنتظره: عکس نمی‌سازیم.
-  if (!ids.every((id) => /^\d+$/.test(id))) return null;
-  const value = JSON.stringify({ t: now, ids: ids.join(",") });
-  if (value.length > SNAP_MAX_CHARS) return null;
+  // آیدیِ تلگرام عددی است. ردیفِ غیرعددی (مثلاً آیدیِ منفیِ یک گروه) را
+  // کنار می‌گذاریم و بقیه را نگه می‌داریم.
+  //
+  // پیش از این یک ردیفِ غیرعددی کلِ ساخت را رد می‌کرد: عکس ذخیره نمی‌شد،
+  // مسیرِ قدیمی (گران) جایش را می‌گرفت، و دورِ بعد دوباره ساختنِ عکس -
+  // با ~۱۷ هزار ردیف خواندن - از نو شروع می‌شد. به یک پیامِ تلگرام هم
+  // که چت‌آیدیِ عددی ندارد نمی‌شود فرستاد، پس کنار گذاشتنش چیزی از کسی
+  // نمی‌گیرد.
+  const numeric = ids.filter((id) => /^\d+$/.test(id));
+  const skipped = ids.length - numeric.length;
+  const value = JSON.stringify({ t: now, ids: numeric.join(",") });
+  if (value.length > SNAP_MAX_CHARS) {
+    await recordSnapDiag(env, ref, kind, { too_large: 1 });
+    return null;
+  }
   const key = snapKey(kind, ref);
   await writeConfig(env, key, value);
   // عکس‌های روزهای پیش را پاک می‌کند، تا جدول بی‌پایان بزرگ نشود.
@@ -534,9 +548,51 @@ async function buildSnapshot(env, kind, ref, now) {
     .bind("econ\\_aud\\_" + kind + "\\_%", key)
     .run()
     .catch(() => {});
-  const rec = { t: now, ids };
+  const rec = { t: now, ids: numeric };
   snapMem.set(key, rec);
+  await recordSnapDiag(env, ref, kind, { builds: 1, non_numeric_skipped: skipped, last_size: numeric.length });
   return rec;
+}
+
+// ─── ابزارِ تشخیص: عکس چند بار و چرا ساخته شد ───────────────────────
+//
+// ۲۹ و ۳۰ اکتبر کوئریِ ساختِ عکس به‌جای ۱ تا ۳ بار در روز، ۵۶ بار اجرا
+// شد (~۹۷۶ هزار خواندن، ۸۶٪ جمعِ کوئری‌ها)؛ و شنبه ۳۱ اکتبر اصلاً نه.
+// علتش از بیرون معلوم نبود. این شمارنده‌ها یک ردیفِ bot_config برای هر
+// (نوع، روز) می‌سازند و در /admin/econ-sender دیده می‌شوند.
+//
+// بهترین تلاش است و هرگز ارسال را نمی‌شکند: شکستِ نوشتنش بی‌صدا رد می‌شود.
+function diagKey(kind, ref) {
+  return "econ_snapdiag_" + kind + "_" + ref;
+}
+
+async function recordSnapDiag(env, ref, kind, patch) {
+  try {
+    const key = diagKey(kind, ref);
+    const raw = await readConfig(env, key).catch(() => "");
+    let cur = {};
+    try {
+      cur = raw ? JSON.parse(raw) || {} : {};
+    } catch {
+      cur = {};
+    }
+    for (const [k, v] of Object.entries(patch)) {
+      cur[k] = k === "last_size" ? v : (Number(cur[k]) || 0) + Number(v);
+    }
+    cur.last_at = new Date().toISOString();
+    await writeConfig(env, key, JSON.stringify(cur));
+  } catch {
+    /* تشخیص نباید کاری را بشکند */
+  }
+}
+
+export async function readSnapDiag(env, kind = "digest", ref = digestRef()) {
+  try {
+    const raw = await readConfig(env, diagKey(kind, ref));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 // تکه‌ی بعدی از عکس: ids بعد از `after` (مقایسه‌ی متنی، همان ترتیبِ
@@ -624,15 +680,46 @@ async function buildOrWait(env, kind, ref, now, key) {
   return null;
 }
 
+// خواندنِ ردیفِ عکس، با فرقِ «ردیف نیست» و «خواندن شکست خورد».
+//
+// پیش از این `.catch(() => "")` هر دو را یکی می‌کرد: یک خطای گذرای D1 مثلِ
+// «عکس وجود ندارد» رفتار می‌کرد و کلِ عکس - ~۱۷ هزار ردیف خواندن - از نو
+// ساخته می‌شد. حالا یک بار با مکثِ کوتاه دوباره می‌خوانیم و اگر باز شکست
+// خورد، خطا بالا می‌رود: ورک‌فلو آن را کدِ غیر-۲۰۰ می‌بیند و با مکث
+// دوباره می‌زند، و کرانِ پنج‌دقیقه‌ای تیکِ بعد را. هیچ ارسالی جا نمی‌ماند
+// و ساختِ گران هم اتفاق نمی‌افتد.
+class SnapshotReadError extends Error {
+  constructor(msg) {
+    super(msg);
+    this.name = "SnapshotReadError";
+  }
+}
+
+async function readSnapRow(env, kind, ref, key) {
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await readConfig(env, key);
+    } catch (err) {
+      lastErr = err;
+      await recordSnapDiag(env, ref, kind, { read_errors: 1 });
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+  throw new SnapshotReadError("خواندنِ ردیفِ عکس شکست خورد: " + String((lastErr && lastErr.message) || lastErr));
+}
+
 async function nextChunkSnapshot(env, kind, ref, shard, now) {
   const key = snapKey(kind, ref);
   let built = false;
   let rec = snapMem.get(key);
   if (!rec) {
-    const raw = await readConfig(env, key).catch(() => "");
+    const raw = await readSnapRow(env, kind, ref, key);
     rec = raw ? parseSnapshot(raw) : null;
+    if (raw && !rec) await recordSnapDiag(env, ref, kind, { parse_failed: 1 });
   }
   if (!rec) {
+    await recordSnapDiag(env, ref, kind, { build_missing: 1 });
     const got = await buildOrWait(env, kind, ref, now, key);
     if (!got) return null;
     rec = got.rec;
@@ -664,6 +751,7 @@ async function nextChunkSnapshot(env, kind, ref, shard, now) {
       // ادامه می‌دهیم - این کار نباید منتظر بماند.
       if (await takeLock(env, kind, ref, now)) {
         try {
+          await recordSnapDiag(env, ref, kind, { build_hourly: 1 });
           const rebuilt = await buildSnapshot(env, kind, ref, now);
           if (!rebuilt) return null;
           rec = rebuilt;
@@ -1511,6 +1599,8 @@ export async function senderStatus(env) {
     alerts_24h: alerts24h,
     weekend: isWeekend(),
     digest,
+    // امروز عکسِ مخاطب چند بار و چرا ساخته شد (خالی = هنوز ساخته نشده).
+    snapshot: await readSnapDiag(env).catch(() => null),
   };
 }
 

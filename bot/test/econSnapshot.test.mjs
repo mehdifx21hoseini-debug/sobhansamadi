@@ -256,4 +256,82 @@ function DBlock(env) {
   ok(seen.size === 200, "با ادامه‌ی دورها، هر ۲۰۰ نفر دقیقاً یک بار می‌گیرند", seen.size);
 }
 
+// ─── ۹) آیدیِ غیرعددی ساختِ عکس را نمی‌شکند ─────────────────────────
+//
+// پیش از این یک ردیفِ مثلِ آیدیِ منفیِ گروه، ساخت را رد می‌کرد؛ عکس ذخیره
+// نمی‌شد و هر دور دوباره ساخته می‌شد (~۱۷ هزار ردیف خواندن در هر دور).
+{
+  const env = await setup(60);
+  env.DB.raw.prepare("INSERT INTO user_state (telegram_user_id) VALUES ('-1001234567890')").run();
+  env.DB.raw.prepare("INSERT INTO user_state (telegram_user_id) VALUES ('lead-abc')").run();
+  sent.length = 0;
+  const from = env.DB.log.length;
+  for (let i = 0; i < 6; i++) await runDailyDigest(env, NOW, null);
+  const builds = env.DB.log.slice(from).filter((q) => /group_concat/i.test(q)).length;
+  ok(builds === 1, "با آیدیِ غیرعددی هم عکس فقط یک بار ساخته می‌شود", builds);
+  ok(new Set(sent).size === 60, "هر ۶۰ نفرِ عددی خلاصه می‌گیرند و ردیف‌های غیرعددی کنار می‌مانند", new Set(sent).size);
+  const { readSnapDiag } = await import("../src/econ/sender.js");
+  const d = await readSnapDiag(env, "digest", REF);
+  ok(d && d.builds === 1 && d.non_numeric_skipped === 2, "ابزارِ تشخیص یک ساخت و دو ردیفِ کنار گذاشته را ثبت کرده", d);
+}
+
+// ─── ۱۰) خطای گذرای خواندنِ ردیفِ عکس، عکس را دوباره نمی‌سازد ────────
+{
+  const env = await setup(600);
+  sent.length = 0;
+  await runDailyDigest(env, NOW, { of: 6, index: 0 }); // عکس ساخته می‌شود
+  resetSnapshotMemo(); // ایزوله‌ی تازه: حافظه خالی، باید از ردیف بخواند
+  const realPrepare = env.DB.prepare.bind(env.DB);
+  let failures = 1; // فقط یک بار می‌شکند
+  env.DB.prepare = (sql) => {
+    const st = realPrepare(sql);
+    if (/FROM\s+bot_config/i.test(sql)) {
+      const bind = st.bind;
+      st.bind = (...a) => {
+        if (String(a[0]).startsWith("econ_aud_digest_") && failures > 0) {
+          failures--;
+          const f = { first: async () => { throw new Error("D1 transient"); } };
+          return f;
+        }
+        return bind(...a);
+      };
+    }
+    return st;
+  };
+  const from = env.DB.log.length;
+  const r = await runDailyDigest(env, NOW, { of: 6, index: 0 });
+  const builds = env.DB.log.slice(from).filter((q) => /group_concat/i.test(q)).length;
+  ok(builds === 0, "یک خطای گذرا: یک بار دوباره می‌خواند و عکس را نمی‌سازد", builds);
+  ok(r.chunk > 0 || r.sent > 0, "و همان دور کارش را ادامه می‌دهد", r);
+  env.DB.prepare = realPrepare;
+}
+
+// ─── ۱۱) خطای پایدارِ خواندن: خطا بالا می‌رود، نه ساختِ گران و نه «تمام شد» ───
+{
+  const env = await setup(100);
+  await runDailyDigest(env, NOW, { of: 6, index: 0 });
+  resetSnapshotMemo();
+  const realPrepare = env.DB.prepare.bind(env.DB);
+  env.DB.prepare = (sql) => {
+    const st = realPrepare(sql);
+    if (/FROM\s+bot_config/i.test(sql)) {
+      const bind = st.bind;
+      st.bind = (...a) => {
+        if (String(a[0]).startsWith("econ_aud_digest_")) {
+          return { first: async () => { throw new Error("D1 down"); } };
+        }
+        return bind(...a);
+      };
+    }
+    return st;
+  };
+  const from = env.DB.log.length;
+  let threw = null;
+  try { await runDailyDigest(env, NOW, { of: 6, index: 0 }); } catch (e) { threw = e; }
+  const builds = env.DB.log.slice(from).filter((q) => /group_concat/i.test(q)).length;
+  ok(threw && threw.name === "SnapshotReadError", "خطای پایدار به‌صورتِ SnapshotReadError بالا می‌رود (ورک‌فلو دوباره می‌زند)", threw && threw.name);
+  ok(builds === 0, "و عکس را از نو نمی‌سازد", builds);
+  env.DB.prepare = realPrepare;
+}
+
 console.log("\n" + n + " ادعا");
