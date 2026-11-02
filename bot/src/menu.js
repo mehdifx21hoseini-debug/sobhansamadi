@@ -63,15 +63,11 @@ export async function mainMenuKeyboard(env) {
   const L = env ? await getLabels(env) : MENU_LABELS;
   return {
     keyboard: [
-      [
-        btn(L.ECON_CALENDAR, "primary", ICON.ECON_CALENDAR),
-        btn(L.FREE_COURSES, "primary"),
-      ],
-      [btn(L.LIBRARY, "primary"), btn(L.PSY_VOICES, "primary")],
-      [
-        btn(L.EXPERT, "primary"),
-        btn(L.LIVE_TRADE, "primary", ICON.LIVE_TRADE),
-      ],
+      // تقویم اقتصادی تنها و تمام‌عرض در بالا: پرمراجعه‌ترین بخش است.
+      [btn(L.ECON_CALENDAR, "primary", ICON.ECON_CALENDAR)],
+      [btn(L.FREE_COURSES, "primary"), btn(L.LIBRARY, "primary")],
+      [btn(L.PSY_VOICES, "primary"), btn(L.EXPERT, "primary")],
+      [btn(L.LIVE_TRADE, "primary", ICON.LIVE_TRADE)],
       [btn(L.CONSULT, "success", ICON.CONSULT)],
       [btn(L.TRUSTED_BROKER, "primary"), btn(L.SUPPORT, "primary")],
       // تمام‌عرض و آخر: کم‌مراجعه‌ترین بخش است، ولی وقتی کسی دنبالش
