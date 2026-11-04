@@ -112,6 +112,26 @@ jobs:
             end'
           echo
 
+          # ── کدام کوئری‌ها بیشترین ردیف را می‌نویسند ─────────────────
+          #
+          # چرا لازم شد: سقفِ نوشتن (۱۰۰ هزار) به هدفِ ۷۰ هزار نزدیک
+          # شده، ولی فهرستِ بالا فقط خواندن را مرتب می‌کند. همان
+          # پاسخِ Q_Q ردیف‌های نوشته‌شده را هم دارد؛ فقط مرتب‌سازی عوض
+          # می‌شود.
+          echo "─── سنگین‌ترین کوئری‌ها - فقط امروز (UTC)، بر اساس ردیف‌نوشتن ───"
+          ask "$Q_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].d1QueriesAdaptiveGroups // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else (map(.sum.rowsWritten) | add) as $all
+                  | sort_by(-.sum.rowsWritten) | .[0:12]
+                  | map("\(.sum.rowsWritten) ردیف  ·  \(.count) بار  ·  \(.dimensions.query | gsub("\\s+"; " ") | .[0:150])")
+                  | join("\n")
+                    + "\n--- جمعِ نوشتنِ همه‌ی شکل‌ها: \($all) ردیف ---"
+                end
+            end'
+          echo
+
           # ── Workers: درخواست و subrequest ───────────────────────────
           # سقفِ رایگان: ۱۰۰ هزار درخواست در روز.
           W_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$SINCE" --arg u "$UNTIL" '{
