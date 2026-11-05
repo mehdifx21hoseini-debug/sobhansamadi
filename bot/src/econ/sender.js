@@ -1319,7 +1319,12 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
   // که مسیرِ صفحه‌بندی را روی جدولِ واقعی راه بیندازد در روزی که هیچ
   // خبری در بازه نیست. هیچ claimی و هیچ ارسالی در آن حالت انجام
   // نمی‌شود، پس بی‌خطر است.
-  if (!dry && !anyEventWithin(events, MAX_ALERT_MINUTES)) {
+  //
+  // فقط خبرهای دلار شمرده می‌شوند، چون dueEvents هم فقط برای دلار هشدار
+  // می‌سازد. بی‌این صافی، یک خبرِ یورو یا ین در ساعتِ پیشِ رو کلِ جدول را
+  // هر پنج دقیقه می‌خواند و به هیچ‌کس چیزی نمی‌فرستاد (۵ نوامبر: ۶۸ بار و
+  // ۲۴۵ هزار خواندن تا ۰۵:۴۰ UTC).
+  if (!dry && !anyEventWithin(filterByCurrencies(events, DEFAULT_CURRENCIES), MAX_ALERT_MINUTES)) {
     return { sent: 0, failed: 0, blocked: 0 };
   }
 
