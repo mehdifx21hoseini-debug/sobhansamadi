@@ -131,7 +131,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-92";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-93";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -735,6 +735,57 @@ async function handleAdmin(request, url, env) {
     } catch (err) {
       return json({ ok: false, build: BUILD, error: String(err && err.message) }, 500);
     }
+  }
+
+  // چند نفر همین حالا و در بازه‌های اخیر با ربات کار کرده‌اند.
+  //
+  // «فعال» یعنی پیام یا دکمه‌ای زده (touchUser روی هر به‌روزرسانی
+  // last_interaction_at را می‌نویسد) و ربات را بلاک نکرده. همان تعریفِ
+  // /members، با بازه‌های کوتاه‌تر برای «همین حالا». فقط می‌خواند؛ هر
+  // فراخوانی حدودِ ۱۵ شمارش روی user_state است، پس پشتِ سرِ هم صدایش
+  // نزنید.
+  if (url.pathname === "/admin/members") {
+    const ago = (ms) => new Date(Date.now() - ms).toISOString();
+    const one = async (sql, ...args) => {
+      try {
+        const q = env.DB.prepare(sql);
+        const r = await (args.length ? q.bind(...args) : q).first();
+        return r ? Number(Object.values(r)[0]) || 0 : 0;
+      } catch {
+        return null;
+      }
+    };
+    const M = 60000, H = 60 * M, D = 24 * H;
+    const act = (ms) => one(
+      `SELECT COUNT(*) FROM user_state WHERE blocked_at IS NULL AND last_interaction_at >= ?`, ago(ms));
+    const fresh = (ms) => one(`SELECT COUNT(*) FROM user_state WHERE source_first_seen >= ?`, ago(ms));
+    const [total, blocked, blocked7, m5, m15, h1, h24, d7, d30, n24, n7, n30, subs, digestOff] =
+      await Promise.all([
+        one(`SELECT COUNT(*) FROM user_state`),
+        one(`SELECT COUNT(*) FROM user_state WHERE blocked_at IS NOT NULL`),
+        one(`SELECT COUNT(*) FROM user_state WHERE blocked_at >= ?`, ago(7 * D)),
+        act(5 * M), act(15 * M), act(H), act(D), act(7 * D), act(30 * D),
+        fresh(D), fresh(7 * D), fresh(30 * D),
+        one(`SELECT COUNT(*) FROM econ_subscriber WHERE subscribed = 1`),
+        one(`SELECT COUNT(*) FROM econ_subscriber WHERE digest_off = 1`),
+      ]);
+    return json({
+      ok: true,
+      build: BUILD,
+      now_utc: new Date().toISOString(),
+      users: {
+        total,
+        blocked,
+        reachable: total === null || blocked === null ? null : total - blocked,
+      },
+      active_not_blocked: {
+        last_5m: m5, last_15m: m15, last_1h: h1,
+        last_24h: h24, last_7d: d7, last_30d: d30,
+      },
+      new_users: { last_24h: n24, last_7d: n7, last_30d: n30 },
+      blocked_last_7d: blocked7,
+      econ: { alert_subscribers: subs, digest_off: digestOff },
+    });
   }
 
   if (url.pathname === "/admin/usage") {
@@ -1617,6 +1668,7 @@ export default {
       url.pathname === "/admin/econ-notice-drain" ||
       url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
+      url.pathname === "/admin/members" ||
       url.pathname === "/admin/content" ||
       url.pathname === "/admin/econ-day" ||
       url.pathname === "/admin/crm-import" ||
