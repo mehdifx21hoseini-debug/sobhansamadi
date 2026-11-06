@@ -43,7 +43,7 @@ export async function sendToolsMenu(ctx) {
   await ctx.reply(TOOLS_TEXT, {
     reply_markup: {
       inline_keyboard: [
-        [{ text: "🤖 اکسپرت مدیریت سرمایه", callback_data: "SEC_EXPERT", style: "primary" }],
+        [{ text: "🤖 اکسپرت SSProX", callback_data: "SEC_EXPERT", style: "primary" }],
         [{ text: "🏦 بروکر معتمد", callback_data: "SEC_BROKER", style: "primary" }],
       ],
     },

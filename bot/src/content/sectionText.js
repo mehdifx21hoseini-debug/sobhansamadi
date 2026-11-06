@@ -21,7 +21,7 @@ export const PHOTO_OFF = "off";
 export const SECTIONS = {
   WELCOME: { code: "WELCOME_TEXT", label: "👋 پیام خوش‌آمد (/start)", def: D.WELCOME_TEXT },
   LIBRARY: { code: "LIBRARY_INTRO_TEXT", label: "🧠 کتاب‌های روانشناسی", def: D.LIBRARY_INTRO_TEXT },
-  EXPERT: { code: "EXPERT_INTRO_TEXT", label: "🤖 اکسپرت مدیریت سرمایه", def: D.EXPERT_INTRO_TEXT },
+  EXPERT: { code: "EXPERT_INTRO_TEXT", label: "🤖 اکسپرت SSProX", def: D.EXPERT_INTRO_TEXT },
   // یادداشتی که بعد از هر تحویلِ اکسپرت می‌رود. اینجا آمده تا مدیر
   // بتواند از /edit عوضش کند - متنی که درباره‌ی بروکر حرف می‌زند
   // احتمالِ تغییرش از متنِ معرفی بیشتر است، نه کمتر.

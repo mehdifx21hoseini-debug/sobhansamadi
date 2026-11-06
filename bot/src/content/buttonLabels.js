@@ -44,7 +44,7 @@ export const EDITABLE_BUTTONS = [
   { key: "FREE_COURSES", hint: "دوره‌های رایگان" },
   { key: "LIBRARY", hint: "کتاب‌های روانشناسی" },
   { key: "PSY_VOICES", hint: "ویس‌های روانشناسی" },
-  { key: "EXPERT", hint: "اکسپرت مدیریت سرمایه" },
+  { key: "EXPERT", hint: "اکسپرت SSProX" },
   { key: "LIVE_TRADE", hint: "ویدیوهای لایو ترید" },
   { key: "CONSULT", hint: "ثبت‌نام مجموعه پیشرفته" },
   { key: "TRUSTED_BROKER", hint: "بروکر معتمد" },
