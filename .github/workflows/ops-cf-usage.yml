@@ -112,6 +112,66 @@ jobs:
             end'
           echo
 
+          # ── کدام کوئری‌ها بیشترین ردیف را می‌نویسند ─────────────────
+          #
+          # چرا لازم شد: سقفِ نوشتن (۱۰۰ هزار) به هدفِ ۷۰ هزار نزدیک
+          # شده، ولی فهرستِ بالا فقط خواندن را مرتب می‌کند. همان
+          # پاسخِ Q_Q ردیف‌های نوشته‌شده را هم دارد؛ فقط مرتب‌سازی عوض
+          # می‌شود.
+          echo "─── سنگین‌ترین کوئری‌ها - فقط امروز (UTC)، بر اساس ردیف‌نوشتن ───"
+          ask "$Q_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].d1QueriesAdaptiveGroups // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else (map(.sum.rowsWritten) | add) as $all
+                  | sort_by(-.sum.rowsWritten) | .[0:12]
+                  | map("\(.sum.rowsWritten) ردیف  ·  \(.count) بار  ·  \(.dimensions.query | gsub("\\s+"; " ") | .[0:150])")
+                  | join("\n")
+                    + "\n--- جمعِ نوشتنِ همه‌ی شکل‌ها: \($all) ردیف ---"
+                end
+            end'
+          echo
+
+          # ── نوشتن ساعت‌به‌ساعت، و کوئری‌های دیروز ───────────────────
+          #
+          # چرا لازم شد: جمعِ نوشتنِ شکل‌های کوئری هر روز فقط نیمی از
+          # عددِ کلِ روز است و ۸ نوامبر بخشِ نامعلوم دو برابر شد. سه
+          # پرسش جوابش را می‌دهند: نوشتن در کدام ساعت رخ داده، چند
+          # دیتابیس داریم، و آیا شکافِ روزِ کامل هم همین‌قدر است.
+          YDAY=$(date -u -d '1 day ago' +%Y-%m-%d)
+          H_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "${YDAY}T00:00:00Z" --arg u "$UNTIL" '{
+            query: "query($a:String!,$s:Time!,$u:Time!){viewer{accounts(filter:{accountTag:$a}){d1AnalyticsAdaptiveGroups(limit:200,filter:{datetimeHour_geq:$s,datetimeHour_leq:$u}){sum{rowsRead rowsWritten writeQueries}dimensions{datetimeHour databaseId}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo "─── نوشتن ساعت‌به‌ساعت (دیروز و امروز، UTC) ───"
+          ask "$H_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].d1AnalyticsAdaptiveGroups // [])
+              | (map(.dimensions.databaseId) | unique | length) as $dbs
+              | "شمار دیتابیس‌ها: \($dbs)",
+                (sort_by(.dimensions.datetimeHour) | .[]
+                 | "\(.dimensions.datetimeHour)  نوشتن \(.sum.rowsWritten)  ·  کوئریِ نوشتن \(.sum.writeQueries)  ·  خواندن \(.sum.rowsRead)  ·  db \(.dimensions.databaseId[0:6])")
+            end'
+          echo
+          Y_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$YDAY" --arg u "$YDAY" '{
+            query: "query($a:String!,$s:Date!,$u:Date!){viewer{accounts(filter:{accountTag:$a}){d1QueriesAdaptiveGroups(limit:1000,filter:{date_geq:$s,date_leq:$u}){sum{rowsRead rowsWritten}count dimensions{query}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo "─── دیروز (روزِ کامل): سنگین‌ترین کوئری‌ها بر اساس ردیف‌نوشتن ───"
+          ask "$Y_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].d1QueriesAdaptiveGroups // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else (map(.sum.rowsWritten) | add) as $w
+                  | (map(.sum.rowsRead) | add) as $r
+                  | (sort_by(-.sum.rowsWritten) | .[0:10]
+                     | map("\(.sum.rowsWritten) ردیف  ·  \(.count) بار  ·  \(.dimensions.query | gsub("\\s+"; " ") | .[0:150])")
+                     | join("\n"))
+                    + "\n--- دیروز: جمعِ نوشتنِ شکل‌ها \($w)، جمعِ خواندنِ شکل‌ها \($r) ---"
+                end
+            end'
+          echo
+
           # ── Workers: درخواست و subrequest ───────────────────────────
           # سقفِ رایگان: ۱۰۰ هزار درخواست در روز.
           W_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$SINCE" --arg u "$UNTIL" '{
