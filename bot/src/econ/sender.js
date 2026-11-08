@@ -289,12 +289,23 @@ async function claimAndSend(env, kind, ref, sub, build, stats) {
       : unclaim(env, kind, ref, sub.telegram_user_id);
 
   if (!(await take())) return "skip";
+  const res = await sendOne(env, sub, build, stats);
+  if (res === "stop") await giveBack().catch(() => {});
+  return res;
+}
+
+/**
+ * خودِ ارسال، بی‌ثبت: "stop" یعنی پیام اصلاً به تلگرام نرسید (سقفِ
+ * زیرساخت) و صداکننده باید همان‌جا بایستد.
+ *
+ * @returns {Promise<"ok"|"stop">}
+ */
+async function sendOne(env, sub, build, stats) {
   let r;
   try {
     const { method, payload } = build();
     r = await tg(env, method, { chat_id: sub.chat_id, ...payload });
   } catch {
-    await giveBack().catch(() => {});
     return "stop";
   }
   if (r.ok) stats.sent++;
@@ -793,6 +804,407 @@ async function advanceCursor(env, kind, ref, shard, lastId) {
   await writeConfig(env, cursorKey(kind, ref, shard), String(lastId)).catch(() => {});
 }
 
+// ─── ثبتِ دسته‌ای (پیام‌های روزانه) ─────────────────────────────────
+//
+// ─── چرا ────────────────────────────────────────────────────────────
+//
+// ۸ نوامبر اندازه گرفته شد: ۸۵٪ نوشتنِ هر روزِ D1 در همان یک ساعتِ
+// خلاصه‌ی صبح است. خلاصه برای هر نفر یک UPDATE روی user_state می‌زد
+// (claimDay) - ~۱۸٫۸ هزار دستور، و کلادفلر برایشان ۳۶ تا ۵۲ هزار ردیف
+// حساب کرد. دوشنبه با سلامِ هفتگی دو برابر.
+//
+// حالا تکه‌ی اصلیِ فهرست (عکسِ اولِ روز) با یک «رزرو» برای هر دسته‌ی
+// ۴۵نفره فرستاده می‌شود: دو نوشتن برای هر دسته به‌جای ۴۵.
+//
+// ─── چطور تکراری نمی‌شود ────────────────────────────────────────────
+//
+// برای هر (نوع، روز، شارد) یک ردیفِ bot_config هست - برگه‌ی شارد - که
+// نشانگر، دسته‌های در حالِ ارسال (inf) و دسته‌های نیمه‌مانده (left) را
+// دارد. رزرو با «مقایسه و جای‌گزینی» روی همین ردیف انجام می‌شود
+// (UPDATE ... WHERE value = <همان چیزی که خواندم>): دو کارگرِ هم‌زمان
+// نمی‌توانند یک دسته را بردارند، چون فقط یکی از دو UPDATE ردیف را عوض
+// می‌کند. کارگرِ بی‌شارد (کرانِ پنج‌دقیقه‌ای) هم از همین شش برگه
+// برمی‌دارد، پس با کارگرهای شاردشده‌ی ورک‌فلو هم تداخل ندارد.
+//
+// ─── وقتی ارسال وسطِ دسته می‌ایستد ─────────────────────────────────
+//
+// • سقفِ زیرساخت (claimAndSend → stop): بقیه‌ی دسته به left برمی‌گردد و
+//   دورِ بعد اول همان را برمی‌دارد. کسی تکراری نمی‌گیرد.
+// • ورکر کشته شود و فرصتِ نوشتن نداشته باشد: دسته در inf می‌ماند. بعد از
+//   INFLIGHT_STALE_MS به left می‌رود و دوباره فرستاده می‌شود. این تنها
+//   جایی است که تکرار ممکن است - حداکثر یک دسته (۴۵ نفر)، و فقط در همان
+//   روزِ نادر. دورِ دومِ ۰۵:۳۰ همین‌ها را هم جمع می‌کند.
+//
+// ─── تازه‌واردها ─────────────────────────────────────────────────────
+//
+// عکسِ اول دیگر بازسازی نمی‌شود. تازه‌واردهای بعد از آن در «عکسِ
+// تکمیلی» (econ_audx_*) می‌آیند - همان کوئریِ مخاطب منهای عکسِ اول - و
+// با همان claimِ تک‌به‌تکِ قبلی فرستاده می‌شوند؛ روزی چند ده نفر.
+//
+// ─── کلیدِ برگشت ────────────────────────────────────────────────────
+//
+// bot_config.econ_batch_claim = off → همان مسیرِ قبلی (claim برای هر نفر).
+// فقط بینِ دو روز عوضش کنید: در مسیرِ قبلی کسی که امروز با دسته گرفته
+// «نگرفته» دیده می‌شود.
+
+export const BATCH_FLAG = "econ_batch_claim";
+export const BATCH_SHARDS = 6;
+const INFLIGHT_STALE_MS = 10 * 60 * 1000;
+const BATCH_CAS_TRIES = 6;
+
+async function batchOn(env) {
+  const v = await readConfig(env, BATCH_FLAG).catch(() => "");
+  return String(v).toLowerCase() !== "off";
+}
+
+function batchKey(kind, ref, s) {
+  return "econ_bat_" + kind + "_" + ref + "_" + s;
+}
+
+function parseBatch(raw) {
+  let o = null;
+  try {
+    o = raw ? JSON.parse(raw) : null;
+  } catch {
+    o = null;
+  }
+  return {
+    c: (o && typeof o.c === "string") ? o.c : "",
+    inf: (o && Array.isArray(o.inf)) ? o.inf : [],
+    left: (o && Array.isArray(o.left)) ? o.left : [],
+    n: (o && Number(o.n)) || 0,
+    b: (o && Number(o.b)) || 0,
+    f: (o && Number(o.f)) || 0,
+  };
+}
+
+// مقایسه و جای‌گزینی روی یک ردیفِ bot_config. raw = همان چیزی که خوانده
+// شد ("" یعنی ردیف نبود).
+async function casConfig(env, key, raw, next) {
+  const iso = new Date().toISOString();
+  const res = raw
+    ? await env.DB
+        .prepare(`UPDATE bot_config SET value = ?, updated_at = ? WHERE key = ? AND value = ?`)
+        .bind(next, iso, key, raw)
+        .run()
+    : await env.DB
+        .prepare(`INSERT OR IGNORE INTO bot_config (key, value, updated_at) VALUES (?, ?, ?)`)
+        .bind(key, next, iso)
+        .run();
+  return (res && res.meta ? res.meta.changes || 0 : 0) > 0;
+}
+
+// آیدی‌های (a, z] از عکس که به شارد s می‌رسند - به همان ترتیبِ pickChunk.
+function rangeIds(ids, s, a, z) {
+  let lo = 0;
+  if (a) {
+    let hi = ids.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (ids[mid] > a) hi = mid;
+      else lo = mid + 1;
+    }
+  }
+  const out = [];
+  for (let i = lo; i < ids.length && ids[i] <= z; i++) {
+    if (Number(ids[i]) % BATCH_SHARDS === s) out.push(ids[i]);
+  }
+  return out;
+}
+
+/**
+ * یک دسته برای شاردِ s رزرو می‌کند.
+ * @returns {Promise<{a:string,z:string,ids:string[]}|null>} null یعنی این
+ *   شارد فعلاً چیزی برای برداشتن ندارد.
+ */
+async function reserveBatch(env, kind, ref, s, rec, now, limit = SEND_BUDGET) {
+  await ensureConfig(env);
+  const key = batchKey(kind, ref, s);
+  for (let attempt = 0; attempt < BATCH_CAS_TRIES; attempt++) {
+    const raw = await readConfig(env, key).catch(() => null);
+    if (raw === null) return null;
+    const st = parseBatch(raw);
+    // دسته‌ای که ورکرش مرده: دوباره به صف.
+    const alive = [];
+    for (const x of st.inf) {
+      if (now - Number(x.t || 0) >= INFLIGHT_STALE_MS) st.left.push({ a: x.a, z: x.z });
+      else alive.push(x);
+    }
+    st.inf = alive;
+
+    let range = null;
+    while (st.left.length > 0 && !range) {
+      const r = st.left.shift();
+      const ids = rangeIds(rec.ids, s, r.a, r.z);
+      if (ids.length === 0) continue;
+      // بودجه‌ی این کارگر کمتر از دسته‌ی مانده است: نیمه‌ی دوم به صف برمی‌گردد.
+      if (ids.length > limit) {
+        const cut = ids[limit - 1];
+        st.left.unshift({ a: cut, z: r.z });
+        range = { a: r.a, z: cut, ids: ids.slice(0, limit) };
+      } else range = { a: r.a, z: r.z, ids };
+    }
+    if (!range) {
+      const chunk = pickChunk(rec, { of: BATCH_SHARDS, index: s }, st.c, limit);
+      if (chunk.length === 0) {
+        // چیزی برای برداشتن نیست؛ اگر فقط دسته‌های مرده جابه‌جا شده بودند
+        // هم ارزشِ نوشتن ندارد - دورِ بعد همین را دوباره حساب می‌کند.
+        return null;
+      }
+      const z = chunk[chunk.length - 1].telegram_user_id;
+      range = { a: st.c, z, ids: chunk.map((r) => r.telegram_user_id) };
+      st.c = z;
+    }
+    st.inf.push({ a: range.a, z: range.z, t: now });
+    if (await casConfig(env, key, raw, JSON.stringify(st))) return range;
+    // کسِ دیگری همین لحظه برگه را عوض کرد؛ از نو.
+  }
+  return null;
+}
+
+/** پایانِ یک دسته: از inf بیرون، آمار اضافه، و باقیِ نیمه‌کاره به left. */
+async function finishBatch(env, kind, ref, s, range, stats, leftFrom) {
+  const key = batchKey(kind, ref, s);
+  for (let attempt = 0; attempt < BATCH_CAS_TRIES * 2; attempt++) {
+    const raw = await readConfig(env, key).catch(() => null);
+    if (raw === null) continue;
+    const st = parseBatch(raw);
+    const i = st.inf.findIndex((x) => x.a === range.a && x.z === range.z);
+    if (i >= 0) st.inf.splice(i, 1);
+    // اگر ورکرِ دیگری این دسته را مرده فرض کرده و به left برده بود، آنجا
+    // هم پاکش می‌کنیم - کارش همین الان تمام شد.
+    st.left = st.left.filter((x) => !(x.a === range.a && x.z === range.z));
+    if (leftFrom !== null) st.left.push({ a: leftFrom, z: range.z });
+    st.n += stats.sent;
+    st.b += stats.blocked;
+    st.f += stats.failed;
+    if (await casConfig(env, key, raw, JSON.stringify(st))) return true;
+  }
+  console.error("پایانِ دسته ثبت نشد", kind, ref, s, range.a, range.z);
+  return false;
+}
+
+/** آیا همه‌ی شاردها عکسِ اول را تمام کرده‌اند (بی‌دسته‌ی باز و بی‌مانده)؟ */
+async function batchAllClear(env, kind, ref, rec) {
+  for (let s = 0; s < BATCH_SHARDS; s++) {
+    const st = parseBatch(await readConfig(env, batchKey(kind, ref, s)).catch(() => ""));
+    if (st.inf.length || st.left.length) return false;
+    if (pickChunk(rec, { of: BATCH_SHARDS, index: s }, st.c, 1).length) return false;
+  }
+  return true;
+}
+
+/** آمارِ ثبت‌شده‌ی دسته‌ها - برای /admin/econ-sender. */
+export async function batchStats(env, kind, ref) {
+  const out = { sent: 0, blocked: 0, failed: 0, open: 0, left: 0 };
+  for (let s = 0; s < BATCH_SHARDS; s++) {
+    const raw = await readConfig(env, batchKey(kind, ref, s)).catch(() => "");
+    if (!raw) continue;
+    const st = parseBatch(raw);
+    out.sent += st.n;
+    out.blocked += st.b;
+    out.failed += st.f;
+    out.open += st.inf.length;
+    out.left += st.left.length;
+  }
+  return out;
+}
+
+// ─── عکسِ تکمیلی: تازه‌واردهای بعد از عکسِ اول ─────────────────────
+
+function extraKey(kind, ref) {
+  return "econ_audx_" + kind + "_" + ref;
+}
+
+function extraCursorKey(kind, ref, s) {
+  return "econ_curx_" + kind + "_" + ref + "_" + s;
+}
+
+async function buildExtras(env, kind, ref, rec, now) {
+  const base = new Set(rec.ids);
+  const all = await listPendingAudienceIds(env, kind, ref);
+  const ids = all.filter((id) => /^\d+$/.test(id) && !base.has(id)).sort();
+  const x = { t: now, ids };
+  await writeConfig(env, extraKey(kind, ref), JSON.stringify({ t: now, ids: ids.join(",") }));
+  await env.DB
+    .prepare(`DELETE FROM bot_config WHERE key LIKE ? ESCAPE '\\' AND key <> ?`)
+    .bind("econ\\_audx\\_" + kind + "\\_%", extraKey(kind, ref))
+    .run()
+    .catch(() => {});
+  await recordSnapDiag(env, ref, kind, { extras_builds: 1, extras_size: ids.length });
+  return x;
+}
+
+/**
+ * تکه‌ی بعدیِ تازه‌واردها برای شاردِ s، یا {throttled} اگر تا بازسازیِ
+ * ساعتیِ بعدی چیزی نیست.
+ */
+async function nextExtras(env, kind, ref, s, rec, now) {
+  const raw = await readConfig(env, extraKey(kind, ref)).catch(() => "");
+  let x = raw ? parseSnapshot(raw) : null;
+  const curRaw = await readConfig(env, extraCursorKey(kind, ref, s)).catch(() => "");
+  const [ct, cafter] = String(curRaw || "").split(":");
+  let after = x && String(x.t) === ct ? cafter || "" : "";
+  let rows = x ? pickChunk(x, { of: BATCH_SHARDS, index: s }, after, SEND_BUDGET) : [];
+  if (rows.length > 0) return { rows, x };
+  // تکمیلی هنوز ساخته نشده: مبدأ همان عکسِ اول است. یعنی اولین نگاه به
+  // تازه‌واردها هم یک ساعت بعد از عکسِ اول است - همان آهنگِ قبلی، و نه
+  // یک اسکنِ کاملِ اضافه همان لحظه‌ای که یک شارد تمام می‌شود.
+  // clear: تکمیلیِ فعلی برای این شارد تمام شده - همان چیزی که مسیرِ
+  // قبلی «جارو شد» می‌نامید.
+  if (now - (x ? x.t : rec.t) < SWEEP_EVERY_MS) return { rows: [], throttled: true, clear: !!x };
+  // نبود یا کهنه است: بازسازی، با همان قفلِ عکس.
+  if (!(await takeLock(env, kind, ref, now))) return { rows: [], throttled: true, clear: false };
+  try {
+    const again = await readConfig(env, extraKey(kind, ref)).catch(() => "");
+    const fresh = again ? parseSnapshot(again) : null;
+    x = fresh && (!x || fresh.t > x.t) && now - fresh.t < SWEEP_EVERY_MS ? fresh : await buildExtras(env, kind, ref, rec, now);
+  } finally {
+    await dropLock(env, kind, ref);
+  }
+  rows = pickChunk(x, { of: BATCH_SHARDS, index: s }, "", SEND_BUDGET);
+  return { rows, x, clear: rows.length === 0 };
+}
+
+async function loadFirstSnapshot(env, kind, ref, now) {
+  const key = snapKey(kind, ref);
+  let rec = snapMem.get(key);
+  if (!rec) {
+    const raw = await readSnapRow(env, kind, ref, key);
+    rec = raw ? parseSnapshot(raw) : null;
+    if (raw && !rec) await recordSnapDiag(env, ref, kind, { parse_failed: 1 });
+  }
+  if (!rec) {
+    await recordSnapDiag(env, ref, kind, { build_missing: 1 });
+    const got = await buildOrWait(env, kind, ref, now, key);
+    if (!got) return null;
+    rec = got.rec;
+  }
+  snapMem.set(key, rec);
+  return rec;
+}
+
+/**
+ * یک دورِ ارسال با ثبتِ دسته‌ای.
+ *
+ * @param makeBuild تابعی که سازنده‌ی پیام را می‌دهد - فقط وقتی کسی برای
+ *   فرستادن هست صدا زده می‌شود.
+ * @returns null اگر عکس در دسترس نیست (صداکننده مسیرِ قبلی را می‌رود).
+ */
+async function batchRound(env, kind, ref, shard, now, makeBuild) {
+  const rec = await loadFirstSnapshot(env, kind, ref, now);
+  if (!rec) return null;
+  const order = shard
+    ? [Math.floor(shard.index) % BATCH_SHARDS]
+    : [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
+
+  // ۱) عکسِ اول، دسته‌ای. کارگرِ بی‌شارد تا پر شدنِ بودجه از چند برگه
+  //    برمی‌دارد؛ کارگرِ شاردشده فقط از برگه‌ی خودش.
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let build = null;
+  let chunk = 0;
+  let stopped = false;
+  for (const s of order) {
+    while (!stopped && chunk < SEND_BUDGET) {
+      const range = await reserveBatch(env, kind, ref, s, rec, now, SEND_BUDGET - chunk);
+      if (!range) break;
+      if (!build) build = await makeBuild();
+      const part = { sent: 0, failed: 0, blocked: 0 };
+      let leftFrom = null;
+      let prev = range.a;
+      for (let i = 0; i < range.ids.length; i++) {
+        const id = range.ids[i];
+        const res = await sendOne(env, { telegram_user_id: id, chat_id: id }, build, part);
+        if (res === "stop") {
+          stopped = true;
+          leftFrom = prev;
+          break;
+        }
+        prev = id;
+        chunk++;
+        if (chunk % 20 === 0) await new Promise((k) => setTimeout(k, 1000));
+      }
+      await finishBatch(env, kind, ref, s, range, part, leftFrom);
+      stats.sent += part.sent;
+      stats.failed += part.failed;
+      stats.blocked += part.blocked;
+    }
+    if (stopped || chunk >= SEND_BUDGET) break;
+  }
+  if (chunk > 0 || stopped) return { stats, chunk, stopped };
+
+  // ۲) عکسِ اول برای این شاردها تمام است؛ تازه‌واردها، تک‌به‌تک.
+  let throttled = false;
+  let sweptAll = true;
+  for (const s of order) {
+    const got = await nextExtras(env, kind, ref, s, rec, now);
+    if (got.throttled) {
+      throttled = true;
+      if (!got.clear) sweptAll = false;
+      continue;
+    }
+    if (!got.rows.length) continue;
+    const xbuild = await makeBuild();
+    const xstats = { sent: 0, failed: 0, blocked: 0 };
+    let xstopped = false;
+    let lastId = "";
+    for (let i = 0; i < got.rows.length; i++) {
+      const res = await claimAndSend(env, kind, ref, got.rows[i], xbuild, xstats);
+      if (res === "stop") {
+        xstopped = true;
+        break;
+      }
+      lastId = got.rows[i].telegram_user_id;
+      if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+    }
+    if (lastId) await writeConfig(env, extraCursorKey(kind, ref, s), got.x.t + ":" + lastId).catch(() => {});
+    return { stats: xstats, chunk: got.rows.length, stopped: xstopped };
+  }
+
+  // هیچ‌چیز نماند. «جارو شد» فقط اگر هیچ شاردی دسته‌ی باز یا مانده
+  // نداشته باشد و تکمیلی هم تازه نگاه شده باشد.
+  const swept = !shard && sweptAll && (await batchAllClear(env, kind, ref, rec));
+  return { empty: true, swept, throttled: shard ? throttled : !swept && throttled };
+}
+
+/**
+ * یک دورِ ارسال برای پیام‌های روزانه - دسته‌ای اگر بشود، وگرنه همان مسیرِ
+ * قبلی با claimِ هر نفر.
+ */
+async function sendRound(env, kind, ref, shard, now, makeBuild) {
+  if ((await snapshotOn(env)) && (await batchOn(env))) {
+    // شاردبندیِ دیگری جز شش نمی‌تواند برگه‌های شارد را شریک شود؛ چنین
+    // صداکننده‌ای مثلِ کارگرِ بی‌شارد از هر شش برگه برمی‌دارد. به مسیرِ
+    // قبلی فرستادنش خطرناک است: آنجا کسی که امروز با دسته گرفته «نگرفته»
+    // دیده می‌شود.
+    const bshard = shard && Math.floor(shard.of) === BATCH_SHARDS ? shard : null;
+    const r = await batchRound(env, kind, ref, bshard, now.getTime(), makeBuild).catch((err) => {
+      if (err && err.name === "SnapshotReadError") throw err;
+      console.error("ارسالِ دسته‌ای شکست خورد، مسیرِ قبلی:", err && err.message);
+      return null;
+    });
+    if (r) return r;
+  }
+  const { rows: pending, swept, throttled } = await nextChunk(env, kind, ref, shard, now.getTime());
+  if (pending.length === 0) return { empty: true, swept, throttled };
+  const build = await makeBuild();
+  const stats = { sent: 0, failed: 0, blocked: 0 };
+  let stopped = false;
+  let lastId = "";
+  for (let i = 0; i < pending.length; i++) {
+    const res = await claimAndSend(env, kind, ref, pending[i], build, stats);
+    if (res === "stop") {
+      stopped = true;
+      break;
+    }
+    lastId = pending[i].telegram_user_id;
+    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
+    if (i % 20 === 19) await advanceCursor(env, kind, ref, shard, lastId);
+  }
+  await advanceCursor(env, kind, ref, shard, lastId);
+  return { stats, chunk: pending.length, stopped };
+}
+
 export function digestRef(now = new Date()) {
   // کلیدِ یکتاییِ خلاصه، تاریخِ تهران است نه UTC - وگرنه اجرای ۴:۳۰
   // بامداد UTC و روزِ تقویمیِ کاربر با هم جور در نمی‌آمدند.
@@ -871,68 +1283,34 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const { rows: pending, swept, throttled } = await nextChunk(env, "digest", ref, shard, now.getTime());
-  if (pending.length === 0) {
+  let digest = null;
+  const round = await sendRound(env, "digest", ref, shard, now, async () => {
+    digest = await buildDigest(env, now);
+    return () =>
+      digest.weekend
+        ? // متن آخر هفته دکمه‌ی تحلیل ندارد: خبری برای تحلیل وجود ندارد و
+          // دکمه‌ای که به تحلیلِ هیچ می‌رسد، از نبودنش بدتر است.
+          { method: "sendMessage", payload: { text: digest.text } }
+        : {
+            method: "sendRichMessage",
+            payload: { rich_message: { markdown: digest.markdown }, reply_markup: AI_BUTTON },
+          };
+  });
+  if (round.empty) {
+    const { swept, throttled } = round;
     // پرچمِ پایان دو شرط دارد. اول اینکه اجرا بی‌تکه باشد: خالی بودنِ یک
     // تکه فقط یعنی همان تکه تمام شده، نه کلِ فهرست. دوم اینکه واقعاً
-    // جارو زده باشیم - چون حالا جارو ساعتی یک بار است و «هیچ ردیفی
-    // نبود» می‌تواند فقط یعنی «این بار نگاه نکردیم». بدونِ این شرط،
-    // اولین درِینِ محدودشده روز را تمام‌شده اعلام می‌کرد و تازه‌واردها
-    // تا فردا خلاصه نمی‌گرفتند.
+    // جارو زده باشیم - «هیچ ردیفی نبود» می‌تواند فقط یعنی «این بار نگاه
+    // نکردیم». بدونِ این شرط، اولین درِینِ محدودشده روز را تمام‌شده اعلام
+    // می‌کرد و تازه‌واردها تا فردا خلاصه نمی‌گرفتند.
     if (!shard && swept) await writeConfig(env, DIGEST_DONE, ref).catch(() => {});
     // برای یک کارگرِ شاردشده، «تکه‌ی من خالی است» یعنی کارِ من تمام
-    // شده - حتی اگر جاروی کامل این ساعت اجازه نداشته باشد.
-    //
-    // ─── باگی که این خط را لازم کرد ─────────────────────────────
-    //
-    // ورک‌فلوی موازی تا وقتی done:true یا skipped نبیند، تا MAX دور
-    // ادامه می‌دهد. با done:swept، شاردی که فهرستش تمام شده بود
-    // done:false می‌گرفت و ده‌ها دورِ اضافه می‌زد - و هر دور یک
-    // اسکنِ کاملِ جدولِ کاربران بود.
-    //
-    // اندازه‌گیریِ ۶ اکتبر: شش شکلِ همین کوئری روی هم ۸۷ میلیون
-    // ردیف در شش روز خوانده بودند - حدود ۱۴٫۵ میلیون در روز، یعنی
-    // تقریباً تمامِ مصرفِ D1 - با میانگینِ ۱۶٬۴۷۷ ردیف در هر صدا،
-    // که همان اندازه‌ی کلِ جدول است.
-    //
-    // پرچمِ DIGEST_DONE همان معنیِ سخت‌گیرِ قبلی را نگه می‌دارد: آن
-    // دروازه‌ی کرانِ هر پنج دقیقه است و نباید با تمام شدنِ یک شارد
-    // زده شود، وگرنه تازه‌واردهای امروز تا فردا جا می‌مانند.
+    // شده. با done:swept، شاردی که فهرستش تمام شده بود done:false
+    // می‌گرفت و ده‌ها دورِ اضافه می‌زد (۶ اکتبر: ~۱۴٫۵ میلیون خواندن در
+    // روز). پرچمِ DIGEST_DONE همان معنیِ سخت‌گیر را نگه می‌دارد.
     return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
   }
-
-  const digest = await buildDigest(env, now);
-  const build = () =>
-    digest.weekend
-      ? // متن آخر هفته دکمه‌ی تحلیل ندارد: خبری برای تحلیل وجود ندارد و
-        // دکمه‌ای که به تحلیلِ هیچ می‌رسد، از نبودنش بدتر است.
-        { method: "sendMessage", payload: { text: digest.text } }
-      : {
-          method: "sendRichMessage",
-          payload: { rich_message: { markdown: digest.markdown }, reply_markup: AI_BUTTON },
-        };
-
-  const stats = { sent: 0, failed: 0, blocked: 0 };
-  let stopped = false;
-  // آخرین کسی که واقعاً پردازش شد. نشانگر تا همین‌جا جلو می‌رود و نه
-  // بیشتر: اگر روی نفرِ بعدی به سقفِ زیرساخت خورده باشیم، پیامش نرفته و
-  // نباید از قلم بیفتد.
-  let lastId = "";
-  for (let i = 0; i < pending.length; i++) {
-    const res = await claimAndSend(env, "digest", ref, pending[i], build, stats);
-    if (res === "stop") {
-      stopped = true;
-      break;
-    }
-    lastId = pending[i].telegram_user_id;
-    // مکث هر بیست پیام، برای نخوردن به سقفِ نرخِ تلگرام.
-    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
-    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
-    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
-    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
-    if (i % 20 === 19) await advanceCursor(env, "digest", ref, shard, lastId);
-  }
-  await advanceCursor(env, "digest", ref, shard, lastId);
+  const { stats, stopped } = round;
 
   // `throttled` اینجا همیشه false است و ایستادن با `stopped` خبر داده می‌شود.
   //
@@ -952,7 +1330,7 @@ export async function runDailyDigest(env, now = new Date(), shard = null) {
   // درِین موازی کار می‌کنند، ممکن است بقیه‌ی فهرست را همان لحظه
   // همکارهایش برداشته باشند و هنوز در حالِ فرستادن باشند. یک دورِ اضافه
   // ارزان است؛ جا ماندنِ چند نفر نه.
-  return { ...stats, weekend: digest.weekend, chunk: pending.length, done: false, throttled: false, stopped };
+  return { ...stats, weekend: digest ? digest.weekend : undefined, chunk: round.chunk, done: false, throttled: false, stopped };
 }
 
 // ─── ۱ب) اعلانِ تعطیلی بانکی ────────────────────────────────────────
@@ -1027,43 +1405,22 @@ export async function runHolidayNotice(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = digestRef(now);
 
-  const { rows: pending, swept, throttled } = await nextChunk(env, "holiday", ref, shard, now.getTime());
-  if (pending.length === 0) {
-    // همان دو شرطِ خلاصه‌ی روزانه - دلیلش آنجا نوشته شده.
-    if (!shard && swept) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
-    // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
-    // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
-    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
-  }
-
   const text = buildHolidayText(holiday, now);
-  const build = () => ({
+  const round = await sendRound(env, "holiday", ref, shard, now, async () => () => ({
     method: "sendMessage",
     payload: { text, reply_markup: HOLIDAY_BUTTON },
-  });
-
-  const stats = { sent: 0, failed: 0, blocked: 0 };
-  let stopped = false;
-  let lastId = "";
-  for (let i = 0; i < pending.length; i++) {
-    const res = await claimAndSend(env, "holiday", ref, pending[i], build, stats);
-    if (res === "stop") {
-      stopped = true;
-      break;
-    }
-    lastId = pending[i].telegram_user_id;
-    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
-    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
-    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
-    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
-    if (i % 20 === 19) await advanceCursor(env, "holiday", ref, shard, lastId);
+  }));
+  if (round.empty) {
+    // همان دو شرطِ خلاصه‌ی روزانه - دلیلش آنجا نوشته شده.
+    if (!shard && round.swept) await writeConfig(env, HOLIDAY_DONE, ref).catch(() => {});
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : round.swept, throttled: round.throttled };
   }
-  await advanceCursor(env, "holiday", ref, shard, lastId);
+  const { stats, stopped } = round;
 
   return {
     ...stats,
     holiday: holiday.name,
-    chunk: pending.length,
+    chunk: round.chunk,
     done: false,
     throttled: false,
     stopped,
@@ -1595,6 +1952,31 @@ export async function senderStatus(env) {
       0,
       digest.total - digest.blocked - digest.opted_out - digest.sent_today
     );
+    // ثبتِ دسته‌ای (از ۸ نوامبر): کسانی که با دسته گرفته‌اند در ستونِ
+    // sent_digest نیستند، پس شمارشِ بالا آن‌ها را «نگرفته» می‌بیند. عددِ
+    // درست از برگه‌های شارد و عکسِ اول می‌آید.
+    const ref = digestRef();
+    const raw = await readConfig(env, snapKey("digest", ref)).catch(() => "");
+    const rec = raw ? parseSnapshot(raw) : null;
+    if (rec && (await batchOn(env))) {
+      const b = await batchStats(env, "digest", ref);
+      let remaining = 0;
+      for (let s = 0; s < BATCH_SHARDS; s++) {
+        const st = parseBatch(await readConfig(env, batchKey("digest", ref, s)).catch(() => ""));
+        remaining += pickChunk(rec, { of: BATCH_SHARDS, index: s }, st.c, rec.ids.length).length;
+        for (const r of st.left.concat(st.inf)) remaining += rangeIds(rec.ids, s, r.a, r.z).length;
+      }
+      digest.batch = { first_snapshot: rec.ids.length, ...b, remaining };
+      // تک‌به‌تک‌ها (تازه‌واردها) در ستون‌اند؛ دسته‌ای‌ها در برگه.
+      digest.sent_today += b.sent + b.blocked + b.failed;
+      // «نگرفته» در شمارشِ ستونی = عکسِ اول + تازه‌واردهای نگرفته.
+      digest.unsent = remaining + Math.max(0, digest.unsent - rec.ids.length);
+      digest.pending = digest.unsent;
+      digest.pending_estimate = Math.max(
+        0,
+        digest.total - digest.blocked - digest.opted_out - digest.sent_today
+      );
+    }
   } catch {
     digest = null;
   }
@@ -1716,33 +2098,17 @@ export async function runWeeklyGreeting(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = gate.ref;
 
-  const { rows: pending, swept, throttled } = await nextChunk(env, "greet", ref, shard, now.getTime());
-  if (pending.length === 0) {
-    if (!shard && swept) await writeConfig(env, GREET_DONE, ref).catch(() => {});
+  const text = greetTextFor(ref);
+  const round = await sendRound(env, "greet", ref, shard, now, async () => () => ({ method: "sendMessage", payload: { text } }));
+  if (round.empty) {
+    if (!shard && round.swept) await writeConfig(env, GREET_DONE, ref).catch(() => {});
     // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
     // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
-    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : round.swept, throttled: round.throttled };
   }
+  const { stats, stopped } = round;
 
-  const text = greetTextFor(ref);
-  const build = () => ({ method: "sendMessage", payload: { text } });
-
-  const stats = { sent: 0, failed: 0, blocked: 0 };
-  let stopped = false;
-  let lastId = "";
-  for (let i = 0; i < pending.length; i++) {
-    const res = await claimAndSend(env, "greet", ref, pending[i], build, stats);
-    if (res === "stop") { stopped = true; break; }
-    lastId = pending[i].telegram_user_id;
-    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
-    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
-    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
-    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
-    if (i % 20 === 19) await advanceCursor(env, "greet", ref, shard, lastId);
-  }
-  await advanceCursor(env, "greet", ref, shard, lastId);
-
-  return { ...stats, index: greetIndex(ref, MONDAY_GREETINGS.length) + 1, chunk: pending.length, throttled: false, stopped };
+  return { ...stats, index: greetIndex(ref, MONDAY_GREETINGS.length) + 1, chunk: round.chunk, throttled: false, stopped };
 }
 
 /** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
@@ -1807,14 +2173,6 @@ export async function runNotice(env, now = new Date(), shard = null) {
   await ensureSentSchema(env);
   const ref = gate.ref;
 
-  const { rows: pending, swept, throttled } = await nextChunk(env, "notice", ref, shard, now.getTime());
-  if (pending.length === 0) {
-    if (!shard && swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
-    // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
-    // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
-    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : swept, throttled };
-  }
-
   // متن از روی تاریخ برداشته می‌شود، نه یک متنِ ثابت: هر روزِ اطلاعیه
   // متنِ خودش را دارد. اگر روزی در جدول نباشد، gate بالاتر جلویش را
   // گرفته - این بررسی فقط برای آن است که هرگز رشته‌ی خالی نرود.
@@ -1828,27 +2186,19 @@ export async function runNotice(env, now = new Date(), shard = null) {
     ? { inline_keyboard: [[{ text: btn.label, url: btn.url, style: "success" }]] }
     : null;
 
-  const build = () => ({
+  const round = await sendRound(env, "notice", ref, shard, now, async () => () => ({
     method: "sendMessage",
     payload: markup ? { text, reply_markup: markup } : { text },
-  });
-
-  const stats = { sent: 0, failed: 0, blocked: 0 };
-  let stopped = false;
-  let lastId = "";
-  for (let i = 0; i < pending.length; i++) {
-    const res = await claimAndSend(env, "notice", ref, pending[i], build, stats);
-    if (res === "stop") { stopped = true; break; }
-    lastId = pending[i].telegram_user_id;
-    if (i % 20 === 19) await new Promise((k) => setTimeout(k, 1000));
-    // نقطه‌ی بازیابی: اگر ورکر وسطِ این تکه کشته شود (۵۰۳)، دورِ بعد از
-    // همین‌جا ادامه می‌دهد نه از اولِ شارد - که یک اسکنِ کاملِ جدولِ
-    // کاربران است و ۱۲ اکتبر ده‌ها بار پشتِ هم تکرار شد.
-    if (i % 20 === 19) await advanceCursor(env, "notice", ref, shard, lastId);
+  }));
+  if (round.empty) {
+    if (!shard && round.swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
+    // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
+    // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
+    return { sent: 0, failed: 0, blocked: 0, done: shard ? true : round.swept, throttled: round.throttled };
   }
-  await advanceCursor(env, "notice", ref, shard, lastId);
+  const { stats, stopped } = round;
 
-  return { ...stats, chunk: pending.length, throttled: false, stopped };
+  return { ...stats, chunk: round.chunk, throttled: false, stopped };
 }
 
 /** همان، ولی با پرچمِ «امروز تمام شد» - برای کرانِ هر پنج دقیقه. */
