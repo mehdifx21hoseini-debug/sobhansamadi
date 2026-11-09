@@ -54,7 +54,7 @@ import {
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { readConfig, writeConfig } from "./content/channel.js";
-import { NOTICES, NOTICE_DATES, noticeTextFor, noticeButtonFor } from "./content/notices.js";
+import { NOTICES, NOTICE_DATES, noticeTextFor, noticeButtonFor, noticeForwardFor, parsePostLink } from "./content/notices.js";
 import { OWNER_ID } from "./owner.js";
 import {
   digestAudienceStats as greetAudienceStats,
@@ -131,7 +131,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-94";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-95";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -914,6 +914,8 @@ async function handleAdmin(request, url, env) {
         // متنِ امروز - و اگر امروز روزِ اطلاعیه نباشد، فهرستِ همه‌ی
         // متن‌ها تا پیش از رفتن قابلِ بازبینی باشد.
         text: noticeTextFor(ref),
+        // اگر امروز فورواردِ یک پستِ کانال است.
+        forward: noticeForwardFor(ref),
         texts: NOTICES,
         progress,
       },
@@ -937,6 +939,40 @@ async function handleAdmin(request, url, env) {
   if (url.pathname === "/admin/notice-preview") {
     if (!env.BOT_TOKEN) return json({ ok: false, error: "BOT_TOKEN تنظیم نشده" }, 503);
     const ref = (url.searchParams.get("date") || digestRef()).slice(0, 10);
+    // فوروارد از کانال: یا لینکِ مستقیم (?link=...) برای آزمودنِ یک پست
+    // پیش از گذاشتنش در notices.js، یا اطلاعیه‌ی فورواردیِ آن روز. فقط به
+    // مدیر می‌رود.
+    const link = url.searchParams.get("link");
+    const fwd = link ? parsePostLink(link) : noticeForwardFor(ref);
+    if (link && !fwd) {
+      return json({ ok: false, build: BUILD, error: "لینک پست نامعتبر است؛ شکلش t.me/<کانال>/<شماره> است" }, 400);
+    }
+    if (fwd) {
+      try {
+        const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/forwardMessage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: OWNER_ID, from_chat_id: fwd.from_chat_id, message_id: fwd.message_id }),
+        });
+        const body = await res.json();
+        return json({
+          ok: !!(body && body.ok),
+          build: BUILD,
+          date: link ? null : ref,
+          kind: "forward",
+          from: fwd.from_chat_id,
+          message_id: fwd.message_id,
+          to: OWNER_ID,
+          // نوعِ پیام، تا معلوم شود همان پستِ درست است.
+          media: body && body.result
+            ? Object.keys(body.result).filter((k) => ["audio", "voice", "video", "document", "photo", "text", "video_note", "animation"].includes(k))
+            : null,
+          error: body && body.ok ? null : (body && body.description) || "پاسخ نامعلوم",
+        });
+      } catch (err) {
+        return json({ ok: false, build: BUILD, error: String(err && err.message) }, 502);
+      }
+    }
     const text = noticeTextFor(ref);
     if (!text) {
       return json({ ok: false, build: BUILD, date: ref, error: "برای این روز اطلاعیه‌ای نیست" }, 404);

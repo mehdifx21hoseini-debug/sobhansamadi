@@ -181,4 +181,35 @@ async function drainAll(env, at = NOW, rounds = 200) {
   ok(new Set(sent).size === 200 && dupes() === 0, "صداکننده با شش‌شاردِ ناهم‌خوان هم کسی را دو بار نمی‌فرستد", { got: new Set(sent).size, d: dupes() });
 }
 
+// ─── ۷) اطلاعیه‌ی فورواردی از کانال ─────────────────────────────────
+{
+  const { NOTICES, NOTICE_DATES, parsePostLink } = await import("../src/content/notices.js");
+  const { runNotice } = await import("../src/econ/sender.js");
+  ok(JSON.stringify(parsePostLink("https://t.me/sobhanforex/1850?single")) === JSON.stringify({ from_chat_id: "@sobhanforex", message_id: 1850 }), "لینکِ کانالِ عمومی خوانده می‌شود");
+  ok(parsePostLink("https://t.me/c/1234567890/78").from_chat_id === "-1001234567890", "لینکِ کانالِ خصوصی هم");
+  ok(parsePostLink("https://t.me/sobhanforex") === null, "لینکِ بی‌شماره‌ی پست رد می‌شود");
+  const DAY = "2026-11-10";
+  NOTICES[DAY] = { forward: "https://t.me/sobhanforex/1850" };
+  NOTICE_DATES.push(DAY); // فهرستِ روزها یک بار هنگامِ بارگذاری ساخته می‌شود
+  const env = await setup(150);
+  await writeConfig(env, "econ_notice", "on");
+  const reqs = [];
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    reqs.push({ method: String(url).split("/").pop(), body: JSON.parse(init.body) });
+    return prev(url, init);
+  };
+  const at = new Date(DAY + "T06:00:00.000Z"); // ۹:۳۰ تهران
+  for (let i = 0; i < 20; i++) {
+    const r = await runNotice(env, at, null);
+    if (!r.sent && !r.stopped) break;
+  }
+  globalThis.fetch = prev;
+  ok(reqs.length === 150 && reqs.every((q) => q.method === "forwardMessage"), "همه با forwardMessage رفتند", { n: reqs.length, m: [...new Set(reqs.map((q) => q.method))] });
+  ok(reqs.every((q) => q.body.from_chat_id === "@sobhanforex" && q.body.message_id === 1850 && !q.body.text), "از همان کانال و همان پست، بی‌متنِ اضافه");
+  ok(new Set(sent).size === 150 && dupes() === 0, "هر نفر یک بار", { got: new Set(sent).size, d: dupes() });
+  delete NOTICES[DAY];
+  NOTICE_DATES.splice(NOTICE_DATES.indexOf(DAY), 1);
+}
+
 console.log(n + " ادعا");

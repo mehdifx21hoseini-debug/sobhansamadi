@@ -35,7 +35,7 @@ import {
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
-import { noticeTextFor, noticeButtonFor, NOTICE_DATES } from "../content/notices.js";
+import { noticeTextFor, noticeButtonFor, noticeForwardFor, NOTICE_DATES } from "../content/notices.js";
 import { eventToken } from "./explain.js";
 import { readConfig, writeConfig, ensureConfig } from "../content/channel.js";
 import {
@@ -2176,8 +2176,12 @@ export async function runNotice(env, now = new Date(), shard = null) {
   // متن از روی تاریخ برداشته می‌شود، نه یک متنِ ثابت: هر روزِ اطلاعیه
   // متنِ خودش را دارد. اگر روزی در جدول نباشد، gate بالاتر جلویش را
   // گرفته - این بررسی فقط برای آن است که هرگز رشته‌ی خالی نرود.
-  const text = noticeTextFor(ref);
-  if (!text) return { skipped: "متنی برای امروز نیست" };
+  // فوروارد از کانال: پیام همان شکلی می‌رسد که در کانال است، با
+  // «Forwarded from» بالایش. فایل روی تلگرام می‌ماند و از ورکر رد
+  // نمی‌شود، پس پادکست یا ویدیو همان‌قدر ارزان است که یک متن.
+  const fwd = noticeForwardFor(ref);
+  const text = fwd ? null : noticeTextFor(ref);
+  if (!fwd && !text) return { skipped: "متنی برای امروز نیست" };
 
   // دکمه اختیاری است. سبز (success) چون اطلاعیه‌ی دکمه‌دار یک دعوت
   // است نه یک هشدار - و در این ربات سبز همان معنی را دارد.
@@ -2186,10 +2190,11 @@ export async function runNotice(env, now = new Date(), shard = null) {
     ? { inline_keyboard: [[{ text: btn.label, url: btn.url, style: "success" }]] }
     : null;
 
-  const round = await sendRound(env, "notice", ref, shard, now, async () => () => ({
-    method: "sendMessage",
-    payload: markup ? { text, reply_markup: markup } : { text },
-  }));
+  const round = await sendRound(env, "notice", ref, shard, now, async () => () =>
+    fwd
+      ? { method: "forwardMessage", payload: { from_chat_id: fwd.from_chat_id, message_id: fwd.message_id } }
+      : { method: "sendMessage", payload: markup ? { text, reply_markup: markup } : { text } }
+  );
   if (round.empty) {
     if (!shard && round.swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
     // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی

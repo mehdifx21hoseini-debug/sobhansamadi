@@ -163,18 +163,49 @@ export const NOTICES = {
 
 export const NOTICE_DATES = Object.keys(NOTICES);
 
-// مقدارِ هر روز یا یک رشته است (اطلاعیه‌ی بی‌دکمه) یا یک شیء با text و
-// button. هر دو شکل پذیرفته می‌شود تا اطلاعیه‌های قبلی دست نخورند.
+// مقدارِ هر روز یکی از سه شکل است:
+//   • یک رشته - اطلاعیه‌ی متنیِ بی‌دکمه
+//   • { text, button } - متن با یک دکمه
+//   • { forward: "https://t.me/<کانال>/<شماره>" } - فورواردِ یک پست از
+//     کانال (پادکست، ویدیو، متن...). ربات باید عضوِ آن کانال باشد و
+//     «Restrict saving content» کانال خاموش باشد.
+// همه‌ی شکل‌ها پذیرفته می‌شوند تا اطلاعیه‌های قبلی دست نخورند.
 function entryFor(dateIso) {
   const v = NOTICES[dateIso];
   if (!v) return null;
   return typeof v === "string" ? { text: v, button: null } : v;
 }
 
-/** متنِ آن روز، یا null اگر آن روز اطلاعیه‌ای نباشد. */
+/** متنِ آن روز، یا null اگر آن روز اطلاعیه‌ی متنی نباشد. */
 export function noticeTextFor(dateIso) {
   const e = entryFor(dateIso);
-  return e ? e.text : null;
+  return e && e.text ? e.text : null;
+}
+
+/**
+ * لینکِ پستِ کانال → { from_chat_id, message_id }، یا null اگر لینک
+ * نامعتبر باشد.
+ *
+ *   https://t.me/sobhanforex/1850        → "@sobhanforex", 1850
+ *   https://t.me/c/1234567890/78         → "-1001234567890", 78  (کانالِ خصوصی)
+ *
+ * پارامترهای انتهای لینک (?single و ...) نادیده گرفته می‌شوند.
+ */
+export function parsePostLink(link) {
+  const m = String(link || "")
+    .trim()
+    .match(/^(?:https?:\/\/)?(?:t|telegram)\.me\/(c\/(\d+)|([A-Za-z][A-Za-z0-9_]{3,}))\/(\d+)(?:[/?#].*)?$/);
+  if (!m) return null;
+  const from_chat_id = m[2] ? "-100" + m[2] : "@" + m[3];
+  const message_id = Number(m[4]);
+  if (!Number.isInteger(message_id) || message_id <= 0) return null;
+  return { from_chat_id, message_id };
+}
+
+/** پستِ کانالی که آن روز فوروارد می‌شود، یا null. */
+export function noticeForwardFor(dateIso) {
+  const e = entryFor(dateIso);
+  return e && e.forward ? parsePostLink(e.forward) : null;
 }
 
 /**
