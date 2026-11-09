@@ -34,7 +34,7 @@ concurrency:
 jobs:
   drain:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 75
     steps:
       - name: Drain the greeting queue
         env:
@@ -45,7 +45,11 @@ jobs:
           test -n "$ADMIN_KEY" || { echo "::error::WORKER_ADMIN_KEY تنظیم نشده"; exit 1; }
 
           WORKERS=6
-          MAX=80
+          # ۸۰ بود. ۹ نوامبر اطلاعیه‌ی دوتکه (متن + ویس) در هر دور فقط ۲۲
+          # نفر را می‌گیرد و ۸۰ دور فقط ~۱۰٫۵ هزار نفر را پوشش داد. کارگر به
+          # محضِ تمام شدنِ فهرست می‌ایستد، پس سقفِ بالاتر فقط وقتی مصرف
+          # می‌شود که واقعاً کار مانده باشد.
+          MAX=200
           ENDPOINT="econ-greet-drain"
 
           # force=1 پرچمِ «امروز تمام شد» را نادیده می‌گیرد. لازم است

@@ -49,7 +49,7 @@ jobs:
     # taking about half a minute, puts the run near twenty minutes. The
     # limit is set well above that so a growing list does not get cut off
     # mid-send.
-    timeout-minutes: 50
+    timeout-minutes: 75
     steps:
       - name: Drain the digest queue
         env:
@@ -73,7 +73,11 @@ jobs:
           # so it can grow a long way before this needs touching. A worker
           # stops the moment the Worker says there is nobody left, so the
           # cap only matters when something is wrong.
-          MAX=80
+          # ۸۰ بود. ۹ نوامبر اطلاعیه‌ی دوتکه (متن + ویس) در هر دور فقط ۲۲
+          # نفر را می‌گیرد و ۸۰ دور فقط ~۱۰٫۵ هزار نفر را پوشش داد. کارگر به
+          # محضِ تمام شدنِ فهرست می‌ایستد، پس سقفِ بالاتر فقط وقتی مصرف
+          # می‌شود که واقعاً کار مانده باشد.
+          MAX=200
 
           # The first call of a run passes force=1: it ignores the
           # "today is finished" flag. That matters on any day the audience
