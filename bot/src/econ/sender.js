@@ -35,7 +35,7 @@ import {
 } from "./subscribers.js";
 import { makeLabelHelpers } from "./labels.js";
 import { MONDAY_GREETINGS } from "../content/mondayGreetings.js";
-import { noticeTextFor, noticeButtonFor, noticeForwardFor, NOTICE_DATES } from "../content/notices.js";
+import { noticeTextFor, noticeButtonFor, noticeForwardFor, noticeRoundFor, NOTICE_DATES } from "../content/notices.js";
 import { eventToken } from "./explain.js";
 import { readConfig, writeConfig, ensureConfig } from "../content/channel.js";
 import {
@@ -353,7 +353,7 @@ export async function pruneSentLog(env) {
 
 const API = (env, method) => "https://api.telegram.org/bot" + env.BOT_TOKEN + "/" + method;
 
-async function tg(env, method, payload) {
+async function tg(env, method, payload, attempt = 0) {
   const res = await fetch(API(env, method), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -361,6 +361,20 @@ async function tg(env, method, payload) {
     body: JSON.stringify(payload),
   });
   if (res.ok) return { ok: true };
+  // ۴۲۹ یعنی «زیادی سریع» - مثلاً پیامِ دوم به همان نفر در همان ثانیه.
+  // تلگرام می‌گوید چند ثانیه صبر کن؛ صبر می‌کنیم و دوباره می‌فرستیم.
+  // ۹ نوامبر بی‌این، ویسِ پشتِ متن برای بخشی از اعضا بی‌صدا نرفت.
+  if (res.status === 429 && attempt < 2) {
+    let wait = 1;
+    try {
+      const b = await res.json();
+      wait = Number(b && b.parameters && b.parameters.retry_after) || 1;
+    } catch {
+      /* پیش‌فرض یک ثانیه */
+    }
+    await new Promise((k) => setTimeout(k, Math.min(wait, 10) * 1000 + 100));
+    return tg(env, method, payload, attempt + 1);
+  }
   let detail = String(res.status);
   try {
     const body = await res.json();
@@ -896,6 +910,7 @@ function parseBatch(raw) {
     inf: (o && Array.isArray(o.inf)) ? o.inf : [],
     left: (o && Array.isArray(o.left)) ? o.left : [],
     n: (o && Number(o.n)) || 0,
+    pf: (o && Number(o.pf)) || 0,
     b: (o && Number(o.b)) || 0,
     f: (o && Number(o.f)) || 0,
   };
@@ -1001,6 +1016,7 @@ async function finishBatch(env, kind, ref, s, range, stats, leftFrom) {
     st.n += stats.sent;
     st.b += stats.blocked;
     st.f += stats.failed;
+    st.pf = (Number(st.pf) || 0) + (stats.partFailed || 0);
     if (await casConfig(env, key, raw, JSON.stringify(st))) return true;
   }
   console.error("پایانِ دسته ثبت نشد", kind, ref, s, range.a, range.z);
@@ -1019,7 +1035,7 @@ async function batchAllClear(env, kind, ref, rec) {
 
 /** آمارِ ثبت‌شده‌ی دسته‌ها - برای /admin/econ-sender. */
 export async function batchStats(env, kind, ref) {
-  const out = { sent: 0, blocked: 0, failed: 0, open: 0, left: 0 };
+  const out = { sent: 0, blocked: 0, failed: 0, part_failed: 0, open: 0, left: 0 };
   for (let s = 0; s < BATCH_SHARDS; s++) {
     const raw = await readConfig(env, batchKey(kind, ref, s)).catch(() => "");
     if (!raw) continue;
@@ -1027,6 +1043,7 @@ export async function batchStats(env, kind, ref) {
     out.sent += st.n;
     out.blocked += st.b;
     out.failed += st.f;
+    out.part_failed += st.pf;
     out.open += st.inf.length;
     out.left += st.left.length;
   }
@@ -1151,6 +1168,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
       stats.sent += part.sent;
       stats.failed += part.failed;
       stats.blocked += part.blocked;
+      stats.partFailed = (stats.partFailed || 0) + (part.partFailed || 0);
     }
     if (stopped || chunk >= budget) break;
   }
@@ -2200,6 +2218,9 @@ export async function runNotice(env, now = new Date(), shard = null) {
 
   await ensureSentSchema(env);
   const ref = gate.ref;
+  // ثبتِ ارسال با تاریخ + دور: دورِ تازه در همان روز دوباره به همه می‌رسد.
+  const round_ = noticeRoundFor(ref);
+  const sendRef = round_ ? ref + "-" + round_ : ref;
 
   // متن از روی تاریخ برداشته می‌شود، نه یک متنِ ثابت: هر روزِ اطلاعیه
   // متنِ خودش را دارد. اگر روزی در جدول نباشد، gate بالاتر جلویش را
@@ -2225,12 +2246,12 @@ export async function runNotice(env, now = new Date(), shard = null) {
   if (text) parts.push({ method: "sendMessage", payload: markup ? { text, reply_markup: markup } : { text } });
   if (fwd) parts.push({ method: "forwardMessage", payload: { from_chat_id: fwd.from_chat_id, message_id: fwd.message_id } });
   const round = await sendRound(
-    env, "notice", ref, shard, now,
+    env, "notice", sendRef, shard, now,
     async () => () => (parts.length === 1 ? parts[0] : parts),
     parts.length
   );
   if (round.empty) {
-    if (!shard && round.swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
+    if (!shard && round.swept) await writeConfig(env, NOTICE_DONE, sendRef).catch(() => {});
     // همان قاعده‌ی runDailyDigest: برای یک شارد، تکه‌ی خالی یعنی
     // کارِ آن شارد تمام است. توضیحِ کامل آنجاست.
     return { sent: 0, failed: 0, blocked: 0, done: shard ? true : round.swept, throttled: round.throttled };
@@ -2245,7 +2266,8 @@ export async function drainNotice(env, now = new Date(), shard = null) {
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!(await noticeEnabled(env))) return { skipped: "اطلاعیه خاموش" };
   const ref = digestRef(now);
+  const r = noticeRoundFor(ref);
   const done = await readConfig(env, NOTICE_DONE).catch(() => "");
-  if (String(done) === ref) return { skipped: "تمام شده" };
+  if (String(done) === (r ? ref + "-" + r : ref)) return { skipped: "تمام شده" };
   return runNotice(env, now, shard);
 }

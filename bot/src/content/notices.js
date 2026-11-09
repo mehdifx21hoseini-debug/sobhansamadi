@@ -186,7 +186,11 @@ export const NOTICES = {
   // با دکمه: مقدار به‌جای رشته، یک شیء است.
   "2026-10-08": { text: MUSIC_TEXT, button: MUSIC_BUTTON },
   "2026-10-26": TIME_CHANGE,
-  "2026-11-09": { text: REMINDER_PODCAST, forward: "https://t.me/sobhanforex/889" },
+  // دورِ اول (متن + ویس) ۱۷٬۲۵۷ نفر را گرفت، ولی ویس برای بخشی نرسید:
+  // ویس بی‌فاصله بعد از متن می‌رفت و تلگرام پیامِ دوم در همان ثانیه را رد
+  // می‌کرد (۴۲۹). دورِ دوم فقط ویس است. REMINDER_PODCAST برای تاریخچه
+  // می‌ماند.
+  "2026-11-09": { forward: "https://t.me/sobhanforex/889", round: "voice" },
 };
 
 export const NOTICE_DATES = Object.keys(NOTICES);
@@ -228,6 +232,15 @@ export function parsePostLink(link) {
   const message_id = Number(m[4]);
   if (!Number.isInteger(message_id) || message_id <= 0) return null;
   return { from_chat_id, message_id };
+}
+
+/**
+ * «دورِ» اطلاعیه‌ی آن روز - برای وقتی که در یک روز دو اطلاعیه‌ی جدا لازم
+ * است. ثبتِ ارسال با تاریخ + دور است، پس دورِ تازه دوباره به همه می‌رسد.
+ */
+export function noticeRoundFor(dateIso) {
+  const e = entryFor(dateIso);
+  return e && e.round ? String(e.round) : "";
 }
 
 /** پستِ کانالی که آن روز فوروارد می‌شود، یا null. */

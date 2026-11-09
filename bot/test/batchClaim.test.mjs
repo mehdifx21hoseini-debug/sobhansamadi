@@ -245,4 +245,47 @@ async function drainAll(env, at = NOW, rounds = 200) {
   NOTICE_DATES.splice(NOTICE_DATES.indexOf(DAY), 1);
 }
 
+// ─── ۹) ۴۲۹ روی تکه‌ی دوم: صبر و دوباره، و دورِ تازه در همان روز ─────
+{
+  const { NOTICES, NOTICE_DATES } = await import("../src/content/notices.js");
+  const { runNotice } = await import("../src/econ/sender.js");
+  const DAY = "2026-11-12";
+  NOTICES[DAY] = { text: "یادآوری 👇", forward: "https://t.me/sobhanforex/889" };
+  NOTICE_DATES.push(DAY);
+  const env = await setup(60);
+  await writeConfig(env, "econ_notice", "on");
+  const reqs = [];
+  const prev = globalThis.fetch;
+  let k = 0;
+  globalThis.fetch = async (url, init) => {
+    const method = String(url).split("/").pop();
+    const body = JSON.parse(init.body);
+    // هر فورواردِ سوم بارِ اول ۴۲۹ می‌گیرد.
+    if (method === "forwardMessage" && ++k % 3 === 0 && !body.__retried) {
+      init.body = JSON.stringify({ ...body, __retried: 1 });
+      return new Response(JSON.stringify({ ok: false, error_code: 429, parameters: { retry_after: 1 } }), { status: 429 });
+    }
+    reqs.push({ method, body });
+    return prev(url, init);
+  };
+  const at = new Date(DAY + "T06:00:00.000Z");
+  for (let i = 0; i < 20; i++) {
+    const r = await runNotice(env, at, null);
+    if (!r.sent && !r.stopped) break;
+  }
+  const fw = reqs.filter((q) => q.method === "forwardMessage");
+  ok(fw.length === 60 && new Set(fw.map((q) => q.body.chat_id)).size === 60, "با ۴۲۹، ویس بعد از صبر به همه‌ی ۶۰ نفر رسید", fw.length);
+  // دورِ تازه در همان روز: فقط ویس، دوباره به همه.
+  NOTICES[DAY] = { forward: "https://t.me/sobhanforex/889", round: "voice" };
+  reqs.length = 0;
+  for (let i = 0; i < 20; i++) {
+    const r = await runNotice(env, at, null);
+    if (!r.sent && !r.stopped) break;
+  }
+  globalThis.fetch = prev;
+  ok(reqs.length === 60 && reqs.every((q) => q.method === "forwardMessage"), "دورِ «voice» همان روز دوباره به همه رفت، فقط ویس", reqs.length);
+  delete NOTICES[DAY];
+  NOTICE_DATES.splice(NOTICE_DATES.indexOf(DAY), 1);
+}
+
 console.log(n + " ادعا");
