@@ -212,4 +212,37 @@ async function drainAll(env, at = NOW, rounds = 200) {
   NOTICE_DATES.splice(NOTICE_DATES.indexOf(DAY), 1);
 }
 
+// ─── ۸) متن و بعد فوروارد: ترتیب برای هر نفر ────────────────────────
+{
+  const { NOTICES, NOTICE_DATES } = await import("../src/content/notices.js");
+  const { runNotice } = await import("../src/econ/sender.js");
+  const DAY = "2026-11-11";
+  NOTICES[DAY] = { text: "یادآوری 👇", forward: "https://t.me/sobhanforex/889" };
+  NOTICE_DATES.push(DAY);
+  const env = await setup(200);
+  await writeConfig(env, "econ_notice", "on");
+  const reqs = [];
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    reqs.push({ method: String(url).split("/").pop(), body: JSON.parse(init.body) });
+    return prev(url, init);
+  };
+  const at = new Date(DAY + "T06:00:00.000Z");
+  let maxChunk = 0;
+  for (let i = 0; i < 40; i++) {
+    const rs = await Promise.all([0, 1, 2, 3, 4, 5].map((s) => runNotice(env, at, { of: 6, index: s })).concat([runNotice(env, at, null)]));
+    for (const r of rs) maxChunk = Math.max(maxChunk, r.chunk || 0);
+    if (rs.every((r) => !r.sent && !r.stopped)) break;
+  }
+  globalThis.fetch = prev;
+  const byUser = {};
+  for (const q of reqs) (byUser[q.body.chat_id] = byUser[q.body.chat_id] || []).push(q.method);
+  const users = Object.keys(byUser);
+  ok(users.length === 200, "همه‌ی ۲۰۰ نفر", users.length);
+  ok(users.every((u) => JSON.stringify(byUser[u]) === JSON.stringify(["sendMessage", "forwardMessage"])), "هر نفر دقیقاً یک متن و بعد یک فوروارد، به همین ترتیب");
+  ok(maxChunk <= 22, "در هر دور حداکثر ۲۲ نفر (دو پیام برای هر نفر، زیرِ سقفِ ۴۵)", maxChunk);
+  delete NOTICES[DAY];
+  NOTICE_DATES.splice(NOTICE_DATES.indexOf(DAY), 1);
+}
+
 console.log(n + " ادعا");

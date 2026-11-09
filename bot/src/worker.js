@@ -131,7 +131,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-95";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-96";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -944,6 +944,20 @@ async function handleAdmin(request, url, env) {
     // مدیر می‌رود.
     const link = url.searchParams.get("link");
     const fwd = link ? parsePostLink(link) : noticeForwardFor(ref);
+    // متن + فوروارد: همان ترتیبی که اعضا می‌بینند - اول متن، بعد پست.
+    const both = !link && fwd ? noticeTextFor(ref) : null;
+    let textSent = null;
+    if (both) {
+      const tr = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: OWNER_ID, text: both }),
+      }).then((r) => r.json()).catch((e) => ({ ok: false, description: String(e && e.message) }));
+      textSent = !!(tr && tr.ok);
+      if (!textSent) {
+        return json({ ok: false, build: BUILD, date: ref, step: "text", error: (tr && tr.description) || "پاسخ نامعلوم" }, 502);
+      }
+    }
     if (link && !fwd) {
       return json({ ok: false, build: BUILD, error: "لینک پست نامعتبر است؛ شکلش t.me/<کانال>/<شماره> است" }, 400);
     }
@@ -959,7 +973,9 @@ async function handleAdmin(request, url, env) {
           ok: !!(body && body.ok),
           build: BUILD,
           date: link ? null : ref,
-          kind: "forward",
+          kind: both ? "text+forward" : "forward",
+          text_sent: textSent,
+          chars: both ? both.length : null,
           from: fwd.from_chat_id,
           message_id: fwd.message_id,
           to: OWNER_ID,

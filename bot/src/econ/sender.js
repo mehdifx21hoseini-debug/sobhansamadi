@@ -301,12 +301,35 @@ async function claimAndSend(env, kind, ref, sub, build, stats) {
  * @returns {Promise<"ok"|"stop">}
  */
 async function sendOne(env, sub, build, stats) {
+  const built = build();
+  const parts = Array.isArray(built) ? built : [built];
   let r;
   try {
-    const { method, payload } = build();
-    r = await tg(env, method, { chat_id: sub.chat_id, ...payload });
+    r = await tg(env, parts[0].method, { chat_id: sub.chat_id, ...parts[0].payload });
   } catch {
     return "stop";
+  }
+  // پیام‌های چندتکه (مثلاً متن و بعد فورواردِ ویس): تکه‌ی بعدی فقط
+  // وقتی می‌رود که تکه‌ی قبلی رسیده باشد، و دقیقاً به همان ترتیب - هر
+  // تکه منتظرِ پاسخِ تلگرام برای تکه‌ی قبلی می‌ماند.
+  //
+  // شکستِ تکه‌های بعدی ارسال را متوقف نمی‌کند و تکه‌ی اول را تکرار
+  // نمی‌کند: کسی که متن را گرفته، دوباره نمی‌گیردش. فقط شمرده می‌شود.
+  if (r.ok) {
+    for (let i = 1; i < parts.length; i++) {
+      try {
+        const r2 = await tg(env, parts[i].method, { chat_id: sub.chat_id, ...parts[i].payload });
+        if (!r2.ok) {
+          stats.partFailed = (stats.partFailed || 0) + 1;
+          console.error("تکه‌ی " + (i + 1) + " نرفت:", sub.telegram_user_id, r2.detail);
+          break;
+        }
+      } catch (err) {
+        stats.partFailed = (stats.partFailed || 0) + 1;
+        console.error("تکه‌ی " + (i + 1) + " نرفت:", sub.telegram_user_id, err && err.message);
+        break;
+      }
+    }
   }
   if (r.ok) stats.sent++;
   else if (r.blocked) {
@@ -1039,13 +1062,13 @@ async function buildExtras(env, kind, ref, rec, now) {
  * تکه‌ی بعدیِ تازه‌واردها برای شاردِ s، یا {throttled} اگر تا بازسازیِ
  * ساعتیِ بعدی چیزی نیست.
  */
-async function nextExtras(env, kind, ref, s, rec, now) {
+async function nextExtras(env, kind, ref, s, rec, now, budget = SEND_BUDGET) {
   const raw = await readConfig(env, extraKey(kind, ref)).catch(() => "");
   let x = raw ? parseSnapshot(raw) : null;
   const curRaw = await readConfig(env, extraCursorKey(kind, ref, s)).catch(() => "");
   const [ct, cafter] = String(curRaw || "").split(":");
   let after = x && String(x.t) === ct ? cafter || "" : "";
-  let rows = x ? pickChunk(x, { of: BATCH_SHARDS, index: s }, after, SEND_BUDGET) : [];
+  let rows = x ? pickChunk(x, { of: BATCH_SHARDS, index: s }, after, budget) : [];
   if (rows.length > 0) return { rows, x };
   // تکمیلی هنوز ساخته نشده: مبدأ همان عکسِ اول است. یعنی اولین نگاه به
   // تازه‌واردها هم یک ساعت بعد از عکسِ اول است - همان آهنگِ قبلی، و نه
@@ -1062,7 +1085,7 @@ async function nextExtras(env, kind, ref, s, rec, now) {
   } finally {
     await dropLock(env, kind, ref);
   }
-  rows = pickChunk(x, { of: BATCH_SHARDS, index: s }, "", SEND_BUDGET);
+  rows = pickChunk(x, { of: BATCH_SHARDS, index: s }, "", budget);
   return { rows, x, clear: rows.length === 0 };
 }
 
@@ -1091,7 +1114,7 @@ async function loadFirstSnapshot(env, kind, ref, now) {
  *   فرستادن هست صدا زده می‌شود.
  * @returns null اگر عکس در دسترس نیست (صداکننده مسیرِ قبلی را می‌رود).
  */
-async function batchRound(env, kind, ref, shard, now, makeBuild) {
+async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_BUDGET) {
   const rec = await loadFirstSnapshot(env, kind, ref, now);
   if (!rec) return null;
   const order = shard
@@ -1105,8 +1128,8 @@ async function batchRound(env, kind, ref, shard, now, makeBuild) {
   let chunk = 0;
   let stopped = false;
   for (const s of order) {
-    while (!stopped && chunk < SEND_BUDGET) {
-      const range = await reserveBatch(env, kind, ref, s, rec, now, SEND_BUDGET - chunk);
+    while (!stopped && chunk < budget) {
+      const range = await reserveBatch(env, kind, ref, s, rec, now, budget - chunk);
       if (!range) break;
       if (!build) build = await makeBuild();
       const part = { sent: 0, failed: 0, blocked: 0 };
@@ -1129,7 +1152,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild) {
       stats.failed += part.failed;
       stats.blocked += part.blocked;
     }
-    if (stopped || chunk >= SEND_BUDGET) break;
+    if (stopped || chunk >= budget) break;
   }
   if (chunk > 0 || stopped) return { stats, chunk, stopped };
 
@@ -1137,7 +1160,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild) {
   let throttled = false;
   let sweptAll = true;
   for (const s of order) {
-    const got = await nextExtras(env, kind, ref, s, rec, now);
+    const got = await nextExtras(env, kind, ref, s, rec, now, budget);
     if (got.throttled) {
       throttled = true;
       if (!got.clear) sweptAll = false;
@@ -1171,22 +1194,27 @@ async function batchRound(env, kind, ref, shard, now, makeBuild) {
  * یک دورِ ارسال برای پیام‌های روزانه - دسته‌ای اگر بشود، وگرنه همان مسیرِ
  * قبلی با claimِ هر نفر.
  */
-async function sendRound(env, kind, ref, shard, now, makeBuild) {
+async function sendRound(env, kind, ref, shard, now, makeBuild, perUser = 1) {
+  // پیامِ چندتکه یعنی چند درخواست به تلگرام برای هر نفر؛ تعدادِ نفرها در
+  // هر دور به همان نسبت کم می‌شود تا از سقفِ subrequest رد نشود.
+  const budget = Math.max(1, Math.floor(SEND_BUDGET / Math.max(1, perUser)));
   if ((await snapshotOn(env)) && (await batchOn(env))) {
     // شاردبندیِ دیگری جز شش نمی‌تواند برگه‌های شارد را شریک شود؛ چنین
     // صداکننده‌ای مثلِ کارگرِ بی‌شارد از هر شش برگه برمی‌دارد. به مسیرِ
     // قبلی فرستادنش خطرناک است: آنجا کسی که امروز با دسته گرفته «نگرفته»
     // دیده می‌شود.
     const bshard = shard && Math.floor(shard.of) === BATCH_SHARDS ? shard : null;
-    const r = await batchRound(env, kind, ref, bshard, now.getTime(), makeBuild).catch((err) => {
+    const r = await batchRound(env, kind, ref, bshard, now.getTime(), makeBuild, budget).catch((err) => {
       if (err && err.name === "SnapshotReadError") throw err;
       console.error("ارسالِ دسته‌ای شکست خورد، مسیرِ قبلی:", err && err.message);
       return null;
     });
     if (r) return r;
   }
-  const { rows: pending, swept, throttled } = await nextChunk(env, kind, ref, shard, now.getTime());
-  if (pending.length === 0) return { empty: true, swept, throttled };
+  const { rows: all, swept, throttled } = await nextChunk(env, kind, ref, shard, now.getTime());
+  if (all.length === 0) return { empty: true, swept, throttled };
+  // نشانگر فقط تا آخرین نفرِ پردازش‌شده جلو می‌رود، پس بقیه‌ی تکه دورِ بعد می‌آید.
+  const pending = all.slice(0, budget);
   const build = await makeBuild();
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let stopped = false;
@@ -2179,8 +2207,11 @@ export async function runNotice(env, now = new Date(), shard = null) {
   // فوروارد از کانال: پیام همان شکلی می‌رسد که در کانال است، با
   // «Forwarded from» بالایش. فایل روی تلگرام می‌ماند و از ورکر رد
   // نمی‌شود، پس پادکست یا ویدیو همان‌قدر ارزان است که یک متن.
+  //
+  // اگر هر دو باشند (متن و فوروارد)، هر نفر اول متن را می‌گیرد و بلافاصله
+  // بعدش پستِ کانال را - همیشه به همین ترتیب (sendOne).
   const fwd = noticeForwardFor(ref);
-  const text = fwd ? null : noticeTextFor(ref);
+  const text = noticeTextFor(ref);
   if (!fwd && !text) return { skipped: "متنی برای امروز نیست" };
 
   // دکمه اختیاری است. سبز (success) چون اطلاعیه‌ی دکمه‌دار یک دعوت
@@ -2190,10 +2221,13 @@ export async function runNotice(env, now = new Date(), shard = null) {
     ? { inline_keyboard: [[{ text: btn.label, url: btn.url, style: "success" }]] }
     : null;
 
-  const round = await sendRound(env, "notice", ref, shard, now, async () => () =>
-    fwd
-      ? { method: "forwardMessage", payload: { from_chat_id: fwd.from_chat_id, message_id: fwd.message_id } }
-      : { method: "sendMessage", payload: markup ? { text, reply_markup: markup } : { text } }
+  const parts = [];
+  if (text) parts.push({ method: "sendMessage", payload: markup ? { text, reply_markup: markup } : { text } });
+  if (fwd) parts.push({ method: "forwardMessage", payload: { from_chat_id: fwd.from_chat_id, message_id: fwd.message_id } });
+  const round = await sendRound(
+    env, "notice", ref, shard, now,
+    async () => () => (parts.length === 1 ? parts[0] : parts),
+    parts.length
   );
   if (round.empty) {
     if (!shard && round.swept) await writeConfig(env, NOTICE_DONE, ref).catch(() => {});
