@@ -364,7 +364,13 @@ async function tg(env, method, payload, attempt = 0) {
   // ۴۲۹ یعنی «زیادی سریع» - مثلاً پیامِ دوم به همان نفر در همان ثانیه.
   // تلگرام می‌گوید چند ثانیه صبر کن؛ صبر می‌کنیم و دوباره می‌فرستیم.
   // ۹ نوامبر بی‌این، ویسِ پشتِ متن برای بخشی از اعضا بی‌صدا نرفت.
-  if (res.status === 429 && attempt < 2) {
+  //
+  // ولی فقط مکثِ کوتاه. اگر تلگرام صبرِ طولانی بخواهد (محدودیتِ کلیِ
+  // ربات بعد از ارسالِ زیاد)، منتظر ماندن داخلِ ورکر درخواست را از مهلتِ
+  // ۱۲۰ثانیه‌ایِ ورک‌فلو رد می‌کند - همان چیزی که ۹ نوامبر ساعت ۱۱:۱۷ هر
+  // شش کارگر را از کار انداخت. پس خطا پرتاب می‌شود: صداکننده «stop»
+  // می‌گیرد، بقیه‌ی دسته به صف برمی‌گردد و دورِ بعد دوباره امتحان می‌شود.
+  if (res.status === 429) {
     let wait = 1;
     try {
       const b = await res.json();
@@ -372,8 +378,13 @@ async function tg(env, method, payload, attempt = 0) {
     } catch {
       /* پیش‌فرض یک ثانیه */
     }
-    await new Promise((k) => setTimeout(k, Math.min(wait, 10) * 1000 + 100));
-    return tg(env, method, payload, attempt + 1);
+    if (wait <= 3 && attempt < 2) {
+      await new Promise((k) => setTimeout(k, wait * 1000 + 100));
+      return tg(env, method, payload, attempt + 1);
+    }
+    const e = new Error("flood: retry_after " + wait);
+    e.retryAfter = wait;
+    throw e;
   }
   let detail = String(res.status);
   try {
@@ -1031,6 +1042,23 @@ async function batchAllClear(env, kind, ref, rec) {
     if (pickChunk(rec, { of: BATCH_SHARDS, index: s }, st.c, 1).length) return false;
   }
   return true;
+}
+
+/** پیشرفتِ ارسالِ دسته‌ایِ یک (نوع، ref) - برای /admin/batch. */
+export async function batchProgress(env, kind, ref) {
+  const raw = await readConfig(env, snapKey(kind, ref)).catch(() => "");
+  const rec = raw ? parseSnapshot(raw) : null;
+  const b = await batchStats(env, kind, ref);
+  let remaining = null;
+  if (rec) {
+    remaining = 0;
+    for (let s = 0; s < BATCH_SHARDS; s++) {
+      const st = parseBatch(await readConfig(env, batchKey(kind, ref, s)).catch(() => ""));
+      remaining += pickChunk(rec, { of: BATCH_SHARDS, index: s }, st.c, rec.ids.length).length;
+      for (const r of st.left.concat(st.inf)) remaining += rangeIds(rec.ids, s, r.a, r.z).length;
+    }
+  }
+  return { kind, ref, first_snapshot: rec ? rec.ids.length : null, ...b, remaining };
 }
 
 /** آمارِ ثبت‌شده‌ی دسته‌ها - برای /admin/econ-sender. */

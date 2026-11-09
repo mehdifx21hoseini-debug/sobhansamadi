@@ -51,6 +51,7 @@ import {
   GREET_FORCE,
   pruneSentLog,
   senderStatus,
+  batchProgress,
   SENDER_FLAG,
 } from "./econ/sender.js";
 import { readConfig, writeConfig } from "./content/channel.js";
@@ -131,7 +132,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-97";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-98";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -744,6 +745,13 @@ async function handleAdmin(request, url, env) {
   // /members، با بازه‌های کوتاه‌تر برای «همین حالا». فقط می‌خواند؛ هر
   // فراخوانی حدودِ ۱۵ شمارش روی user_state است، پس پشتِ سرِ هم صدایش
   // نزنید.
+  // پیشرفتِ یک ارسالِ دسته‌ای: /admin/batch?kind=notice&ref=2026-11-09-voice
+  if (url.pathname === "/admin/batch") {
+    const kind = (url.searchParams.get("kind") || "digest").replace(/[^a-z]/g, "");
+    const ref = (url.searchParams.get("ref") || digestRef()).replace(/[^0-9a-z-]/gi, "");
+    return json({ ok: true, build: BUILD, batch: await batchProgress(env, kind, ref) });
+  }
+
   if (url.pathname === "/admin/members") {
     const ago = (ms) => new Date(Date.now() - ms).toISOString();
     const one = async (sql, ...args) => {
@@ -1721,6 +1729,7 @@ export default {
       url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
       url.pathname === "/admin/members" ||
+      url.pathname === "/admin/batch" ||
       url.pathname === "/admin/content" ||
       url.pathname === "/admin/econ-day" ||
       url.pathname === "/admin/crm-import" ||
