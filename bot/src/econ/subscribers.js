@@ -11,6 +11,7 @@
 
 import { DEFAULT_CURRENCIES, parseCurrencies, serializeCurrencies } from "./currencies.js";
 import { DEFAULT_LEVELS, parseLevels, serializeLevels, levelsFromLegacy } from "./levels.js";
+import { defineSchema, addMissingColumns } from "../schemaGate.js";
 
 const DDL = [
   `CREATE TABLE IF NOT EXISTS econ_subscriber (
@@ -153,16 +154,15 @@ export async function clearBlocked(env, telegramUserId) {
   }
 }
 
-export async function ensureSubscriberSchema(env) {
-  for (const sql of DDL) await env.DB.prepare(sql).run();
-  for (const sql of [...ADD_COLUMNS, ...USER_STATE_COLUMNS]) {
-    try {
-      await env.DB.prepare(sql).run();
-    } catch {
-      // قبلاً اضافه شده.
-    }
+export const ensureSubscriberSchema = defineSchema(
+  "econ_subscriber",
+  [...DDL, ...ADD_COLUMNS, ...USER_STATE_COLUMNS],
+  async (env) => {
+    for (const sql of DDL) await env.DB.prepare(sql).run();
+    // خطاها مثلِ قبل بلعیده می‌شوند: «قبلاً اضافه شده».
+    await addMissingColumns(env, [...ADD_COLUMNS, ...USER_STATE_COLUMNS], () => {});
   }
-}
+);
 
 // تنها مقادیری که کاربر می‌تواند انتخاب کند. هر چیز دیگری - چه از
 // مینی‌اپ بیاید چه از یک درخواست دستی - به نزدیک‌ترین مقدار مجاز
@@ -373,6 +373,21 @@ export async function unclaimDay(env, col, ref, telegramUserId) {
 }
 
 /** کسانی که باید پیام بگیرند. */
+/**
+ * فقط مشترکینی که «کم‌اهمیت» را روشن کرده‌اند - برای جاروی کرانِ ورکر.
+ *
+ * alert_levels فهرستِ سطح‌ها با ویرگول است و تنها سطحی که «low» در نامش
+ * دارد خودِ low است؛ ستونِ خالی یعنی پیش‌فرض (مهم و خیلی مهم)، پس
+ * درست است که اینجا نیاید. حدودِ پنجاه ردیف به‌جای سه هزار و ششصد.
+ */
+export async function listActiveSubscribersWithLow(env) {
+  await ensureSubscriberSchema(env);
+  const { results } = await env.DB
+    .prepare(`SELECT * FROM econ_subscriber WHERE subscribed = 1 AND alert_levels LIKE '%low%'`)
+    .all();
+  return (results || []).map(toRow).filter((s) => s.alert_levels.includes("low"));
+}
+
 export async function listActiveSubscribers(env) {
   await ensureSubscriberSchema(env);
   const { results } = await env.DB

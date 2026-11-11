@@ -1,4 +1,5 @@
 import { ensureCrmSchema } from "./crm/schema.js";
+import { defineSchema } from "./schemaGate.js";
 
 // دفترچه‌ی شماره‌ها.
 //
@@ -30,9 +31,9 @@ const DDL = [
   `CREATE INDEX IF NOT EXISTS idx_phone_book_created ON phone_book(created_at)`,
 ];
 
-export async function ensurePhoneSchema(env) {
+export const ensurePhoneSchema = defineSchema("phone_book", DDL, async (env) => {
   for (const sql of DDL) await env.DB.prepare(sql).run();
-}
+});
 
 /**
  * شماره را به شکل ۱۱ رقمی با صفر ابتدایی درمی‌آورد.

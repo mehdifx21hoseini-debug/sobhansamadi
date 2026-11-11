@@ -15,6 +15,8 @@
 //   ۲ - رأی کاربر (👍/👎). این تنها سنجه‌ای است که از خودِ کاربر می‌آید،
 //       نه از حدسِ ما.
 
+import { defineSchema } from "../schemaGate.js";
+
 const DDL = [
   `CREATE TABLE IF NOT EXISTS ai_log (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,13 +28,9 @@ const DDL = [
   `CREATE INDEX IF NOT EXISTS ai_log_created ON ai_log(created_at)`,
 ];
 
-let schemaReady = false;
-
-export async function ensureLogSchema(env) {
-  if (schemaReady) return;
+export const ensureLogSchema = defineSchema("ai_log", DDL, async (env) => {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
-  schemaReady = true;
-}
+});
 
 /**
  * یک پاسخ را ثبت می‌کند و شناسه‌اش را برمی‌گرداند.

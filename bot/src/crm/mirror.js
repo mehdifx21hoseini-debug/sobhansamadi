@@ -13,13 +13,15 @@
 // می‌شود و همان آرایه‌ای را پس می‌دهد که صفحه از n8n انتظار دارد. ساختن
 // پانزده جدول با ستون‌های موازی یعنی پانزده جای دیگر که باید با تغییر
 // ستون‌های n8n هم‌گام بمانند - و هر کدام یک جای تازه برای واگرایی بی‌صدا.
+import { defineSchema } from "../schemaGate.js";
+
 const DDL = `CREATE TABLE IF NOT EXISTS crm_mirror (
    name TEXT PRIMARY KEY, payload TEXT NOT NULL, rows INTEGER NOT NULL,
    synced_at TEXT NOT NULL)`;
 
-export async function ensureMirrorSchema(env) {
+export const ensureMirrorSchema = defineSchema("crm_mirror", DDL, async (env) => {
   await env.DB.prepare(DDL).run();
-}
+});
 
 // نام‌هایی که n8n می‌فرستد. هر چیز دیگری در پاسخ نادیده گرفته می‌شود، تا
 // اضافه شدن یک کلید تازه در آن سمت اینجا چیزی نشکند.

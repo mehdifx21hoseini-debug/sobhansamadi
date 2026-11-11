@@ -11,16 +11,16 @@
 // بفرستد ثبت می‌شود و مدیر همان لحظه خبردار می‌شود. هیچ عددی جایی تایپ
 // نمی‌شود.
 
+import { defineSchema } from "../schemaGate.js";
+
 const KEY = "content_channel_id";
 
-export async function ensureConfig(env) {
-  await env.DB
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS bot_config (
-         key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)`
-    )
-    .run();
-}
+const CONFIG_DDL = `CREATE TABLE IF NOT EXISTS bot_config (
+         key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)`;
+
+export const ensureConfig = defineSchema("bot_config", CONFIG_DDL, async (env) => {
+  await env.DB.prepare(CONFIG_DDL).run();
+});
 
 export async function readContentChannel(env) {
   try {
@@ -60,13 +60,46 @@ export async function clearContentChannel(env) {
 // شود. لینک آزمون سایت اولین نمونه‌اش است: آدرسی که آکادمی می‌سازد و
 // روزی عوضش می‌کند، نباید در کد قفل باشد.
 
+// کلیدهای روشن/خاموش که چند بار در یک اجرا خوانده می‌شوند.
+//
+// کرانِ پنج‌دقیقه‌ای econ_worker_sender را نُه بار در یک تیک می‌خواند -
+// هر کارِ موازی یک بار. پلنِ رایگان ۵۰ کوئری در هر اجرا می‌دهد، پس این
+// چند کلید یک دقیقه در حافظه‌ی همان ایزوله می‌مانند. فقط کلیدهایی که
+// آدم دستی عوض می‌کند و یک دقیقه دیر دیده شدنشان بی‌ضرر است؛ هر کلیدی که
+// منطقِ ارسال رویش «مقایسه و جای‌گزینی» می‌کند (برگه‌های دسته، نشانگرها)
+// هرگز اینجا نمی‌آید.
+const FLAG_KEYS = new Set([
+  "econ_worker_sender",
+  "econ_result_notice",
+  "econ_audience_snapshot",
+  "econ_batch_claim",
+  "econ_worker_ingest",
+  "econ_worker_explain",
+  "econ_greet",
+  "econ_greet_force",
+  "econ_notice",
+  "kb_seed_version",
+  "quiz_url",
+]);
+const FLAG_TTL_MS = 60 * 1000;
+const flagMem = new Map();
+
+/** برای تست‌ها و برای وقتی که مقدار همین الان باید از دیتابیس بیاید. */
+export function forgetConfigCache() {
+  flagMem.clear();
+}
+
 export async function readConfig(env, key) {
+  const memo = FLAG_KEYS.has(key) ? flagMem.get(key) : null;
+  if (memo && memo.db === env.DB && Date.now() - memo.at < FLAG_TTL_MS) return memo.value;
   try {
     const row = await env.DB
       .prepare(`SELECT value FROM bot_config WHERE key = ?`)
       .bind(key)
       .first();
-    return row ? row.value : "";
+    const value = row ? row.value : "";
+    if (FLAG_KEYS.has(key)) flagMem.set(key, { value, at: Date.now(), db: env.DB });
+    return value;
   } catch (err) {
     if (err && /no such table/i.test(String(err.message))) return "";
     throw err;
@@ -82,6 +115,7 @@ export async function writeConfig(env, key, value) {
     )
     .bind(key, String(value), new Date().toISOString())
     .run();
+  if (FLAG_KEYS.has(key)) flagMem.set(key, { value: String(value), at: Date.now(), db: env.DB });
 }
 
 export const QUIZ_URL_KEY = "quiz_url";

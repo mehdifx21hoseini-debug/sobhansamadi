@@ -203,3 +203,24 @@ jobs:
                 else map("\(.dimensions.status): درخواست \(.sum.requests)  ·  CPU p50 \(.quantiles.cpuTimeP50)µs  p99 \(.quantiles.cpuTimeP99)µs  ·  wall p99 \(.quantiles.wallTimeP99)ms") | join("\n")
                 end
             end'
+
+          # ── CPU به تفکیکِ نوعِ اجرا، روز به روز ─────────────────────
+          # برای پلنِ رایگان (حدودِ ۱۰ میلی‌ثانیه CPU در هر اجرا): fetch
+          # یعنی پیام‌های کاربر و درخواست‌های ورک‌فلو، cron یعنی کران‌های
+          # خودِ ورکر. هر روز جدا، تا اثرِ یک تغییر از روزِ قبلش دیده شود.
+          # exceededCpu / exceededResources یعنی کلادفلر آن اجرا را کشت.
+          T_Q=$(jq -nc --arg a "$ACCOUNT" --arg s "$SINCE" --arg u "$UNTIL" '{
+            query: "query($a:String!,$s:Time!,$u:Time!){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:500,filter:{datetime_geq:$s,datetime_leq:$u}){sum{requests}quantiles{cpuTimeP50 cpuTimeP90 cpuTimeP99}dimensions{date eventType status}}}}}",
+            variables: {a:$a, s:$s, u:$u}
+          }')
+          echo
+          echo "─── CPU به تفکیکِ روز و نوع (میلی‌ثانیه) ───"
+          ask "$T_Q" | mask | jq -r '
+            if .errors then "خطا: " + (.errors | map(.message) | join("; "))
+            else (.data.viewer.accounts[0].workersInvocationsAdaptive // [])
+              | if length == 0 then "داده‌ای برنگشت"
+                else sort_by(.dimensions.date, .dimensions.eventType, .dimensions.status)
+                  | map("\(.dimensions.date)  \(.dimensions.eventType) \(.dimensions.status): \(.sum.requests)  ·  p50 \((.quantiles.cpuTimeP50/1000*10|floor)/10)  p90 \((.quantiles.cpuTimeP90/1000*10|floor)/10)  p99 \((.quantiles.cpuTimeP99/1000*10|floor)/10)")
+                  | join("\n")
+                end
+            end'

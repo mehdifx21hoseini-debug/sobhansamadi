@@ -8,6 +8,8 @@
 // فایل schema-crm.sql همچنان منبعِ خواندنی و مستندِ ساختار است؛ این
 // آرایه باید با آن یکی بماند.
 
+import { defineSchema, addMissingColumns } from "../schemaGate.js";
+
 const DDL = [
   `CREATE TABLE IF NOT EXISTS crm_leads (
      lead_id TEXT PRIMARY KEY, telegram_user_id TEXT, telegram_username TEXT,
@@ -188,28 +190,25 @@ const LATE_INDEXES = [
      ON crm_broadcast_recipients (batch_id, status)`,
 ];
 
-let ensured = false;
-
 /**
  * جدول‌ها را می‌سازد. بعد از اولین موفقیت روی این isolate دیگر تکرار
  * نمی‌شود - بیست دستور DDL روی هر درخواست، تاخیری است که هیچ چیزی
- * برنمی‌گرداند.
+ * برنمی‌گرداند. و اگر نسخه‌ی طرح از قبل ثبت شده باشد، اصلاً اجرا
+ * نمی‌شود (schemaGate.js).
  */
-export async function ensureCrmSchema(env) {
-  if (ensured) return;
+export const ensureCrmSchema = defineSchema(
+  "crm",
+  [...DDL, ...ADD_COLUMNS, ...LATE_INDEXES, ...BACKFILL],
+  createCrmSchema
+);
+
+async function createCrmSchema(env) {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
-  for (const sql of ADD_COLUMNS) {
-    try {
-      await env.DB.prepare(sql).run();
-    } catch (err) {
-      // فقط «ستون از قبل هست» قابل چشم‌پوشی است؛ هر چیز دیگری باید
-      // دیده شود، وگرنه یک مهاجرتِ شکست‌خورده بی‌صدا می‌ماند.
-      const msg = String((err && err.message) || err);
-      if (!/duplicate column name/i.test(msg)) {
-        console.error("افزودن ستون شکست خورد:", sql, msg);
-      }
-    }
-  }
+  // فقط «ستون از قبل هست» قابل چشم‌پوشی است؛ هر چیز دیگری باید
+  // دیده شود، وگرنه یک مهاجرتِ شکست‌خورده بی‌صدا می‌ماند.
+  await addMissingColumns(env, ADD_COLUMNS, (err, sql) =>
+    console.error("افزودن ستون شکست خورد:", sql, String((err && err.message) || err))
+  );
   for (const sql of LATE_INDEXES) {
     await env.DB.prepare(sql).run().catch((err) =>
       console.error("ساخت ایندکس شکست خورد:", sql, err && err.message)
@@ -220,13 +219,10 @@ export async function ensureCrmSchema(env) {
       console.error("پر کردنِ شمارنده‌ها شکست خورد:", err && err.message)
     );
   }
-  ensured = true;
 }
 
-// برای تست: حافظه‌ی «ساخته شد» را پاک می‌کند.
-export function resetSchemaCache() {
-  ensured = false;
-}
+// برای تست. حافظه حالا به ازای خودِ دیتابیس است، پس کاری لازم نیست.
+export function resetSchemaCache() {}
 
 export const CRM_TABLES = [
   "crm_leads", "crm_admin", "crm_session", "crm_activity_log", "crm_calls",

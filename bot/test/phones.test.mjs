@@ -119,7 +119,8 @@ for (const [who, id] of [["کاربرِ فقط‌گواهی", CERT_ONLY], ["غر
 }
 {
   const empty = { DB: d1(), BOT_TOKEN: "T" };
-  empty.DB.raw.exec("CREATE TABLE crm_leads (lead_id TEXT PRIMARY KEY, telegram_user_id TEXT, course TEXT, request_type TEXT)");
+  // crm_leads را خودِ ensureCrmSchema می‌سازد - حافظه‌ی «ساخته شد» حالا به ازای
+  // هر دیتابیس است، پس جدولِ دست‌سازِ ناقص دیگر از ساختن جا نمی‌ماند.
   const a = ctxFor(OWNER);
   a.ctx.env = empty;
   await handlePhones(a.ctx);

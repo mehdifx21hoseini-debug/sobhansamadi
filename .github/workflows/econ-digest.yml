@@ -49,7 +49,7 @@ jobs:
     # taking about half a minute, puts the run near twenty minutes. The
     # limit is set well above that so a growing list does not get cut off
     # mid-send.
-    timeout-minutes: 75
+    timeout-minutes: 120
     steps:
       - name: Drain the digest queue
         env:
@@ -77,7 +77,10 @@ jobs:
           # نفر را می‌گیرد و ۸۰ دور فقط ~۱۰٫۵ هزار نفر را پوشش داد. کارگر به
           # محضِ تمام شدنِ فهرست می‌ایستد، پس سقفِ بالاتر فقط وقتی مصرف
           # می‌شود که واقعاً کار مانده باشد.
-          MAX=200
+          # ۲۰۰ → ۴۰۰ (۱۱ نوامبر): هر دور حالا ۳۰ پیام است نه ۴۵ (پلنِ
+          # رایگان)، و اطلاعیه‌ی دوتکه فقط ۱۵ نفر در هر دور - ۱۷٫۶ هزار نفر
+          # یعنی ~۱۹۶ دور برای هر کارگر، درست لبِ سقفِ قبلی.
+          MAX=400
 
           # The first call of a run passes force=1: it ignores the
           # "today is finished" flag. That matters on any day the audience

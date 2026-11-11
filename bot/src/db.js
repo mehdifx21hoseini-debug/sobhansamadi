@@ -1,6 +1,7 @@
 // لایه‌ی دسترسی به D1 - جایگزین جدول‌های n8n Data Table.
 
 import { ensureCrmSchema } from "./crm/schema.js";
+import { defineSchema } from "./schemaGate.js";
 
 export async function getUserState(env, telegramUserId) {
   const row = await env.DB
@@ -200,14 +201,12 @@ export async function logContentRequest(env, telegramUserId, username, contentId
 //
 // جدول جداست و نه ستونی در user_state، چون clearUserState در پایان هر
 // فرآیند temp_data را خالی می‌کند و منبع جذب باید برای همیشه بماند.
-export async function ensureUserSource(env) {
-  await env.DB
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS user_source (
-         telegram_user_id TEXT PRIMARY KEY, source TEXT, first_seen_at TEXT)`
-    )
-    .run();
-}
+const USER_SOURCE_DDL = `CREATE TABLE IF NOT EXISTS user_source (
+         telegram_user_id TEXT PRIMARY KEY, source TEXT, first_seen_at TEXT)`;
+
+export const ensureUserSource = defineSchema("user_source", USER_SOURCE_DDL, async (env) => {
+  await env.DB.prepare(USER_SOURCE_DDL).run();
+});
 
 // اولین لمس برنده است: اگر کاربری اول از اینستاگرام آمد و بعد از کانال،
 // اعتبار جذب مال اینستاگرام است. DO NOTHING دقیقاً همین را تضمین می‌کند.

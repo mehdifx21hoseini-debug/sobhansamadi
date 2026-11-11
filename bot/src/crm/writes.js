@@ -688,7 +688,10 @@ const AUDIENCES = {
  * به‌محضِ اولین خطای زیرساختی می‌ایستد و بقیه را برای دفعه‌ی بعد
  * می‌گذارد. این‌طور هر سقفی که باشد، خودش را با آن جور می‌کند.
  */
-const CHUNK_HARD_CAP = 60;
+// ۶۰ → ۳۰ (۱۱ نوامبر): پلنِ رایگان ۵۰ درخواستِ بیرونی در هر اجرا می‌دهد؛
+// ۶۰ یعنی هر تکه به‌جای پایانِ تمیز، با خطای سقف تمام می‌شد. و CPUِ هر
+// اجرا هم با تعدادِ پیام بالا می‌رود.
+const CHUNK_HARD_CAP = 30;
 
 export async function sendBroadcast(env, body, actor, sendRaw) {
   const resume = String(body.batch_id || "").trim();

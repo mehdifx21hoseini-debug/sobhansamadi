@@ -21,6 +21,7 @@ import { ensureKbSchema, invalidateKbCache } from "./kb.js";
 import { SEED } from "./seed.js";
 import { SSPROX, SSPROX_VERSION } from "./ssproxKb.js";
 import { readConfig, writeConfig } from "../content/channel.js";
+import { defineSchema, addMissingColumns } from "../schemaGate.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS kb_source (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,16 +40,12 @@ const DDL_IDX = `CREATE UNIQUE INDEX IF NOT EXISTS kb_source_origin ON kb_source
 // ناپدید می‌شود. حذف هم همین‌طور: مدخل seedِ حذف‌شده دوباره سبز می‌شد.
 const DDL_PINNED = `ALTER TABLE kb_source ADD COLUMN pinned INTEGER DEFAULT 0`;
 
-export async function ensureSourceSchema(env) {
+export const ensureSourceSchema = defineSchema("kb_source", [DDL, DDL_IDX, DDL_PINNED], async (env) => {
   await env.DB.prepare(DDL).run();
   await env.DB.prepare(DDL_IDX).run();
-  try {
-    await env.DB.prepare(DDL_PINNED).run();
-  } catch (err) {
-    // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
-    if (!/duplicate column/i.test(String(err && err.message))) throw err;
-  }
-}
+  // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
+  await addMissingColumns(env, [DDL_PINNED]);
+});
 
 // شناسه‌ی مدخل‌های seed از خود متن سوال ساخته می‌شود، نه از شماره‌ی
 // سطر: اگر روزی ترتیب فایل عوض شود، شماره‌ها جابه‌جا می‌شدند و همه‌ی

@@ -27,6 +27,8 @@
 
 // اگر ورک‌فلو در این مدت شروع نکرد یا یک ردیف را تمام نکرد، شکست‌خورده
 // حساب می‌شود تا مدیر برای همیشه منتظر نماند.
+import { defineSchema, addMissingColumns } from "../schemaGate.js";
+
 export const STALE_MS = 6 * 60 * 1000;
 export const KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 // سقفِ ردیف‌های هم‌زمان در جریان: دو دسته‌ی کامل. مانعِ اشتباه است، نه
@@ -62,24 +64,14 @@ const MIGRATE = [
 ];
 const INDEXES = [`CREATE INDEX IF NOT EXISTS idx_cert_jobs_batch ON cert_jobs(batch_id)`];
 
-let ready = false;
-export async function ensureCertSchema(env) {
-  if (ready) return;
+export const ensureCertSchema = defineSchema("cert_jobs", [...DDL, ...MIGRATE, ...INDEXES], async (env) => {
   for (const sql of DDL) await env.DB.prepare(sql).run();
-  for (const sql of MIGRATE) {
-    try {
-      await env.DB.prepare(sql).run();
-    } catch (err) {
-      if (!/duplicate column/i.test(String(err && err.message))) throw err;
-    }
-  }
+  await addMissingColumns(env, MIGRATE);
   for (const sql of INDEXES) await env.DB.prepare(sql).run();
-  ready = true;
-}
-// برای تست: هر تست دیتابیسِ تازه می‌خواهد.
-export function resetCertSchemaMemo() {
-  ready = false;
-}
+});
+// برای تست. حافظه‌ی «ساخته شد» حالا به ازای خودِ دیتابیس است (schemaGate.js)،
+// پس دیتابیسِ تازه‌ی هر تست خودبه‌خود از نو ساخته می‌شود.
+export function resetCertSchemaMemo() {}
 
 const iso = (ms) => new Date(ms).toISOString();
 const changed = (res) => (res && res.meta ? res.meta.changes || 0 : 0) > 0;

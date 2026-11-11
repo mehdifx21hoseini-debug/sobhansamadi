@@ -8,6 +8,7 @@
 // می‌شود.
 
 import { buildIndex } from "./retrieval.js";
+import { defineSchema } from "../schemaGate.js";
 
 const DDL = [
   `CREATE TABLE IF NOT EXISTS ai_kb (
@@ -19,9 +20,9 @@ const DDL = [
      kb_id INTEGER PRIMARY KEY, usage_count INTEGER DEFAULT 0, last_used_at TEXT)`,
 ];
 
-export async function ensureKbSchema(env) {
+export const ensureKbSchema = defineSchema("ai_kb", DDL, async (env) => {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
-}
+});
 
 // پیش از اولین همگام‌سازی، جدول وجود ندارد. این خطا نیست - یعنی «هنوز
 // پایگاه دانشی نداریم» - و باید همان‌طور خوانده شود تا پشتیبانی به مسیر

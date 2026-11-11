@@ -5,6 +5,8 @@
 // همان file_id بعداً برای فرستادن به کاربر کافی است، بدون دانلود و آپلود
 // دوباره. این همان کاری است که WF-13 می‌کرد.
 
+import { defineSchema, addMissingColumns } from "../schemaGate.js";
+
 const DDL = [
   `CREATE TABLE IF NOT EXISTS content_library (
      content_id TEXT PRIMARY KEY, title TEXT, file_id TEXT, file_type TEXT,
@@ -21,24 +23,18 @@ const DDL = [
 //
 // اگر یکی بودند، مخفی کردن یک ویس برای «هنوز آماده نیست» با حذفش یک
 // شکل می‌شد و مدیر راهی نداشت پیدایش کند تا برش گرداند.
-let schemaReady = false;
+const ADD_HIDDEN = `ALTER TABLE content_library ADD COLUMN hidden INTEGER DEFAULT 0`;
 
-export async function ensureContentSchema(env) {
-  if (schemaReady) return;
+export const ensureContentSchema = defineSchema("content", [...DDL, ADD_HIDDEN], async (env) => {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
   // ستون hidden بعداً اضافه شد؛ جدول‌هایی که از قبل ساخته شده‌اند آن را
   // ندارند و CREATE TABLE IF NOT EXISTS هم چیزی به آن‌ها اضافه نمی‌کند.
   // خطای «ستون تکراری» یعنی کار از قبل انجام شده - همان چیزی که
   // می‌خواستیم.
-  try {
-    await env.DB.prepare(`ALTER TABLE content_library ADD COLUMN hidden INTEGER DEFAULT 0`).run();
-  } catch (err) {
-    if (!/duplicate column/i.test(String(err && err.message))) {
-      console.error("افزودن ستون hidden:", err && err.message);
-    }
-  }
-  schemaReady = true;
-}
+  await addMissingColumns(env, [ADD_HIDDEN], (err) =>
+    console.error("افزودن ستون hidden:", err && err.message)
+  );
+});
 
 // upsert است نه insert: پست دوباره‌ی همان هشتگ در کانال یعنی «این را
 // جای‌گزین کن» - مثلاً وقتی فایل اشتباهی رفته یا نسخه‌ی بهتری ساخته شده.

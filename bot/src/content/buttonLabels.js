@@ -22,17 +22,14 @@
 
 import { cached, invalidate } from "../cache.js";
 import { MENU_LABELS } from "../menu.js";
+import { defineSchema } from "../schemaGate.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS button_labels (
    key TEXT PRIMARY KEY, label TEXT, past TEXT, updated_at TEXT)`;
 
-let schemaReady = false;
-
-async function ensureSchema(env) {
-  if (schemaReady) return;
+const ensureSchema = defineSchema("button_labels", DDL, async (env) => {
   await env.DB.prepare(DDL).run();
-  schemaReady = true;
-}
+});
 
 // دکمه‌های منوی اصلی - آن‌هایی که مسیریابی‌شان از روی متن است و
 // عوض کردنِ نامشان احتیاط می‌خواهد.

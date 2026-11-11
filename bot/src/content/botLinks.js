@@ -18,17 +18,14 @@
 // برنده است.
 
 import { cached, invalidate } from "../cache.js";
+import { defineSchema } from "../schemaGate.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS bot_links (
    key TEXT PRIMARY KEY, url TEXT, updated_at TEXT)`;
 
-let schemaReady = false;
-
-async function ensureSchema(env) {
-  if (schemaReady) return;
+const ensureSchema = defineSchema("bot_links", DDL, async (env) => {
   await env.DB.prepare(DDL).run();
-  schemaReady = true;
-}
+});
 
 export const LINK_MAX = 300;
 

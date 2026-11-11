@@ -20,6 +20,7 @@
 // چیزی برنمی‌گرداند. ستون kind می‌گوید هر ردیف کجا باید برود.
 
 import { OWNER_ID } from "./owner.js";
+import { defineSchema, addMissingColumns } from "./schemaGate.js";
 
 const DDL = [
   `CREATE TABLE IF NOT EXISTS lead_outbox (
@@ -38,17 +39,11 @@ const MIGRATIONS = [
   `ALTER TABLE lead_outbox ADD COLUMN kind TEXT NOT NULL DEFAULT 'lead'`,
 ];
 
-export async function ensureOutbox(env) {
+export const ensureOutbox = defineSchema("lead_outbox", [...DDL, ...MIGRATIONS], async (env) => {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
-  for (const sql of MIGRATIONS) {
-    try {
-      await env.DB.prepare(sql).run();
-    } catch (err) {
-      // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
-      if (!/duplicate column/i.test(String(err && err.message))) throw err;
-    }
-  }
-}
+  // ستون از قبل هست - حالت عادی بعد از اولین اجرا.
+  await addMissingColumns(env, MIGRATIONS);
+});
 
 /**
  * گذاشتن یک چیز در صف، برای رسیدن به CRM.

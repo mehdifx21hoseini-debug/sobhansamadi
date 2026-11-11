@@ -17,6 +17,7 @@
 
 import { ensureCrmSchema } from "../crm/schema.js";
 import { mentoringLead, mentoringNotifyText, notifyAdmins } from "../crm/intake.js";
+import { defineSchema } from "../schemaGate.js";
 
 const DDL = `CREATE TABLE IF NOT EXISTS mentoring_intake (
    id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,9 +26,9 @@ const DDL = `CREATE TABLE IF NOT EXISTS mentoring_intake (
    message TEXT, answers_json TEXT, raw_payload TEXT NOT NULL,
    forwarded INTEGER NOT NULL DEFAULT 0)`;
 
-export async function ensureIntakeSchema(env) {
+export const ensureIntakeSchema = defineSchema("mentoring_intake", DDL, async (env) => {
   await env.DB.prepare(DDL).run();
-}
+});
 
 // ─── نگاشت فیلدهای فرم ────────────────────────────────────────────
 //

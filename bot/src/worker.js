@@ -93,6 +93,7 @@ import { EXPLAIN_FLAG, explainEnabled } from "./econ/explain.js";
 import { dispatchWorkflow } from "./ops/dispatch.js";
 import { isActualsSlot } from "./econ/actualsSchedule.js";
 import { isDigestRetrySlot } from "./econ/digestRetry.js";
+import { ensureAllSchemas, schemaCurrent, schemaVersion, registeredSchemas, SCHEMA_KEY } from "./schemaGate.js";
 
 // همان رشته‌هایی که در wrangler.toml هستند. اگر یکی عوض شد و دیگری نه،
 // آن کران به شاخه‌ی همگام‌سازی می‌افتد و پیام هرگز نمی‌رود - پس اینجا
@@ -132,7 +133,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-98";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-99";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -182,8 +183,22 @@ async function ensureChannelPostsAllowed(bot) {
 // فقط دور webhookCallback بود و bot.init() بیرونش می‌ماند - یک getMe که
 // به تلگرام نمی‌رسید، ورکر را ۵۰۰ می‌کرد و همان صف را می‌بست که این حفاظ
 // قرار بود باز نگه دارد.
+// ربات یک بار برای هر ایزوله ساخته می‌شود، نه برای هر پیام.
+//
+// createBot صدها دستگیره و یک transformer ثبت می‌کند. تا ۱۱ نوامبر این
+// کار برای هر آپدیت از نو انجام می‌شد - CPUِ تکراری روی هر کلیک، در
+// حالی که پلنِ رایگان حدودِ ۱۰ میلی‌ثانیه به هر اجرا می‌دهد. هیچ حالتی
+// از یک آپدیت در خودِ bot نمی‌ماند (هر آپدیت ctxِ خودش را دارد)، و env
+// در یک ایزوله همان bindingها را دارد. اگر توکن عوض شود، از نو ساخته
+// می‌شود.
+let cachedHandler = null;
+let cachedHandlerToken = "";
+
 async function handleTelegramUpdate(request, env) {
   try {
+    if (cachedHandler && cachedHandlerToken === env.BOT_TOKEN) {
+      return await cachedHandler(request);
+    }
     const bot = createBot(env.BOT_TOKEN, env, cachedBotInfo, BUILD);
     if (!cachedBotInfo) {
       await bot.init();
@@ -200,7 +215,10 @@ async function handleTelegramUpdate(request, env) {
         console.error("بررسی allowed_updates شکست خورد:", err && err.message)
       );
     }
-    return await webhookCallback(bot, "cloudflare-mod")(request);
+    const handler = webhookCallback(bot, "cloudflare-mod");
+    cachedHandler = handler;
+    cachedHandlerToken = env.BOT_TOKEN;
+    return await handler(request);
   } catch (err) {
     console.error("پردازش آپدیت شکست خورد:", err && (err.stack || err.message));
     return new Response("ok", { status: 200 });
@@ -750,6 +768,22 @@ async function handleAdmin(request, url, env) {
     const kind = (url.searchParams.get("kind") || "digest").replace(/[^a-z]/g, "");
     const ref = (url.searchParams.get("ref") || digestRef()).replace(/[^0-9a-z-]/gi, "");
     return json({ ok: true, build: BUILD, batch: await batchProgress(env, kind, ref) });
+  }
+
+  // نسخه‌ی طرحِ جدول‌ها (schemaGate.js). ?build=1 همه را از نو می‌سازد و
+  // نسخه را می‌نویسد - همان کاری که کرانِ ده‌دقیقه‌ای خودش می‌کند.
+  if (url.pathname === "/admin/schema") {
+    const build = url.searchParams.get("build") === "1";
+    const result = build ? await ensureAllSchemas(env, { force: true }) : null;
+    return json({
+      ok: true,
+      build: BUILD,
+      version: schemaVersion(),
+      stored: await readConfig(env, SCHEMA_KEY).catch(() => null),
+      current: await schemaCurrent(env),
+      schemas: registeredSchemas(),
+      result,
+    });
   }
 
   if (url.pathname === "/admin/members") {
@@ -1683,6 +1717,121 @@ async function handleAdmin(request, url, env) {
   });
 }
 
+// هشدار قبل از خبر - و سرِ باز شدنِ هر پنجره، درِینِ موازی‌اش.
+//
+// ─── چرا درِین اضافه شد ──────────────────────────────────────
+//
+// هشدار تنها پیامی بود که درِینِ موازی نداشت. اندازه‌گیریِ ۸
+// اکتبر: ۳٬۳۸۴ مشترکِ فعال، و هر خبرِ مهم به ۵۴۰ نفر رسیده بود -
+// سخنرانی ترامپ، صورت‌جلسه‌ی فدرال‌رزرو، سخنرانی والر، هر سه
+// دقیقاً ۵۴۰. آن عدد ۱۲ تیکِ پنج‌دقیقه‌ای × ۴۵ پیام است، یعنی
+// سقفِ بودجه و نه چیزِ دیگر.
+//
+// بدترش ترتیب بود: پنجره‌ی ۶۰ دقیقه زودتر باز می‌شود و بودجه را
+// می‌برد، پس ۴۱۵ نفری که «۵ دقیقه قبل» را انتخاب کرده بودند
+// عملاً هرگز چیزی نگرفتند - و همین گزارش شد.
+//
+// دیسپچ فقط سرِ باز شدنِ یک پنجره انجام می‌شود،
+// نه هر تیکی که خبری در یک‌ساعتِ پیشِ رو دارد: چهار اجرا به‌جای
+// هشتاد، با همان نتیجه.
+//
+// ─── ترتیب: اول تصمیم و دیسپچ، بعد (فقط اگر لازم شد) جاروی ورکر ───
+//
+// ۹ اکتبر برای دو خبرِ ۱۴:۰۰ فقط پنجره‌ی ۶۰ دقیقه رفت؛ ۳۰ و ۱۵ و ۵
+// اجرا نشد و ~۲٬۸۶۰ نفر هشدار نگرفتند. دلیل: دیسپچ بعد از
+// runAlertSweep بود و آن جارو کلِ مشترکین را قدم می‌زند؛ کسانی که
+// هشدارشان رفته هم یک claimِ ناموفق می‌خورند، و صدها claim سقفِ
+// subrequest را پر می‌کرد، جارو می‌شکست، و دیسپچ هرگز نمی‌رسید.
+//
+// حالا تصمیم فقط از خواندنِ رویدادهاست و پیش از هر کارِ سنگین
+// می‌آید. اگر دیسپچ گرفت، درِین کارِ ارسال را می‌کند و جاروی ورکر
+// اصلاً اجرا نمی‌شود (هم subrequest و هم نوشتنِ بی‌خود نمی‌سوزد).
+// جارو فقط تورِ ایمنی است: وقتی دیسپچ شکست خورد یا پنجره‌ای باز
+// نبود، مثل قبل.
+//
+// ─── بعد از دیسپچ: جاروی ورکر فقط برای «کم‌اهمیت» ─────────────────
+//
+// جاروی کاملِ ورکر در هر تیکی که خبرِ مهمی در یک‌ساعتِ پیشِ رو بود،
+// همه‌ی مشترکینی را که موعدشان رسیده بود قدم می‌زد - حتی آن‌هایی که
+// درِینِ همان پنجره چند دقیقه پیش هشدارشان را داده بود. هر کدام یک
+// claimِ ناموفق: تا دو هزار کوئری در یک تیک (پنجره‌ی ۱۵ دقیقه ۱٬۹۸۰
+// مشترک دارد)، و CPUِ صدها میلی‌ثانیه. روی پلنِ رایگان (۵۰ کوئری، ~۱۰
+// میلی‌ثانیه) چنین تیکی کشته می‌شود.
+//
+// «مهم» و «خیلی مهم» را درِین می‌فرستد. پس جاروی ورکر حالا فقط «کم‌اهمیت»
+// را می‌فرستد (که درِین ندارد و حدودِ ۵۰ نفر روشنش کرده‌اند)، و فقط از
+// میانِ همان مشترکین می‌خواند. اگر دیسپچ شکست بخورد، پنجره‌اش در
+// econ_alt_retry می‌ماند و تا ۱۵ دقیقه هر تیک دوباره دیسپچ می‌شود؛ و
+// همان تیکِ شکست، جاروی کاملِ قبلی تورِ ایمنی است.
+const ALT_RETRY_KEY = "econ_alt_retry";
+const ALT_RETRY_MS = 15 * 60 * 1000;
+
+async function alertTick(env) {
+  let dispatched = false;
+  let failed = false;
+  try {
+    let opening = await alertOpeningNow(env);
+    // پنجره‌هایی که دیسپچشان در تیک‌های قبل شکست خورده.
+    let retry = null;
+    try {
+      const raw = await readConfig(env, ALT_RETRY_KEY);
+      retry = raw ? JSON.parse(raw) : null;
+    } catch {
+      retry = null;
+    }
+    if (retry && Number(retry.until) > Date.now() && Array.isArray(retry.tiers)) {
+      opening = [...new Set([...opening, ...retry.tiers])].sort((x, y) => y - x);
+    }
+    if (opening.length > 0) {
+      // ۱۴ اکتبر هر پنجره دوبار دیسپچ شد (با ~۳۰ ثانیه فاصله) و دو
+      // دسته کارگر روی هم افتادند. یک قفلِ کوتاه (ردیفِ bot_config،
+      // INSERT OR IGNORE) فقط اولی را می‌گذراند؛ اگر دیسپچ شکست
+      // بخورد قفل برداشته می‌شود تا تیکِ بعد دوباره امتحان کند.
+      const lockKey = "econ_altdisp_" + opening.join("-") + "_" + Math.floor(Date.now() / 240000);
+      let mine = true;
+      try {
+        const ins = await env.DB
+          .prepare("INSERT OR IGNORE INTO bot_config (key, value, updated_at) VALUES (?, ?, ?)")
+          .bind(lockKey, "1", new Date().toISOString())
+          .run();
+        mine = (ins.meta ? ins.meta.changes || 0 : 1) > 0;
+      } catch (_) {
+        mine = true;
+      }
+      if (!mine) {
+        console.log("دیسپچِ تکراریِ هشدار رد شد:", lockKey);
+        dispatched = true;
+      } else {
+        const r = await dispatchWorkflow(env, "econ-alert.yml");
+        dispatched = !!(r && r.ok);
+        console.log("شروعِ درِینِ هشدار:", JSON.stringify({ opening, ...r }));
+        if (dispatched) {
+          if (retry) await env.DB.prepare("DELETE FROM bot_config WHERE key = ?").bind(ALT_RETRY_KEY).run().catch(() => {});
+        } else {
+          failed = true;
+          await env.DB.prepare("DELETE FROM bot_config WHERE key = ?").bind(lockKey).run().catch(() => {});
+          const until = retry && Number(retry.until) > Date.now() ? Number(retry.until) : Date.now() + ALT_RETRY_MS;
+          await writeConfig(env, ALT_RETRY_KEY, JSON.stringify({ tiers: opening, until })).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.error("تصمیمِ درِینِ هشدار شکست خورد:", err && err.message);
+  }
+  // جاروی کامل فقط وقتی دیسپچِ یک پنجره‌ی باز شکست خورد.
+  return runAlertSweep(env, new Date(), null, null, false, { lowOnly: !failed });
+}
+
+/** آیا این کار در این تیک واقعاً چیزی فرستاد؟ (خطِ ارسالِ کرانِ پنج‌دقیقه‌ای) */
+function laneSent(r) {
+  if (!r || r.skipped || r.idle) return false;
+  // throttled عمداً شمرده نمی‌شود: در خلاصه یعنی «فعلاً کسی نیست، تا
+  // بازسازیِ ساعتی صبر کن» - اگر خط را می‌بست، تا ۱۱:۰۰ هیچ کارِ دیگری
+  // نوبت نمی‌گرفت.
+  const n = (r.sent || 0) + (r.failed || 0) + (r.blocked || 0) + (r.chunk_sent || 0) + (r.chunk_failed || 0);
+  return n > 0 || !!r.stopped;
+}
+
 export default {
   async fetch(request, env) {
     if (!env.BOT_TOKEN) {
@@ -1729,6 +1878,7 @@ export default {
       url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
       url.pathname === "/admin/members" ||
+      url.pathname === "/admin/schema" ||
       url.pathname === "/admin/batch" ||
       url.pathname === "/admin/content" ||
       url.pathname === "/admin/econ-day" ||
@@ -2015,109 +2165,49 @@ export default {
         );
       }
 
-      // صفِ پیام همگانی. تبِ مرورگر ارسال را شروع می‌کند و تند پیش
-      // می‌برد، ولی اگر بسته شود این هر پنج دقیقه ادامه‌اش می‌دهد - پس
-      // هیچ ارسالی نصفه رها نمی‌ماند.
-      ctx.waitUntil(
-        ensureCrmSchema(env)
-          .then(() => drainPendingBroadcasts(env, telegramSender(env)))
-          .then((r) => {
-            if (r && !r.idle) console.log("صف پیام همگانی:", JSON.stringify(r));
-          })
-          .catch((err) => console.error("درِین صف همگانی شکست خورد:", err && err.message))
-      );
-      // ادامه‌ی خلاصه‌ی روزانه. ارسال به دو هزار نفر در یک اجرا جا
-      // نمی‌شود؛ اجرای ۷:۳۰ تکه‌ی اول را می‌فرستد و این بقیه را.
-      // اگر خلاصه‌ی امروز تمام شده باشد، با یک خواندنِ کوچک برمی‌گردد.
-      ctx.waitUntil(
-        drainDailyDigest(env)
-          .then((n) => {
-            if (n && !n.skipped && n.sent) console.log("ادامه‌ی خلاصه:", JSON.stringify(n));
-          })
-          .catch((err) => console.error("ادامه‌ی خلاصه شکست خورد:", err && err.message))
-      );
-      // اعلانِ تعطیلی، اگر امروز تعطیل باشد. روزهای عادی با یک خواندنِ
-      // کوچک برمی‌گردد، پس هزینه‌اش نزدیکِ صفر است.
-      ctx.waitUntil(
-        drainHolidayNotice(env)
-          .then((n) => {
-            if (n && !n.skipped && n.sent) console.log("اعلان تعطیلی:", JSON.stringify(n));
-          })
-          .catch((err) => console.error("اعلان تعطیلی شکست خورد:", err && err.message))
-      );
-      // هشدار قبل از خبر - و سرِ باز شدنِ هر پنجره، درِینِ موازی‌اش.
+      // ─── خطِ ارسال: یکی‌یکی، نه همه با هم ─────────────────────────
       //
-      // ─── چرا درِین اضافه شد ──────────────────────────────────────
+      // تا ۱۱ نوامبر هر کدام از این‌ها یک waitUntilِ موازی بود. همه در یک
+      // اجرای ورکر شریک‌اند - یک سقفِ ۵۰ درخواستِ بیرونی، ۵۰ کوئری و CPUِ
+      // پلنِ رایگان - و هر کدام بودجه‌ی ۴۵ پیامیِ خودش را داشت. روزی که دو
+      // تا هم‌زمان کار داشتند (مثلاً خلاصه و هشدار)، جمعشان از سقف رد
+      // می‌شد و هر دو وسطِ کار می‌ایستادند.
       //
-      // هشدار تنها پیامی بود که درِینِ موازی نداشت. اندازه‌گیریِ ۸
-      // اکتبر: ۳٬۳۸۴ مشترکِ فعال، و هر خبرِ مهم به ۵۴۰ نفر رسیده بود -
-      // سخنرانی ترامپ، صورت‌جلسه‌ی فدرال‌رزرو، سخنرانی والر، هر سه
-      // دقیقاً ۵۴۰. آن عدد ۱۲ تیکِ پنج‌دقیقه‌ای × ۴۵ پیام است، یعنی
-      // سقفِ بودجه و نه چیزِ دیگر.
+      // حالا به ترتیبِ فوریت می‌روند و اولین کاری که واقعاً چیزی فرستاد،
+      // بقیه را به تیکِ بعد می‌سپارد. هیچ‌کدام کارِ اصلیِ ارسال نیست - آن
+      // را ورک‌فلوهای گیت‌هاب با درخواست‌های جدا انجام می‌دهند - این‌ها
+      // تورِ ایمنی‌اند و یک تیک تأخیر برایشان بی‌اهمیت است.
       //
-      // بدترش ترتیب بود: پنجره‌ی ۶۰ دقیقه زودتر باز می‌شود و بودجه را
-      // می‌برد، پس ۴۱۵ نفری که «۵ دقیقه قبل» را انتخاب کرده بودند
-      // عملاً هرگز چیزی نگرفتند - و همین گزارش شد.
-      //
-      // دیسپچ فقط سرِ باز شدنِ یک پنجره انجام می‌شود،
-      // نه هر تیکی که خبری در یک‌ساعتِ پیشِ رو دارد: چهار اجرا به‌جای
-      // هشتاد، با همان نتیجه.
-      //
-      // ─── ترتیب: اول تصمیم و دیسپچ، بعد (فقط اگر لازم شد) جاروی ورکر ───
-      //
-      // ۹ اکتبر برای دو خبرِ ۱۴:۰۰ فقط پنجره‌ی ۶۰ دقیقه رفت؛ ۳۰ و ۱۵ و ۵
-      // اجرا نشد و ~۲٬۸۶۰ نفر هشدار نگرفتند. دلیل: دیسپچ بعد از
-      // runAlertSweep بود و آن جارو کلِ مشترکین را قدم می‌زند؛ کسانی که
-      // هشدارشان رفته هم یک claimِ ناموفق می‌خورند، و صدها claim سقفِ
-      // subrequest را پر می‌کرد، جارو می‌شکست، و دیسپچ هرگز نمی‌رسید.
-      //
-      // حالا تصمیم فقط از خواندنِ رویدادهاست و پیش از هر کارِ سنگین
-      // می‌آید. اگر دیسپچ گرفت، درِین کارِ ارسال را می‌کند و جاروی ورکر
-      // اصلاً اجرا نمی‌شود (هم subrequest و هم نوشتنِ بی‌خود نمی‌سوزد).
-      // جارو فقط تورِ ایمنی است: وقتی دیسپچ شکست خورد یا پنجره‌ای باز
-      // نبود، مثل قبل.
+      // هشدار اول است چون تنها پیامی است که دیر رسیدنش یعنی بی‌فایده.
+      // چرایِ شکلِ خودِ هشدار بالای alertTick نوشته شده.
+      const lane = [
+        ["هشدار قبل از خبر", () => alertTick(env)],
+        ["اطلاعیه", () => drainNotice(env)],
+        ["ادامه‌ی خلاصه", () => drainDailyDigest(env)],
+        ["اعلان تعطیلی", () => drainHolidayNotice(env)],
+        ["سلام دوشنبه", () => drainWeeklyGreeting(env)],
+        [
+          "صف پیام همگانی",
+          () => ensureCrmSchema(env).then(() => drainPendingBroadcasts(env, telegramSender(env))),
+        ],
+        ["اعلام نتیجه", () => runResultSweep(env)],
+      ];
       ctx.waitUntil(
         (async () => {
-          let dispatched = false;
-          try {
-            const opening = await alertOpeningNow(env);
-            if (opening.length > 0) {
-              // ۱۴ اکتبر هر پنجره دوبار دیسپچ شد (با ~۳۰ ثانیه فاصله) و دو
-              // دسته کارگر روی هم افتادند. یک قفلِ کوتاه (ردیفِ bot_config،
-              // INSERT OR IGNORE) فقط اولی را می‌گذراند؛ اگر دیسپچ شکست
-              // بخورد قفل برداشته می‌شود تا تیکِ بعد دوباره امتحان کند.
-              const lockKey = "econ_altdisp_" + opening.join("-") + "_" + Math.floor(Date.now() / 240000);
-              await ensureCrmSchema(env).catch(() => {});
-              let mine = true;
-              try {
-                const ins = await env.DB
-                  .prepare("INSERT OR IGNORE INTO bot_config (key, value, updated_at) VALUES (?, ?, ?)")
-                  .bind(lockKey, "1", new Date().toISOString())
-                  .run();
-                mine = (ins.meta ? ins.meta.changes || 0 : 1) > 0;
-              } catch (_) {
-                mine = true;
-              }
-              if (!mine) {
-                console.log("دیسپچِ تکراریِ هشدار رد شد:", lockKey);
-                return;
-              }
-              const r = await dispatchWorkflow(env, "econ-alert.yml");
-              dispatched = !!(r && r.ok);
-              console.log("شروعِ درِینِ هشدار:", JSON.stringify({ opening, ...r }));
-              if (!dispatched) {
-                await env.DB.prepare("DELETE FROM bot_config WHERE key = ?").bind(lockKey).run().catch(() => {});
-              }
+          for (const [name, run] of lane) {
+            let r = null;
+            try {
+              r = await run();
+            } catch (err) {
+              console.error(name + " شکست خورد:", err && err.message);
+              continue;
             }
-          } catch (err) {
-            console.error("تصمیمِ درِینِ هشدار شکست خورد:", err && err.message);
+            if (laneSent(r)) {
+              console.log(name + ":", JSON.stringify(r));
+              break;
+            }
           }
-          if (dispatched) return;
-          const n = await runAlertSweep(env);
-          if (n && !n.skipped && (n.sent || n.failed)) {
-            console.log("هشدار قبل از خبر:", JSON.stringify(n));
-          }
-        })().catch((err) => console.error("هشدار قبل از خبر شکست خورد:", err && err.message))
+        })()
       );
 
       // پایگاه دانش دستیار: اگر seed عوض شده (مثلاً نسخه‌ی تازه‌ی SSProX)
@@ -2138,24 +2228,6 @@ export default {
             if (r && r.failed) console.log("گواهیِ گیرکرده:", JSON.stringify(r));
           })
           .catch((err) => console.error("جاروی گواهی شکست خورد:", err && err.message))
-      );
-      // اطلاعیه‌ی موردی، اگر امروز یکی از روزهایش باشد.
-      ctx.waitUntil(
-        drainNotice(env)
-          .then((n) => {
-            if (n && !n.skipped && n.sent) console.log("اطلاعیه:", JSON.stringify(n));
-          })
-          .catch((err) => console.error("اطلاعیه شکست خورد:", err && err.message))
-      );
-
-      // سلامِ صبحِ دوشنبه. خودش می‌داند امروز روزش هست یا نه، و تا کلیدش
-      // روشن نشود با یک خواندنِ کوچک برمی‌گردد.
-      ctx.waitUntil(
-        drainWeeklyGreeting(env)
-          .then((n) => {
-            if (n && !n.skipped && n.sent) console.log("سلام دوشنبه:", JSON.stringify(n));
-          })
-          .catch((err) => console.error("سلام دوشنبه شکست خورد:", err && err.message))
       );
 
       // و ورک‌فلوی موازیِ سلام را هم خودمان صدا می‌زنیم.
@@ -2186,15 +2258,6 @@ export default {
           console.error("شروعِ درِینِ سلام شکست خورد:", err && err.message)
         )
       );
-      ctx.waitUntil(
-        runResultSweep(env)
-          .then((n) => {
-            if (n && !n.skipped && (n.sent || n.failed)) {
-              console.log("اعلام نتیجه:", JSON.stringify(n));
-            }
-          })
-          .catch((err) => console.error("اعلام نتیجه شکست خورد:", err && err.message))
-      );
       return;
     }
 
@@ -2204,6 +2267,16 @@ export default {
     // می‌کند، پس این کشیدن نه‌تنها لازم نیست، بلکه می‌تواند داده‌ی تازه‌تر
     // را با نسخه‌ی کهنه‌ی n8n بازنویسی کند. تابعش می‌ماند و از
     // /admin/sync دستی قابل اجراست.
+
+    // جدول‌ها، فقط اگر کدِ تازه طرحِ تازه‌ای آورده باشد (schemaGate.js).
+    // روزِ عادی یک خواندنِ یک‌ردیفی برای هر ایزوله است.
+    ctx.waitUntil(
+      ensureAllSchemas(env)
+        .then((r) => {
+          if (r && r.built) console.log("طرحِ جدول‌ها ساخته شد:", JSON.stringify(r));
+        })
+        .catch((err) => console.error("ساختِ طرحِ جدول‌ها شکست خورد:", err && err.message))
+    );
 
     // تلاش دوباره برای لیدهایی که موقع ثبت نتوانستند به CRM برسند. این
     // چیزی است که قطعی n8n را از «مشتری از دست رفت» به «مشتری چند دقیقه

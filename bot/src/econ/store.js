@@ -11,6 +11,7 @@ import { ensureKbSchema, replaceKb } from "../ai/kb.js";
 import { importSubscribers } from "./subscribers.js";
 import { ingestEnabled } from "./ingest.js";
 import { cached, invalidate } from "../cache.js";
+import { defineSchema, addMissingColumns } from "../schemaGate.js";
 
 // سه خواندنِ زیر پشتِ کش می‌روند و این مهم‌ترین تغییرِ مصرفِ این فایل
 // است. هر سه کلِ جدولشان را بی‌هیچ WHERE می‌خوانند - چون نماها به همه‌ی
@@ -69,16 +70,10 @@ const ADD_COLUMNS = [
   `ALTER TABLE econ_events ADD COLUMN previous_before TEXT`,
 ];
 
-export async function ensureSchema(env) {
+export const ensureSchema = defineSchema("econ", [...DDL, ...ADD_COLUMNS], async (env) => {
   await env.DB.batch(DDL.map((sql) => env.DB.prepare(sql)));
-  for (const sql of ADD_COLUMNS) {
-    try {
-      await env.DB.prepare(sql).run();
-    } catch (err) {
-      if (!/duplicate column/i.test(String(err && err.message))) throw err;
-    }
-  }
-}
+  await addMissingColumns(env, ADD_COLUMNS);
+});
 
 // پیش از اولین همگام‌سازی موفق، جدول‌ها هنوز وجود ندارند. این حالت خطا
 // نیست - یعنی «هنوز داده‌ای نداریم» - و باید همان‌طور خوانده شود، وگرنه

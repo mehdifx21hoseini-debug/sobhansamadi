@@ -23,6 +23,7 @@ import { parseLevels, serializeLevels } from "./levels.js";
 import { buildTodayMarkdown, buildAlertMarkdown } from "./views.js";
 import {
   listActiveSubscribers,
+  listActiveSubscribersWithLow,
   listActiveSubscribersPage,
   dayColumn,
   claimDay,
@@ -46,6 +47,7 @@ import {
   toPersianDigits,
   formatJalaliDate,
 } from "./format.js";
+import { defineSchema } from "../schemaGate.js";
 
 // ─── کلید روشن/خاموش ────────────────────────────────────────────────
 //
@@ -130,9 +132,9 @@ const SENT_DDL = [
   `CREATE INDEX IF NOT EXISTS idx_econ_sent_at ON econ_sent_log(sent_at)`,
 ];
 
-export async function ensureSentSchema(env) {
+export const ensureSentSchema = defineSchema("econ_sent_log", SENT_DDL, async (env) => {
   for (const sql of SENT_DDL) await env.DB.prepare(sql).run();
-}
+});
 
 /**
  * اگر قبلاً فرستاده نشده، ثبتش می‌کند و true برمی‌گرداند.
@@ -171,6 +173,41 @@ async function unclaim(env, kind, ref, userId) {
 }
 
 /**
+ * claimِ چند نفر با یک کوئری (db.batch را D1 یک کوئری می‌شمارد).
+ * @param {{ref: string, uid: string}[]} pairs
+ * @returns {Promise<boolean[]>} برای هر جفت: آیا همین حالا ثبت شد
+ */
+async function claimMany(env, kind, pairs) {
+  if (!pairs.length) return [];
+  const iso = new Date().toISOString();
+  const res = await env.DB.batch(
+    pairs.map((x) =>
+      env.DB
+        .prepare(
+          `INSERT OR IGNORE INTO econ_sent_log (kind, ref, telegram_user_id, sent_at)
+           VALUES (?, ?, ?, ?)`
+        )
+        .bind(kind, String(x.ref), String(x.uid), iso)
+    )
+  );
+  return pairs.map((_, i) => {
+    const r = res && res[i];
+    return (r && r.meta ? r.meta.changes || 0 : 0) > 0;
+  });
+}
+
+async function unclaimMany(env, kind, pairs) {
+  if (!pairs.length) return;
+  await env.DB.batch(
+    pairs.map((x) =>
+      env.DB
+        .prepare(`DELETE FROM econ_sent_log WHERE kind = ? AND ref = ? AND telegram_user_id = ?`)
+        .bind(String(kind), String(x.ref), String(x.uid))
+    )
+  );
+}
+
+/**
  * سقفِ درخواستِ بیرونی در هر اجرای ورکر.
  *
  * پلنِ رایگانِ کلادفلر حدود ۵۰ subrequest به هر اجرا می‌دهد و هر پیامِ
@@ -180,8 +217,16 @@ async function unclaim(env, kind, ref, userId) {
  *
  * ۴۵ و نه ۵۰: چند subrequest برای خودِ D1 و خطاهای احتمالی کنار گذاشته
  * می‌شود.
+ *
+ * ۱۱ نوامبر ۴۵ → ۳۰، برای برگشت به پلنِ رایگان. سقفِ ۵۰ تنها سقف نیست:
+ * پلنِ رایگان حدودِ ۱۰ میلی‌ثانیه CPU به هر اجرا می‌دهد و هر پیام
+ * (ساختنِ درخواست، خواندنِ پاسخ) سهمی از آن دارد - آمارِ کلادفلر برای
+ * درخواست‌های ورک‌فلو p90 حدودِ ۴۴ میلی‌ثانیه نشان می‌داد. دورِ کوچک‌تر
+ * یعنی هر اجرا سبک‌تر؛ تعدادِ کلِ پیام‌ها و سرعتِ کل (که سقفِ تلگرام
+ * تعیینش می‌کند) عوض نمی‌شود، فقط دورها بیشتر می‌شوند. جا هم برای
+ * تکرارِ ۴۲۹ و پیام‌های چندتکه باز می‌ماند.
  */
-const SEND_BUDGET = 45;
+const SEND_BUDGET = 30;
 
 /**
  * بلندترین فاصله‌ای که کاربر می‌تواند برای هشدار انتخاب کند.
@@ -1727,7 +1772,13 @@ const ALERT_PAGE = 120;
  * پاک کردنش هم جایی ندارد. با نشانگرِ داخلِ پاسخ، هر دورِ درِین یک
  * پیمایشِ کاملِ تازه است و هیچ حالتی برای پاک کردن نمی‌ماند.
  */
-export async function runAlertSweep(env, now = new Date(), shard = null, after = null, dry = false) {
+/**
+ * @param {{lowOnly?: boolean}} [opts] lowOnly: فقط خبرهای «کم‌اهمیت» و فقط
+ *   مشترکینی که آن را روشن کرده‌اند - برای کرانِ ورکر، وقتی «مهم» و «خیلی
+ *   مهم» را درِینِ ورک‌فلو می‌فرستد. چرایش بالای alertTick در worker.js.
+ */
+export async function runAlertSweep(env, now = new Date(), shard = null, after = null, dry = false, opts = {}) {
+  const lowOnly = !!(opts && opts.lowOnly);
   if (!(await senderEnabled(env))) return { skipped: "خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
   if (isWeekend(now)) return { skipped: "آخر هفته" };
@@ -1735,10 +1786,11 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
   await ensureSentSchema(env);
   // هشدار حداکثر یک ساعت جلوتر را می‌بیند (بلندترین گزینه ۶۰ دقیقه است)،
   // پس سه روز بیش از کافی است.
-  const [events, labelRows] = await Promise.all([
+  const [allEvents, labelRows] = await Promise.all([
     readEventsRange(env, dayOffset(-1), dayOffset(1)),
     readLabels(env),
   ]);
+  const events = lowOnly ? allEvents.filter((e) => e.importance === "low") : allEvents;
   if (events.length === 0) return { sent: 0, failed: 0, blocked: 0 };
 
   // فهرستِ مشترکین فقط وقتی خوانده می‌شود که واقعاً خبری در راه باشد.
@@ -1768,7 +1820,9 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
   const paged = !!shard || (after !== null && after !== undefined);
   const subs = paged
     ? await listActiveSubscribersPage(env, ALERT_PAGE, shard, after || null)
-    : await listActiveSubscribers(env);
+    : lowOnly
+      ? await listActiveSubscribersWithLow(env)
+      : await listActiveSubscribers(env);
 
   const stats = { sent: 0, failed: 0, blocked: 0 };
   let budget = SEND_BUDGET;
@@ -1783,99 +1837,121 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
 
   let wouldSend = 0;
 
-  for (const s of subs) {
+  // ─── اول: چه کسانی موعدشان رسیده (فقط حساب، بی‌کوئری) ─────────────
+  //
+  // claim به‌ازای «لحظه‌ی خبر» است، نه هر خبر. ۱۵ اکتبر شش خبر هم‌زمان
+  // (۱۲:۳۰) برای هر نفر شش ردیفِ دفتر می‌ساخت - هر ردیف سه نوشتن (جدول،
+  // کلیدِ اصلی، ایندکسِ sent_at) - و نوشتنِ روز به ۱۲۳٬۸۲۴ رسید. حالا
+  // خبرهای هم‌زمان یک ردیف دارند و یک پیام می‌روند، همان‌طور که قبلاً هم
+  // یک پیامِ تجمیعی می‌رفت. اگر لحظه‌ای که قبلاً claim شده خبرِ تازه‌ای
+  // بگیرد، آن خبر نمی‌رود (کم‌فرستادن، نه دوباره‌فرستادن).
+  const dueList = [];
+  for (let k = 0; k < subs.length; k++) {
+    const s = subs[k];
     const due = dueEvents(events, s);
-    // اجرای خشک: فقط می‌شمارد و نشانگر را جلو می‌برد. نه claim، نه
-    // ارسال، نه هیچ نوشتنی.
-    if (dry) {
-      if (due.length > 0) wouldSend++;
-      cursor = s.telegram_user_id;
-      looked++;
-      continue;
-    }
-    if (due.length === 0) {
-      cursor = s.telegram_user_id;
-      looked++;
-      continue;
-    }
-
-    // بودجه که تمام شد، بقیه دست‌نخورده می‌مانند: هنوز چیزی claim نشده،
-    // پس اجرای پنج دقیقه‌ی بعد - یا دورِ بعدِ درِین - دقیقاً از همین‌جا
-    // ادامه می‌دهد. نشانگر عمداً جلو نمی‌رود.
-    if (budget <= 0) {
-      stopped = true;
-      break;
-    }
-
-    // فقط خبرهایی که هنوز برای این کاربر نرفته‌اند. claim پیش از ارسال
-    // انجام می‌شود - دلیلش بالای claim نوشته است.
-    //
-    // claim به‌ازای «لحظه‌ی خبر» است، نه هر خبر. ۱۵ اکتبر شش خبر هم‌زمان
-    // (۱۲:۳۰) برای هر نفر شش ردیفِ دفتر می‌ساخت - هر ردیف سه نوشتن (جدول،
-    // کلیدِ اصلی، ایندکسِ sent_at) - و نوشتنِ روز به ۱۲۳٬۸۲۴ رسید. حالا
-    // خبرهای هم‌زمان یک ردیف دارند و یک پیام می‌روند، همان‌طور که قبلاً هم
-    // یک پیامِ تجمیعی می‌رفت. اگر لحظه‌ای که قبلاً claim شده خبرِ تازه‌ای
-    // بگیرد، آن خبر نمی‌رود (کم‌فرستادن، نه دوباره‌فرستادن).
+    if (due.length === 0) continue;
     const groups = new Map();
     for (const e of due) {
       const g = alertGroupRef(e);
       if (!groups.has(g)) groups.set(g, []);
       groups.get(g).push(e);
     }
-    const fresh = [];
-    const claimed = [];
-    for (const [g, evs] of groups) {
-      if (await claim(env, "alert", g, s.telegram_user_id)) {
-        claimed.push(g);
-        fresh.push(...evs);
-      }
-    }
-    if (fresh.length === 0) {
-      cursor = s.telegram_user_id;
-      looked++;
-      continue;
-    }
+    dueList.push({ k, s, groups });
+  }
 
-    budget--;
-    const markdown = buildAlertMarkdown(fresh, labelRows);
-    const keyboard = alertKeyboard(fresh);
-    let r;
-    try {
-      r = await tg(env, "sendRichMessage", {
-        chat_id: s.chat_id,
-        rich_message: { markdown },
-        reply_markup: keyboard,
+  if (dry) {
+    wouldSend = dueList.length;
+    if (subs.length) cursor = subs[subs.length - 1].telegram_user_id;
+    looked = subs.length;
+  } else {
+    // ─── بعد: claim دسته‌ای، و ارسال به همان ترتیب ───────────────────
+    //
+    // claim هنوز پیش از ارسال است (دلیلش بالای claim). ولی دیگر یک کوئری
+    // برای هر نفر نیست: هر دسته - به اندازه‌ی بودجه‌ی باقی‌مانده - یک
+    // db.batch است و D1 آن را یک کوئری می‌شمارد. پلنِ رایگان ۵۰ کوئری در
+    // هر اجرا می‌دهد؛ با claimِ تک‌به‌تک، سی پیام یعنی سی کوئری فقط برای
+    // ثبت، و کسانی که قبلاً گرفته بودند هم هر کدام یکی می‌خوردند.
+    //
+    // سقفِ تعدادِ دسته‌ها همان سقفِ کوئری است: اگر بیشترِ موعدرسیده‌ها
+    // قبلاً گرفته باشند، چهار دسته که شد می‌ایستیم و نشانگر همان‌جا
+    // می‌ماند.
+    const MAX_CLAIM_BATCHES = 4;
+    let batches = 0;
+    let p = 0;
+    outer: while (p < dueList.length) {
+      // بودجه که تمام شد، بقیه دست‌نخورده می‌مانند: هنوز چیزی claim نشده،
+      // پس اجرای پنج دقیقه‌ی بعد - یا دورِ بعدِ درِین - دقیقاً از همین‌جا
+      // ادامه می‌دهد. نشانگر عمداً جلو نمی‌رود.
+      if (budget <= 0 || batches >= MAX_CLAIM_BATCHES) {
+        stopped = true;
+        break;
+      }
+      batches++;
+      const slice = dueList.slice(p, p + budget);
+      const pairs = [];
+      for (const d of slice) for (const g of d.groups.keys()) pairs.push({ d, g });
+      const got = await claimMany(env, "alert", pairs.map((x) => ({ ref: x.g, uid: x.d.s.telegram_user_id })));
+      for (const d of slice) d.claimed = [];
+      pairs.forEach((x, i) => {
+        if (got[i]) x.d.claimed.push(x.g);
       });
-      // sendRichMessage متدی غیرمستند است. اگر روزی برداشته شود، هشدارها
-      // بی‌صدا قطع می‌شدند - و هشدارِ نرسیده بدترین خرابیِ این رباتست. پس
-      // متنِ ساده پشتِ سرش می‌ایستد.
-      if (!r.ok && !r.blocked) {
-        r = await tg(env, "sendMessage", {
-          chat_id: s.chat_id,
-          text: buildAlertText(fresh, now),
-          reply_markup: keyboard,
-        });
+
+      for (let i = 0; i < slice.length; i++) {
+        const d = slice[i];
+        const s = d.s;
+        const fresh = [];
+        for (const g of d.claimed) fresh.push(...d.groups.get(g));
+        if (fresh.length === 0) {
+          p++;
+          continue;
+        }
+        budget--;
+        const markdown = buildAlertMarkdown(fresh, labelRows);
+        const keyboard = alertKeyboard(fresh);
+        let r;
+        try {
+          r = await tg(env, "sendRichMessage", {
+            chat_id: s.chat_id,
+            rich_message: { markdown },
+            reply_markup: keyboard,
+          });
+          // sendRichMessage متدی غیرمستند است. اگر روزی برداشته شود، هشدارها
+          // بی‌صدا قطع می‌شدند - و هشدارِ نرسیده بدترین خرابیِ این رباتست. پس
+          // متنِ ساده پشتِ سرش می‌ایستد.
+          if (!r.ok && !r.blocked) {
+            r = await tg(env, "sendMessage", {
+              chat_id: s.chat_id,
+              text: buildAlertText(fresh, now),
+              reply_markup: keyboard,
+            });
+          }
+        } catch {
+          // این نفر و بقیه‌ی دسته هنوز پیامی نگرفته‌اند: claimشان پس گرفته
+          // می‌شود و نشانگر عمداً جلو نمی‌رود، تا دورِ بعد دوباره سراغشان
+          // برود.
+          const back = [];
+          for (const rest of slice.slice(i)) {
+            for (const g of rest.claimed || []) back.push({ ref: g, uid: rest.s.telegram_user_id });
+          }
+          await unclaimMany(env, "alert", back).catch(() => {});
+          stopped = true;
+          break outer;
+        }
+        p++;
+        if (r.ok) {
+          stats.sent++;
+          grouped += fresh.length;
+        } else if (r.blocked) {
+          stats.blocked++;
+          await markBlocked(env, s.telegram_user_id);
+        } else stats.failed++;
       }
-    } catch {
-      for (const g of claimed) {
-        await unclaim(env, "alert", g, s.telegram_user_id).catch(() => {});
-      }
-      // نشانگر عمداً جلو نمی‌رود: این نفر هنوز پیامی نگرفته و دورِ بعد
-      // باید دوباره سراغش برود.
-      stopped = true;
-      break;
     }
-
-    cursor = s.telegram_user_id;
-    looked++;
-
-    if (r.ok) {
-      stats.sent++;
-      grouped += fresh.length;
-    } else if (r.blocked) {
-      stats.blocked++;
-      await markBlocked(env, s.telegram_user_id);
-    } else stats.failed++;
+    // نشانگر: آخرین مشترکی که **نگاه** شد، یعنی هر کسی پیش از اولین
+    // موعدرسیده‌ای که هنوز به او نرسیده‌ایم.
+    const stopAt = p < dueList.length ? dueList[p].k : subs.length;
+    if (stopAt > 0) cursor = subs[stopAt - 1].telegram_user_id;
+    looked = stopAt;
   }
 
   // «تمام شد» یعنی صفحه تا آخر خوانده شد و از آن کوتاه‌تر هم بود - یعنی
@@ -1893,7 +1969,7 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
     // اینجا برمی‌گردد و نه در خودِ کران، تا جدولِ رویدادها دو بار
     // خوانده نشود: کران و این تابع هم‌زمان اجرا می‌شوند و ممکن است هر
     // دو کش را از دست بدهند.
-    ...(paged ? { cursor, looked, page: subs.length, done } : { opening: alertTiersOpening(events) }),
+    ...(paged ? { cursor, looked, page: subs.length, done } : { opening: alertTiersOpening(allEvents) }),
   };
 }
 

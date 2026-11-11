@@ -144,7 +144,7 @@ function fakeDb({ events = [], subs = [], config = {}, failSendAt = -1 } = {}) {
       };
       return st;
     },
-    async batch(list) { return list.map(() => ({ meta: { changes: 0 } })); },
+    async batch(list) { const out = []; for (const st of list) out.push(await st.run()); return out; },
   };
   return db;
 }
@@ -254,8 +254,8 @@ clearAll();
 
 // ─── ۴) ولی از کسی که بودجه نرسیده جلو نمی‌رود ──────────────────
 //
-// بودجه ۴۵ است. پنجاه مشترکِ موعد‌رسیده یعنی پنج نفر باید برای دورِ
-// بعد بمانند - و نشانگر باید دقیقاً روی چهل‌وپنجمی بایستد.
+// بودجه ۳۰ است (تا ۱۱ نوامبر ۴۵ بود). پنجاه مشترکِ موعد‌رسیده یعنی بیست
+// نفر باید برای دورِ بعد بمانند - و نشانگر باید دقیقاً روی سی‌امی بایستد.
 clearAll();
 {
   const subs = [];
@@ -266,13 +266,13 @@ clearAll();
   const env = { DB: db, BOT_TOKEN: "x" };
 
   const r1 = await runAlertSweep(env, WEEKDAY, null, "");
-  ok(r1.sent === 45, "بودجه‌ی یک دور ۴۵ پیام است", r1);
+  ok(r1.sent === 30, "بودجه‌ی یک دور ۳۰ پیام است", r1);
   ok(r1.throttled === true, "و دور با بودجه‌ی تمام‌شده می‌ایستد", r1);
   ok(r1.done !== true, "پس «تمام شد» نمی‌گوید", r1);
-  ok(r1.cursor === "2045", "نشانگر روی آخرین نفرِ فرستاده‌شده است، نه جلوتر", r1);
+  ok(r1.cursor === "2030", "نشانگر روی آخرین نفرِ فرستاده‌شده است، نه جلوتر", r1);
 
   const r2 = await runAlertSweep(env, WEEKDAY, null, r1.cursor);
-  ok(r2.sent === 5, "دورِ دوم همان پنج نفرِ جامانده را می‌فرستد", r2);
+  ok(r2.sent === 20, "دورِ دوم همان بیست نفرِ جامانده را می‌فرستد", r2);
   ok(new Set(log).size === 50, "و در کلِ دو دور، هر پنجاه نفر دقیقاً یک پیام", log.length);
   ok(r2.done === true, "و حالا تمام شد", r2);
 }
