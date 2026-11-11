@@ -20,6 +20,10 @@ on:
         description: "How many hours back $s starts"
         required: false
         default: "24"
+      jq:
+        description: "jq filter applied to the response (default: .)"
+        required: false
+        default: "."
 
 permissions: {}
 
@@ -35,6 +39,7 @@ jobs:
           ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           Q: ${{ inputs.query }}
           HOURS: ${{ inputs.hours }}
+          JQF: ${{ inputs.jq }}
         run: |
           set -u
           TOKEN="${ANALYTICS_TOKEN:-$FALLBACK_TOKEN}"
@@ -53,4 +58,4 @@ jobs:
           curl -sS -X POST https://api.cloudflare.com/client/v4/graphql \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
-            --data "$BODY" | mask | jq .
+            --data "$BODY" | mask | jq -r "${JQF:-.}"
