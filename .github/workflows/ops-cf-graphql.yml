@@ -20,6 +20,10 @@ on:
         description: "How many hours back $s starts"
         required: false
         default: "24"
+      rest:
+        description: "Instead of GraphQL: REST path under /accounts/<id>/ (POST with the query input as JSON body)"
+        required: false
+        default: ""
       jq:
         description: "jq filter applied to the response (default: .)"
         required: false
@@ -40,6 +44,7 @@ jobs:
           Q: ${{ inputs.query }}
           HOURS: ${{ inputs.hours }}
           JQF: ${{ inputs.jq }}
+          REST: ${{ inputs.rest }}
         run: |
           set -u
           TOKEN="${ANALYTICS_TOKEN:-$FALLBACK_TOKEN}"
@@ -54,6 +59,19 @@ jobs:
           VARS=$(jq -nc --arg a "$ACCOUNT" --arg s "$S" --arg u "$U" --arg sd "$SD" --arg ud "$UD" --arg q "$Q" '
             {a:$a, s:$s, u:$u, sd:$sd, ud:$ud}
             | with_entries(select(.key as $k | $q | test("\\$" + $k + "\\b")))')
+          if [ -n "$REST" ]; then
+            case "$REST" in *..*|/*) echo "::error::مسیرِ نامعتبر"; exit 1 ;; esac
+            # بدنه‌ی REST متغیرِ GraphQL ندارد؛ جای‌گذاری با نشانه‌های ثابت:
+            # __S__ و __U__ (ISO)، __SMS__ و __UMS__ (میلی‌ثانیه).
+            SMS=$(( $(date -u -d "$S" +%s) * 1000 ))
+            UMS=$(( $(date -u -d "$U" +%s) * 1000 ))
+            BODY=$(printf '%s' "$Q" | sed -e "s/__SMS__/$SMS/g; s/__UMS__/$UMS/g; s/__S__/$S/g; s/__U__/$U/g")
+            curl -sS -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/$REST" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$BODY" | mask | jq -r "${JQF:-.}"
+            exit 0
+          fi
           BODY=$(jq -nc --arg q "$Q" --argjson v "$VARS" '{query:$q, variables:$v}')
           curl -sS -X POST https://api.cloudflare.com/client/v4/graphql \
             -H "Authorization: Bearer $TOKEN" \
