@@ -1,0 +1,56 @@
+# یک پرسشِ دلخواه از API تحلیلِ کلادفلر - فقط خواندن.
+#
+# چرا جدا از ops-cf-usage: آن یکی گزارشِ ثابتِ روزانه است. این یکی برای
+# وقتی است که سؤالِ تازه‌ای پیش می‌آید (مثلاً «کدام نوع درخواست CPU
+# بیشتری می‌برد؟») و نمی‌خواهیم برای هر سؤال گزارشِ روزانه را عوض کنیم.
+#
+# متغیرهای آماده داخلِ پرسش: $a (شناسه‌ی حساب)، $s و $u (زمانِ شروع و
+# پایان، ISO)، $sd و $ud (همان‌ها به شکلِ تاریخ). فقط متغیرهایی فرستاده
+# می‌شوند که در متنِ پرسش آمده‌اند، چون کلادفلر متغیرِ اعلام‌نشده را رد
+# می‌کند.
+name: Ops CF GraphQL
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "GraphQL query (may use $a, $s, $u, $sd, $ud)"
+        required: true
+      hours:
+        description: "How many hours back $s starts"
+        required: false
+        default: "24"
+
+permissions: {}
+
+jobs:
+  ask:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the Cloudflare analytics API
+        env:
+          ANALYTICS_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          Q: ${{ inputs.query }}
+          HOURS: ${{ inputs.hours }}
+        run: |
+          set -u
+          TOKEN="${ANALYTICS_TOKEN:-$FALLBACK_TOKEN}"
+          test -n "$TOKEN" || { echo "::error::هیچ توکنی تنظیم نشده"; exit 1; }
+          case "$HOURS" in ''|*[!0-9]*) HOURS=24 ;; esac
+          S=$(date -u -d "$HOURS hours ago" +%Y-%m-%dT%H:%M:%SZ)
+          U=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          SD=${S:0:10}
+          UD=${U:0:10}
+          echo "بازه: $S تا $U"
+          mask() { sed -E "s/$ACCOUNT/<حساب>/g; s/[A-Za-z0-9_-]{30,}/<پنهان>/g"; }
+          VARS=$(jq -nc --arg a "$ACCOUNT" --arg s "$S" --arg u "$U" --arg sd "$SD" --arg ud "$UD" --arg q "$Q" '
+            {a:$a, s:$s, u:$u, sd:$sd, ud:$ud}
+            | with_entries(select(.key as $k | $q | test("\\$" + $k + "\\b")))')
+          BODY=$(jq -nc --arg q "$Q" --argjson v "$VARS" '{query:$q, variables:$v}')
+          curl -sS -X POST https://api.cloudflare.com/client/v4/graphql \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$BODY" | mask | jq .
