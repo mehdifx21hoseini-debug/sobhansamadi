@@ -24,6 +24,10 @@ on:
         description: "Instead of GraphQL: REST path under /accounts/<id>/ (POST with the query input as JSON body)"
         required: false
         default: ""
+      verb:
+        description: "HTTP method for rest (POST or GET; GET ignores the query input)"
+        required: false
+        default: "POST"
       jq:
         description: "jq filter applied to the response (default: .)"
         required: false
@@ -45,6 +49,7 @@ jobs:
           HOURS: ${{ inputs.hours }}
           JQF: ${{ inputs.jq }}
           REST: ${{ inputs.rest }}
+          VERB: ${{ inputs.verb }}
         run: |
           set -u
           TOKEN="${ANALYTICS_TOKEN:-$FALLBACK_TOKEN}"
@@ -61,6 +66,12 @@ jobs:
             | with_entries(select(.key as $k | $q | test("\\$" + $k + "\\b")))')
           if [ -n "$REST" ]; then
             case "$REST" in *..*|/*) echo "::error::مسیرِ نامعتبر"; exit 1 ;; esac
+            # فقط خواندن: GET بی‌بدنه. (POSTِ بالا هم فقط برای پرسش‌هاست.)
+            if [ "${VERB:-POST}" = "GET" ]; then
+              curl -sS "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/$REST" \
+                -H "Authorization: Bearer $TOKEN" | mask | jq -r "${JQF:-.}"
+              exit 0
+            fi
             # بدنه‌ی REST متغیرِ GraphQL ندارد؛ جای‌گذاری با نشانه‌های ثابت:
             # __S__ و __U__ (ISO)، __SMS__ و __UMS__ (میلی‌ثانیه).
             SMS=$(( $(date -u -d "$S" +%s) * 1000 ))
