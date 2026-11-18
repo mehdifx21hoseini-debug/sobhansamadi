@@ -1,3 +1,5 @@
+import { LIVE_PAYLOAD, LIVE_START, LIVE_END, LIVE_TEXT, liveCampaignActive } from "./liveTradeCampaign.js";
+import { getLinks as campaignLinks } from "./content/botLinks.js";
 import { webhookCallback } from "grammy";
 import { createBot } from "./bot.js";
 import { syncFromN8n, readSyncState, readEventsRange, dayOffset } from "./econ/store.js";
@@ -133,7 +135,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-100";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-101";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -978,6 +980,16 @@ async function handleAdmin(request, url, env) {
    * از این پیام اثر نمی‌گیرد و هیچ‌کس به‌خاطرِ پیش‌نمایش از قلم
    * نمی‌افتد.
    */
+  if (url.pathname === "/admin/live-trade-campaign") {
+    const me = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/getMe").then((r) => r.json());
+    if (!me.ok) return json({ ok: false, error: "getMe failed" }, 502);
+    const links = await campaignLinks(env);
+    return json({ ok: true, build: BUILD, active: liveCampaignActive(),
+      starts_at: LIVE_START, expires_at: LIVE_END, text: LIVE_TEXT,
+      channel: links.TG_CHANNEL,
+      link: "https://t.me/" + me.result.username + "?start=" + LIVE_PAYLOAD });
+  }
+
   if (url.pathname === "/admin/notice-preview") {
     if (!env.BOT_TOKEN) return json({ ok: false, error: "BOT_TOKEN تنظیم نشده" }, 503);
     // Explicit text previews always target the registered owner only.
@@ -1899,6 +1911,7 @@ export default {
       url.pathname === "/admin/econ-greet-drain" ||
       url.pathname === "/admin/econ-notice" ||
       url.pathname === "/admin/econ-notice-drain" ||
+      url.pathname === "/admin/live-trade-campaign" ||
       url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
       url.pathname === "/admin/members" ||
