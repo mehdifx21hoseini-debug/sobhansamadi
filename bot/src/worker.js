@@ -133,7 +133,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-99";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-100";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -980,6 +980,30 @@ async function handleAdmin(request, url, env) {
    */
   if (url.pathname === "/admin/notice-preview") {
     if (!env.BOT_TOKEN) return json({ ok: false, error: "BOT_TOKEN تنظیم نشده" }, 503);
+    // Explicit text previews always target the registered owner only.
+    // They bypass dated notices, buttons, forwarding, and all audience queues.
+    if (url.searchParams.has("text")) {
+      const text = url.searchParams.get("text");
+      if (!text || text.length > 4096 || url.searchParams.has("link")) {
+        return json({ ok: false, error: "Invalid preview text" }, 400);
+      }
+      try {
+        const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: OWNER_ID, text }),
+        });
+        const body = await res.json();
+        return json({
+          ok: !!(body && body.ok), build: BUILD, to: OWNER_ID,
+          message_id: body && body.ok ? body.result.message_id : null,
+          chars: text.length,
+          error: body && body.ok ? null : (body && body.description) || "Unknown response",
+        }, body && body.ok ? 200 : 502);
+      } catch {
+        return json({ ok: false, error: "Telegram preview request failed" }, 502);
+      }
+    }
     const ref = (url.searchParams.get("date") || digestRef()).slice(0, 10);
     // فوروارد از کانال: یا لینکِ مستقیم (?link=...) برای آزمودنِ یک پست
     // پیش از گذاشتنش در notices.js، یا اطلاعیه‌ی فورواردیِ آن روز. فقط به
