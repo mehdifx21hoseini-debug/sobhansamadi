@@ -1,3 +1,4 @@
+import { prepareLiveTradeEntry, sendLiveTradeWelcome } from "./liveTradeCampaign.js";
 import { InlineKeyboard } from "grammy";
 import { handleStart } from "./commands/start.js";
 import { isOwner, isCertAdmin } from "./owner.js";
@@ -38,7 +39,7 @@ function isInsideChannel(result) {
   return false;
 }
 
-async function isChannelMember(api, env, userId) {
+async function isChannelMember(api, env, userId, strict = false) {
   try {
     const channel = await gateChannel(env);
     return isInsideChannel(await api.getChatMember(channel, userId));
@@ -47,7 +48,7 @@ async function isChannelMember(api, env, userId) {
     // اگر خود API خطا داد، کاربر را مسدود نمی‌کنیم: یک اختلال موقت در
     // تلگرام - یا افتادن ربات از ادمینیِ کانال - نباید کل ربات را برای
     // همه ببندد.
-    return true;
+    return !strict;
   }
 }
 
@@ -81,17 +82,21 @@ export function membershipGate() {
       return next();
     }
 
+    const liveEntry = await prepareLiveTradeEntry(ctx);
     const isRetryCallback = ctx.callbackQuery?.data === "CHECK_MEMBERSHIP";
-    const member = await isChannelMember(ctx.api, ctx.env, userId);
+    const member = await isChannelMember(ctx.api, ctx.env, userId, liveEntry);
 
     if (member) {
       if (isRetryCallback) {
         // تایید موفق عضویت مستقیم می‌رود به منوی اصلی.
         await ctx.answerCallbackQuery();
         await handleStart(ctx);
+        if (liveEntry) await sendLiveTradeWelcome(ctx);
         return;
       }
-      return next();
+      await next();
+      if (liveEntry) await sendLiveTradeWelcome(ctx);
+      return;
     }
 
     if (isRetryCallback) {
