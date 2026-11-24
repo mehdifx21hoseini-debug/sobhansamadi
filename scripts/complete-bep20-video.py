@@ -75,6 +75,7 @@ def drive(api=request, *, budget=6000, clock=time.monotonic, sleep=time.sleep):
             print('COMPLETE', json.dumps(video), flush=True)
             return True
         if not api('/admin/econ-notice')['notice']['enabled']:
+            (OUT / 'paused').write_text('yes')
             print('Campaign is paused; no message will be sent.', flush=True)
             return False
         print('PROGRESS', json.dumps(video), flush=True)
@@ -86,6 +87,7 @@ def drive(api=request, *, budget=6000, clock=time.monotonic, sleep=time.sleep):
             sleep(15)
             continue
         if result.get('skipped'):
+            (OUT / 'paused').write_text('yes')
             print('Campaign not sending:', result['skipped'], flush=True)
             return False
         wait = max(0, int(result.get('retry_after') or 0))
