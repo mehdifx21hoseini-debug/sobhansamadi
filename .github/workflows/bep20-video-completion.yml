@@ -15,6 +15,15 @@ jobs:
     timeout-minutes: 115
     steps:
       - uses: actions/checkout@v4
+      - name: Verify authenticated access to saved delivery ledger
+        env:
+          WORKER_ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+        run: |
+          python - <<'PYTHON'
+          import json, runpy
+          module = runpy.run_path('scripts/complete-bep20-video.py')
+          print(json.dumps(module['request'](module['VIDEO'])['batch']))
+          PYTHON
       - name: Continue fixed video audience and write report
         env:
           WORKER_ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}

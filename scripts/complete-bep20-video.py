@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import time
-import urllib.request
+import subprocess
 
 VIDEO = '/admin/batch?kind=notice&ref=2026-11-24-bep20-video'
 TEXT = '/admin/batch?kind=notice&ref=2026-11-24-bep20-text'
@@ -12,13 +12,18 @@ OUT = Path('broadcast-report')
 
 
 def request(path):
-    req = urllib.request.Request('https://sobhansamadi.mehdifx21hoseini.workers.dev' + path,
-                                 headers={'x-admin-key': os.environ['WORKER_ADMIN_KEY']})
+    # Match the established ops-probe transport; pass the credential via stdin.
+    url = 'https://sobhansamadi.mehdifx21hoseini.workers.dev' + path
+    config = 'url = ' + json.dumps(url) + '\nheader = ' + json.dumps('x-admin-key: ' + os.environ['WORKER_ADMIN_KEY']) + '\n'
     attempts = 1 if '/econ-notice-drain' in path else 3
     for attempt in range(attempts):
         try:
-            with urllib.request.urlopen(req, timeout=150) as response:
-                return json.load(response)
+            result = subprocess.run(['curl', '--silent', '--show-error', '--fail-with-body',
+                                     '--max-time', '150', '--config', '-'],
+                                    input=config, text=True, capture_output=True, timeout=160)
+            if result.returncode:
+                raise RuntimeError('Worker request failed, curl code ' + str(result.returncode))
+            return json.loads(result.stdout)
         except Exception:
             if attempt == attempts - 1:
                 raise
