@@ -548,7 +548,7 @@ async function nextChunk(env, kind, ref, shard, now = Date.now()) {
     const snap = await nextChunkSnapshot(env, kind, ref, shard, now).catch((err) => {
       // خطای خواندنِ ردیفِ عکس عمداً به مسیرِ قدیمی نمی‌افتد: آن مسیر هر دور
       // تا ۱۶ هزار ردیف را رد می‌کند، و ورک‌فلو خطا را دوباره امتحان می‌کند.
-      if (options.noFallback || (err && err.name === "SnapshotReadError")) throw err;
+      if (err && err.name === "SnapshotReadError") throw err;
       console.error("عکسِ فهرستِ مخاطب شکست خورد، مسیرِ قدیمی:", err && err.message);
       return null;
     });
@@ -1313,7 +1313,7 @@ async function sendRound(env, kind, ref, shard, now, makeBuild, perUser = 1, opt
     // دیده می‌شود.
     const bshard = shard && Math.floor(shard.of) === BATCH_SHARDS ? shard : null;
     const r = await batchRound(env, kind, ref, bshard, now.getTime(), makeBuild, budget, options).catch((err) => {
-      if (err && err.name === "SnapshotReadError") throw err;
+      if (options.noFallback || (err && err.name === "SnapshotReadError")) throw err;
       console.error("ارسالِ دسته‌ای شکست خورد، مسیرِ قبلی:", err && err.message);
       return null;
     });

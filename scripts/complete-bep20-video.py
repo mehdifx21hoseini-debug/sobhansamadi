@@ -14,8 +14,15 @@ OUT = Path('broadcast-report')
 def request(path):
     req = urllib.request.Request('https://sobhansamadi.mehdifx21hoseini.workers.dev' + path,
                                  headers={'x-admin-key': os.environ['WORKER_ADMIN_KEY']})
-    with urllib.request.urlopen(req, timeout=150) as response:
-        return json.load(response)
+    attempts = 1 if '/econ-notice-drain' in path else 3
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=150) as response:
+                return json.load(response)
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(5)
 
 
 def report(video, text=None, *, complete=False, resume_after=None):
