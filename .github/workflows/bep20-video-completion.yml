@@ -36,6 +36,15 @@ jobs:
           path: broadcast-report/
           if-no-files-found: warn
           retention-days: 30
+      - name: Queue continuation when the saved audience is unfinished
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ ! -f broadcast-report/complete ] && [ ! -f broadcast-report/paused ]; then
+            gh workflow run bep20-video-completion.yml --repo "$REPO" --ref main
+          fi
       - name: Disable this one-off workflow after completion
         if: success()
         env:
