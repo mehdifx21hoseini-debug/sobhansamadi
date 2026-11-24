@@ -1205,15 +1205,15 @@ async function loadFirstSnapshot(env, kind, ref, now) {
  *   فرستادن هست صدا زده می‌شود.
  * @returns null اگر عکس در دسترس نیست (صداکننده مسیرِ قبلی را می‌رود).
  */
-// Three requests per window, capped at four windows per three seconds.
+// Two requests per window, capped at two requests per second per shard.
 // Only this approved, single-part video campaign uses parallel delivery.
 // Retry intervals contain failed requests and unsent IDs, never successful IDs.
 async function sendReservedVideoBatch(env, range, build, stats) {
   const retries = [];
   let processed = 0;
-  for (let i = 0; i < range.ids.length; i += 3) {
+  for (let i = 0; i < range.ids.length; i += 2) {
     const started = Date.now();
-    const ids = range.ids.slice(i, i + 3);
+    const ids = range.ids.slice(i, i + 2);
     const outcomes = await Promise.all(ids.map((id) =>
       sendOne(env, { telegram_user_id: id, chat_id: id }, build, stats)));
     let stopped = false;
@@ -1228,7 +1228,7 @@ async function sendReservedVideoBatch(env, range, build, stats) {
       if (i + ids.length < range.ids.length) retries.push({ a: ids[ids.length - 1], z: range.z });
       return { processed, retries, stopped: true };
     }
-    const delay = 750 - (Date.now() - started);
+    const delay = 1000 - (Date.now() - started);
     if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
   }
   return { processed, retries, stopped: false };
