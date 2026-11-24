@@ -1068,7 +1068,8 @@ async function finishBatch(env, kind, ref, s, range, stats, leftFrom) {
     // اگر ورکرِ دیگری این دسته را مرده فرض کرده و به left برده بود، آنجا
     // هم پاکش می‌کنیم - کارش همین الان تمام شد.
     st.left = st.left.filter((x) => !(x.a === range.a && x.z === range.z));
-    if (leftFrom !== null) st.left.push({ a: leftFrom, z: range.z });
+    if (Array.isArray(leftFrom)) st.left.push(...leftFrom);
+    else if (leftFrom !== null) st.left.push({ a: leftFrom, z: range.z });
     st.n += stats.sent;
     st.b += stats.blocked;
     st.f += stats.failed;
@@ -1204,6 +1205,35 @@ async function loadFirstSnapshot(env, kind, ref, now) {
  *   فرستادن هست صدا زده می‌شود.
  * @returns null اگر عکس در دسترس نیست (صداکننده مسیرِ قبلی را می‌رود).
  */
+// Three requests per window, capped at four windows per three seconds.
+// Only this approved, single-part video campaign uses parallel delivery.
+// Retry intervals contain failed requests and unsent IDs, never successful IDs.
+async function sendReservedVideoBatch(env, range, build, stats) {
+  const retries = [];
+  let processed = 0;
+  for (let i = 0; i < range.ids.length; i += 3) {
+    const started = Date.now();
+    const ids = range.ids.slice(i, i + 3);
+    const outcomes = await Promise.all(ids.map((id) =>
+      sendOne(env, { telegram_user_id: id, chat_id: id }, build, stats)));
+    let stopped = false;
+    for (let j = 0; j < ids.length; j++) {
+      if (outcomes[j] === "stop") {
+        const index = i + j;
+        retries.push({ a: index === 0 ? range.a : range.ids[index - 1], z: ids[j] });
+        stopped = true;
+      } else processed++;
+    }
+    if (stopped) {
+      if (i + ids.length < range.ids.length) retries.push({ a: ids[ids.length - 1], z: range.z });
+      return { processed, retries, stopped: true };
+    }
+    const delay = 750 - (Date.now() - started);
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  return { processed, retries, stopped: false };
+}
+
 async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_BUDGET) {
   const rec = await loadFirstSnapshot(env, kind, ref, now);
   if (!rec) return null;
@@ -1225,6 +1255,12 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
       const part = { sent: 0, failed: 0, blocked: 0 };
       let leftFrom = null;
       let prev = range.a;
+      if (kind === "notice" && ref === "2026-11-24-bep20-video") {
+        const result = await sendReservedVideoBatch(env, range, build, part);
+        chunk += result.processed;
+        leftFrom = result.retries;
+        stopped = result.stopped;
+      } else {
       for (let i = 0; i < range.ids.length; i++) {
         const id = range.ids[i];
         const res = await sendOne(env, { telegram_user_id: id, chat_id: id }, build, part);
@@ -1236,6 +1272,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
         prev = id;
         chunk++;
         if (chunk % 20 === 0) await new Promise((k) => setTimeout(k, 1000));
+      }
       }
       await finishBatch(env, kind, ref, s, range, part, leftFrom);
       stats.sent += part.sent;
