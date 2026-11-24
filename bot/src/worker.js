@@ -135,7 +135,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-107";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-108";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -1109,7 +1109,7 @@ async function handleAdmin(request, url, env) {
     const index = Number(url.searchParams.get("shard")) || 0;
     const shard = of > 1 ? { of, index } : null;
     const r = force
-      ? await runNotice(env, new Date(), shard)
+      ? await runNotice(env, new Date(), shard, { campaignDriver: url.searchParams.get("driver") === "1" })
       : await drainNotice(env, new Date(), shard);
     return json({ ok: true, build: BUILD, ...r });
   }

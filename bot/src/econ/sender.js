@@ -548,7 +548,7 @@ async function nextChunk(env, kind, ref, shard, now = Date.now()) {
     const snap = await nextChunkSnapshot(env, kind, ref, shard, now).catch((err) => {
       // خطای خواندنِ ردیفِ عکس عمداً به مسیرِ قدیمی نمی‌افتد: آن مسیر هر دور
       // تا ۱۶ هزار ردیف را رد می‌کند، و ورک‌فلو خطا را دوباره امتحان می‌کند.
-      if (err && err.name === "SnapshotReadError") throw err;
+      if (options.noFallback || (err && err.name === "SnapshotReadError")) throw err;
       console.error("عکسِ فهرستِ مخاطب شکست خورد، مسیرِ قدیمی:", err && err.message);
       return null;
     });
@@ -1215,7 +1215,7 @@ async function loadFirstSnapshot(env, kind, ref, now) {
  *   فرستادن هست صدا زده می‌شود.
  * @returns null اگر عکس در دسترس نیست (صداکننده مسیرِ قبلی را می‌رود).
  */
-async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_BUDGET) {
+async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_BUDGET, options = {}) {
   const rec = await loadFirstSnapshot(env, kind, ref, now);
   if (!rec) return null;
   const order = shard
@@ -1248,6 +1248,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
         }
         prev = id;
         chunk++;
+        if (options.paceMs) await new Promise((resolve) => setTimeout(resolve, options.paceMs));
         if (chunk % 20 === 0) await new Promise((k) => setTimeout(k, 1000));
       }
       await finishBatch(env, kind, ref, s, range, part, leftFrom);
@@ -1260,6 +1261,8 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
     if (stopped || chunk >= budget || reservations >= 4) break;
   }
   if (chunk > 0 || stopped) return { stats, chunk, stopped };
+
+  if (options.noExtras) return { empty: true, swept: await batchAllClear(env, kind, ref, rec), throttled: false };
 
   // ۲) عکسِ اول برای این شاردها تمام است؛ تازه‌واردها، تک‌به‌تک.
   let throttled = false;
@@ -1299,7 +1302,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
  * یک دورِ ارسال برای پیام‌های روزانه - دسته‌ای اگر بشود، وگرنه همان مسیرِ
  * قبلی با claimِ هر نفر.
  */
-async function sendRound(env, kind, ref, shard, now, makeBuild, perUser = 1) {
+async function sendRound(env, kind, ref, shard, now, makeBuild, perUser = 1, options = {}) {
   // پیامِ چندتکه یعنی چند درخواست به تلگرام برای هر نفر؛ تعدادِ نفرها در
   // هر دور به همان نسبت کم می‌شود تا از سقفِ subrequest رد نشود.
   const budget = Math.max(1, Math.floor(SEND_BUDGET / Math.max(1, perUser)));
@@ -1309,13 +1312,14 @@ async function sendRound(env, kind, ref, shard, now, makeBuild, perUser = 1) {
     // قبلی فرستادنش خطرناک است: آنجا کسی که امروز با دسته گرفته «نگرفته»
     // دیده می‌شود.
     const bshard = shard && Math.floor(shard.of) === BATCH_SHARDS ? shard : null;
-    const r = await batchRound(env, kind, ref, bshard, now.getTime(), makeBuild, budget).catch((err) => {
+    const r = await batchRound(env, kind, ref, bshard, now.getTime(), makeBuild, budget, options).catch((err) => {
       if (err && err.name === "SnapshotReadError") throw err;
       console.error("ارسالِ دسته‌ای شکست خورد، مسیرِ قبلی:", err && err.message);
       return null;
     });
     if (r) return r;
   }
+  if (options.noFallback) throw new Error("Campaign batch ledger unavailable; legacy fallback disabled");
   const { rows: all, swept, throttled } = await nextChunk(env, kind, ref, shard, now.getTime());
   if (all.length === 0) return { empty: true, swept, throttled };
   // نشانگر فقط تا آخرین نفرِ پردازش‌شده جلو می‌رود، پس بقیه‌ی تکه دورِ بعد می‌آید.
@@ -2326,7 +2330,10 @@ async function noticeDue(env, now) {
   return { due: true, ref };
 }
 
-export async function runNotice(env, now = new Date(), shard = null) {
+export async function runNotice(env, now = new Date(), shard = null, options = {}) {
+  const dedicated = options.campaignDriver === true;
+  if (!dedicated && noticeRoundFor(digestRef(now)) === "bep20-video") return { skipped: "Dedicated campaign driver" };
+  if (dedicated && noticeRoundFor("2026-11-24") !== "bep20-video") return { skipped: "Campaign configuration changed" };
   const cooldown = Number(await readConfig(env, "econ_telegram_cooldown_until").catch(() => 0));
   if (cooldown > Date.now()) return { sent: 0, stopped: true, retry_after: Math.ceil((cooldown - Date.now()) / 1000) };
 
@@ -2334,7 +2341,7 @@ export async function runNotice(env, now = new Date(), shard = null) {
   if (!(await noticeEnabled(env))) return { skipped: "اطلاعیه خاموش" };
   if (!env.BOT_TOKEN) return { skipped: "BOT_TOKEN" };
 
-  const gate = await noticeDue(env, now);
+  const gate = dedicated ? { due: true, ref: "2026-11-24" } : await noticeDue(env, now);
   if (!gate.due) return { skipped: gate.why };
 
   await ensureSentSchema(env);
@@ -2369,7 +2376,8 @@ export async function runNotice(env, now = new Date(), shard = null) {
   const round = await sendRound(
     env, "notice", sendRef, shard, now,
     async () => () => (parts.length === 1 ? parts[0] : parts),
-    parts.length
+    parts.length,
+    dedicated ? { paceMs: 2000, noExtras: true, noFallback: true } : {}
   );
   if (round.empty) {
     if (!shard && round.swept) await writeConfig(env, NOTICE_DONE, sendRef).catch(() => {});

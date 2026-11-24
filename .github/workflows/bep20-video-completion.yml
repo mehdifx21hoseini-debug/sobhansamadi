@@ -1,0 +1,38 @@
+name: BEP20 Video Completion
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: bep20-video-completion
+  cancel-in-progress: false
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 115
+    steps:
+      - uses: actions/checkout@v4
+      - name: Continue fixed video audience and write report
+        env:
+          WORKER_ADMIN_KEY: ${{ secrets.WORKER_ADMIN_KEY }}
+        run: python scripts/complete-bep20-video.py
+      - name: Save delivery report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bep20-delivery-report-${{ github.run_id }}
+          path: broadcast-report/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Disable this one-off workflow after completion
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -f broadcast-report/complete ]; then
+            gh workflow disable bep20-video-completion.yml --repo "$REPO"
+          fi
