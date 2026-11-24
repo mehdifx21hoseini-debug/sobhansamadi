@@ -1028,6 +1028,15 @@ async function reserveBatch(env, kind, ref, s, rec, now, limit = SEND_BUDGET) {
     }
     st.inf = alive;
 
+    // Join adjacent retry intervals without including any successful recipient.
+    st.left.sort((x, y) => x.a < y.a ? -1 : x.a > y.a ? 1 : 0);
+    const compact = [];
+    for (const r of st.left) {
+      const last = compact[compact.length - 1];
+      if (last && last.z === r.a) last.z = r.z;
+      else compact.push({ a: r.a, z: r.z });
+    }
+    st.left = compact;
     let range = null;
     while (st.left.length > 0 && !range) {
       const r = st.left.shift();
@@ -1219,10 +1228,12 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
   let build = null;
   let chunk = 0;
   let stopped = false;
+  let reservations = 0;
   for (const s of order) {
-    while (!stopped && chunk < budget) {
+    while (!stopped && chunk < budget && reservations < 4) {
       const range = await reserveBatch(env, kind, ref, s, rec, now, budget - chunk);
       if (!range) break;
+      reservations++;
       if (!build) build = await makeBuild();
       const part = { sent: 0, failed: 0, blocked: 0 };
       let leftFrom = null;
@@ -1246,7 +1257,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
       stats.retry_after = Math.max(stats.retry_after || 0, part.retry_after || 0);
       stats.partFailed = (stats.partFailed || 0) + (part.partFailed || 0);
     }
-    if (stopped || chunk >= budget) break;
+    if (stopped || chunk >= budget || reservations >= 4) break;
   }
   if (chunk > 0 || stopped) return { stats, chunk, stopped };
 
