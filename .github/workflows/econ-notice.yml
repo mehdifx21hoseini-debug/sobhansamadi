@@ -124,7 +124,14 @@ jobs:
                   ;;
               esac
 
-              sleep 1
+              retry=$(jq -r '.retry_after // 0' "$body" 2>/dev/null || echo 0)
+              case "$retry" in ''|*[!0-9]*) retry=0 ;; esac
+              if [ "$retry" -gt 0 ]; then
+                echo "[اطلاعیه] کارگر $w: مکث طبق دستور تلگرام، $retry ثانیه"
+                sleep $((retry + 1))
+              else
+                sleep 1
+              fi
             done
             echo "$total" > "count-$w.txt"
             echo "::warning::[اطلاعیه] کارگر $w بعد از $MAX دور هنوز تمام نکرده."
