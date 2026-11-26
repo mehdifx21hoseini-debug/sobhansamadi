@@ -23,6 +23,7 @@ on:
       # پس عوض شدنِ یک بنر هم خروجی را کهنه می‌کند.
       - "assets/img/**"
       - "scripts/build-econ-app.mjs"
+      - "scripts/smoke-econ-app.mjs"
       - ".github/workflows/econ-app.yml"
   pull_request:
     paths:
@@ -34,16 +35,21 @@ on:
       # پس عوض شدنِ یک بنر هم خروجی را کهنه می‌کند.
       - "assets/img/**"
       - "scripts/build-econ-app.mjs"
+      - "scripts/smoke-econ-app.mjs"
   workflow_dispatch:
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      APP_URL: http://127.0.0.1:8768/econ-app.html
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Serve the miniapp over local HTTP
+        run: python3 -m http.server 8768 --bind 127.0.0.1 > /tmp/econ-app-http.log 2>&1 &
       - name: خروجی و نسخه با منبع یکی است؟
         run: node scripts/build-econ-app.mjs --check
 
