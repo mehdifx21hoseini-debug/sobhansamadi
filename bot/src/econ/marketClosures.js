@@ -25,8 +25,8 @@ export function marketCloseNotice(dateIso) {
   return [
     "### " + RLM + "⚠️ امروز طلا و داوجونز زودتر بسته می‌شوند (Early Close)",
     RLM + "امروز جمعه ۶ آذر (۲۷ نوامبر)، به‌دلیل تغییر ساعت معاملات در روز پس از تعطیلات شکرگزاری آمریکا، زمان بسته‌شدن این نمادها در بروکر معتمد زودتر است:",
-    ...EARLY_CLOSES.map((item) => RLM + "• " + item.name + ": **" + closeTimeInTehran(item.serverTime) + " به وقت ایران**"),
-    RLM + "این ساعت‌ها از ساعت سرور بروکر به وقت ایران تبدیل شده‌اند. طبق جدول، جفت‌ارزهای فارکس ساعات عادی دارند؛ کل بازار تعطیل نیست.",
+    ...EARLY_CLOSES.map((item) => RLM + "🔹 **" + item.name + ":**\n" + RLM + "**" + closeTimeInTehran(item.serverTime) + " به وقت ایران — " + item.serverTime.replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]) + " به وقت بروکر**"),
+    RLM + "**جفت‌ارزهای فارکس ساعات عادی دارند؛ کل بازار تعطیل نیست.**",
     RLM + "[منبع: برنامه تعطیلات بروکر معتمد](" + SOURCE + ")",
   ].join("\n\n");
 }

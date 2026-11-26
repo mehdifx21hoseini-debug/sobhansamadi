@@ -34,7 +34,10 @@ await test('notice is only for Friday, uses today, explains Thanksgiving and doe
   for(const d of ['2026-11-26','2026-11-28','2027-11-27','invalid'])assert.equal(marketCloseNotice(d),'');
   const text=marketCloseNotice('2026-11-27');assert.ok(text.includes('امروز'));assert.ok(!text.includes('فردا'));
   assert.ok(text.includes('پس از تعطیلات شکرگزاری آمریکا'));assert.ok(text.includes('جفت‌ارزهای فارکس ساعات عادی دارند'));
-  assert.ok(text.includes('بروکر معتمد'));assert.ok(!text.includes('WM Markets'));assert.ok(text.includes('به وقت ایران'));
+  assert.ok(text.includes('بروکر معتمد'));assert.ok(!text.includes('WM Markets'));
+  assert.ok(text.includes('۲۱:۴۲ به وقت ایران — ۲۰:۱۲ به وقت بروکر'));
+  assert.ok(text.includes('۲۳:۱۵ به وقت ایران — ۲۱:۴۵ به وقت بروکر'));
+  assert.ok(!text.includes('ساعت سرور'));assert.ok(text.includes('به وقت ایران'));
 });
 await test('eligibility follows the Tehran date at the UTC midnight boundary',()=>{
   assert.equal(marketCloseNotice(digestRef(new NativeDate('2026-11-26T20:29:59Z'))),'');
