@@ -13,3 +13,5 @@ This is reduced trading hours on the day after Thanksgiving, not a statement tha
 The notice is prepended to the existing morning digest only when its Tehran date is 2026-11-27. It says "today" and reserves message space before the news rows are fitted. It is not a separate broadcast, does not send anything on 26 November, and does not recur on later days. The existing membership requirement and delivery ledger remain in force.
 
 Authenticated read-only preview: `/admin/market-close-notice?date=2026-11-27`.
+
+The user requested final text approval before sending. The added announcement now defaults off via `early_close_20261127_approved`, independently of the ordinary digest. After explicit approval, set only this flag using authenticated `/admin/market-close-notice?state=on`; read-only preview reports `approved`. Leaving it unset/off preserves the normal news digest without this announcement.
