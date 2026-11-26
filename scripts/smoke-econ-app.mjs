@@ -172,6 +172,11 @@ async function run() {
     });
 
     await page.addInitScript(TG_STUB.replace('colorScheme: "light"', 'colorScheme: "' + theme + '"'));
+    // Never let the real SDK replace the signed-identity fixture in CI.
+    await page.route("**/telegram.org/js/telegram-web-app.js*", (r) => r.fulfill({
+      status: 200, contentType: "application/javascript",
+      body: TG_STUB.replace('colorScheme: "light"', 'colorScheme: "' + theme + '"'),
+    }));
     await page.addInitScript(CLOCK_STUB);
     // ترتیب مهم است و برعکسِ چیزی است که به‌نظر می‌رسد: پلی‌رایت مسیرها
     // را از آخر به اول امتحان می‌کند، پس عامِ «هر چیزِ دیگر» باید *اول*
@@ -192,7 +197,7 @@ async function run() {
     }));
 
     await page.goto(process.env.APP_URL || pathToFileURL(APP).href, { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1500);
+    await page.waitForSelector("#memberApp:not([hidden])", { timeout: 10000 });
 
     for (const tab of TABS) {
       const el = await page.$(tab.id);
