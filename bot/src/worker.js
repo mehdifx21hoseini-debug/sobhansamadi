@@ -1,5 +1,5 @@
 import { checkChannelMembership } from "./channelMembership.js";
-import { marketCloseNotice, EARLY_CLOSE_DATE, EARLY_CLOSES, closeTimeInTehran } from "./econ/marketClosures.js";
+import { marketCloseNotice, MARKET_CLOSE_APPROVAL_FLAG, EARLY_CLOSE_DATE, EARLY_CLOSES, closeTimeInTehran } from "./econ/marketClosures.js";
 import { memberFetch } from "./channelMembership.js";
 import { LIVE_PAYLOAD, LIVE_START, LIVE_END, LIVE_TEXT, liveCampaignActive } from "./liveTradeCampaign.js";
 import { getLinks as campaignLinks } from "./content/botLinks.js";
@@ -138,7 +138,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-111";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-112";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -994,8 +994,11 @@ async function handleAdmin(request, url, env) {
   }
 
   if (url.pathname === "/admin/market-close-notice") {
+    const state = (url.searchParams.get("state") || "").toLowerCase();
+    if (state === "on" || state === "off") await writeConfig(env, MARKET_CLOSE_APPROVAL_FLAG, state);
+    const approved = String(await readConfig(env, MARKET_CLOSE_APPROVAL_FLAG).catch(() => "")).toLowerCase() === "on";
     const date = url.searchParams.get("date") || EARLY_CLOSE_DATE;
-    return json({ ok: true, build: BUILD, date, notice: marketCloseNotice(date),
+    return json({ ok: true, build: BUILD, date, approved, notice: marketCloseNotice(date),
       source: "https://fa.wmmarkets.com/market-holiday/", server_utc_offset: "+02:00",
       closes: EARLY_CLOSES.map((item) => ({ name: item.name, server: item.serverTime, tehran: closeTimeInTehran(item.serverTime) })) });
   }

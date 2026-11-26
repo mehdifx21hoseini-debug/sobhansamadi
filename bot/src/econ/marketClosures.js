@@ -3,6 +3,7 @@
 // https://en.wmmarkets.com/products/ (winter server time UTC+2)
 const SOURCE = "https://fa.wmmarkets.com/market-holiday/";
 const RLM = "\u200f";
+export const MARKET_CLOSE_APPROVAL_FLAG = "early_close_20261127_approved";
 export const EARLY_CLOSE_DATE = "2026-11-27";
 export const SERVER_UTC_OFFSET_MINUTES = 120;
 export const EARLY_CLOSES = [

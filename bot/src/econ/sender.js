@@ -1,5 +1,5 @@
 import { memberFetch } from "../channelMembership.js";
-import { marketCloseNotice } from "./marketClosures.js";
+import { marketCloseNotice, MARKET_CLOSE_APPROVAL_FLAG } from "./marketClosures.js";
 // فرستنده‌ی تقویم اقتصادی - همان سه پیامی که تا امروز n8n می‌فرستاد،
 // حالا از داخل ورکر.
 //
@@ -487,7 +487,8 @@ export async function buildDigest(env, now = new Date()) {
   // درستشان کردیم. ارزهای دیگر در نماهای «امروز» و «این هفته» هستند که
   // کاربر خودش بازشان می‌کند.
   const usdOnly = filterByCurrencies(events, DEFAULT_CURRENCIES);
-  const notice = marketCloseNotice(digestRef(now));
+  const scheduledNotice = marketCloseNotice(digestRef(now));
+  const notice = scheduledNotice && String(await readConfig(env, MARKET_CLOSE_APPROVAL_FLAG).catch(() => "")).toLowerCase() === "on" ? scheduledNotice : "";
   const news = buildTodayMarkdown(usdOnly, labels, holidays, notice ? notice.length + 128 : 0);
   return { markdown: notice ? notice + "\n\n" + news : news, weekend: false };
 }
