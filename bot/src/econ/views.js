@@ -507,7 +507,7 @@ export function buildAlertMarkdown(events, labels) {
   return markdown;
 }
 
-export function buildTodayMarkdown(events, labels, holidays) {
+export function buildTodayMarkdown(events, labels, holidays, reservedChars = 0) {
   const { enShort, enFull, faName, usdRead } = makeLabelHelpers(labels);
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
@@ -519,7 +519,7 @@ export function buildTodayMarkdown(events, labels, holidays) {
   const todays = fitByBudget(
     capByImportance(todaysEvents(events), TODAY_CAP),
     eventRow,
-    TEXT_BUDGET
+    Math.max(0, TEXT_BUDGET - reservedChars)
   );
 
   function usdReadBlock(list) {

@@ -1,4 +1,5 @@
 import { memberFetch } from "../channelMembership.js";
+import { marketCloseNotice } from "./marketClosures.js";
 // فرستنده‌ی تقویم اقتصادی - همان سه پیامی که تا امروز n8n می‌فرستاد،
 // حالا از داخل ورکر.
 //
@@ -486,7 +487,9 @@ export async function buildDigest(env, now = new Date()) {
   // درستشان کردیم. ارزهای دیگر در نماهای «امروز» و «این هفته» هستند که
   // کاربر خودش بازشان می‌کند.
   const usdOnly = filterByCurrencies(events, DEFAULT_CURRENCIES);
-  return { markdown: buildTodayMarkdown(usdOnly, labels, holidays), weekend: false };
+  const notice = marketCloseNotice(digestRef(now));
+  const news = buildTodayMarkdown(usdOnly, labels, holidays, notice ? notice.length + 128 : 0);
+  return { markdown: notice ? notice + "\n\n" + news : news, weekend: false };
 }
 
 // کلیدی که می‌گوید خلاصه‌ی کدام روز کامل رفته است. یک ردیفِ تنظیمات،
