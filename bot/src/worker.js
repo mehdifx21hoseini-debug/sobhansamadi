@@ -1,4 +1,5 @@
 import { checkChannelMembership } from "./channelMembership.js";
+import { marketCloseNotice, EARLY_CLOSE_DATE, EARLY_CLOSES, closeTimeInTehran } from "./econ/marketClosures.js";
 import { memberFetch } from "./channelMembership.js";
 import { LIVE_PAYLOAD, LIVE_START, LIVE_END, LIVE_TEXT, liveCampaignActive } from "./liveTradeCampaign.js";
 import { getLinks as campaignLinks } from "./content/botLinks.js";
@@ -137,7 +138,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-110";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-111";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -990,6 +991,13 @@ async function handleAdmin(request, url, env) {
       starts_at: LIVE_START, expires_at: LIVE_END, text: LIVE_TEXT,
       channel: links.TG_CHANNEL,
       link: "https://t.me/" + me.result.username + "?start=" + LIVE_PAYLOAD });
+  }
+
+  if (url.pathname === "/admin/market-close-notice") {
+    const date = url.searchParams.get("date") || EARLY_CLOSE_DATE;
+    return json({ ok: true, build: BUILD, date, notice: marketCloseNotice(date),
+      source: "https://fa.wmmarkets.com/market-holiday/", server_utc_offset: "+02:00",
+      closes: EARLY_CLOSES.map((item) => ({ name: item.name, server: item.serverTime, tehran: closeTimeInTehran(item.serverTime) })) });
   }
 
   if (url.pathname === "/admin/membership") {
@@ -1922,6 +1930,7 @@ export default {
       url.pathname === "/admin/econ-notice" ||
       url.pathname === "/admin/econ-notice-drain" ||
       url.pathname === "/admin/live-trade-campaign" ||
+      url.pathname === "/admin/market-close-notice" ||
       url.pathname === "/admin/membership" ||
       url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
