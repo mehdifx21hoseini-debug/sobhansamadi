@@ -216,3 +216,13 @@ export async function resetLink(env, key) {
   await env.DB.prepare(`DELETE FROM bot_links WHERE key = ?`).bind(key).run();
   invalidate(CACHE_KEY);
 }
+
+// No cached membership, stale link fallback, or swallowed database errors here.
+export async function requiredChannel(env) {
+  await ensureSchema(env);
+  const row = await env.DB.prepare("SELECT url FROM bot_links WHERE key = ?").bind("TG_CHANNEL").first();
+  const joinUrl = row?.url || BY_KEY.TG_CHANNEL.def;
+  const chatId = usernameFromTelegramUrl(joinUrl);
+  if (!chatId) throw new Error("Invalid required channel configuration");
+  return { chatId, joinUrl };
+}

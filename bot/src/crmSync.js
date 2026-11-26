@@ -1,3 +1,4 @@
+import { memberFetch } from "./channelMembership.js";
 // صندوق خروجی: هر چیزی که باید به CRM برسد.
 //
 // چرا اصلاً لازم است: داده در D1 نوشته می‌شود، ولی CRM از جدول‌های n8n
@@ -215,7 +216,7 @@ async function alertOnStuckLeads(env) {
   lines.push("معمولاً یعنی n8n قطع است. وقتی برگردد، خودشان فرستاده می‌شوند.");
 
   try {
-    const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+    const res = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(10000),

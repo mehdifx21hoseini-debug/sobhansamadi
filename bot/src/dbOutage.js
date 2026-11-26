@@ -1,3 +1,4 @@
+import { memberFetch } from "./channelMembership.js";
 // وقتی دیتابیس جواب نمی‌دهد، ربات باید حرف بزند - نه اینکه ساکت شود.
 //
 // چرا این فایل هست: روزی که سقفِ روزانه‌ی خواندنِ D1 پر شد، ورکر کاملاً
@@ -83,7 +84,7 @@ export async function notifyOwner(env, err, now = Date.now()) {
     String((err && err.message) || err || "").slice(0, 300);
 
   try {
-    await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+    await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(10000),

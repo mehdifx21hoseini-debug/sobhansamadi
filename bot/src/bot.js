@@ -1,3 +1,4 @@
+import { deliversContent, requireChannelMembership } from "./channelMembership.js";
 import { Bot } from "grammy";
 import { handleStart, handleHelp } from "./commands/start.js";
 import {
@@ -113,6 +114,10 @@ const EMPTY_MAP = new Map();
 
 export function createBot(token, env, botInfo, build = "?") {
   const bot = new Bot(token, botInfo ? { botInfo } : undefined);
+  bot.api.config.use(async (prev, method, payload, signal) => {
+    if (deliversContent(method)) await requireChannelMembership(env, payload?.chat_id);
+    return prev(method, payload, signal);
+  });
 
   // نامِ دکمه‌ها و لینک‌ها، در یک نقطه.
   //
@@ -219,6 +224,18 @@ export function createBot(token, env, botInfo, build = "?") {
     }
   });
 
+  // شمارشِ «اعضای ربات». پیش از دروازه است عمداً: کسی که پشت دروازه
+  // مانده هم ربات را استارت کرده و باید در عدد بیاید.
+  //
+  // منتظرش نمی‌مانیم - یک نوشتنِ آماری نباید پاسخ به کاربر را کند کند.
+  bot.use(async (ctx, next) => {
+    const id = ctx.from && ctx.from.id;
+    if (id && !ctx.from.is_bot) touchUser(ctx.env, id).catch(() => {});
+    return next();
+  });
+
+  bot.use(membershipGate());
+
   // میانبرهای مدیر در منوی «/» تلگرام. پیش از دروازه‌ی عضویت است چون
   // مدیر از آن معاف است و نباید منتظر بماند.
   bot.use(async (ctx, next) => {
@@ -232,17 +249,7 @@ export function createBot(token, env, botInfo, build = "?") {
     return next();
   });
 
-  // شمارشِ «اعضای ربات». پیش از دروازه است عمداً: کسی که پشت دروازه
-  // مانده هم ربات را استارت کرده و باید در عدد بیاید.
-  //
-  // منتظرش نمی‌مانیم - یک نوشتنِ آماری نباید پاسخ به کاربر را کند کند.
-  bot.use(async (ctx, next) => {
-    const id = ctx.from && ctx.from.id;
-    if (id && !ctx.from.is_bot) touchUser(ctx.env, id).catch(() => {});
-    return next();
-  });
 
-  bot.use(membershipGate());
 
   bot.command("start", handleStart);
   bot.command("help", handleHelp);

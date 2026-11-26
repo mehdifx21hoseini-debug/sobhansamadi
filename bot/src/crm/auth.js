@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // احراز هویت CRM، روی ورکر.
 //
 // جای‌گزینِ هفت اندپوینت n8n: ورود، فراموشی رمز، بازنشانی، تغییر رمز،
@@ -276,7 +277,7 @@ const API = (env, method) => "https://api.telegram.org/bot" + env.BOT_TOKEN + "/
 
 async function sendTelegram(env, chatId, text) {
   try {
-    const res = await fetch(API(env, "sendMessage"), {
+    const res = await memberFetch(env, API(env, "sendMessage"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(15000),

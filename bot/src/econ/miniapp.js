@@ -1,3 +1,4 @@
+import { checkChannelMembership } from "../channelMembership.js";
 // اندپوینت مینی‌اپ تقویم.
 //
 // چرا وجود دارد: مینی‌اپ تا امروز مستقیم به وبهوک n8n وصل بود. یعنی هر
@@ -296,7 +297,16 @@ export async function handleMiniapp(request, env) {
     return reply({ success: false, error: "unauthorized" }, 401);
   }
 
+  const membership = await checkChannelMembership(env, user.id);
+  if (!membership.member) {
+    const unavailable = membership.reason === "unavailable";
+    return reply({ success: false, error: unavailable ? "membership_unavailable" : "membership_required",
+      membership_required: !unavailable, join_url: membership.joinUrl,
+      message: unavailable ? "بررسی عضویت فعلاً ممکن نیست؛ کمی بعد دوباره تلاش کنید." : "برای استفاده از تقویم باید عضو کانال آکادمی باشید." }, unavailable ? 503 : 403);
+  }
+
   const action = body.action;
+  if (action === "membership") return reply({ success: true, member: true });
 
   if (action === "data") {
     const payload = await buildMiniappPayload(env, user);

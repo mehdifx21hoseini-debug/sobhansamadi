@@ -32,6 +32,7 @@
 			}
 
 			var state = {
+				membershipVerified: false,
 				// صفحه‌ی اول سشن‌هاست، نه فهرست خبر: چیزی که کاربر بیشتر
 				// از همه برای آن این اپ را باز می‌کند، نباید پشت یک تب
 				// باشد.
@@ -1735,6 +1736,10 @@
 
 				// Session hours are computed from the clock alone, so this tab
 				// works whether or not the release data ever arrived.
+				if (!state.membershipVerified) {
+					if (state.failure) paintError();
+					return;
+				}
 				if (state.scope === "markets") {
 					renderMarkets(list);
 					return;
@@ -2052,6 +2057,10 @@
 						if (!res.ok || body.success === false) {
 							var err = new Error(body.error || ("خطای سرور (" + res.status + ")"));
 							err.status = res.status;
+							err.membershipRequired = !!body.membership_required;
+							err.membershipUnavailable = body.error === "membership_unavailable";
+							err.joinUrl = body.join_url || null;
+							if (body.message) err.publicMessage = body.message;
 							throw err;
 						}
 						return body;
@@ -2061,7 +2070,10 @@
 
 			function call(payload) {
 				payload.initData = tg ? tg.initData : "";
-				return callOnce(API, payload);
+				return callOnce(API, payload).catch(function (err) {
+					if (err.membershipRequired || err.membershipUnavailable || err.status === 401 || !err.status) lockForMembership(err);
+					throw err;
+				});
 			}
 
 			// Remembered so a later renderList can put the message back. Without
@@ -2085,11 +2097,25 @@
 				list.appendChild(box);
 			}
 
+			function lockForMembership(err) {
+				state.membershipVerified = false;
+				state.data = null;
+				document.getElementById("memberApp").hidden = true;
+				document.getElementById("membershipWall").hidden = false;
+				document.getElementById("membershipMessage").textContent = (err && err.status === 401) ? "تلگرام نتوانست هویت شما را تأیید کند؛ برنامه را از داخل ربات دوباره باز کنید." : (err && err.publicMessage || "بررسی عضویت فعلاً ممکن نیست. دوباره تلاش کنید.");
+				var join = document.getElementById("membershipJoin");
+				join.hidden = !(err && err.joinUrl);
+				if (err && err.joinUrl) join.href = err.joinUrl;
+			}
+
 			function load() {
 				return call({ action: "data" })
 					.then(function (body) {
+						state.membershipVerified = true;
 						state.data = body;
 						state.failure = null;
+						document.getElementById("membershipWall").hidden = true;
+						document.getElementById("memberApp").hidden = false;
 						// Landing on an empty "today" makes a working app look
 						// broken, and today is empty every weekend. Fall to the
 						// week whenever today has nothing — an empty screen is
@@ -2099,6 +2125,7 @@
 						render();
 					})
 					.catch(function (err) {
+						lockForMembership(err);
 						if (err.status === 401) {
 							showError("تلگرام نتونست هویتت رو تأیید کنه. برنامه رو ببند و دوباره از دکمه‌ی داخل ربات بازش کن.", false);
 						} else {
@@ -2660,9 +2687,21 @@
 			// نشان می‌دهد و نباید حالتِ ناجورِ خودش را داشته باشد.
 			setScope(readStoredScope() || state.scope);
 
+			document.getElementById("membershipRetry").addEventListener("click", load);
+			document.addEventListener("visibilitychange", function () {
+				if (!document.hidden && tg && tg.initData) {
+					lockForMembership({ publicMessage: "در حال بررسی دوبارهٔ عضویت…" });
+					load();
+				}
+			});
+			setInterval(function () {
+				if (!document.hidden && state.membershipVerified) call({ action: "membership" }).catch(function () {});
+			}, 30000);
+
 			if (!tg || !tg.initData) {
 				// Opened outside Telegram: there is no identity to verify, so say
 				// so plainly instead of failing with a signature error.
+				lockForMembership({ publicMessage: "این صفحه باید از داخل ربات تلگرام باز بشه." });
 				showError("این صفحه باید از داخل ربات تلگرام باز بشه.", false);
 				document.getElementById("riskPill").hidden = true;
 			} else {

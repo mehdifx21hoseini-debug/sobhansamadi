@@ -1,3 +1,4 @@
+import { memberReply } from "./fixtures/channelMembership.mjs";
 // «عکسِ فهرستِ مخاطب» - روی SQLiteِ واقعی.
 //
 // ─── چه چیزی را می‌سنجد ─────────────────────────────────────────
@@ -47,6 +48,7 @@ function d1() {
 // تلگرام ساختگی: هر sendMessage / sendRichMessage را ثبت می‌کند.
 const sent = [];
 globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
   const body = JSON.parse(init.body);
   sent.push(String(body.chat_id));
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -145,7 +147,7 @@ const touchesUserState = (env, from) => env.DB.log.slice(from).filter((q) => /FR
   env.DB.raw.prepare("UPDATE user_state SET blocked_at = '2026-10-01' WHERE telegram_user_id = '100000'").run();
   env.DB.raw.prepare("INSERT OR REPLACE INTO econ_subscriber (telegram_user_id, chat_id, subscribed, digest_off, created_at, updated_at) VALUES ('100007', '100007', 1, 1, 'x', 'x')").run();
   sent.length = 0;
-  for (let i = 0; i < 4; i++) await runDailyDigest(env, NOW, null);
+  for (let i = 0; i < 8; i++) await runDailyDigest(env, NOW, null);
   ok(!sent.includes("100000") && !sent.includes("100007") && sent.length === 28, "بلاک‌شده و «دیگر نفرست» پیام نمی‌گیرند", sent.length);
 }
 
@@ -154,7 +156,7 @@ const touchesUserState = (env, from) => env.DB.log.slice(from).filter((q) => /FR
   const env = await setup(50);
   await writeConfig(env, "econ_audience_snapshot", "off");
   sent.length = 0;
-  for (let i = 0; i < 4; i++) await runDailyDigest(env, NOW, null);
+  for (let i = 0; i < 8; i++) await runDailyDigest(env, NOW, null);
   ok(new Set(sent).size === 50, "با کلیدِ off همان مسیرِ قدیمی کار می‌کند و همه می‌گیرند");
   ok(!(await readConfig(env, "econ_aud_digest_" + REF)), "و هیچ عکسی ساخته نمی‌شود");
 }
@@ -236,6 +238,7 @@ function DBlock(env) {
   const realFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
     calls++;
     if (calls === 10) throw new Error("network down");
     return realFetch(url, init);

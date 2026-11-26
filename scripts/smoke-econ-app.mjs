@@ -120,9 +120,9 @@ const CLOCK_STUB = `(function () {
 // تنظیمات هم متن داشت و بررسی سبز می‌ماند بی‌آنکه چیزی از تنظیمات رندر
 // شده باشد.
 const TABS = [
-  { id: "#navNow", name: "اکنون", must: ".dial" },
-  { id: "#navCal", name: "تقویم", must: ".find" },
-  { id: "#navMe", name: "تنظیمات", must: ".group-box" },
+  { id: "#tabMarkets", name: "سشن‌ها", must: ".sb-board" },
+  { id: "#tabNews", name: "تقویم", must: ".search-row" },
+  { id: "#tabSettings", name: "تنظیمات", must: "#alertsCard" },
 ];
 
 // زیرِ این عدد یعنی تب عملاً خالی است. عمداً پایین گرفته شده تا فقط
@@ -180,16 +180,18 @@ async function run() {
     await page.route("**/econ/**", (r) =>
       r.fulfill({ status: 200, contentType: "application/json", body: '{"success":true}' })
     );
-    await page.route("**/econ/miniapp*", (r) =>
-      r.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify(PAYLOAD),
-      })
-    );
+    let membershipMode = "member";
+    await page.route("**/econ/miniapp*", (r) => r.fulfill({
+      status: membershipMode === "member" ? 200 : membershipMode === "left" ? 403 : 503,
+      contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify(membershipMode === "member" ? PAYLOAD : {
+        success: false, error: membershipMode === "left" ? "membership_required" : "membership_unavailable",
+        membership_required: membershipMode === "left", join_url: "https://t.me/sobhanforex",
+        message: "برای استفاده باید عضو کانال باشید.",
+      }),
+    }));
 
-    await page.goto(pathToFileURL(APP).href, { waitUntil: "domcontentloaded" });
+    await page.goto(process.env.APP_URL || pathToFileURL(APP).href, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1500);
 
     for (const tab of TABS) {
@@ -237,6 +239,21 @@ async function run() {
         });
       }
     }
+
+    // A user leaving the channel must lose the existing interactive view too.
+    membershipMode = "left";
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await page.waitForSelector("#membershipJoin:not([hidden])");
+    if (!(await page.locator("#memberApp").isHidden())) fail(theme + " · left user still sees app");
+    if (await page.locator("#membershipJoin").getAttribute("href") !== "https://t.me/sobhanforex") fail("Wrong join URL");
+    membershipMode = "member";
+    await page.locator("#membershipRetry").click();
+    await page.waitForSelector("#memberApp:not([hidden])");
+    if (!(await page.locator("#membershipWall").isHidden())) fail(theme + " · rejoined user remains locked");
+    membershipMode = "unavailable";
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await page.waitForSelector("#membershipWall:not([hidden])");
+    if (!(await page.locator("#memberApp").isHidden())) fail(theme + " · membership outage exposes app");
 
     if (errors.length) {
       fail(theme + " · خطای اجرا در صفحه:\n    " + errors.slice(0, 5).join("\n    "));

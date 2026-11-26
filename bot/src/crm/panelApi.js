@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // مسیریابِ API پنل CRM روی ورکر.
 //
 // جای‌گزینِ وبهوک‌های WF-15. هر مرحله از انتقال، چند مسیر به این فایل
@@ -309,7 +310,7 @@ export async function handleCrmApi(request, url, env) {
 
     const send = async (chatId, text) => {
       try {
-        const r = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+        const r = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(15000),
