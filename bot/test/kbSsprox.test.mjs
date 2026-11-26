@@ -1,3 +1,4 @@
+import { memberReply } from "./fixtures/channelMembership.mjs";
 // جای‌گزینی پایگاه دانش اکسپرت با SSProX V2.1 - روی SQLiteِ واقعی.
 //
 // می‌سنجد:
@@ -75,6 +76,7 @@ const DB2 = d1();
 const env2 = { DB: DB2, GEMINI_API_KEY: "k" };
 let calls = 0;
 globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
   const body = JSON.parse(init.body);
   calls++;
   const emb = body.requests.map(() => ({ values: Array.from({ length: 256 }, (_, i) => (i % 7) / 7) }));

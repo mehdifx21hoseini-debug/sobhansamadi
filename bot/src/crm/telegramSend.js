@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // فرستنده‌ی خامِ تلگرام، برای پیام همگانی.
 //
 // چرا جداست: هم پنل از آن استفاده می‌کند و هم کرانِ صف. اگر هرکدام
@@ -21,7 +22,7 @@
 const API = "https://api.telegram.org/bot";
 
 async function call(env, method, payload) {
-  const r = await fetch(API + env.BOT_TOKEN + "/" + method, {
+  const r = await memberFetch(env, API + env.BOT_TOKEN + "/" + method, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal: AbortSignal.timeout(15000),

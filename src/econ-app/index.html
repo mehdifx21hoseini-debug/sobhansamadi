@@ -41,7 +41,14 @@
 	</div>
 	<div class="brandmark" aria-hidden="true"></div>
 
-	<div class="wrap">
+	<section class="wrap" id="membershipWall" role="status" aria-live="polite">
+		<div class="alerts">
+			<p id="membershipMessage">در حال بررسی عضویت در کانال…</p>
+			<a class="chip" id="membershipJoin" target="_blank" rel="noopener" hidden>📢 عضویت در کانال</a>
+			<button class="chip" type="button" id="membershipRetry">✅ بررسی دوبارهٔ عضویت</button>
+		</div>
+	</section>
+	<div class="wrap" id="memberApp" hidden>
 		<!-- بنر برند. عکس در سمت چپ می‌نشیند و پرده‌ی گرافیتی از سمت متن
 		     رویش می‌افتد؛ متن زنده است نه پخته‌شده در تصویر، تا با وزیرمتنِ
 		     خودِ اپ رندر شود و روی هر تراکم پیکسلی تیز بماند. -->

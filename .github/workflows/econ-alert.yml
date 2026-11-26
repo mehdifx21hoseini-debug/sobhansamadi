@@ -67,7 +67,8 @@ jobs:
           # سه‌هزاروچهارصد مشترک، صفحه‌های ۱۲۰تایی، شش کارگر: حدودِ پنج
           # دور برای هر کارگر. سقف با حاشیه‌ی زیاد گذاشته شده تا فهرست
           # بتواند چند برابر شود و این عدد دست نخورد.
-          MAX=40
+          # Fresh membership checks reduce each delivery batch to 12 recipients.
+          MAX=100
 
           drain_one() {
             w="$1"

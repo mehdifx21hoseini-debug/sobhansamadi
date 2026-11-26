@@ -1,3 +1,4 @@
+import { memberReply } from "./fixtures/channelMembership.mjs";
 // ثبتِ دسته‌ای برای پیام‌های روزانه - روی SQLiteِ واقعی.
 //
 // ─── چه چیزی را می‌سنجد ─────────────────────────────────────────
@@ -45,6 +46,7 @@ const sent = [];
 let failAt = -1; // شماره‌ی ارسالی که شبکه‌اش قطع می‌شود
 let calls = 0;
 globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
   calls++;
   if (calls === failAt) throw new Error("subrequest limit");
   const body = JSON.parse(init.body);
@@ -100,13 +102,13 @@ async function drainAll(env, at = NOW, rounds = 200) {
   ok(dupes() === 0, "هیچ‌کس دو بار نگرفت (۶ شارد + ۲ کارگرِ بی‌شارد هم‌زمان)", dupes());
   ok(claimWrites(env, from) === 0, "هیچ UPDATEِ sent_digest زده نشد", claimWrites(env, from));
   const cfgWrites = env.DB.log.slice(from).filter((q) => /^\s*(UPDATE|INSERT)[^]*bot_config/i.test(q) && /econ_bat_|value = \?/i.test(q)).length;
-  ok(cfgWrites < 2000 / 10, "نوشتنِ برگه‌ها خیلی کمتر از یکی برای هر نفر است", cfgWrites);
+  ok(cfgWrites < 2000 / 4, "نوشتنِ برگه‌ها خیلی کمتر از یکی برای هر نفر است", cfgWrites);
 }
 
 // ─── ۲) تلگرام وسطِ دسته قطع می‌شود ────────────────────────────────
 {
   const env = await setup(300);
-  failAt = 17; // هفدهمین ارسال
+  failAt = 5; // شکست در میانهٔ بودجهٔ کوچک‌تر
   const r1 = await runDailyDigest(env, NOW, { of: 6, index: 2 });
   ok(r1.stopped === true && r1.done === false, "قطع وسطِ دسته: stopped و نه done", r1);
   const r = await drainAll(env);
@@ -176,7 +178,7 @@ async function drainAll(env, at = NOW, rounds = 200) {
 {
   const env = await setup(200);
   await Promise.all([0, 1, 2].map((s) => runDailyDigest(env, NOW, { of: 6, index: s })));
-  for (let i = 0; i < 20; i++) await Promise.all([0, 1, 2, 3].map((s) => runDailyDigest(env, NOW, { of: 4, index: s })));
+  for (let i = 0; i < 80; i++) await Promise.all([0, 1, 2, 3].map((s) => runDailyDigest(env, NOW, { of: 4, index: s })));
   await drainAll(env);
   ok(new Set(sent).size === 200 && dupes() === 0, "صداکننده با شش‌شاردِ ناهم‌خوان هم کسی را دو بار نمی‌فرستد", { got: new Set(sent).size, d: dupes() });
 }
@@ -196,11 +198,12 @@ async function drainAll(env, at = NOW, rounds = 200) {
   const reqs = [];
   const prev = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
     reqs.push({ method: String(url).split("/").pop(), body: JSON.parse(init.body) });
     return prev(url, init);
   };
   const at = new Date(DAY + "T06:00:00.000Z"); // ۹:۳۰ تهران
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 80; i++) {
     const r = await runNotice(env, at, null);
     if (!r.sent && !r.stopped) break;
   }
@@ -224,6 +227,7 @@ async function drainAll(env, at = NOW, rounds = 200) {
   const reqs = [];
   const prev = globalThis.fetch;
   globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
     reqs.push({ method: String(url).split("/").pop(), body: JSON.parse(init.body) });
     return prev(url, init);
   };
@@ -258,6 +262,7 @@ async function drainAll(env, at = NOW, rounds = 200) {
   const prev = globalThis.fetch;
   let k = 0;
   globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
     const method = String(url).split("/").pop();
     const body = JSON.parse(init.body);
     // هر فورواردِ سوم بارِ اول ۴۲۹ می‌گیرد.
@@ -269,7 +274,7 @@ async function drainAll(env, at = NOW, rounds = 200) {
     return prev(url, init);
   };
   const at = new Date(DAY + "T06:00:00.000Z");
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 80; i++) {
     const r = await runNotice(env, at, null);
     if (!r.sent && !r.stopped) break;
   }
@@ -278,7 +283,7 @@ async function drainAll(env, at = NOW, rounds = 200) {
   // دورِ تازه در همان روز: فقط ویس، دوباره به همه.
   NOTICES[DAY] = { forward: "https://t.me/sobhanforex/889", round: "voice" };
   reqs.length = 0;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 80; i++) {
     const r = await runNotice(env, at, null);
     if (!r.sent && !r.stopped) break;
   }

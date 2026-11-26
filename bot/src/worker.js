@@ -1,3 +1,5 @@
+import { checkChannelMembership } from "./channelMembership.js";
+import { memberFetch } from "./channelMembership.js";
 import { LIVE_PAYLOAD, LIVE_START, LIVE_END, LIVE_TEXT, liveCampaignActive } from "./liveTradeCampaign.js";
 import { getLinks as campaignLinks } from "./content/botLinks.js";
 import { webhookCallback } from "grammy";
@@ -135,7 +137,7 @@ let commandsRegistered = false;
 // نشانه‌ی دیپلوی. هر بار که باید بدانیم کدام نسخه روی پروداکشن نشسته،
 // این رشته عوض می‌شود - «کد را پوش کردم» با «کد بالا آمد» یکی نیست، و
 // تنها راهِ تشخیص، رشته‌ای است که خودِ ورکر برمی‌گرداند.
-const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-109";
+const BUILD = "econ+outbox+miniapp+faq+public+kb-52-sprite+crm-d2-110";
 
 // تلگرام پست‌های کانال را فقط وقتی می‌فرستد که allowed_updates وبهوک
 // آن‌ها را شامل شود.
@@ -981,13 +983,21 @@ async function handleAdmin(request, url, env) {
    * نمی‌افتد.
    */
   if (url.pathname === "/admin/live-trade-campaign") {
-    const me = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/getMe").then((r) => r.json());
+    const me = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/getMe").then((r) => r.json());
     if (!me.ok) return json({ ok: false, error: "getMe failed" }, 502);
     const links = await campaignLinks(env);
     return json({ ok: true, build: BUILD, active: liveCampaignActive(),
       starts_at: LIVE_START, expires_at: LIVE_END, text: LIVE_TEXT,
       channel: links.TG_CHANNEL,
       link: "https://t.me/" + me.result.username + "?start=" + LIVE_PAYLOAD });
+  }
+
+  if (url.pathname === "/admin/membership") {
+    const id = url.searchParams.get("user_id") || OWNER_ID;
+    const member = await checkChannelMembership(env, id);
+    const me = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/getMe").then((r) => r.json());
+    const bot = me?.ok ? await checkChannelMembership(env, me.result.id) : { member: false, reason: "unavailable" };
+    return json({ ok: true, build: BUILD, policy: "strict-no-exemptions", checked_user: id, membership: member, bot_channel: bot });
   }
 
   if (url.pathname === "/admin/notice-preview") {
@@ -1000,7 +1010,7 @@ async function handleAdmin(request, url, env) {
         return json({ ok: false, error: "Invalid preview text" }, 400);
       }
       try {
-        const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+        const res = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: OWNER_ID, text }),
@@ -1026,7 +1036,7 @@ async function handleAdmin(request, url, env) {
     const both = !link && fwd ? noticeTextFor(ref) : null;
     let textSent = null;
     if (both) {
-      const tr = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+      const tr = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chat_id: OWNER_ID, text: both }),
@@ -1041,7 +1051,7 @@ async function handleAdmin(request, url, env) {
     }
     if (fwd) {
       try {
-        const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/forwardMessage", {
+        const res = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/forwardMessage", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: OWNER_ID, from_chat_id: fwd.from_chat_id, message_id: fwd.message_id }),
@@ -1080,7 +1090,7 @@ async function handleAdmin(request, url, env) {
         : {}),
     };
     try {
-      const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+      const res = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1912,6 +1922,7 @@ export default {
       url.pathname === "/admin/econ-notice" ||
       url.pathname === "/admin/econ-notice-drain" ||
       url.pathname === "/admin/live-trade-campaign" ||
+      url.pathname === "/admin/membership" ||
       url.pathname === "/admin/notice-preview" ||
       url.pathname === "/admin/usage" ||
       url.pathname === "/admin/members" ||

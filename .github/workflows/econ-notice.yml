@@ -67,7 +67,8 @@ jobs:
           # ۲۰۰ → ۴۰۰ (۱۱ نوامبر): هر دور حالا ۳۰ پیام است نه ۴۵ (پلنِ
           # رایگان)، و اطلاعیه‌ی دوتکه فقط ۱۵ نفر در هر دور - ۱۷٫۶ هزار نفر
           # یعنی ~۱۹۶ دور برای هر کارگر، درست لبِ سقفِ قبلی.
-          MAX=400
+          # Fresh membership checks reduce each delivery batch to 12 recipients.
+          MAX=600
           ENDPOINT="econ-notice-drain"
 
           # force=1 پرچمِ «امروز تمام شد» را نادیده می‌گیرد. لازم است

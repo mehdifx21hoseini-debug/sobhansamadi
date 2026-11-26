@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // ورودی‌های لید: همان کاری که WF-Bot-Lead-Intake و WF-21 در n8n می‌کردند.
 //
 // سه تکه‌ی مشترک دارند و برای همین یک‌جا نشسته‌اند: پیدا کردنِ لیدِ قبلی
@@ -90,7 +91,7 @@ export async function notifyAdmins(env, text) {
   for (const row of results || []) {
     if (!row.telegram_id) continue;
     try {
-      const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+      const res = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: AbortSignal.timeout(10000),

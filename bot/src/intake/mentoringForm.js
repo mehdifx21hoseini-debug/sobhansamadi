@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // دریافت فرم منتورینگ سایت، مستقیم روی ورکر.
 //
 // تا امروز فرم سایت مستقیم به n8n می‌زد. نتیجه‌اش را دیدیم: n8n درخواست
@@ -274,7 +275,7 @@ async function alertOwner(env, lines) {
   if (!env.BOT_TOKEN) return;
   const { OWNER_ID } = await import("../owner.js");
   try {
-    await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+    await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(10000),

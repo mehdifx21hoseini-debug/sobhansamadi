@@ -1,3 +1,4 @@
+import { memberReply } from "./fixtures/channelMembership.mjs";
 // رساندنِ هشدار به همه‌ی مشترکین، نه فقط اولِ فهرست.
 //
 // ─── باگی که این فایل برایش نوشته شد ─────────────────────────────
@@ -154,6 +155,7 @@ function fakeDb({ events = [], subs = [], config = {}, failSendAt = -1 } = {}) {
 // باشد.
 function installFetch(log, failAfter = Infinity) {
   globalThis.fetch = async (url, init) => {
+    const membership = memberReply(url); if (membership) return membership;
     const body = JSON.parse(init && init.body ? init.body : "{}");
     if (log.length >= failAfter) throw new Error("boom");
     log.push(String(body.chat_id));
@@ -266,15 +268,17 @@ clearAll();
   const env = { DB: db, BOT_TOKEN: "x" };
 
   const r1 = await runAlertSweep(env, WEEKDAY, null, "");
-  ok(r1.sent === 30, "بودجه‌ی یک دور ۳۰ پیام است", r1);
+  ok(r1.sent === 12, "بودجه با بررسی عضویت، دوازده پیام است", r1);
   ok(r1.throttled === true, "و دور با بودجه‌ی تمام‌شده می‌ایستد", r1);
   ok(r1.done !== true, "پس «تمام شد» نمی‌گوید", r1);
-  ok(r1.cursor === "2030", "نشانگر روی آخرین نفرِ فرستاده‌شده است، نه جلوتر", r1);
+  ok(r1.cursor === "2012", "نشانگر روی آخرین نفرِ فرستاده‌شده است، نه جلوتر", r1);
 
   const r2 = await runAlertSweep(env, WEEKDAY, null, r1.cursor);
-  ok(r2.sent === 20, "دورِ دوم همان بیست نفرِ جامانده را می‌فرستد", r2);
-  ok(new Set(log).size === 50, "و در کلِ دو دور، هر پنجاه نفر دقیقاً یک پیام", log.length);
-  ok(r2.done === true, "و حالا تمام شد", r2);
+  ok(r2.sent === 12, "دور دوم از نشانگر قبلی ادامه می‌دهد", r2);
+  let final = r2;
+  for (let i = 0; i < 10 && !final.done; i++) final = await runAlertSweep(env, WEEKDAY, null, final.cursor);
+  ok(new Set(log).size === 50, "در پایان همه پنجاه نفر دقیقاً یک پیام می‌گیرند", log.length);
+  ok(final.done === true, "و حالا تمام شد", final);
 }
 
 // ─── ۵) شکستِ ارسال نفرِ قربانی را نمی‌سوزاند ───────────────────

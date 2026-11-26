@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // گزارش روزانه‌ی فروش - جای‌گزینِ WF-18.
 //
 // همان اعدادی که نود Compute در n8n می‌ساخت و همان قالبِ متن، تا تیم
@@ -95,7 +96,7 @@ export async function sendDailyReport(env, to = "admins") {
 }
 
 async function sendTo(env, chatId, text) {
-  const res = await fetch("https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
+  const res = await memberFetch(env, "https://api.telegram.org/bot" + env.BOT_TOKEN + "/sendMessage", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal: AbortSignal.timeout(10000),

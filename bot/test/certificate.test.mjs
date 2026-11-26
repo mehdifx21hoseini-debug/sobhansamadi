@@ -1,3 +1,4 @@
+import { memberReply } from "./fixtures/channelMembership.mjs";
 // گواهیِ دانشجو: نام، لیست، چیدمان، صفِ دسته‌ها، فرمان و ارسالِ پشتِ سرِ هم.
 //
 // ─── چرا SQLite واقعی ─────────────────────────────────────────────
@@ -335,6 +336,7 @@ ok(slotForFilename("template.png.exe") === null, "پسوندِ جعلی شناخ
 const sent = [];
 function installFetch(handler) {
   globalThis.fetch = async (url, init = {}) => {
+    const membership = memberReply(url); if (membership) return membership;
     sent.push({ url: String(url), method: init.method, body: init.body });
     return handler(String(url), init);
   };
@@ -812,11 +814,11 @@ ok(looksLikePng(PNG) && !looksLikePng(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9]
     return { passed, replies, checked };
   };
   const c = await run("6929332443");
-  ok(c.passed === true && c.checked === false, "کاربرِ فقط‌گواهی از چکِ عضویتِ کانال معاف است (حتی چک هم نمی‌شود)");
+  ok(c.passed === false, "بدون امکان تأیید عضویت، کاربر فقط‌گواهی هم متوقف می‌شود");
   const o = await run("6923823275");
-  ok(o.passed === true && o.checked === false, "مدیر هم معاف است (مثل قبل)");
+  ok(o.passed === false, "بدون امکان تأیید عضویت، مدیر هم متوقف می‌شود");
   const x = await run("111222333");
-  ok(x.passed === false && x.checked === true, "غریبه‌ی غیرعضو هنوز پشتِ دروازه می‌ماند");
+  ok(x.passed === false, "کاربر عادی هم بدون تأیید عضویت پشت دروازه می‌ماند");
 }
 
 console.log("\n" + n + " ادعا");

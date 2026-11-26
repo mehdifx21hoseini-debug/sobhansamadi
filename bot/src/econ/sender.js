@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // فرستنده‌ی تقویم اقتصادی - همان سه پیامی که تا امروز n8n می‌فرستاد،
 // حالا از داخل ورکر.
 //
@@ -226,7 +227,8 @@ async function unclaimMany(env, kind, pairs) {
  * تعیینش می‌کند) عوض نمی‌شود، فقط دورها بیشتر می‌شوند. جا هم برای
  * تکرارِ ۴۲۹ و پیام‌های چندتکه باز می‌ماند.
  */
-const SEND_BUDGET = 30;
+// Each delivery now also verifies channel membership; leave room for checks and retries.
+const SEND_BUDGET = 12;
 
 /**
  * بلندترین فاصله‌ای که کاربر می‌تواند برای هشدار انتخاب کند.
@@ -386,7 +388,8 @@ async function sendOne(env, sub, build, stats) {
     // می‌کرد. حالا ثبت می‌شود، از صفِ ارسال بیرون می‌رود، و اگر روزی
     // برگشت، اولین تعاملش پاکش می‌کند.
     await markBlocked(env, sub.telegram_user_id);
-  } else stats.failed++;
+  } else if (r.notMember) stats.membership_skipped = (stats.membership_skipped || 0) + 1;
+  else stats.failed++;
   return "ok";
 }
 
@@ -400,7 +403,7 @@ export async function pruneSentLog(env) {
 const API = (env, method) => "https://api.telegram.org/bot" + env.BOT_TOKEN + "/" + method;
 
 async function tg(env, method, payload, attempt = 0) {
-  const res = await fetch(API(env, method), {
+  const res = await memberFetch(env, API(env, method), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal: AbortSignal.timeout(15000),
@@ -433,16 +436,17 @@ async function tg(env, method, payload, attempt = 0) {
     e.retryAfter = wait;
     throw e;
   }
-  let detail = String(res.status);
-  try {
-    const body = await res.json();
-    if (body && body.description) detail += " " + body.description;
-    // ۴۰۳ یعنی کاربر ربات را بلاک کرده. این خطا نیست، یک واقعیت است -
-    // و نباید در لاگ‌ها با قطعی شبکه قاطی شود.
-    return { ok: false, blocked: res.status === 403, detail };
-  } catch {
-    return { ok: false, blocked: false, detail };
+  let body = null;
+  try { body = await res.json(); } catch { /* no JSON */ }
+  if (body?.membership_required) return { ok: false, blocked: false, notMember: true, detail: "Channel membership required" };
+  if (body?.membership_unavailable) {
+    const error = new Error("Channel membership verification unavailable");
+    error.retryAfter = Number(body.parameters?.retry_after) || 0;
+    if (error.retryAfter) await writeConfig(env, "econ_telegram_cooldown_until", String(Date.now() + error.retryAfter * 1000)).catch(() => {});
+    throw error;
   }
+  const detail = String(res.status) + (body?.description ? " " + body.description : "");
+  return { ok: false, blocked: res.status === 403, detail };
 }
 
 // ─── ۱) خلاصه‌ی روزانه ──────────────────────────────────────────────
@@ -971,6 +975,7 @@ function parseBatch(raw) {
     pf: (o && Number(o.pf)) || 0,
     b: (o && Number(o.b)) || 0,
     f: (o && Number(o.f)) || 0,
+    nm: (o && Number(o.nm)) || 0,
   };
 }
 
@@ -1083,6 +1088,7 @@ async function finishBatch(env, kind, ref, s, range, stats, leftFrom) {
     st.n += stats.sent;
     st.b += stats.blocked;
     st.f += stats.failed;
+    st.nm += stats.membership_skipped || 0;
     st.pf = (Number(st.pf) || 0) + (stats.partFailed || 0);
     if (await casConfig(env, key, raw, JSON.stringify(st))) return true;
   }
@@ -1119,7 +1125,7 @@ export async function batchProgress(env, kind, ref) {
 
 /** آمارِ ثبت‌شده‌ی دسته‌ها - برای /admin/econ-sender. */
 export async function batchStats(env, kind, ref) {
-  const out = { sent: 0, blocked: 0, failed: 0, part_failed: 0, open: 0, left: 0 };
+  const out = { sent: 0, blocked: 0, failed: 0, membership_skipped: 0, part_failed: 0, open: 0, left: 0 };
   for (let s = 0; s < BATCH_SHARDS; s++) {
     const raw = await readConfig(env, batchKey(kind, ref, s)).catch(() => "");
     if (!raw) continue;
@@ -1127,6 +1133,7 @@ export async function batchStats(env, kind, ref) {
     out.sent += st.n;
     out.blocked += st.b;
     out.failed += st.f;
+    out.membership_skipped += st.nm;
     out.part_failed += st.pf;
     out.open += st.inf.length;
     out.left += st.left.length;
@@ -1254,6 +1261,7 @@ async function batchRound(env, kind, ref, shard, now, makeBuild, budget = SEND_B
       await finishBatch(env, kind, ref, s, range, part, leftFrom);
       stats.sent += part.sent;
       stats.failed += part.failed;
+      stats.membership_skipped = (stats.membership_skipped || 0) + (part.membership_skipped || 0);
       stats.blocked += part.blocked;
       stats.retry_after = Math.max(stats.retry_after || 0, part.retry_after || 0);
       stats.partFailed = (stats.partFailed || 0) + (part.partFailed || 0);
@@ -1936,7 +1944,7 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
           // sendRichMessage متدی غیرمستند است. اگر روزی برداشته شود، هشدارها
           // بی‌صدا قطع می‌شدند - و هشدارِ نرسیده بدترین خرابیِ این رباتست. پس
           // متنِ ساده پشتِ سرش می‌ایستد.
-          if (!r.ok && !r.blocked) {
+          if (!r.ok && !r.blocked && !r.notMember) {
             r = await tg(env, "sendMessage", {
               chat_id: s.chat_id,
               text: buildAlertText(fresh, now),
@@ -1962,7 +1970,8 @@ export async function runAlertSweep(env, now = new Date(), shard = null, after =
         } else if (r.blocked) {
           stats.blocked++;
           await markBlocked(env, s.telegram_user_id);
-        } else stats.failed++;
+        } else if (r.notMember) stats.membership_skipped = (stats.membership_skipped || 0) + 1;
+        else stats.failed++;
       }
     }
     // نشانگر: آخرین مشترکی که **نگاه** شد، یعنی هر کسی پیش از اولین

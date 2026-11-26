@@ -1,3 +1,4 @@
+import { memberFetch } from "../channelMembership.js";
 // گواهی: هرچه بینِ صف، تلگرام و ورک‌فلو می‌گذرد.
 //
 // ─── چرا رندر در ورکر نیست ───────────────────────────────────────
@@ -88,7 +89,7 @@ export async function missingAssets(env) {
 const TG = (env, method) => "https://api.telegram.org/bot" + env.BOT_TOKEN + "/" + method;
 
 async function tgJson(env, method, payload, timeoutMs = 15000) {
-  const res = await fetch(TG(env, method), {
+  const res = await memberFetch(env, TG(env, method), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     signal: AbortSignal.timeout(timeoutMs),
@@ -276,7 +277,7 @@ export async function completeJob(env, id, bytes, fit = "ok") {
 
   let sent = false;
   try {
-    const res = await fetch(TG(env, "sendDocument"), {
+    const res = await memberFetch(env, TG(env, "sendDocument"), {
       method: "POST",
       body: form,
       signal: AbortSignal.timeout(90000),

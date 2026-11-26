@@ -59,7 +59,7 @@ function fakeDb(config) {
 }
 
 function envAt(config = {}) {
-  return { DB: fakeDb({ econ_worker_sender: "on", ...config }), BOT_TOKEN: "x" };
+  return { DB: fakeDb({ econ_worker_sender: "on", econ_audience_snapshot: "off", econ_batch_claim: "off", ...config }), BOT_TOKEN: "x" };
 }
 
 // یک لحظه‌ی مشخص به وقتِ تهران. تهران ساعتِ تابستانی ندارد، پس
